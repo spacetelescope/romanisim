@@ -1,4 +1,4 @@
-Welcome to wfisim's documentation!
+Welcome to romanisim's documentation!
 =================================
 
 .. toctree::
@@ -28,4 +28,4 @@ Package Documentation
 .. toctree::
    :maxdepth: 1
 
-   wfisim/package_index.rst
+   romanisim/package_index.rst
