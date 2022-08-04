@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).parent.parent
 
 # Modules that automodapi will document need to be available
 # in the path:
-sys.path.insert(0, str(REPO_ROOT/"src"/"wfisim"))
+sys.path.insert(0, str(REPO_ROOT/"src"/"romanisim"))
 
 # Read the package's setup.cfg so that we can use relevant
 # values here:

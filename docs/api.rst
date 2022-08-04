@@ -1,4 +1,4 @@
-WFISIM API
+ROMANISIM API
 ==========
 
-.. automodapi:: wfisim
+.. automodapi:: romanisim
