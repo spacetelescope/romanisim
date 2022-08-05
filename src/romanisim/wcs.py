@@ -87,7 +87,7 @@ class GWCS(CelestialWCS):
 
     GWCS is initialized via
 
-       >>> wcs = wfisim.wcs.GWCS(gwcs)
+       >>> wcs = romanisim.wcs.GWCS(gwcs)
 
     Based on galsim.fitswcs.AstropyWCS, edited to eliminate header functionality
     and to adopt the shared API supported by both gWCS and astropy.wcs.
@@ -158,4 +158,4 @@ class GWCS(CelestialWCS):
     def __repr__(self):
         # tag = 'wcs=%r'%self.wcs
         tag = 'wcs=gWCS'  # gWCS repr strings can be very long.
-        return "wfisim.GWCS(%s, origin=%r)"%(tag, self.origin)
+        return "romanisim.wcs.GWCS(%s, origin=%r)"%(tag, self.origin)

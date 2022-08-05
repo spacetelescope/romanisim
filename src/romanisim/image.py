@@ -8,38 +8,61 @@ objects that cross SCAs.
 """
 
 import sys
+from copy import deepcopy
 import datetime
 from dataclasses import dataclass
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 import galsim
 from galsim import roman
 import roman_datamodels.testing.utils
+import crds
+import asdf
+from .wcs import make_wcs, GWCS
 
 import logging
 logging.basicConfig(format='%(message)s', stream=sys.stdout)
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 @dataclass
 class CatalogObject:
     """Simple class to hold galsim positions and profiles of objects."""
-    image_pos: galsim.Position
+    sky_pos: galsim.CelestialCoord
     profile: galsim.GSObject
 
 
-def make_dummy_catalog(rng=None, seed=42, nobj=1000):
+default_parameters_dictionary = {
+    'roman.meta.instrument.name': 'WFI',
+    'roman.meta.instrument.detector': 'WFI07',
+    'roman.meta.exposure.start_time':'2026-01-01T00:00:00.000',
+    'roman.meta.exposure.type': 'WFI_IMAGE',
+    'roman.meta.exposure.ma_table_number': 1,
+    'roman.meta.instrument.optical_element': 'F184',
+}
+
+def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000):
     """Make a dummy catalog for testing purposes.
 
     Params
     ------
+    coord : galsim.CelestialCoordinate
+        radius around which to generate sources
+    radius : float
+        radius (deg) within which to generate sources
     rng : Galsim.BaseDeviate
         Random number generator to use
     seed : int
         Seed for populating random number generator.  Only used if rng is None.
     nobj : int
         Number of objects to simulate.
+
+    Returns
+    -------
+    list[CatalogObject]
+        list of catalog objects to render
     """
     if rng is None:
         rng = galsim.UniformDeviate(seed)
@@ -56,9 +79,11 @@ def make_dummy_catalog(rng=None, seed=42, nobj=1000):
 
     objlist = []
     for i in range(nobj):
-        x = rng() * roman.n_pix
-        y = rng() * roman.n_pix
-        image_pos = galsim.PositionD(x, y)
+        ang = rng() * 2*np.pi
+        dist = np.arccos(1-(1-np.cos(np.radians(radius)))*rng())
+        c1 = SkyCoord(coord.ra.rad*u.rad, coord.dec.rad*u.rad, frame='icrs')
+        c1 = c1.directional_offset_by(ang*u.rad, dist*u.rad)
+        sky_pos = celestialcoord(c1)
         p = rng()
         # prescription follows galsim demo13.
         if p < 0.8:  # 80% of targets; faint galaxies
@@ -81,21 +106,79 @@ def make_dummy_catalog(rng=None, seed=42, nobj=1000):
             obj = obj.dilate(2) * 4
             theta = rng() * 2 * np.pi * galsim.radians
             obj = obj.rotate(theta)
-        objlist.append(CatalogObject(image_pos, obj))
+        objlist.append(CatalogObject(sky_pos, obj))
     return objlist
 
 
+def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
+            usecrds=True):
+    """Get a WCS object for a given sca or set of CRDS parameters.
+
+    Parameters
+    ----------
+    world_pos : astropy.coordinates.SkyCoord or galsim.CelestialCoord
+        boresight of telescope
+    roll_ref : float
+        roll of telescope V3 axis from North to East at boresight
+    date : astropy.time.Time
+        date of observation; used at least is usecrds = None to determine
+        roll_ref.
+    parameters : dict
+        CRDS parameters dictionary specifying appropriate reference distortion
+        map to load.
+    sca : int
+        WFI sensor chip array number
+    usecrds : bool
+        If True, use crds reference distortions rather than galsim.roman
+        distortion model.
+
+    Returns
+    -------
+    galsim.CelestialWCS for an SCA
+    """
+    if parameters is None and sca is None:
+        raise ValueError('At least one of parameters or sca must be set!')
+    if parameters is None:
+        parameters = deepcopy(default_parameters_dictionary)
+        parameters['roman.meta.instrument.detector'] = 'WFI%02d' % sca
+    elif sca is None:
+        sca = int(parameters['roman.meta.instrument.detector'][3:])
+    if date is None:
+        date = Time(parameters['roman.meta.exposure.start_time'],
+                    format='isot')
+    if usecrds:
+        fn = crds.getreferences(parameters, reftypes=['distortion'],
+                                observatory='roman')
+        distortion = asdf.open(fn['distortion'])
+        wcs = make_wcs(
+            world_pos, roll_ref,
+            distortion['roman']['coordinate_distortion_transform'])
+        wcs = GWCS(wcs)
+    else:
+        # use galsim.roman
+        # galsim.roman does something smarter with choosing the roll
+        # angle to optimize the solar panels given the target, and
+        # therefore requires a date.
+        wcs_dict = roman.getWCS(world_pos=celestialcoord(world_pos),
+                                SCAs=sca,
+                                date=date.datetime)
+        wcs = wcs_dict[sca]
+    return wcs
+
+
 def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
-                    rng=None, seed=None, return_variance=False):
+                    rng=None, seed=None, return_variance=False,
+                    read_noise=None, ignore_distant_sources=10,
+                    usecrds=True):
     """Simulate observations of a single SCA.
 
     Parameters
     ----------
     sca : int
         SCA to simulate
-    targ_pos : galsim.CelestialCoord
+    targ_pos : galsim.CelestialCoord or astropy.coordinates.SkyCoord
         Location on sky to observe
-    date : datetime
+    date : astropy.time.Time
         Time at which to simulate observation
     objlist : list[CatalogObject]
         Objects to simulate
@@ -111,6 +194,20 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
         If True, also return var_poisson, var_rnoise, var_flat
         Poisson noise currently does not think about instrumental
         effects like reciprocity failure, non-linearity, IPC.
+    read_noise : ndarray-like[n_pix, n_pix]
+        read_noise image to use.  If None, use galsim.roman.read_noise.
+    ignore_distant_sources : float
+        do not render sources more than this many pixels off edge of detector
+    usecrds : bool
+        use CRDS distortion map
+
+    Returns
+    -------
+    galsim.Image
+        image of scene as seen by Roman.
+    If return_variance is True, instead a 4-tuple of galsim.Image.
+        The 4 images represent the observed scene, the Poisson noise,
+        the read noise, and flat field uncertainty-induced noise.
     """
     if exptime is None:
         exptime = roman.exptime
@@ -122,8 +219,7 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
         rng = galsim.UniformDeviate(seed)
 
     bandpass = roman.getBandpasses(AB_zeropoint=True)[filter_name]
-    wcs_dict = roman.getWCS(world_pos=targ_pos, SCAs=sca, date=date)
-    wcs = wcs_dict[sca]
+    wcs = get_wcs(world_pos=targ_pos, date=date, sca=sca, usecrds=usecrds)
     psf = roman.getPSF(sca, filter_name, n_waves=10, wcs=wcs, pupil_bin=8)
     full_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=wcs)
     sky_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=wcs)
@@ -133,14 +229,28 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
     sky_level *= (1.0 + roman.stray_light_fraction)
     wcs.makeSkyImage(sky_image, sky_level)
     sky_image += roman.thermal_backgrounds[filter_name] * roman.exptime
+    imbd = full_image.bounds
 
-    for obj in objlist:
+    nrender = 0
+    for i, obj in enumerate(objlist):
+        image_pos = wcs.toImage(obj.sky_pos)
+        if ((image_pos.x < imbd.xmin-ignore_distant_sources) or
+                (image_pos.x > imbd.xmax+ignore_distant_sources) or
+                (image_pos.y < imbd.ymin-ignore_distant_sources) or
+                (image_pos.y > imbd.ymax+ignore_distant_sources)):
+            # ignore source off edge.  Could do better by looking at
+            # source size.
+            continue
         final = galsim.Convolve(obj.profile, psf)
         stamp = final.drawImage(
-            bandpass, center=obj.image_pos, wcs=wcs.local(obj.image_pos),
+            bandpass, center=image_pos, wcs=wcs.local(image_pos),
             method='phot', rng=rng)
         bounds = stamp.bounds & full_image.bounds
+        if bounds.area() == 0:
+            continue
         full_image[bounds] += stamp[bounds]
+        nrender += 1
+    log.info('Rendering %d sources...' % nrender)
 
     var_poisson = full_image + sky_image
     # note this is imperfect because the 'photon shooting' psf modeling
@@ -160,7 +270,10 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
     full_image.addNoise(dark_noise)
     roman.applyNonlinearity(full_image)
     roman.applyIPC(full_image)
-    read_noise = galsim.GaussianNoise(rng, sigma=roman.read_noise)
+    if read_noise is not None:
+        read_noise = galsim.VariableGaussianNoise(rng, sigma=read_noise)
+    else:
+        read_noise = galsim.GaussianNoise(rng, sigma=roman.read_noise)
     full_image.addNoise(read_noise)
 
     full_image /= roman.gain
@@ -175,7 +288,7 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
 
 
 def simulate(coord, date, objlist, sca, filters, seed=12345, exptime=None,
-             return_variance=False):
+             return_variance=False, usecrds=True):
     """Simulate a sequence of observations on a field in different bandpasses.
 
     coord : astropy.coordinates.SkyCoord
@@ -191,6 +304,8 @@ def simulate(coord, date, objlist, sca, filters, seed=12345, exptime=None,
     return_variance : bool
         if True, also include var_poisson, var_rnoise, var_flat parallel to
         the images in the dictionary
+    usecrds : bool
+        use CRDS to get distortion maps
 
     Returns
     -------
@@ -206,32 +321,51 @@ def simulate(coord, date, objlist, sca, filters, seed=12345, exptime=None,
     if exptime is None:
         exptime = roman.exptime
 
-    ra_targ = galsim.Angle(coord.ra.to(u.rad).value, galsim.angle.radians)
-    dec_targ = galsim.Angle(coord.dec.to(u.rad).value, galsim.angle.radians)
-    targ_pos = galsim.CelestialCoord(ra=ra_targ, dec=dec_targ)
-
     out = dict()
 
     for i, filter_name in enumerate(filters):
         log.info('Simulating filter {0}...'.format(filter_name))
         out[filter_name] = simulate_filter(
-            sca, targ_pos, date, objlist, filter_name, seed=i+1+seed,
-            exptime=exptime, return_variance=return_variance)
+            sca, coord, date, objlist, filter_name, seed=i+1+seed,
+            exptime=exptime, return_variance=return_variance,
+            usecrds=usecrds)
     return out
 
 
+def skycoord(celestial):
+    if isinstance(celestial, SkyCoord):
+        return celestial
+    else:
+        return SkyCoord(ra=(celestial.ra / galsim.radians)*u.rad,
+                        dec=(celestial.dec / galsim.radians)*u.rad,
+                        frame='icrs')
+
+
+def celestialcoord(sky):
+    if isinstance(sky, galsim.CelestialCoord):
+        return sky
+    else:
+        return galsim.CelestialCoord(sky.ra.to(u.rad).value*galsim.radians,
+                                     sky.dec.to(u.rad).value*galsim.radians)
+
+
 def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
-                                 return_variance=False):
+                                 return_variance=False, usecrds=True):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')
     if filters is None:
         filters = ['Y106', 'J129', 'H158']
-    cat = make_dummy_catalog(seed=seed, nobj=nobj)
     # ecliptic pole is probably always visible?
     coord = SkyCoord(ra=270*u.deg, dec=66*u.deg)
-    date = datetime.datetime(2027, 1, 1)
+    date = Time(
+        default_parameters_dictionary['roman.meta.exposure.start_time'],
+        format='isot')
+    wcs = get_wcs(world_pos=coord, date=date, sca=sca, usecrds=usecrds)
+    rd_sca = wcs.toWorld(galsim.PositionD(
+        roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
+    cat = make_dummy_catalog(rd_sca, seed=seed, nobj=nobj)
     return simulate(coord, date, cat, sca, filters, seed=seed,
-                    return_variance=return_variance)
+                    return_variance=return_variance, usecrds=usecrds)
 
 
 def galsim_to_asdf(im, var_poisson, var_rnoise, var_flat, sca, bandpass):
@@ -295,3 +429,32 @@ def galsim_to_asdf(im, var_poisson, var_rnoise, var_flat, sca, bandpass):
     out['var_flat'] = var_flat.array
     out['err'] = np.sqrt(var_poisson.array + var_rnoise.array + var_flat.array)
     return out
+
+
+# add in darks next?
+# I need to better understand what the dark reference file means.
+# It contains 6 images.  These correlate beautifully with one another pixel-by-pixel,
+# appearing to just be linear rescalings of one another.
+# It seems to me like since I am making a L2 image, I need to think a little about what
+# ramp fitting means in terms of delivered read noise
+# galsim.roman.read_noise is 8.5; c.f. roman_wfi_readnoise_0171.asdf = 5.
+# Naive ramp fitting of just differencing the zero and last measurements would give
+# readnoise of 5*sqrt(2) = 7.07.
+# I spent a while thinking about this.  In the read noise-dominated limit,
+# it's straightforward to work out simple analytic expressions for everything, and
+# the final slope uncertainties are just sigma**2_rn / (N * t_N**2) * C, with C a constant
+# depending on the distribution of reads within the integration.  It's 1 if all the reads
+# are at the end and you have a strong prior for the zero value; it's 12 for the usual
+# independent slope-and-offset fitting mode and uniform reads, and 4 for a limiting
+# all-reads-at-beginning-and-end mode.
+# For _background limited_ sources, which seems the usual case, life is harder.
+# It's almost certainly easiest to just compute the final read noise as
+# (A^T C^-1 A)^-1, with A = [ones, time distribution], and C an appropriate sum of
+# read noise and background noise.
+# C is annoying because of correlations.  But it's not so bad.
+# C just ends up being sigma^2 on the diagonal and rate*t on the off-diagonal,
+# where t is the smaller of the two contributing integration times.  There is
+# some discussion in one of the papers about whether this formulation or an
+# alternative formulation where the measurements are delta-f_i is easier (the latter
+# has only one off-diagonal correlation term from the read noises), but I don't
+# immediately expect this matrix multiplication to be expensive overall.

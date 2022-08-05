@@ -36,8 +36,8 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None, **kw):
     filter_name : str
         name of filter
     wcs : callable (optional)
-        function giving mapping from pixels to sky for use in computing local scale
-        of image for webbpsf PSFs
+        function giving mapping from pixels to sky for use in computing local
+        scale of image for webbpsf PSFs
     pix : tuple (float, float)
         pixel location of PSF on focal plane
     **kw : dict
@@ -68,5 +68,6 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None, **kw):
         scale = np.sqrt(p2.separation(cen).to(u.arcsec).value,
                         p1.separation(cen).to(u.arcsec).value)
     intimg = galsim.InterpolatedImage(
-        galsim.Image(psf[0].data, scale=scale / oversample), normalization='flux')
+        galsim.Image(psf[0].data, scale=scale / oversample),
+        normalization='flux')
     return intimg
