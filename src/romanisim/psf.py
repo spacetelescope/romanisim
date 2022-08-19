@@ -21,9 +21,11 @@ import numpy as np
 from astropy import units as u
 import galsim
 from galsim import roman
+from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
 
 
-def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None, **kw):
+def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
+             chromatic=False, **kw):
     """Make a PSF profile for Roman.
 
     Can construct both PSFs using galsim's built-in galsim.roman.roman_psfs
@@ -48,25 +50,40 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None, **kw):
     galsim profile object for convolution with source profiles when rendering
     scenes.
     """
+    pix = pix if pix is not None else (2044, 2044)
     if not webbpsf:
+        filter_name = roman2galsim_bandpass[filter_name]
+        defaultkw = {'pupil_bin': 8}
+        if chromatic:
+            defaultkw['n_waves'] = 10
+            bandpass = None
+        else:
+            bandpass = roman.getBandpasses(AB_zeropoint=True)[filter_name]
+            filter_name = None
+        defaultkw.update(**kw)
         scapos = galsim.PositionD(*pix) if pix is not None else None
-        return roman.getPSF(sca, filter_name, wcs=wcs, SCA_pos=scapos, **kw)
+        return roman.getPSF(sca, filter_name, wcs=wcs, SCA_pos=scapos,
+                            wavelength=bandpass, **defaultkw)
+    if chromatic:
+        raise ValueError('romanisim does not yet support chromatic PSFs '
+                         'chromatic PSFs with webbpsf')
     import webbpsf as wpsf
+    filter_name = galsim2roman_bandpass[filter_name]
     wfi = wpsf.WFI()
     wfi.detector = f'SCA{sca:02d}'
     wfi.filter = filter_name
-    wfi.detector_position = pix if pix is not None else (2044, 2044)
+    wfi.detector_position = pix
     oversample = kw.get('oversample', 4)
     psf = wfi.calc_psf(oversample=oversample)
     if wcs is None:
         scale = 0.11
     else:
         # get the actual pixel scale from the WCS
-        cen = wcs(pix[0], pix[1])
-        p1 = wcs(pix[0]+1, pix[1])
-        p2 = wcs(pix[0], pix[1]+1)
-        scale = np.sqrt(p2.separation(cen).to(u.arcsec).value,
-                        p1.separation(cen).to(u.arcsec).value)
+        cen = wcs.toWorld(galsim.PositionD(*pix))
+        p1 = wcs.toWorld(galsim.PositionD(pix[0]+1, pix[1]))
+        p2 = wcs.toWorld(galsim.PositionD(pix[0], pix[1]+1))
+        scale = np.sqrt(cen.distanceTo(p1).deg*60*60 *
+                        cen.distanceTo(p2).deg*60*60)
     intimg = galsim.InterpolatedImage(
         galsim.Image(psf[0].data, scale=scale / oversample),
         normalization='flux')

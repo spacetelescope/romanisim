@@ -10,7 +10,8 @@ objects that cross SCAs.
 import sys
 from copy import deepcopy
 import datetime
-from dataclasses import dataclass
+import time
+import logging
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -18,158 +19,45 @@ from astropy.time import Time
 import galsim
 from galsim import roman
 import roman_datamodels.testing.utils
-import crds
 import asdf
-from .wcs import make_wcs, GWCS
+from .wcs import get_wcs
+from .catalog import CatalogObject
+from .util import celestialcoord, skycoord
+from .bandpass import get_abflux, galsim2roman_bandpass, roman2galsim_bandpass
+from .psf import make_psf
+from .parameters import default_parameters_dictionary
 
-import logging
-logging.basicConfig(format='%(message)s', stream=sys.stdout)
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class CatalogObject:
-    """Simple class to hold galsim positions and profiles of objects."""
-    sky_pos: galsim.CelestialCoord
-    profile: galsim.GSObject
+# galsim fluxes are in photons / cm^2 / s
+# we need to specify the area and exposure time in drawImage if
+# specifying fluxes in physical units.
+# presently we're behaving a bit badly in that the fluxes are given in
+# physical units, but the galsim objects with SEDs are already scaled
+# for Roman's collecting area and exposure time.
+# We should divide those out so that we are always working in physical units
+# and must include the area and exposure time in drawImage.
+# I think that's just a division in make_dummy_catalog.
+# Really, just setting exptime = area = 1 in COSMOSCatalog.
+# then we also need to convert fluxes in maggies to fluxes in photons/cm^2/s.
+# this is just some constant.
 
-
-default_parameters_dictionary = {
-    'roman.meta.instrument.name': 'WFI',
-    'roman.meta.instrument.detector': 'WFI07',
-    'roman.meta.exposure.start_time':'2026-01-01T00:00:00.000',
-    'roman.meta.exposure.type': 'WFI_IMAGE',
-    'roman.meta.exposure.ma_table_number': 1,
-    'roman.meta.instrument.optical_element': 'F184',
-}
-
-def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000):
-    """Make a dummy catalog for testing purposes.
-
-    Params
-    ------
-    coord : galsim.CelestialCoordinate
-        radius around which to generate sources
-    radius : float
-        radius (deg) within which to generate sources
-    rng : Galsim.BaseDeviate
-        Random number generator to use
-    seed : int
-        Seed for populating random number generator.  Only used if rng is None.
-    nobj : int
-        Number of objects to simulate.
-
-    Returns
-    -------
-    list[CatalogObject]
-        list of catalog objects to render
-    """
-    if rng is None:
-        rng = galsim.UniformDeviate(seed)
-
-    cat1 = galsim.COSMOSCatalog(sample='25.2', area=roman.collecting_area,
-                                exptime=roman.exptime)
-    cat2 = galsim.COSMOSCatalog(sample='23.5', area=roman.collecting_area,
-                                exptime=roman.exptime)
-
-    # following Roman demo13, all stars currently have the SED of Vega.
-    # fluxes are set to have a specific value in the y bandpass.
-    vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
-    y_bandpass = roman.getBandpasses(AB_zeropoint=True)['Y106']
-
-    objlist = []
-    for i in range(nobj):
-        ang = rng() * 2*np.pi
-        dist = np.arccos(1-(1-np.cos(np.radians(radius)))*rng())
-        c1 = SkyCoord(coord.ra.rad*u.rad, coord.dec.rad*u.rad, frame='icrs')
-        c1 = c1.directional_offset_by(ang*u.rad, dist*u.rad)
-        sky_pos = celestialcoord(c1)
-        p = rng()
-        # prescription follows galsim demo13.
-        if p < 0.8:  # 80% of targets; faint galaxies
-            obj = cat1.makeGalaxy(chromatic=True, gal_type='parametric',
-                                  rng=rng)
-            theta = rng() * 2 * np.pi * galsim.radians
-            obj = obj.rotate(theta)
-        elif p < 0.9:  # 10% of targets; stars
-            mu_x = 1.e5
-            sigma_x = 2.e5
-            mu = np.log(mu_x**2 / (mu_x**2+sigma_x**2)**0.5)
-            sigma = (np.log(1 + sigma_x**2/mu_x**2))**0.5
-            gd = galsim.GaussianDeviate(rng, mean=mu, sigma=sigma)
-            flux = np.exp(gd())
-            sed = vega_sed.withFlux(flux, y_bandpass)
-            obj = galsim.DeltaFunction() * sed
-        else:  # 10% of targets; bright galaxies
-            obj = cat2.makeGalaxy(chromatic=True, gal_type='parametric',
-                                  rng=rng)
-            obj = obj.dilate(2) * 4
-            theta = rng() * 2 * np.pi * galsim.radians
-            obj = obj.rotate(theta)
-        objlist.append(CatalogObject(sky_pos, obj))
-    return objlist
-
-
-def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
-            usecrds=True):
-    """Get a WCS object for a given sca or set of CRDS parameters.
-
-    Parameters
-    ----------
-    world_pos : astropy.coordinates.SkyCoord or galsim.CelestialCoord
-        boresight of telescope
-    roll_ref : float
-        roll of telescope V3 axis from North to East at boresight
-    date : astropy.time.Time
-        date of observation; used at least is usecrds = None to determine
-        roll_ref.
-    parameters : dict
-        CRDS parameters dictionary specifying appropriate reference distortion
-        map to load.
-    sca : int
-        WFI sensor chip array number
-    usecrds : bool
-        If True, use crds reference distortions rather than galsim.roman
-        distortion model.
-
-    Returns
-    -------
-    galsim.CelestialWCS for an SCA
-    """
-    if parameters is None and sca is None:
-        raise ValueError('At least one of parameters or sca must be set!')
-    if parameters is None:
-        parameters = deepcopy(default_parameters_dictionary)
-        parameters['roman.meta.instrument.detector'] = 'WFI%02d' % sca
-    elif sca is None:
-        sca = int(parameters['roman.meta.instrument.detector'][3:])
-    if date is None:
-        date = Time(parameters['roman.meta.exposure.start_time'],
-                    format='isot')
-    if usecrds:
-        fn = crds.getreferences(parameters, reftypes=['distortion'],
-                                observatory='roman')
-        distortion = asdf.open(fn['distortion'])
-        wcs = make_wcs(
-            world_pos, roll_ref,
-            distortion['roman']['coordinate_distortion_transform'])
-        wcs = GWCS(wcs)
-    else:
-        # use galsim.roman
-        # galsim.roman does something smarter with choosing the roll
-        # angle to optimize the solar panels given the target, and
-        # therefore requires a date.
-        wcs_dict = roman.getWCS(world_pos=celestialcoord(world_pos),
-                                SCAs=sca,
-                                date=date.datetime)
-        wcs = wcs_dict[sca]
-    return wcs
+# it would be nice to not crash and burn when the rendering of a challenging
+# object is requested---it's easy to make ~impossible to render Sersic galaxies
+# with not obviously crazy sizes, indices, and minor/major ratios.
+# So far, it seems the best parameter to control this is folding_ratio; I could
+# imagine setting folding_ratio = 1e-2 without feeling too bad.
+# it looks like this would need to be set both for the PSF profile and for the
+# galaxy profile.
+# I've at least caught these for the moment, but we should explore lower
+# folding_ratio for speed, as well as directly rendering into the image.
 
 
 def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
                     rng=None, seed=None, return_variance=False,
                     read_noise=None, ignore_distant_sources=10,
-                    usecrds=True):
+                    usecrds=True, return_info=False, webbpsf=True):
     """Simulate observations of a single SCA.
 
     Parameters
@@ -177,7 +65,7 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
     sca : int
         SCA to simulate
     targ_pos : galsim.CelestialCoord or astropy.coordinates.SkyCoord
-        Location on sky to observe
+        Location on sky to observe; telescope boresight
     date : astropy.time.Time
         Time at which to simulate observation
     objlist : list[CatalogObject]
@@ -218,9 +106,14 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
-    bandpass = roman.getBandpasses(AB_zeropoint=True)[filter_name]
+    galsim_filter_name = roman2galsim_bandpass[filter_name]
+    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
     wcs = get_wcs(world_pos=targ_pos, date=date, sca=sca, usecrds=usecrds)
-    psf = roman.getPSF(sca, filter_name, n_waves=10, wcs=wcs, pupil_bin=8)
+    chromatic = False
+    if len(objlist) > 0 and objlist[0].profile.spectral:
+        chromatic = True
+    psf = make_psf(sca, filter_name, wcs=wcs, chromatic=chromatic,
+                   webbpsf=webbpsf)
     full_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=wcs)
     sky_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=wcs)
 
@@ -228,11 +121,17 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos)
     sky_level *= (1.0 + roman.stray_light_fraction)
     wcs.makeSkyImage(sky_image, sky_level)
-    sky_image += roman.thermal_backgrounds[filter_name] * roman.exptime
+    sky_image += roman.thermal_backgrounds[galsim_filter_name] * roman.exptime
     imbd = full_image.bounds
+    abflux = get_abflux(filter_name)
 
     nrender = 0
+    final = None
+    info = []
     for i, obj in enumerate(objlist):
+        # this is kind of slow.  We need to do an initial vectorized cull before
+        # reaching this point.
+        t0 = time.time()
         image_pos = wcs.toImage(obj.sky_pos)
         if ((image_pos.x < imbd.xmin-ignore_distant_sources) or
                 (image_pos.x > imbd.xmax+ignore_distant_sources) or
@@ -240,25 +139,41 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
                 (image_pos.y > imbd.ymax+ignore_distant_sources)):
             # ignore source off edge.  Could do better by looking at
             # source size.
+            info.append(0)
             continue
         final = galsim.Convolve(obj.profile, psf)
-        stamp = final.drawImage(
-            bandpass, center=image_pos, wcs=wcs.local(image_pos),
-            method='phot', rng=rng)
+        if chromatic:
+            stamp = final.drawImage(
+                bandpass, center=image_pos, wcs=wcs.local(image_pos),
+                method='phot', rng=rng)
+        else:
+            if obj.flux is not None:
+                final = final.withFlux(
+                    obj.flux[filter_name]*abflux*roman.exptime)
+                try:
+                    stamp = final.drawImage(center=image_pos,
+                                            wcs=wcs.local(image_pos))
+                except galsim.GalSimFFTSizeError:
+                    log.warning(f'Skipping source {i} due to too '
+                                f'large FFT needed for desired accuracy.')
         bounds = stamp.bounds & full_image.bounds
         if bounds.area() == 0:
             continue
         full_image[bounds] += stamp[bounds]
         nrender += 1
-    log.info('Rendering %d sources...' % nrender)
+        info.append(time.time()-t0)
+    log.info('Rendered %d sources...' % nrender)
 
     var_poisson = full_image + sky_image
-    # note this is imperfect because the 'photon shooting' psf modeling
-    # has poisson noise in it.
+    # note this is imperfect in the spectral case because the 'photon shooting'
+    # psf modeling has poisson noise in it.
+
+    poisson_noise = galsim.PoissonNoise(rng)
+    if final is not None and final.spectral:
+        full_image.addNoise(poisson_noise)
 
     full_image.quantize()
 
-    poisson_noise = galsim.PoissonNoise(rng)
     sky_image.addNoise(poisson_noise)
     full_image += sky_image
 
@@ -282,13 +197,18 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
     if return_variance:
         var_rnoise = full_image*0 + roman.read_noise**2
         var_flat = full_image*0
-        full_image = (full_image, var_poisson, var_rnoise, var_flat) 
+        full_image = (full_image, var_poisson, var_rnoise, var_flat)
+
+    if return_info:
+        if not isinstance(full_image, tuple):
+            full_image = (full_image,)
+        full_image = full_image + (info,)
     
     return full_image
 
 
 def simulate(coord, date, objlist, sca, filters, seed=12345, exptime=None,
-             return_variance=False, usecrds=True):
+             return_variance=False, usecrds=True, webbpsf=True):
     """Simulate a sequence of observations on a field in different bandpasses.
 
     coord : astropy.coordinates.SkyCoord
@@ -328,29 +248,13 @@ def simulate(coord, date, objlist, sca, filters, seed=12345, exptime=None,
         out[filter_name] = simulate_filter(
             sca, coord, date, objlist, filter_name, seed=i+1+seed,
             exptime=exptime, return_variance=return_variance,
-            usecrds=usecrds)
+            usecrds=usecrds, webbpsf=webbpsf)
     return out
 
 
-def skycoord(celestial):
-    if isinstance(celestial, SkyCoord):
-        return celestial
-    else:
-        return SkyCoord(ra=(celestial.ra / galsim.radians)*u.rad,
-                        dec=(celestial.dec / galsim.radians)*u.rad,
-                        frame='icrs')
-
-
-def celestialcoord(sky):
-    if isinstance(sky, galsim.CelestialCoord):
-        return sky
-    else:
-        return galsim.CelestialCoord(sky.ra.to(u.rad).value*galsim.radians,
-                                     sky.dec.to(u.rad).value*galsim.radians)
-
-
 def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
-                                 return_variance=False, usecrds=True):
+                                 return_variance=False, usecrds=True,
+                                 webbpsf=True):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')
     if filters is None:
@@ -365,7 +269,8 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
         roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
     cat = make_dummy_catalog(rd_sca, seed=seed, nobj=nobj)
     return simulate(coord, date, cat, sca, filters, seed=seed,
-                    return_variance=return_variance, usecrds=usecrds)
+                    return_variance=return_variance, usecrds=usecrds,
+                    webbpsf=webbpsf)
 
 
 def galsim_to_asdf(im, var_poisson, var_rnoise, var_flat, sca, bandpass):

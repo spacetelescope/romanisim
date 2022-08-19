@@ -17,15 +17,77 @@ more investigation.
 """
 
 import warnings
+from copy import deepcopy
 import numpy as np
 import astropy.coordinates
 from astropy import units as u
 from astropy.modeling.models import RotationSequence3D, Scale
+import crds
+import asdf
 from gwcs.geometry import SphericalToCartesian, CartesianToSpherical
 from gwcs import coordinate_frames as cf
 import gwcs.wcs
 from galsim.wcs import CelestialWCS
+from galsim import roman
 from romancal.assign_wcs import pointing
+from .parameters import default_parameters_dictionary
+from .util import celestialcoord, skycoord
+
+
+def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
+            usecrds=True):
+    """Get a WCS object for a given sca or set of CRDS parameters.
+
+    Parameters
+    ----------
+    world_pos : astropy.coordinates.SkyCoord or galsim.CelestialCoord
+        boresight of telescope
+    roll_ref : float
+        roll of telescope V3 axis from North to East at boresight
+    date : astropy.time.Time
+        date of observation; used at least is usecrds = None to determine
+        roll_ref.
+    parameters : dict
+        CRDS parameters dictionary specifying appropriate reference distortion
+        map to load.
+    sca : int
+        WFI sensor chip array number
+    usecrds : bool
+        If True, use crds reference distortions rather than galsim.roman
+        distortion model.
+
+    Returns
+    -------
+    galsim.CelestialWCS for an SCA
+    """
+    if parameters is None and sca is None:
+        raise ValueError('At least one of parameters or sca must be set!')
+    if parameters is None:
+        parameters = deepcopy(default_parameters_dictionary)
+        parameters['roman.meta.instrument.detector'] = 'WFI%02d' % sca
+    elif sca is None:
+        sca = int(parameters['roman.meta.instrument.detector'][3:])
+    if date is None:
+        date = Time(parameters['roman.meta.exposure.start_time'],
+                    format='isot')
+    if usecrds:
+        fn = crds.getreferences(parameters, reftypes=['distortion'],
+                                observatory='roman')
+        distortion = asdf.open(fn['distortion'])
+        wcs = make_wcs(
+            skycoord(world_pos), roll_ref,
+            distortion['roman']['coordinate_distortion_transform'])
+        wcs = GWCS(wcs)
+    else:
+        # use galsim.roman
+        # galsim.roman does something smarter with choosing the roll
+        # angle to optimize the solar panels given the target, and
+        # therefore requires a date.
+        wcs_dict = roman.getWCS(world_pos=celestialcoord(world_pos),
+                                SCAs=sca,
+                                date=date.datetime)
+        wcs = wcs_dict[sca]
+    return wcs
 
 
 def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360):
