@@ -40,7 +40,7 @@ if __name__ == '__main__':
     if args.date is None:
         date = datetime.datetime(2020, 1, 1)
     else:
-        date = datetime.datetime(**args.date)
+        date = datetime.datetime(*args.date)
     date = Time(date)
 
     twcs = wcs.get_wcs(world_pos=coord, date=date, sca=args.sca,

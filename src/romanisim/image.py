@@ -118,7 +118,8 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
     sky_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=wcs)
 
     SCA_cent_pos = wcs.toWorld(sky_image.true_center)
-    sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos)
+    sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
+                                  date=date.datetime)
     sky_level *= (1.0 + roman.stray_light_fraction)
     wcs.makeSkyImage(sky_image, sky_level)
     sky_image += roman.thermal_backgrounds[galsim_filter_name] * roman.exptime
