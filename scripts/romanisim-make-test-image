@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+import argparse
+import datetime
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+from astropy.table import Table
+from astropy.io import fits
+from astropy.time import Time
+import galsim
+from romanisim import catalog, image, wcs
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Make a demo image.',
+        epilog='EXAMPLE: %(prog)s output_image.fits')
+    parser.add_argument('filename', type=str, help='output image (fits)')
+    parser.add_argument('--catalog', type=str, help='input catalog (csv)',
+                        default=None)
+    parser.add_argument('--radec', type=float, nargs=2,
+                        help='ra and dec (deg)', default=None)
+    parser.add_argument('--bandpass', type=str, help='bandpass to simulate',
+                        default='F087')
+    parser.add_argument('--sca', type=int, default=7, help='SCA to simulate')
+    parser.add_argument('--usecrds', action='store_true',
+                        help='Use CRDS for distortion map')
+    parser.add_argument('--webbpsf', action='store_true',
+                        help='Use webbpsf for PSF')
+    parser.add_argument('--date', type=int, nargs=3, default=None,
+                        help='Date of observation to simulate')
+    args = parser.parse_args()
+
+    if args.radec is None:
+        ra, dec = (270.0, 66.0)
+    else:
+        ra, dec = args.radec
+    coord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+
+    if args.date is None:
+        date = datetime.datetime(2020, 1, 1)
+    else:
+        date = datetime.datetime(*args.date)
+    date = Time(date)
+
+    twcs = wcs.get_wcs(world_pos=coord, date=date, sca=args.sca,
+                       usecrds=args.usecrds)
+    rd_sca = twcs.toWorld(galsim.PositionD(
+        galsim.roman.n_pix/2, galsim.roman.n_pix/2))
+
+    if args.catalog is None:
+        cat = catalog.make_dummy_table_catalog(
+            rd_sca, bandpasses=[args.bandpass])
+    else:
+        print('probably will not work unless the catalog covers a lot of area')
+        cat = Table.read(args.catalog)
+    objlist = catalog.table_to_catalog(cat, [args.bandpass])
+    im = image.simulate(coord, date, objlist, args.sca, [args.bandpass],
+                        usecrds=args.usecrds, webbpsf=args.webbpsf)
+    fits.writeto(args.filename, im[args.bandpass].array)
+    
+    
+                                         
