@@ -7,9 +7,6 @@ Current design is centered around simulating a single SCA.  It will not handle
 objects that cross SCAs.
 """
 
-import sys
-from copy import deepcopy
-import datetime
 import time
 import logging
 import numpy as np
@@ -19,16 +16,14 @@ from astropy.time import Time
 import galsim
 from galsim import roman
 import roman_datamodels.testing.utils
-import asdf
 from .wcs import get_wcs
-from .catalog import CatalogObject
-from .util import celestialcoord, skycoord
+from .catalog import make_dummy_catalog
 from .bandpass import get_abflux, galsim2roman_bandpass, roman2galsim_bandpass
 from .psf import make_psf
 from .parameters import default_parameters_dictionary
 
 log = logging.getLogger(__name__)
-
+log.setLevel(logging.INFO)
 
 # galsim fluxes are in photons / cm^2 / s
 # we need to specify the area and exposure time in drawImage if
@@ -54,11 +49,87 @@ log = logging.getLogger(__name__)
 # folding_ratio for speed, as well as directly rendering into the image.
 
 
-def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
-                    rng=None, seed=None, return_variance=False,
-                    read_noise=None, ignore_distant_sources=10,
-                    usecrds=True, return_info=False, webbpsf=True):
-    """Simulate observations of a single SCA.
+def simulate_l2(counts, sca, return_variance=False, read_noise=None,
+                rng=None, seed=None):
+    """
+    Simulate an image in a filter given a total count image.
+
+    The idea is that the total count image includes all of the hard work of
+    convolving the scene with the PSF and applying the distortion map, and
+    produces an idealized image of how many photons / electrons land in each
+    pixel.  This routine then has the easier job of translating that into an
+    L2 image.
+
+    This routine doesn't presently think very hard about what is in an L2
+    image, and just applies some systematics and noise sources on top.
+    Down the road, we need to think about what the noise really looks like
+    for the slope fits coming out of ramp fitting.
+
+    In particular, we just leave the count image the same and add noise;
+    we don't yet make adjustments for the fact that the total exposure time
+    is different from the effective exposure time because at best we only
+    get an exposure time that is the difference of the first and last mean
+    resultant times.
+
+    This should get refactored into a separate l2 module.
+
+    Parameters
+    ----------
+    counts : total counts in pixel from rate sources in total exposure time
+    sca : int
+        SCA to simulate
+    return_variance : bool
+        If True, also return var_poisson, var_rnoise, var_flat
+        Poisson noise currently does not think about instrumental
+        effects like reciprocity failure, non-linearity, IPC.
+    read_noise : ndarray-like[n_pix, n_pix]
+        read_noise image to use.  If None, use galsim.roman.read_noise.
+
+    Returns
+    -------
+    If return_variance is True, instead a 4-tuple of galsim.Image.
+        The 4 images represent the observed scene, the Poisson noise,
+        the read noise, and flat field uncertainty-induced noise.
+    """
+    if rng is None and seed is None:
+        seed = 44
+        log.warning(
+            'No RNG set, constructing a new default RNG from default seed.')
+    if rng is None:
+        rng = galsim.UniformDeviate(seed)
+
+    var_poisson = counts.copy()
+    # note this is imperfect because the counts already include Poisson noise.
+    # but this is probably what we do in romancal anyway?
+
+    roman.addReciprocityFailure(counts)
+    roman.applyNonlinearity(counts)
+    roman.applyIPC(counts)
+    if read_noise is not None:
+        read_noise = galsim.VariableGaussianNoise(rng, read_noise)
+    else:
+        read_noise = galsim.GaussianNoise(rng, sigma=roman.read_noise)
+    counts.addNoise(read_noise)
+
+    counts /= roman.gain
+    counts.quantize()
+
+    if return_variance:
+        var_rnoise = counts * 0 + roman.read_noise**2
+        var_flat = counts * 0
+        counts = (counts, var_poisson, var_rnoise, var_flat)
+
+    return counts
+
+
+def simulate_counts(sca, targ_pos, date, objlist, filter_name,
+                    exptime=None, rng=None, seed=None,
+                    ignore_distant_sources=10, usecrds=True,
+                    return_info=False, webbpsf=True):
+    """Simulate total counts in a single SCA.
+
+    This gives the total counts in an idealized instrument with no systematics;
+    it includes only distortion & PSF convolution.
 
     Parameters
     ----------
@@ -78,12 +149,6 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
         Random number generator to use
     seed : int
         Seed for populating RNG.  Only used if rng is None.
-    return_variance : bool
-        If True, also return var_poisson, var_rnoise, var_flat
-        Poisson noise currently does not think about instrumental
-        effects like reciprocity failure, non-linearity, IPC.
-    read_noise : ndarray-like[n_pix, n_pix]
-        read_noise image to use.  If None, use galsim.roman.read_noise.
     ignore_distant_sources : float
         do not render sources more than this many pixels off edge of detector
     usecrds : bool
@@ -92,10 +157,9 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
     Returns
     -------
     galsim.Image
-        image of scene as seen by Roman.
-    If return_variance is True, instead a 4-tuple of galsim.Image.
-        The 4 images represent the observed scene, the Poisson noise,
-        the read noise, and flat field uncertainty-induced noise.
+        idealized image of scene as seen by Roman, giving total electron counts
+        from rate sources (astronomical objects; backgrounds; dark current) in
+        each pixel.
     """
     if exptime is None:
         exptime = roman.exptime
@@ -122,7 +186,7 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
                                   date=date.datetime)
     sky_level *= (1.0 + roman.stray_light_fraction)
     wcs.makeSkyImage(sky_image, sky_level)
-    sky_image += roman.thermal_backgrounds[galsim_filter_name] * roman.exptime
+    sky_image += roman.thermal_backgrounds[galsim_filter_name] * exptime
     imbd = full_image.bounds
     abflux = get_abflux(filter_name)
 
@@ -134,15 +198,15 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
         # reaching this point.
         t0 = time.time()
         image_pos = wcs.toImage(obj.sky_pos)
-        if ((image_pos.x < imbd.xmin-ignore_distant_sources) or
-                (image_pos.x > imbd.xmax+ignore_distant_sources) or
-                (image_pos.y < imbd.ymin-ignore_distant_sources) or
-                (image_pos.y > imbd.ymax+ignore_distant_sources)):
+        if ((image_pos.x < imbd.xmin - ignore_distant_sources) or
+                (image_pos.x > imbd.xmax + ignore_distant_sources) or
+                (image_pos.y < imbd.ymin - ignore_distant_sources) or
+                (image_pos.y > imbd.ymax + ignore_distant_sources)):
             # ignore source off edge.  Could do better by looking at
             # source size.
             info.append(0)
             continue
-        final = galsim.Convolve(obj.profile, psf)
+        final = galsim.Convolve(obj.profile * exptime, psf)
         if chromatic:
             stamp = final.drawImage(
                 bandpass, center=image_pos, wcs=wcs.local(image_pos),
@@ -150,7 +214,7 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
         else:
             if obj.flux is not None:
                 final = final.withFlux(
-                    obj.flux[filter_name]*abflux*roman.exptime)
+                    obj.flux[filter_name] * abflux)
                 try:
                     stamp = final.drawImage(center=image_pos,
                                             wcs=wcs.local(image_pos))
@@ -162,54 +226,34 @@ def simulate_filter(sca, targ_pos, date, objlist, filter_name, exptime=None,
             continue
         full_image[bounds] += stamp[bounds]
         nrender += 1
-        info.append(time.time()-t0)
+        info.append(time.time() - t0)
     log.info('Rendered %d sources...' % nrender)
 
-    var_poisson = full_image + sky_image
-    # note this is imperfect in the spectral case because the 'photon shooting'
-    # psf modeling has poisson noise in it.
-
     poisson_noise = galsim.PoissonNoise(rng)
-    if final is not None and final.spectral:
+    sky_image.addNoise(poisson_noise)
+
+    # add Poisson noise if we made a noiseless, not-photon-shooting
+    # image.
+    if final is not None and not final.spectral:
         full_image.addNoise(poisson_noise)
 
-    full_image.quantize()
-
-    sky_image.addNoise(poisson_noise)
     full_image += sky_image
 
-    roman.addReciprocityFailure(full_image)
-    dark_current = roman.dark_current * roman.exptime
+    dark_current = roman.dark_current * exptime
     dark_noise = galsim.DeviateNoise(
         galsim.PoissonDeviate(rng, dark_current))
-    var_poisson += dark_current
     full_image.addNoise(dark_noise)
-    roman.applyNonlinearity(full_image)
-    roman.applyIPC(full_image)
-    if read_noise is not None:
-        read_noise = galsim.VariableGaussianNoise(rng, sigma=read_noise)
-    else:
-        read_noise = galsim.GaussianNoise(rng, sigma=roman.read_noise)
-    full_image.addNoise(read_noise)
 
-    full_image /= roman.gain
     full_image.quantize()
 
-    if return_variance:
-        var_rnoise = full_image*0 + roman.read_noise**2
-        var_flat = full_image*0
-        full_image = (full_image, var_poisson, var_rnoise, var_flat)
-
     if return_info:
-        if not isinstance(full_image, tuple):
-            full_image = (full_image,)
-        full_image = full_image + (info,)
-    
+        full_image = (full_image, info)
+
     return full_image
 
 
 def simulate(coord, date, objlist, sca, filters, seed=12345, exptime=None,
-             return_variance=False, usecrds=True, webbpsf=True):
+             return_variance=False, usecrds=True, webbpsf=True, **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 
     coord : astropy.coordinates.SkyCoord
@@ -246,16 +290,18 @@ def simulate(coord, date, objlist, sca, filters, seed=12345, exptime=None,
 
     for i, filter_name in enumerate(filters):
         log.info('Simulating filter {0}...'.format(filter_name))
-        out[filter_name] = simulate_filter(
-            sca, coord, date, objlist, filter_name, seed=i+1+seed,
-            exptime=exptime, return_variance=return_variance,
-            usecrds=usecrds, webbpsf=webbpsf)
+        counts = simulate_counts(
+            sca, coord, date, objlist, filter_name, seed=2*i+1+seed,
+            exptime=exptime, usecrds=usecrds, webbpsf=webbpsf)
+        out[filter_name] = simulate_l2(
+            counts, sca, return_variance=return_variance,
+            seed=2*i+2+seed, **kwargs)
     return out
 
 
 def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
                                  return_variance=False, usecrds=True,
-                                 webbpsf=True):
+                                 webbpsf=True, **kwargs):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')
     if filters is None:
@@ -271,7 +317,7 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
     cat = make_dummy_catalog(rd_sca, seed=seed, nobj=nobj)
     return simulate(coord, date, cat, sca, filters, seed=seed,
                     return_variance=return_variance, usecrds=usecrds,
-                    webbpsf=webbpsf)
+                    webbpsf=webbpsf, **kwargs)
 
 
 def galsim_to_asdf(im, var_poisson, var_rnoise, var_flat, sca, bandpass):
