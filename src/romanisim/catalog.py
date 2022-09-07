@@ -46,9 +46,9 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
         rng = galsim.UniformDeviate(seed)
 
     cat1 = galsim.COSMOSCatalog(sample='25.2', area=roman.collecting_area,
-                                exptime=roman.exptime)
+                                exptime=1)
     cat2 = galsim.COSMOSCatalog(sample='23.5', area=roman.collecting_area,
-                                exptime=roman.exptime)
+                                exptime=1)
 
     if chromatic:
         # following Roman demo13, all stars currently have the SED of Vega.
@@ -73,14 +73,14 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
             mu = np.log(mu_x**2 / (mu_x**2+sigma_x**2)**0.5)
             sigma = (np.log(1 + sigma_x**2/mu_x**2))**0.5
             gd = galsim.GaussianDeviate(rng, mean=mu, sigma=sigma)
-            flux = np.exp(gd())
+            flux = np.exp(gd()) / roman.exptime
             if chromatic:
                 sed = vega_sed.withFlux(flux, y_bandpass)
                 obj = galsim.DeltaFunction() * sed
             else:
                 obj = galsim.DeltaFunction().withFlux(flux)
         else:  # 10% of targets; bright galaxies
-            obj = cat2.makeGalaxy(chromatic=False, gal_type='parametric',
+            obj = cat2.makeGalaxy(chromatic=chromatic, gal_type='parametric',
                                   rng=rng)
             obj = obj.dilate(2) * 4
             theta = rng() * 2 * np.pi * galsim.radians
@@ -121,7 +121,7 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000, bandpasses=
     # let's not make anything too too small.
     hlr[hlr < 0.01] = 0.01
     hlr[star] = 0
-    
+
     out = Table()
     out['ra'] = [x.ra.deg for x in locs]
     out['dec'] = [x.dec.deg for x in locs]
@@ -160,7 +160,7 @@ def table_to_catalog(table, bandpasses):
         ratio of semiminor axis b over semimajor axis a
     Additionally there must be a column for each bandpass giving the flux
     in that bandbass
-    
+
     Params
     ------
     table : astropy.table.Table

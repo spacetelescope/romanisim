@@ -7,3 +7,8 @@ default_parameters_dictionary = {
     'roman.meta.instrument.optical_element': 'F184',
 }
 
+read_noise = 5.0
+# grabbing the median of the read noise image from CRDS at
+# some point
+
+nborder = 4  # number of border pixels used for reference pixels.
