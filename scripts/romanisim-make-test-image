@@ -2,6 +2,8 @@
 
 import argparse
 import datetime
+from copy import deepcopy
+import asdf
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.table import Table
@@ -9,7 +11,8 @@ from astropy.io import fits
 from astropy.time import Time
 import galsim
 from romanisim import catalog, image, wcs
-
+from romanisim.parameters import default_parameters_dictionary
+from romanisim.image import log
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -29,19 +32,30 @@ if __name__ == '__main__':
                         help='Use webbpsf for PSF')
     parser.add_argument('--date', type=int, nargs=3, default=None,
                         help='Date of observation to simulate')
+    parser.add_argument('--level', type=int, default=2,
+                        help='1 or 2, for L1 or L2 output')
+    parser.add_argument('--ma_table_number', type=int, default=1)
+    parser.add_argument('--seed', type=int, default=None)
     args = parser.parse_args()
 
-    if args.radec is None:
-        ra, dec = (270.0, 66.0)
-    else:
-        ra, dec = args.radec
-    coord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+    metadata = deepcopy(default_parameters_dictionary)
 
-    if args.date is None:
-        date = datetime.datetime(2020, 1, 1)
-    else:
-        date = datetime.datetime(*args.date)
-    date = Time(date)
+    if args.radec is not None:
+        metadata['roman.meta.pointing.ra_v1'] = args.radec[0]
+        metadata['roman.meta.pointing.dec_v1'] = args.radec[1]
+
+    coord = SkyCoord(ra=metadata['roman.meta.pointing.ra_v1']*u.deg,
+                     dec=metadata['roman.meta.pointing.dec_v1']*u.deg,
+                     frame='icrs')
+
+    if args.date is not None:
+        metadata['roman.meta.exposure.start_time'] = Time(
+            datetime.datetime(*args.date)).isot
+    date = Time(metadata['roman.meta.exposure.start_time'], format='isot')
+
+    metadata['roman.meta.instrument.detector'] = f'WFI{args.sca:02d}'
+    metadata['roman.meta.instrument.optical_element'] = args.bandpass
+    metadata['roman.meta.exposure.ma_table_number'] = args.ma_table_number
 
     twcs = wcs.get_wcs(world_pos=coord, date=date, sca=args.sca,
                        usecrds=args.usecrds)
@@ -50,14 +64,21 @@ if __name__ == '__main__':
 
     if args.catalog is None:
         cat = catalog.make_dummy_table_catalog(
-            rd_sca, bandpasses=[args.bandpass])
+            rd_sca, bandpasses=[args.bandpass], nobj=1000)
     else:
-        print('probably will not work unless the catalog covers a lot of area')
+        log.warning('Catalog input will probably not work unless the catalog '
+                    'covers a lot of area or you have thought carefully about '
+                    'the relation between the boresight and the SCA locations.')
         cat = Table.read(args.catalog)
     objlist = catalog.table_to_catalog(cat, [args.bandpass])
-    im = image.simulate(coord, date, objlist, args.sca, [args.bandpass],
-                        usecrds=args.usecrds, webbpsf=args.webbpsf)
-    fits.writeto(args.filename, im[args.bandpass].array)
+    rng = galsim.UniformDeviate(args.seed)
+    im = image.simulate(metadata, objlist, usecrds=args.usecrds,
+                        webbpsf=args.webbpsf, level=args.level,
+                        rng=rng)
+
+    af = asdf.AsdfFile()
+    af.tree = {'roman': im}
+    af.write_to(args.filename)
     
     
                                          

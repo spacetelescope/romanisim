@@ -9,10 +9,12 @@ objects that cross SCAs.
 
 import time
 import logging
+from copy import deepcopy
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+import asdf
 import galsim
 from galsim import roman
 import roman_datamodels.testing.utils
@@ -21,9 +23,10 @@ from .catalog import make_dummy_catalog
 from .bandpass import get_abflux, galsim2roman_bandpass, roman2galsim_bandpass
 from .psf import make_psf
 from .parameters import default_parameters_dictionary
-
-log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+from .util import flatten_dictionary, unflatten_dictionary
+import romanisim.l1
+from romanisim import log
+from romanisim import parameters
 
 # galsim fluxes are in photons / cm^2 / s
 # we need to specify the area and exposure time in drawImage if
@@ -49,8 +52,8 @@ log.setLevel(logging.INFO)
 # folding_ratio for speed, as well as directly rendering into the image.
 
 
-def simulate_l2(counts, sca, return_variance=False, read_noise=None,
-                rng=None, seed=None):
+def make_l2(counts, sca, return_variance=False, read_noise=None,
+            rng=None, seed=None):
     """
     Simulate an image in a filter given a total count image.
 
@@ -75,7 +78,8 @@ def simulate_l2(counts, sca, return_variance=False, read_noise=None,
 
     Parameters
     ----------
-    counts : total counts in pixel from rate sources in total exposure time
+    counts : galsim.Image
+        total counts in pixel from rate sources in total exposure time
     sca : int
         SCA to simulate
     return_variance : bool
@@ -105,27 +109,30 @@ def simulate_l2(counts, sca, return_variance=False, read_noise=None,
     roman.addReciprocityFailure(counts)
     roman.applyNonlinearity(counts)
     roman.applyIPC(counts)
-    if read_noise is not None:
+    if read_noise is None:
+        read_noise = roman.read_noise
+    if np.ndim(read_noise) != 0:
         read_noise = galsim.VariableGaussianNoise(rng, read_noise)
     else:
-        read_noise = galsim.GaussianNoise(rng, sigma=roman.read_noise)
+        read_noise = galsim.GaussianNoise(rng, sigma=read_noise)
     counts.addNoise(read_noise)
 
     counts /= roman.gain
     counts.quantize()
 
     if return_variance:
-        var_rnoise = counts * 0 + roman.read_noise**2
+        var_rnoise = counts * 0 + read_noise**2
         var_flat = counts * 0
         counts = (counts, var_poisson, var_rnoise, var_flat)
 
-    return counts
+    return counts.array
 
 
 def simulate_counts(sca, targ_pos, date, objlist, filter_name,
                     exptime=None, rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
-                    return_info=False, webbpsf=True):
+                    return_info=False, webbpsf=True,
+                    darkrate=None):
     """Simulate total counts in a single SCA.
 
     This gives the total counts in an idealized instrument with no systematics;
@@ -153,6 +160,8 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         do not render sources more than this many pixels off edge of detector
     usecrds : bool
         use CRDS distortion map
+    darkrate : float or np.ndarray of float
+        dark rate image to use (electrons / s)
 
     Returns
     -------
@@ -239,10 +248,16 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
 
     full_image += sky_image
 
-    dark_current = roman.dark_current * exptime
-    dark_noise = galsim.DeviateNoise(
-        galsim.PoissonDeviate(rng, dark_current))
-    full_image.addNoise(dark_noise)
+    if darkrate is None:
+        darkrate = roman.dark_current
+    dark_counts = darkrate * exptime
+    if np.ndim(dark_counts) == 0:
+        dark_noise = galsim.DeviateNoise(
+            galsim.PoissonDeviate(rng, dark_counts))
+        full_image.addNoise(dark_noise)
+    else:
+        dark_counts.addNoise(poisson_noise)
+        full_image += dark_counts
 
     full_image.quantize()
 
@@ -252,51 +267,90 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     return full_image
 
 
-def simulate(coord, date, objlist, sca, filters, seed=12345, exptime=None,
-             return_variance=False, usecrds=True, webbpsf=True, **kwargs):
+def simulate(metadata, objlist,
+             usecrds=True, webbpsf=True, level=2,
+             seed=None, rng=None,
+             **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 
-    coord : astropy.coordinates.SkyCoord
-        Sky location to simulation
-    date : datetime.datetime
-        The time of the observation
+    metadata : dict
+        metadata structure for Roman asdf file, including information about
+        pointing: metadata['pointing']['ra_v1'], metadata['pointing']['dec_v1']
+        date: metadata['exposure']['start_time']
+        sca: metadata['instrument']['detector']
+        bandpass: metadata['instrument']['optical_detector']
+        ma_table_number: metadata['exposure']['ma_table_number']
+
     objlist : list[CatalogObject]
         List of objects in the field to simulate
-    sca : int
-        SCA to simulate
-    filters : list[str]
-        filters to use, e.g., ['Z087', 'Y106', 'J129']
-    return_variance : bool
-        if True, also include var_poisson, var_rnoise, var_flat parallel to
-        the images in the dictionary
     usecrds : bool
         use CRDS to get distortion maps
+    webbpsf : bool
+        use webbpsf to generate PSF
+    level : int
+        1 or 2, specifying level 1 or level 2 image
+    rng : galsim.BaseDeviate
+        Random number generator to use
+    seed : int
+        Seed for populating RNG.  Only used if rng is None.
 
     Returns
     -------
-    dict[str] -> galsim.Image
-        dictionary giving simulated images for each filter
-
-    If return_variance is True, then instead
-    dict[str] -> (image, var_poisson, var_rnoise, var_flat)
-        where each of image, var_poisson, var_rnoise, var_flat are galsim.Image
-        and give the image value and its Poisson, read noise, and flat field
-        induced variances.
+    asdf structure with simulated image
     """
-    if exptime is None:
-        exptime = roman.exptime
+
+    all_metadata = deepcopy(default_parameters_dictionary)
+    flatmetadata = flatten_dictionary(metadata)
+    flatmetadata = {'roman.meta'+k if k.find('roman.meta') != 0 else k: v
+                    for k, v in flatmetadata.items()}
+    all_metadata.update(**flatten_dictionary(metadata))
+    ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
+    sca = int(all_metadata['roman.meta.instrument.detector'][3:])
+    coord = SkyCoord(ra=all_metadata['roman.meta.pointing.ra_v1']*u.deg,
+                     dec=all_metadata['roman.meta.pointing.dec_v1']*u.deg)
+    start_time = all_metadata['roman.meta.exposure.start_time']
+    if not isinstance(start_time, Time):
+        start_time = Time(start_time, format='isot')
+    date = start_time
+    filter_name = all_metadata['roman.meta.instrument.optical_element']
+
+    ma_table = parameters.ma_table[ma_table_number]
+    last_read = ma_table[-1][0] + ma_table[-1][1] - 1
+    exptime = last_read * parameters.read_time
+
+    if usecrds:
+        reffiles = crds.getreferences(allmetadata, reftypes=['readnoise', 'dark'],
+                                      observatory='roman')
+        read_noise = asdf.open(reffiles['readnoise'])['roman']['data']
+        darkrate = asdf.open(reffiles['dark'])['roman']['data']
+        darkrate = darkrate[-1] / (np.mean(ma_table[-1])*parameters.read_time)
+    else:
+        read_noise = galsim.roman.read_noise
+        darkrate = galsim.roman.dark_current
 
     out = dict()
 
-    for i, filter_name in enumerate(filters):
-        log.info('Simulating filter {0}...'.format(filter_name))
-        counts = simulate_counts(
-            sca, coord, date, objlist, filter_name, seed=2*i+1+seed,
-            exptime=exptime, usecrds=usecrds, webbpsf=webbpsf)
-        out[filter_name] = simulate_l2(
-            counts, sca, return_variance=return_variance,
-            seed=2*i+2+seed, **kwargs)
-    return out
+    if rng is None and seed is None:
+        seed = 43
+        log.warning(
+            'No RNG set, constructing a new default RNG from default seed.')
+    if rng is None:
+        rng = galsim.UniformDeviate(seed)
+
+
+    log.info('Simulating filter {0}...'.format(filter_name))
+    counts = simulate_counts(
+        sca, coord, date, objlist, filter_name, rng=rng,
+        exptime=exptime, usecrds=usecrds, darkrate=darkrate,
+        webbpsf=webbpsf)
+    if level == 2:
+        im = make_l2(counts, sca, read_noise=read_noise, rng=rng, **kwargs)
+        im = make_asdf(im, metadata=all_metadata)
+    elif level == 1:
+        im = romanisim.l1.make_l1(
+            counts, ma_table_number, read_noise=read_noise, rng=rng, **kwargs)
+        im = romanisim.l1.make_asdf(im, metadata=all_metadata)
+    return im
 
 
 def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
@@ -306,8 +360,10 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
     log.info('Making catalog...')
     if filters is None:
         filters = ['Y106', 'J129', 'H158']
-    # ecliptic pole is probably always visible?
-    coord = SkyCoord(ra=270*u.deg, dec=66*u.deg)
+    metadata = deepcopy(default_parameters_dictionary)
+    coord = SkyCoord(
+        ra=default_parameters_dictionary['roman.meta.pointing.ra_v1']*u.deg,
+        dec=default_parameters_dictionary['roman.meta.pointing.dec_v1']*u.deg)
     date = Time(
         default_parameters_dictionary['roman.meta.exposure.start_time'],
         format='isot')
@@ -315,12 +371,16 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
     rd_sca = wcs.toWorld(galsim.PositionD(
         roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
     cat = make_dummy_catalog(rd_sca, seed=seed, nobj=nobj)
-    return simulate(coord, date, cat, sca, filters, seed=seed,
-                    return_variance=return_variance, usecrds=usecrds,
-                    webbpsf=webbpsf, **kwargs)
+    rng = galsim.UniformDeviate(0)
+    out = dict()
+    for filter_name in filters:
+        im = simulate(metadata, rng=rng, usecrds=usecrds, webbpsf=webbpsf,
+                      **kwargs)
+        out[filter_name] = im
+    return out
 
 
-def galsim_to_asdf(im, var_poisson, var_rnoise, var_flat, sca, bandpass):
+def make_asdf(im, metadata=None, filepath=None):
     """Wrap a galsim simulated image with ASDF/roman_datamodel metadata."""
 
     out = roman_datamodels.testing.utils.mk_level2_image()
@@ -371,15 +431,24 @@ def galsim_to_asdf(im, var_poisson, var_rnoise, var_flat, sca, bandpass):
     #     this is just sqrt(var_poisson + var_rnoise + var_flat)?
     # var_rnoise: okay
     # var_flat: currently zero
-    out['meta']['aperture']['name'] = 'WFI_{}_FULL'.format(sca)
-    out['meta']['instrument']['detector'] = 'WFI{}'.format(sca)
-    out['meta']['instrument']['optical_element'] = bandpass
-    out['data'] = im.array
-    out['dq'] = 0
-    out['var_poisson'] = var_poisson.array
-    out['var_rnoise'] = var_rnoise.array
-    out['var_flat'] = var_flat.array
-    out['err'] = np.sqrt(var_poisson.array + var_rnoise.array + var_flat.array)
+    if metadata is not None:
+        # ugly mess of flattening & unflattening to make sure that deeply
+        # nested keywords all get propagated into the metadata structure.
+        tmpmeta = flatten_dictionary(out['meta'])
+        tmpmeta.update(flatten_dictionary(
+            unflatten_dictionary(metadata)['roman']['meta']))
+        out['meta'].update(unflatten_dictionary(tmpmeta))
+
+    out['data'] = im
+    out['dq'] = (im*0).astype('u4')
+    out['var_poisson'] = im*0
+    out['var_rnoise'] = im*0
+    out['var_flat'] = im*0
+    out['err'] = im*0
+    if filepath:
+        af = asdf.AsdfFile()
+        af.tree = {'roman': out}
+        af.write_to(filepath)
     return out
 
 
@@ -392,6 +461,7 @@ def galsim_to_asdf(im, var_poisson, var_rnoise, var_flat, sca, bandpass):
 # galsim.roman.read_noise is 8.5; c.f. roman_wfi_readnoise_0171.asdf = 5.
 # Naive ramp fitting of just differencing the zero and last measurements would give
 # readnoise of 5*sqrt(2) = 7.07.
+# electrons vs. counts?  galsim.roman has a gain of 1, though.
 # I spent a while thinking about this.  In the read noise-dominated limit,
 # it's straightforward to work out simple analytic expressions for everything, and
 # the final slope uncertainties are just sigma**2_rn / (N * t_N**2) * C, with C a constant
