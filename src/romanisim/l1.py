@@ -90,8 +90,12 @@ going to pursue this avenue further.
 
 import numpy as np
 import asdf
+import galsim
+from galsim import roman
 from roman_datamodels.testing.utils import mk_level1_science_raw
 from romanisim import parameters
+from romanisim import log
+from romanisim.util import unflatten_dictionary, flatten_dictionary
 
 
 def validate_times(tij):
@@ -211,7 +215,8 @@ def apportion_counts_to_resultants(counts, tij):
     return resultants
 
 
-def add_read_noise_to_resultants(resultants, tij, read_noise=None):
+def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
+                                 seed=None):
     """Adds read noise to resultants.
 
     The resultants get Gaussian read noise with sigma = sigma_read/sqrt(N).
@@ -224,21 +229,34 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None):
         list of list of readout times for each read entering a resultant
     read_noise : float or np.ndarray[nx, ny] (float)
         read noise or read noise image for adding to resultants
+    rng : galsim.BaseDeviate
+        Random number generator to use
+    seed : int
+        Seed for populating RNG.  Only used if rng is None.
 
     Returns
     -------
     np.ndarray[n_resultant, nx, ny] (float)
         resultants with added read noise
     """
-    noise = np.random.randn(resultants.shape)
+    if rng is None and seed is None:
+        seed = 45
+        log.warning(
+            'No RNG set, constructing a new default RNG from default seed.')
+    if rng is None:
+        rng = galsim.GaussianDeviate(seed)
+
+    noise = np.empty(resultants.shape)
+    rng.generate(noise)
     if read_noise is None:
         read_noise = parameters.read_noise
-    noise *= read_noise / np.array([len(x) for x in tij]).reshape(-1, 1, 1)
-    resultants += read_noise
+    noise *= read_noise / np.array(
+        [len(x)**0.5 for x in tij]).reshape(-1, 1, 1)
+    resultants = resultants + noise
     return resultants
 
 
-def make_asdf(resultants, tij, filepath=None):
+def make_asdf(resultants, filepath=None, metadata=None):
     """Package and optionally write out an L1 frame.
 
     This routine packages an L1 data file with the appropriate Roman data
@@ -249,8 +267,6 @@ def make_asdf(resultants, tij, filepath=None):
     ----------
     resultants : np.ndarray[n_resultant, nx, ny] (float)
         resultants array, giving each of n_resultant resultant images
-    tij : list[list[float]]
-        list of list of readout times for each read entering a resultant
     filepath : str
         if not None, path of asdf file to L1 image into
 
@@ -260,6 +276,11 @@ def make_asdf(resultants, tij, filepath=None):
     """
 
     out = mk_level1_science_raw(shape=(len(resultants), 4096, 4096))
+    if metadata is not None:
+        tmpmeta = flatten_dictionary(out['meta'])
+        tmpmeta.update(flatten_dictionary(
+            unflatten_dictionary(metadata)['roman']['meta']))
+        out['meta'].update(unflatten_dictionary(tmpmeta))
     nborder = parameters.nborder
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if filepath:
@@ -267,3 +288,99 @@ def make_asdf(resultants, tij, filepath=None):
         af.tree = {'roman': out}
         af.write_to(filepath)
     return out
+
+
+def ma_table_to_tij(ma_table_number):
+    """Get the times of each read going into resultants for a MA table.
+
+    Currently only ma_table_number = 1 is supported, corresponding to a simple
+    fiducial high latitude imaging MA table.
+
+    This presently uses a hard-coded, somewhat inflexible MA table description
+    in the parameters file.  But that seems like an okay option given that the
+    current 'official' file is slated for redesign when the format is relaxed.
+
+    Parameters
+    ----------
+    ma_table_number : int
+        id of multiaccum table to use
+
+    Returns
+    -------
+    list[list[float]]
+        list of list of readout times for each read entering a resultant
+    """
+    tab = parameters.ma_table[ma_table_number]
+    tij = [parameters.read_time * np.arange(f, f+n) for (f, n) in tab]
+    return tij
+
+
+def make_l1(counts, ma_table_number,
+            read_noise=None, filepath=None, rng=None, seed=None):
+    """Make an L1 image from a counts image.
+
+    This apportions the total counts among the different resultants and adds
+    some instrumental effects.  The current instrumental effects aren't quite
+    right: nonlinearity and reciprocity failure are applied to the resultants
+    rather than to the reads (which aren't really available to this function).
+
+    Parameters
+    ----------
+    counts : galsim.Image
+        total counts delivered to each pixel
+    ma_table_number : int
+        multi accum table number indicating how reads are apportioned among
+        resultants
+    filepath : str or None
+        optional, path to which to write out L1 image
+    read_noise : np.ndarray[nx, ny] (float) or float
+        Read noise entering into each read
+    rng : galsim.BaseDeviate
+        Random number generator to use
+    seed : int
+        Seed for populating RNG.  Only used if rng is None.
+
+    Returns
+    -------
+    resultants image array including systematic effects
+    """
+    if rng is None and seed is None:
+        seed = 45
+        log.warning(
+            'No RNG set, constructing a new default RNG from default seed.')
+    if rng is None:
+        rng = galsim.GaussianDeviate(seed)
+
+    tij = ma_table_to_tij(ma_table_number)
+    resultants = apportion_counts_to_resultants(counts.array, tij)
+
+    # we need to think harder around here about ndarrays vs. galsim
+    # images.  All of the roman.function calls expect 2D galsim
+    # images, but maybe wouldn't break with a 3D image.
+    # lot's of im.array[:, :], but that seems to return the whole image?
+    # from types import SimpleNamespace
+    # resultants_object = SimpleNamespace()
+    # resultants_object.array = resultants
+
+    # these aren't quite right; we should be applying these to the reads
+    # rather than to the resultants.
+    # I can't decide how much to care---the effect is small.
+    # The IPC computation is probably commutative, but the nonlinearity
+    # corrections will not be.
+    # roman.addReciprocityFailure(resultants_object)
+    # roman.applyNonlinearity(resultants_object)
+    # roman.applyIPC(resultants_object)
+    # the roman systematic effects take a little more work
+    # if we want to implement them directly on the individual resultants.
+    # Those functions call namesakes in galsim.Image which the simple
+    # namespace object above doesn't have, with specialized coefficients.
+    # We could duplicate that, in principle.
+    resultants = add_read_noise_to_resultants(resultants, tij, rng=rng,
+                                              seed=seed, read_noise=read_noise)
+    # presently in _electrons_ here; is read_noise in ADU or in electrons?!
+    log.warning('We need to make sure we have the right units on the read '
+                'noise.')
+
+    resultants /= roman.gain
+    resultants = np.round(resultants)
+    return resultants

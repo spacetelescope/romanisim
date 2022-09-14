@@ -31,7 +31,7 @@ from galsim.wcs import CelestialWCS
 from galsim import roman
 from romancal.assign_wcs import pointing
 from .parameters import default_parameters_dictionary
-from .util import celestialcoord, skycoord
+from .util import celestialcoord, skycoord, flatten_dictionary
 
 
 def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
@@ -60,10 +60,13 @@ def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
     -------
     galsim.CelestialWCS for an SCA
     """
+    if parameters is not None:
+        parameters = flatten_dictionary(parameters)
     if parameters is None and sca is None:
         raise ValueError('At least one of parameters or sca must be set!')
     if parameters is None:
         parameters = deepcopy(default_parameters_dictionary)
+        parameters = flatten_dictionary(parameters)
         parameters['roman.meta.instrument.detector'] = 'WFI%02d' % sca
     elif sca is None:
         sca = int(parameters['roman.meta.instrument.detector'][3:])
