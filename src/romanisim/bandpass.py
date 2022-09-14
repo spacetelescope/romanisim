@@ -1,3 +1,10 @@
+"""Roman bandpass routines
+
+The primary purpose of this module is to provide the number of counts
+per second expected for sources observed by Roman given a source with
+the nominal flat AB spectrum of 3631 Jy.  The ultimate source of this
+information is https://roman.gsfc.nasa.gov/science/WFI_technical.html .
+"""
 import os
 import pkg_resources
 from scipy import integrate
@@ -31,8 +38,8 @@ def read_gsfc_effarea(filename=None):
     This just puts together the right invocation to get an Excel-converted
     CSV file into memory.
 
-    Params
-    ------
+    Parameters
+    ----------
     filename : str
         filename to read in
 
@@ -53,8 +60,8 @@ def compute_abflux(effarea=None):
     How many photons would a zeroth magnitude AB star deposit in
     Roman's detectors in a second?
 
-    Params
-    ------
+    Parameters
+    ----------
     effarea : astropy.Table.table
         Table from GSFC with effective areas for each filter.
 

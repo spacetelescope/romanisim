@@ -38,11 +38,13 @@ release = package.__version__
 
 extensions = [
     "sphinx_automodapi.automodapi",
+    "sphinx_automodapi.smart_resolver",
     "numpydoc",
 ]
 
 autosummary_generate = True
 numpydoc_show_class_members = False
+numpydoc_class_members_toctree = False
 autoclass_content = "both"
 
 html_theme = "stsci_rtd_theme"

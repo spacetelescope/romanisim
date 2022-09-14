@@ -36,8 +36,8 @@ class Observation:
 def read_apt(filename):
     """Read an APT file, returning a list of observations.
 
-    Params
-    ------
+    Parameters
+    ----------
     filename : str
         filename of the APT file to read in.
 
@@ -76,5 +76,3 @@ def read_apt(filename):
         obs = Observation(targ, bandpass, exptime, date)
         obslist.append(obs)
     return obslist
-    
-        

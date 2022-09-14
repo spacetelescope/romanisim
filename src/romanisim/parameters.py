@@ -1,3 +1,6 @@
+"""Parameters class storing a few useful constants for Roman simulations.
+"""
+
 default_parameters_dictionary = {
     'roman.meta.instrument.name': 'WFI',
     'roman.meta.instrument.detector': 'WFI07',

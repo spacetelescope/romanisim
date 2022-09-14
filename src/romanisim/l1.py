@@ -11,13 +11,20 @@ those for each resultant and average, as done on the spacecraft.
 
 It's tempting to go straight to making the appropriate resultants.  Following
 Casertano (2022?), the variance in each resultant is:
-V = sigma_read^2/N + f*tau
-where f is the count rate, N is the number of reads in the resultant, and tau
+
+.. math:: V = \sigma_{read}^2/N + f \\tau
+
+where f is the count rate, N is the number of reads in the resultant, and :math:`\\tau`
 is the 'variance-based resultant time'
-tau = 1/N^2 * sum_reads (2*(N - k) - 1)*t_k
+
+.. math:: \\tau = 1/N^2 \sum_{reads} (2 (N - k) - 1) t_k
+
 where the t_k is the time of the kth read in the resultant.
 
-For uniformly spaced reads, tau = t_0 + d*(N/3 + 1/6N - 1/2),
+For uniformly spaced reads,
+
+.. math:: \\tau = t_0 + d (N/3 + 1/6N - 1/2) \, ,
+
 where t_0 is the time of the first read in the resultant and d is the spacing
 of the reads.
 
@@ -32,20 +39,18 @@ cosmic rays down the road.  So let's take that approach instead for
 the moment.
 
 How do we want to specify an L1 image?  An L1 image is defined by a
-total count image and a list of lists t_{i, j}, where t_{i, j} is the
-time at which the jth read in the ith resultant is made.  We demand
-t_{i, j} > t_{k, l} whenever i > k or whenever i = k and j > l.
+total count image and a list of lists :math:`t_{i, j}`, where
+:math:`t_{i, j}` is the time at which the jth read in the ith
+resultant is made.  We demand :math:`t_{i, j} > t_{k, l}`
+whenever i > k or whenever i = k and j > l.
 
 Things this doesn't allow neatly:
-- jitter in telescope pointing: the rate image is the same for each
-  read/resultant
-- possibly some systematics need to be applied to the individual reads, rather
-  than to the final image.  e.g., clearly nonlinearity?  I need to think about
-  when in the chain things like IPC, etc., come in.
-  But it still seems correct to first generate the total number of counts that
-  an ideal detector would measure from sources, and then apply these effects
-  read-by-read as we build up the resultants---i.e., I expect the current
-  framework will be able to handle this without major issue.
+
+* jitter in telescope pointing: the rate image is the same for each read/resultant
+* non-linearity?
+* weird non-linear systematics in darks?
+
+Possibly some systematics need to be applied to the individual reads, rather than to the final image.  e.g., clearly nonlinearity?  I need to think about when in the chain things like IPC, etc., come in.  But it still seems correct to first generate the total number of counts that an ideal detector would measure from sources, and then apply these effects read-by-read as we build up the resultants---i.e., I expect the current framework will be able to handle this without major issue.
 
 This approach is not super fast.  For a high latitude set of resultants,
 generating all of the random numbers to determine the apportionment takes
@@ -62,7 +67,10 @@ Plausibly I could figure out how to draw numbers directly from what a
 resultant is rather than looking at each read individually.  That would
 likely bring a ~10x speed-up.  The read noise there is easy.  The
 poisson noise is a sum of scaled Poisson variables:
-sum_{i=0, ..., N-1} (N-i)*c_i, where c_i is a Poisson-distributed variable.
+
+.. math:: \sum_{i=0, ..., N-1} (N-i) c_i \, ,
+
+where :math:`c_i` is a Poisson-distributed variable.
 The sum of Poisson-distributed variables is Poisson-distributed, but I wasn't
 immediately able to find anything about the sum of scaled Poisson-distributed
 variables.  The result is clearly not Poisson-distributed, but maybe there's
@@ -75,14 +83,19 @@ Or, reversing that, you might want to draw the total number of counts first,
 e.g., via the binomial distribution, and then you'd want to draw a number
 for what the average number of counts was among the reads comprising the
 resultant, conditional on the total number of counts.  Then
-sum_{i=0, ..., N-1} (N-i)*c_i
+
+.. math:: \sum_{i=0, ..., N-1} (N-i) c_i
+
 is some kind of statistic of the multinomial distribution.  That sounds a
 little more tractable?
-c_i ~ multinomial(total, [1/N, ..., 1/N]); we want to draw from
-sum (N-i)*c_i
-I think the probabilities are always 1/N, with the possible small but important
+
+.. math:: c_i \sim \mathrm{multinomial}(\mathrm{total}, [1/N, ..., 1/N])
+
+We want to draw from :math:`\sum (N-i) c_i`.
+I think the probabilities are always :math:`1/N`, with the possible small but
+important
 exception of 'skipped' or 'dropped' reads, in which case the first read would
-be more like 2/(N+1) and all the others 1/(N+1).  If the probabilities
+be more like :math:`2/(N+1)` and all the others :math:`1/(N+1)`.  If the probabilities
 were always 1/N, this looks vaguely like it could have a nice analytic
 solution.  Otherwise, I don't immediately see a route forward.  So I am not
 going to pursue this avenue further.
@@ -173,11 +186,12 @@ def apportion_counts_to_resultants(counts, tij):
     We then average the reads together to get a resulant.
 
     We accumulate:
-    - a sum for the resultant, which is divided by the number of reads and
+
+    * a sum for the resultant, which is divided by the number of reads and
       returned in the resultants array
-    - a sum for the total number of photons accumulated so far, so we know
+    * a sum for the total number of photons accumulated so far, so we know
       where to start the next resultant
-    - the resultants so far
+    * the resultants so far
 
     Parameters
     ----------

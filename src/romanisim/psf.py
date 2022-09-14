@@ -3,18 +3,21 @@
 galsim.roman has an implementation of Roman's PSF based on the aperture and
 some estimates for the wavefront errors over the aperture as described by
 amplitudes of various Zernicke modes.  This seems like a very good approach,
-but we want to add here a mode using the ``official'' PSFs coming out of
+but we want to add here a mode using the official PSFs coming out of
 webbpsf, which takes a very similar overall approach.
 
 galsim's InterpolatedImage class makes this straightforward.  Future work
 should consider the following:
-- how do we want to deal with PSF variation over the field?  Can we be more
+
+* how do we want to deal with PSF variation over the field?  Can we be more
   efficient than making a new InterpolatedImage at each location based on some
   e.g. quadratic approximation to the PSF's variation with location in an SCA?
-- how do we want to deal with the dependence of the PSF on the source SED?
+
+* how do we want to deal with the dependence of the PSF on the source SED?
   It's possible I can just subclass ChromaticObject and implement
   evaluateAtWavelength, possibly also stealing the _shoot code from
   ChromaticOpticalPSF?
+
 """
 
 import numpy as np
