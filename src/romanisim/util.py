@@ -1,3 +1,6 @@
+"""Miscellaneous utility routines.
+"""
+
 import datetime
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -10,11 +13,11 @@ from roman_datamodels import stnode
 def skycoord(celestial):
     """Turn a CelestialCoord into a SkyCoord.
 
-    Params
-    ------
+    Parameters
+    ----------
     celestial : galsim.CelestialCoord
         galsim.CelestialCoord to transform into an astropy.coordinates.SkyCoord
-    
+
     Returns
     -------
     astropy.coordinates.SkyCoord
@@ -31,11 +34,11 @@ def skycoord(celestial):
 def celestialcoord(sky):
     """Turn a SkyCoord into a CelestialCoord.
 
-    Params
-    ------
+    Parameters
+    ----------
     sky : astropy.coordinates.SkyCoord
         astropy.coordinates.SkyCoord to transform into an galsim.CelestialCoord
-    
+
     Returns
     -------
     galsim.CelestialCoord
@@ -67,8 +70,8 @@ def scalergb(rgb, scales=None, lumrange=None):
 def random_points_in_cap(coord, radius, nobj, rng=None):
     """Choose locations at random within radius of coord.
 
-    Params
-    ------
+    Parameters
+    ----------
     coord : astropy.coordinates.SkyCoord
         location around which to generate points
 

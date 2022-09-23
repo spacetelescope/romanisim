@@ -1,3 +1,8 @@
+"""Catalog generation and reading routines.
+
+This module provides basic routines to allow romanisim to render scenes
+based on catalogs of sources in those scenes.
+"""
 from dataclasses import dataclass
 import numpy as np
 import galsim
@@ -20,8 +25,8 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
                        chromatic=True):
     """Make a dummy catalog for testing purposes.
 
-    Params
-    ------
+    Parameters
+    ----------
     coord : galsim.CelestialCoordinate
         radius around which to generate sources
     radius : float
@@ -89,7 +94,35 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
     return objlist
 
 
-def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000, bandpasses=None):
+def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
+                             bandpasses=None):
+    """Make a dummy table catalog.
+
+    Fluxes are assigned to bands at random.  Locations are random within the
+    spherical cap defined by coord and radius.
+
+    Parameters
+    ----------
+    coord : astropy.coordinates.SkyCoord
+        Location around which to generate catalog
+
+    radius : float
+        Radius in degrees of spherical cap in which to generate sources
+
+    rng : galsim.BaseDeviate
+        Random number generator to use
+
+    nobj : int
+        Number of objects to generate in spherical cap.
+
+    bandpasses : list[str]
+        List of names of bandpasses in which to generate fluxes.
+
+    Returns
+    -------
+    astropy.table.Table with keys needed to generate a list of CatalogObject
+    entries for rendering.
+    """
     if bandpasses is None:
         bandpasses = roman.getBandpasses().keys()
     locs = random_points_in_cap(coord, radius, nobj, rng=rng)
@@ -144,25 +177,27 @@ def table_to_catalog(table, bandpasses):
 
     We want to read in a catalog and make a list of CatalogObjects.  The table
     must have the following columns:
-    - ra : float
-        right ascension in degrees
-    - dec : float
-        declination in degrees
-    - type : str
-        'PSF' or 'SER' for PSF or sersic profiles respectively
-    - n : float
-        sersic index
-    - half_light_radius : float
-        half light radius in arcsec
-    - pa : float
-        position angle of ellipse relative to north (on the sky) in degrees
-    - ba : float
-        ratio of semiminor axis b over semimajor axis a
-    Additionally there must be a column for each bandpass giving the flux
-    in that bandbass
 
-    Params
-    ------
+    * ra : float..
+      right ascension in degrees
+    * dec : float..
+      declination in degrees
+    * type : str..
+      'PSF' or 'SER' for PSF or sersic profiles respectively
+    * n : float..
+      sersic index
+    * half_light_radius : float..
+      half light radius in arcsec
+    * pa : float..
+      position angle of ellipse relative to north (on the sky) in degrees
+    * ba : float..
+      ratio of semiminor axis b over semimajor axis a
+
+    Additionally there must be a column for each bandpass giving the flux
+    in that bandbass.
+
+    Parameters
+    ----------
     table : astropy.table.Table
         astropy Table containing ra, dec, type, n, half_light_radius, pa, ba
         and fluxes in different bandpasses
@@ -200,8 +235,8 @@ def read_catalog(filename, bandpasses):
     Catalog must be readable by astropy.table.Table.read(...) and contain
     columns enumerated in the docstring for table_to_catalog(...).
 
-    Params
-    ------
+    Parameters
+    ----------
     filename : str
         filename of catalog to read
 

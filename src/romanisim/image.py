@@ -1,10 +1,7 @@
 """Roman WFI simulator tool.
 
-Based on demo13.py in galsim.  Uses galsim Roman modules for all of the real
-work.
-
-Current design is centered around simulating a single SCA.  It will not handle
-objects that cross SCAs.
+Based on galsim's implementation of Roman image simulation.  Uses galsim Roman modules
+for most of the real work.
 """
 
 import time

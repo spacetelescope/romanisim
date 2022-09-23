@@ -1,0 +1,12 @@
+Making L1 images
+================
+
+An L1 (level 1) image is a "raw" image received from the detectors.  The actual measurements made on the spacecraft consist of a number of non-destructive reads of the pixels of the H4RG detectors.  These reads have independent read noise but because the pixels count the total number of photons having entered each pixel, the Poisson noise in different reads of the same pixel is correlated.
+
+Because the telescope has limited bandwidth, every read is not transferred to ground stations.  Instead, reads are averaged into "resultants" according to a specification called a MultiAccum table, and these resultants are transferred, archived, and analyzed.  These resultants make up an L1 image, which romanisim simulates.
+
+L1 images are created using an idealized `counts` image described :doc:`here </romanisim/image>`, which contains the number of photons each pixel of the detector would receive absent any instrumental systematics.  To transform this into an L1 image, these counts must be apportioned into reads and averaged into resultants, and instrumental effects must be added.
+
+This process proceeds by simulating each read, drawing the appropriate number of photons from the total number of photons for each read following a binomial distribution.  These photons are added to a running sum that is then averaged into a resultant according to the MultiAccum table specification.  This process requires drawing random numbers from the binomial distribution for every read of every pixel, and so can take on the order of a minute, but it allows detailed simulation of the statistics of the noise in each resultant together with their correlations.  It also makes it straightforward to add various instrumental effects into the simulation accurately, since these usually apply to individual reads rather than to resultants (e.g., cosmic rays affect individual reads, and their affect on a resultant depends on the read in the resultant to which they apply).
+
+After apportioning counts to resultants, systematic effects are added to the resultants.  Presently only read noise is added.  The read noise is averaged down like :math:`1/\sqrt{N}`, where :math:`N` is the number of reads contributing to the resultant.
