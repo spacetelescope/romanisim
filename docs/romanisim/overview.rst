@@ -1,4 +1,4 @@
-romanisim overview
+Overview
 ==================
 
 romanisim simulates Roman Wide-Field Imager images of astronomical scenes
