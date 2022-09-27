@@ -32,14 +32,22 @@ project = setup_metadata["name"]
 author = setup_metadata["author"]
 copyright = f"{datetime.now().year}, {author}"
 
-package = importlib.import_module(setup_metadata["name"])
 version = package.__version__.split("-", 1)[0]
 release = package.__version__
+
+package = importlib.import_module(setup_metadata['name'])
+try:
+    version = package.__version__.split('-', 1)[0]
+    release = package.__version__
+except AttributeError:
+    version = 'dev'
+    release = 'dev'
 
 extensions = [
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
     "numpydoc",
+    "sphinx.ext.intersphinx",
 ]
 
 autosummary_generate = True
@@ -55,3 +63,13 @@ html_theme_path = [stsci_rtd_theme.get_html_theme_path()]
 html_domain_indices = True
 html_sidebars = {"**": ["globaltoc.html", "relations.html", "searchbox.html"]}
 html_use_index = True
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3/',
+               (None, 'http://data.astropy.org/intersphinx/python3.inv')),
+    'astropy': ('https://docs.astropy.org/en/stable/', None),
+    'galsim': ('https://galsim-developers.github.io/GalSim/_build/html/', None),
+    'coord': ('https://lsstdesc.org/Coord/_build/html/', None),
+}
+
+nitpicky = True
