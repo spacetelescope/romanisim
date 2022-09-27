@@ -32,9 +32,16 @@ project = setup_metadata["name"]
 author = setup_metadata["author"]
 copyright = f"{datetime.now().year}, {author}"
 
-package = importlib.import_module(setup_metadata["name"])
 version = package.__version__.split("-", 1)[0]
 release = package.__version__
+
+package = importlib.import_module(setup_metadata['name'])
+try:
+    version = package.__version__.split('-', 1)[0]
+    release = package.__version__
+except AttributeError:
+    version = 'dev'
+    release = 'dev'
 
 extensions = [
     "sphinx_automodapi.automodapi",
