@@ -4,7 +4,6 @@ import sys
 from configparser import ConfigParser
 from datetime import datetime
 import importlib
-from os import path
 
 import sphinx
 import stsci_rtd_theme
