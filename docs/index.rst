@@ -1,8 +1,13 @@
-romanisim: a Roman WFI image simulator based on galsim.
+romanisim
+=========
+
+A Roman WFI image simulator based on galsim.
+
+Contents
+========
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
 
    romanisim/overview
    romanisim/install
@@ -19,14 +24,6 @@ romanisim: a Roman WFI image simulator based on galsim.
 
    romanisim/parameters
    romanisim/util
-
-API
-===
-
-.. toctree::
-   :maxdepth: 1
-
-   api.rst
 
 
 Indices and tables

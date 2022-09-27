@@ -3,17 +3,17 @@
 This module provides basic routines to allow romanisim to render scenes
 based on catalogs of sources in those scenes.
 """
-from dataclasses import dataclass
+import dataclasses
 import numpy as np
 import galsim
 from galsim import roman
-from astropy.coordinates import SkyCoord
-from astropy.table import Table
+from astropy import coordinates
+from astropy import table
 from astropy import units as u
-from .util import skycoord, celestialcoord, random_points_in_cap
+from . import util
 
 
-@dataclass
+@dataclasses.dataclass
 class CatalogObject:
     """Simple class to hold galsim positions and profiles of objects."""
     sky_pos: galsim.CelestialCoord
@@ -62,7 +62,7 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
         y_bandpass = roman.getBandpasses(AB_zeropoint=True)['Y106']
 
     objlist = []
-    locs = random_points_in_cap(coord, radius, nobj, rng=rng)
+    locs = util.random_points_in_cap(coord, radius, nobj, rng=rng)
     for i in range(nobj):
         sky_pos = locs[i]
         p = rng()
@@ -155,7 +155,7 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     hlr[hlr < 0.01] = 0.01
     hlr[star] = 0
 
-    out = Table()
+    out = table.Table()
     out['ra'] = [x.ra.deg for x in locs]
     out['dec'] = [x.dec.deg for x in locs]
     out['type'] = types
@@ -214,8 +214,9 @@ def table_to_catalog(table, bandpasses):
 
     out = list()
     for i in range(len(table)):
-        pos = SkyCoord(table['ra'][i]*u.deg, table['dec'][i]*u.deg, frame='icrs')
-        pos = celestialcoord(pos)
+        pos = coordinates.SkyCoord(table['ra'][i]*u.deg, table['dec'][i]*u.deg,
+                                   frame='icrs')
+        pos = util.celestialcoord(pos)
         fluxes = {bp: table[bp][i] for bp in bandpasses}
         if table['type'][i] == 'PSF':
             obj = galsim.DeltaFunction()
@@ -247,4 +248,4 @@ def read_catalog(filename, bandpasses):
     -------
     list[CatalogObject] corresponding to catalog in filename
     """
-    return table_to_catalog(Table.read(filename), bandpasses)
+    return table_to_catalog(table.Table.read(filename), bandpasses)

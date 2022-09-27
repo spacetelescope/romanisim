@@ -105,10 +105,9 @@ import numpy as np
 import asdf
 import galsim
 from galsim import roman
-from roman_datamodels.testing.utils import mk_level1_science_raw
-from romanisim import parameters
-from romanisim import log
-from romanisim.util import unflatten_dictionary, flatten_dictionary
+from . import parameters
+from . import log
+from . import util
 
 
 def validate_times(tij):
@@ -289,12 +288,13 @@ def make_asdf(resultants, filepath=None, metadata=None):
     roman_datamodels.datamodels.ScienceRawModel for L1 image
     """
 
+    from roman_datamodels.testing.utils import mk_level1_science_raw
     out = mk_level1_science_raw(shape=(len(resultants), 4096, 4096))
     if metadata is not None:
-        tmpmeta = flatten_dictionary(out['meta'])
-        tmpmeta.update(flatten_dictionary(
-            unflatten_dictionary(metadata)['roman']['meta']))
-        out['meta'].update(unflatten_dictionary(tmpmeta))
+        tmpmeta = util.flatten_dictionary(out['meta'])
+        tmpmeta.update(util.flatten_dictionary(
+            util.unflatten_dictionary(metadata)['roman']['meta']))
+        out['meta'].update(util.unflatten_dictionary(tmpmeta))
     nborder = parameters.nborder
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if filepath:

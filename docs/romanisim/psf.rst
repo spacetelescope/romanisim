@@ -7,3 +7,5 @@ In the current implementation, the simulator uses a spatially constant, achromat
 
 When using the galsim PSF, galsim's "photon shooting" mode is used for efficient rendering of chromatic sources.  When using webbpsf, FFTs are used to to do the convolution of the intrinsic source profile with the PSF and pixel grid of the instrument.
 
+.. automodapi:: romanisim.psf
+

@@ -8,29 +8,29 @@ fraction of what an APT file seems able to do.
 
 import xml
 from xml.etree import ElementTree
-from astropy.coordinates import SkyCoord
+from astropy import coordinates
 from astropy import units as u
-from dataclasses import dataclass
-from datetime import datetime
+import dataclasses
+import datetime
 
 XMLNS = '{http://www.stsci.edu/Roman/APT}'
 
 
-@dataclass
+@dataclasses.dataclass
 class Target:
     """A target for observation."""
     name: str
     number: int
-    coords: SkyCoord
+    coords: coordinates.SkyCoord
 
 
-@dataclass
+@dataclasses.dataclass
 class Observation:
     """An observation of a target."""
     target: Target
     bandpass: str
     exptime: float
-    date: datetime
+    date: datetime.datetime
 
 
 def read_apt(filename):
@@ -55,7 +55,7 @@ def read_apt(filename):
     for target in target_elements:
         t_name = target.find(XMLNS + 'TargetName').text
         t_coords = target.find(XMLNS + 'EquatorialCoordinates').get('Value')
-        t_coords = SkyCoord(t_coords, unit=(u.hourangle, u.deg))
+        t_coords = coordinates.SkyCoord(t_coords, unit=(u.hourangle, u.deg))
         t_number = int(target.find(XMLNS + 'Number').text)
         target_dict[t_number] = Target(t_name, t_number, t_coords)
     # I don't see any exposure time information.
@@ -72,7 +72,7 @@ def read_apt(filename):
         targ = target_dict[int(o.find(XMLNS + 'Target').text)]
         bandpass = o.find(XMLNS + 'OpticalElement').text
         exptime = -1  # Where is this located?
-        date = datetime(2000, 1, 1)  # How should I derive this?
+        date = datetime.datetime(2000, 1, 1)  # How should I derive this?
         obs = Observation(targ, bandpass, exptime, date)
         obslist.append(obs)
     return obslist
