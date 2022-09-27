@@ -4,6 +4,7 @@ import sys
 from configparser import ConfigParser
 from datetime import datetime
 import importlib
+from os import path
 
 import sphinx
 import stsci_rtd_theme
@@ -40,6 +41,7 @@ extensions = [
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
     "numpydoc",
+    "sphinx.ext.intersphinx",
 ]
 
 autosummary_generate = True
@@ -55,3 +57,13 @@ html_theme_path = [stsci_rtd_theme.get_html_theme_path()]
 html_domain_indices = True
 html_sidebars = {"**": ["globaltoc.html", "relations.html", "searchbox.html"]}
 html_use_index = True
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3/',
+               (None, 'http://data.astropy.org/intersphinx/python3.inv')),
+    'astropy': ('https://docs.astropy.org/en/stable/', None),
+    'galsim': ('https://galsim-developers.github.io/GalSim/_build/html/', None),
+    'coord': ('https://lsstdesc.org/Coord/_build/html/', None),
+}
+
+nitpicky = True
