@@ -6,21 +6,21 @@ for most of the real work.
 
 import time
 import logging
-from copy import deepcopy
+import copy
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord
-from astropy.time import Time
+from astropy import coordinates
+from astropy import time
 import asdf
 import galsim
 from galsim import roman
 import roman_datamodels.testing.utils
-from .wcs import get_wcs
-from .catalog import make_dummy_catalog
-from .bandpass import get_abflux, galsim2roman_bandpass, roman2galsim_bandpass
-from .psf import make_psf
-from .parameters import default_parameters_dictionary
-from .util import flatten_dictionary, unflatten_dictionary
+from . import wcs
+from . import catalog
+from . import bandpass
+from . import psf
+from . import parameters
+from . import util
 import romanisim.l1
 from romanisim import log
 from romanisim import parameters
@@ -176,25 +176,25 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
-    galsim_filter_name = roman2galsim_bandpass[filter_name]
+    galsim_filter_name = bandpass.roman2galsim_bandpass[filter_name]
     bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
-    wcs = get_wcs(world_pos=targ_pos, date=date, sca=sca, usecrds=usecrds)
+    imwcs = wcs.get_wcs(world_pos=targ_pos, date=date, sca=sca, usecrds=usecrds)
     chromatic = False
     if len(objlist) > 0 and objlist[0].profile.spectral:
         chromatic = True
-    psf = make_psf(sca, filter_name, wcs=wcs, chromatic=chromatic,
-                   webbpsf=webbpsf)
-    full_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=wcs)
-    sky_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=wcs)
+    psf = psf.make_psf(sca, filter_name, wcs=imwcs, chromatic=chromatic,
+                       webbpsf=webbpsf)
+    full_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs)
+    sky_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs)
 
-    SCA_cent_pos = wcs.toWorld(sky_image.true_center)
+    SCA_cent_pos = imwcs.toWorld(sky_image.true_center)
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
                                   date=date.datetime)
     sky_level *= (1.0 + roman.stray_light_fraction)
-    wcs.makeSkyImage(sky_image, sky_level)
+    imwcs.makeSkyImage(sky_image, sky_level)
     sky_image += roman.thermal_backgrounds[galsim_filter_name] * exptime
     imbd = full_image.bounds
-    abflux = get_abflux(filter_name)
+    abflux = bandpass.get_abflux(filter_name)
 
     nrender = 0
     final = None
@@ -203,7 +203,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         # this is kind of slow.  We need to do an initial vectorized cull before
         # reaching this point.
         t0 = time.time()
-        image_pos = wcs.toImage(obj.sky_pos)
+        image_pos = imwcs.toImage(obj.sky_pos)
         if ((image_pos.x < imbd.xmin - ignore_distant_sources) or
                 (image_pos.x > imbd.xmax + ignore_distant_sources) or
                 (image_pos.y < imbd.ymin - ignore_distant_sources) or
@@ -215,7 +215,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         final = galsim.Convolve(obj.profile * exptime, psf)
         if chromatic:
             stamp = final.drawImage(
-                bandpass, center=image_pos, wcs=wcs.local(image_pos),
+                bandpass, center=image_pos, wcs=imwcs.local(image_pos),
                 method='phot', rng=rng)
         else:
             if obj.flux is not None:
@@ -223,7 +223,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
                     obj.flux[filter_name] * abflux)
                 try:
                     stamp = final.drawImage(center=image_pos,
-                                            wcs=wcs.local(image_pos))
+                                            wcs=imwcs.local(image_pos))
                 except galsim.GalSimFFTSizeError:
                     log.warning(f'Skipping source {i} due to too '
                                 f'large FFT needed for desired accuracy.')
@@ -296,18 +296,19 @@ def simulate(metadata, objlist,
     asdf structure with simulated image
     """
 
-    all_metadata = deepcopy(default_parameters_dictionary)
-    flatmetadata = flatten_dictionary(metadata)
+    all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    flatmetadata = util.flatten_dictionary(metadata)
     flatmetadata = {'roman.meta'+k if k.find('roman.meta') != 0 else k: v
                     for k, v in flatmetadata.items()}
-    all_metadata.update(**flatten_dictionary(metadata))
+    all_metadata.update(**util.flatten_dictionary(metadata))
     ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
     sca = int(all_metadata['roman.meta.instrument.detector'][3:])
-    coord = SkyCoord(ra=all_metadata['roman.meta.pointing.ra_v1']*u.deg,
-                     dec=all_metadata['roman.meta.pointing.dec_v1']*u.deg)
+    coord = coordinates.SkyCoord(
+        ra=all_metadata['roman.meta.pointing.ra_v1']*u.deg,
+        dec=all_metadata['roman.meta.pointing.dec_v1']*u.deg)
     start_time = all_metadata['roman.meta.exposure.start_time']
-    if not isinstance(start_time, Time):
-        start_time = Time(start_time, format='isot')
+    if not isinstance(start_time, time.Time):
+        start_time = time.Time(start_time, format='isot')
     date = start_time
     filter_name = all_metadata['roman.meta.instrument.optical_element']
 
@@ -357,17 +358,17 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
     log.info('Making catalog...')
     if filters is None:
         filters = ['Y106', 'J129', 'H158']
-    metadata = deepcopy(default_parameters_dictionary)
-    coord = SkyCoord(
-        ra=default_parameters_dictionary['roman.meta.pointing.ra_v1']*u.deg,
-        dec=default_parameters_dictionary['roman.meta.pointing.dec_v1']*u.deg)
-    date = Time(
-        default_parameters_dictionary['roman.meta.exposure.start_time'],
+    metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    coord = coordinates.SkyCoord(
+        ra=metadata['roman.meta.pointing.ra_v1']*u.deg,
+        dec=metadata['roman.meta.pointing.dec_v1']*u.deg)
+    date = time.Time(
+        metadata['roman.meta.exposure.start_time'],
         format='isot')
-    wcs = get_wcs(world_pos=coord, date=date, sca=sca, usecrds=usecrds)
-    rd_sca = wcs.toWorld(galsim.PositionD(
+    imwcs = wcs.get_wcs(world_pos=coord, date=date, sca=sca, usecrds=usecrds)
+    rd_sca = imwcs.toWorld(galsim.PositionD(
         roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
-    cat = make_dummy_catalog(rd_sca, seed=seed, nobj=nobj)
+    cat = catalog.make_dummy_catalog(rd_sca, seed=seed, nobj=nobj)
     rng = galsim.UniformDeviate(0)
     out = dict()
     for filter_name in filters:
@@ -431,10 +432,10 @@ def make_asdf(im, metadata=None, filepath=None):
     if metadata is not None:
         # ugly mess of flattening & unflattening to make sure that deeply
         # nested keywords all get propagated into the metadata structure.
-        tmpmeta = flatten_dictionary(out['meta'])
-        tmpmeta.update(flatten_dictionary(
-            unflatten_dictionary(metadata)['roman']['meta']))
-        out['meta'].update(unflatten_dictionary(tmpmeta))
+        tmpmeta = util.flatten_dictionary(out['meta'])
+        tmpmeta.update(util.flatten_dictionary(
+            util.unflatten_dictionary(metadata)['roman']['meta']))
+        out['meta'].update(util.unflatten_dictionary(tmpmeta))
 
     out['data'] = im
     out['dq'] = (im*0).astype('u4')

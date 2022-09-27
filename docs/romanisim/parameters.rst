@@ -7,3 +7,6 @@ The parameters module contains a few useful constants describing the Roman teles
 * the number of border pixels
 * the specification of the read indices going into resultants for a fiducial L1 image
 * the read time.
+
+.. automodapi:: romanisim.parameters
+

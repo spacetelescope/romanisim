@@ -7,4 +7,4 @@ Much of this information is available in an APT file.  A rudimentary APT file re
 
 This module is not yet fully baked.
 
-
+.. automodapi:: romanisim.apt

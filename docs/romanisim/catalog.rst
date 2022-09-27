@@ -31,3 +31,5 @@ Following these required fields is a series of columns giving the fluxes of the 
 
 The simulator then renders these images in the scene and produces the simulated L1 or L2 images.
 
+
+.. automodapi:: romanisim.catalog
