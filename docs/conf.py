@@ -52,6 +52,16 @@ numpydoc_show_class_members = False
 numpydoc_class_members_toctree = False
 autoclass_content = "both"
 
+graphviz_output_format = "svg"
+graphviz_dot_args = [
+    '-Nfontsize=10',
+    '-Nfontname=Helvetica Neue, Helvetica, Arial, sans-serif',
+    '-Efontsize=10',
+    '-Efontname=Helvetica Neue, Helvetica, Arial, sans-serif',
+    '-Gfontsize=10',
+    '-Gfontname=Helvetica Neue, Helvetica, Arial, sans-serif'
+]
+
 html_theme = "stsci_rtd_theme"
 html_theme_options = {
     "collapse_navigation": True
