@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).parent.parent
 
 # Modules that automodapi will document need to be available
 # in the path:
-sys.path.insert(0, str(REPO_ROOT/"src"/"romanisim"))
+sys.path.insert(0, str(REPO_ROOT/"romanisim"))
 
 # Read the package's setup.cfg so that we can use relevant
 # values here:
@@ -31,9 +31,6 @@ setup_metadata = dict(conf.items("metadata"))
 project = setup_metadata["name"]
 author = setup_metadata["author"]
 copyright = f"{datetime.now().year}, {author}"
-
-version = package.__version__.split("-", 1)[0]
-release = package.__version__
 
 package = importlib.import_module(setup_metadata['name'])
 try:
@@ -54,6 +51,16 @@ autosummary_generate = True
 numpydoc_show_class_members = False
 numpydoc_class_members_toctree = False
 autoclass_content = "both"
+
+graphviz_output_format = "svg"
+graphviz_dot_args = [
+    '-Nfontsize=10',
+    '-Nfontname=Helvetica Neue, Helvetica, Arial, sans-serif',
+    '-Efontsize=10',
+    '-Efontname=Helvetica Neue, Helvetica, Arial, sans-serif',
+    '-Gfontsize=10',
+    '-Gfontname=Helvetica Neue, Helvetica, Arial, sans-serif'
+]
 
 html_theme = "stsci_rtd_theme"
 html_theme_options = {
