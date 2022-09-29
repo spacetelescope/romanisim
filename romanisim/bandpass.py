@@ -45,7 +45,8 @@ def read_gsfc_effarea(filename=None):
 
     Returns
     -------
-    astropy.table.Table with effective areas for different Roman bandpasses.
+    astropy.table.Table
+        table with effective areas for different Roman bandpasses.
     """
     if filename is None:
         dirname = pkg_resources.resource_filename('romanisim', 'data')
@@ -98,6 +99,20 @@ def compute_abflux(effarea=None):
 
 
 def get_abflux(bandpass):
+    """Get the zero point flux for a particular bandpass.
+
+    This is a simple wrapper for compute_abflux, caching the results.
+
+    Parameters
+    ----------
+    bandpass : str
+        the name of the bandpass
+
+    Returns
+    -------
+    float
+        the zero point flux (photons / s)s
+    """
     bandpass = galsim2roman_bandpass.get(bandpass, bandpass)
     abflux = getattr(get_abflux, 'abflux', None)
     if abflux is None:

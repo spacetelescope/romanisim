@@ -272,6 +272,7 @@ def simulate(metadata, objlist,
 
     metadata : dict
         metadata structure for Roman asdf file, including information about
+
         pointing: metadata['pointing']['ra_v1'], metadata['pointing']['dec_v1']
         date: metadata['exposure']['start_time']
         sca: metadata['instrument']['detector']

@@ -52,6 +52,30 @@ def celestialcoord(sky):
 
 
 def scalergb(rgb, scales=None, lumrange=None):
+    """Scales three flux images into a range of luminosity for displaying.
+
+    This routine is intended to help with cases where you want to display
+    some images and want the color scale to cover only a certain range,
+    but saturated regions should retain their appropriate hue and not be
+    compressed to white.
+
+    Parameters
+    ----------
+    rgb : np.ndarray[npix, npix, 3]
+        the RGB images to scale
+
+    scales : list[float] (must contain 3 floats)
+        rescale each image by this amount
+
+    lumrange : list[float] (must contain 2 floats)
+        minimum and maximum luminosity
+
+    Returns
+    -------
+    im : np.ndarray[npix, npix, 3]
+        scaled RGB image suitable for displaying
+    """
+
     rgb = rgb.copy()
     if scales is not None:
         for i in range(3):
@@ -127,9 +151,10 @@ def flatten_dictionary(d):
 
     Returns
     -------
-    flattened dictionary, with subdictionaries' keys promoted into the
-    top-level directory with keys adjusted to include dots indicating
-    their former position in the hierarchy.
+    dict
+        flattened dictionary, with subdictionaries' keys promoted into the
+        top-level directory with keys adjusted to include dots indicating
+        their former position in the hierarchy.
     """
     out = dict()
     for key, value in d.items():
@@ -165,7 +190,8 @@ def unflatten_dictionary(d):
 
     Returns
     -------
-    unflattened dictionary, with keys with dots promoted into subdictionaries.
+    dict
+        unflattened dictionary, with keys with dots promoted into subdictionaries.
     """
 
     def unflatten_value(k, v):

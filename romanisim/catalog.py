@@ -120,8 +120,9 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
 
     Returns
     -------
-    astropy.table.Table with keys needed to generate a list of CatalogObject
-    entries for rendering.
+    astropy.table.Table
+        Table including fields needed to generate a list of CatalogObject
+        entries for rendering.
     """
     if bandpasses is None:
         bandpasses = roman.getBandpasses().keys()

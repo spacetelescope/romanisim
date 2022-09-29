@@ -120,7 +120,8 @@ def validate_times(tij):
 
     Returns
     -------
-    True if the tij are ascending, otherwise False
+    bool
+        True if the tij are ascending, otherwise False
     """
     times = [t for resultant in tij for t in resultant]
     return np.all(np.diff(times) > 0)
@@ -285,7 +286,8 @@ def make_asdf(resultants, filepath=None, metadata=None):
 
     Returns
     -------
-    roman_datamodels.datamodels.ScienceRawModel for L1 image
+    roman_datamodels.datamodels.ScienceRawModel
+        L1 image
     """
 
     from roman_datamodels.testing.utils import mk_level1_science_raw
@@ -356,7 +358,8 @@ def make_l1(counts, ma_table_number,
 
     Returns
     -------
-    resultants image array including systematic effects
+    np.ndarray[n_resultant, nx, ny]
+        resultants image array including systematic effects
     """
     if rng is None and seed is None:
         seed = 45
