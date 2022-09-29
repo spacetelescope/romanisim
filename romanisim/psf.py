@@ -50,8 +50,9 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
 
     Returns
     -------
-    galsim profile object for convolution with source profiles when rendering
-    scenes.
+    profile : galsim.gsobject.GSObject
+        galsim profile object for convolution with source profiles when rendering
+        scenes.
     """
     pix = pix if pix is not None else (2044, 2044)
     if not webbpsf:
