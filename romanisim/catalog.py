@@ -210,7 +210,8 @@ def table_to_catalog(table, bandpasses):
 
     Returns
     -------
-    list[CatalogObject] corresponding to catalog
+    list[CatalogObject]
+        list of catalog objects for catalog
     """
 
     out = list()
@@ -247,6 +248,7 @@ def read_catalog(filename, bandpasses):
 
     Returns
     -------
-    list[CatalogObject] corresponding to catalog in filename
+    list[CatalogObject]
+        list of catalog objects in filename
     """
     return table_to_catalog(table.Table.read(filename), bandpasses)
