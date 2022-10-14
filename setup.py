@@ -5,6 +5,7 @@ import subprocess
 import sys
 from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test as TestCommand
+from glob import glob
 
 SCRIPTS = [s for s in glob('scripts/*') if basename(s) != '__pycache__']
 
