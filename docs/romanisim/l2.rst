@@ -1,0 +1,19 @@
+L2 images
+=========
+
+L2 images are constructed from :doc:`L1 </romanisim/l1>` images, which are in turn constructed from idealized :doc:`count </romanisim/image>` images.  This means that even when constructing L2 images, one must go through the process of simulating how counts get apportioned among the various reads.  It is challenging to realistically model the statistics in the noise of L2 images without going through this process.
+
+L2 images are constructed by doing "ramp fitting" on the level 1 images.  Each pixel of a level 1 image is a series of "resultants", giving the measured value of that pixel averaged over a series on non-destructive reads as the exposure is being observed.  A simple model for a pixel is that its flux as a function of time is simply two numbers: a pedestal and a linear ramp representing the rate at which photons are detected by the pixel.  Ramp fitting turns these one-dimensional series of resultants into a "slope" image that is of interest astronomically.  Due to details of the H4RG detectors, the pedestals of the ramp vary widely from exposure to exposure, and so current fitting completely throws away as non-astronomical any information in the ramp that is sensitive to the pedestal.
+
+Ramps are currently fit using "optimal" weighting, considering the full covariance matrix between each of the resultants stemming from read \& Poisson noise from the sources.  The covariance is inverted and combined with the design matrix in the usual least-squares approach to solve for the optimal slope and pedestal measurements for each pixel.  This approach is naively expensive, but because the covariance matrices for each pixel for a one-dimensional family depending only on the ratio of the flux in the pixel to the read variance, the relevant matrices can be precomputed.  These are then interpolated between for each pixel and summed over to get the parameters and variances for each pixel.
+
+This approach does not handle cosmic rays or saturated pixels well, though for modest sized sets of resultants introducing an additional series of fits for the roughly :math:`2 n_\mathrm{resultant}` sub-ramps would be straightforward.  That approach would also naturally handle saturated ramps.  Even explicitly computing every possible :math:`n_\mathrm{resultant} (n_\mathrm{resultant} - 1) / 2` subramp would likely still be quite inexpensive for modestly sized ramps.
+
+This is a fairly faithful representation of how level two image construction works, so there are not many additional effects to add here.  Some things that haven't yet been fully baked:
+
+* We should put in a flat field for each pixel.  That comes in as an additional draw from the counts image according to how non-ideal each pixel is, in the total counts image.
+* We need to think about gain images.
+* We are ignoring non-linearities both here and at the L1 stage.
+* We are ignoring saturation both here and at the L1 stage.
+
+.. automodapi:: romanisim.ramp

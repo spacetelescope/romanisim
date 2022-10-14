@@ -45,6 +45,7 @@ extensions = [
     "sphinx_automodapi.smart_resolver",
     "numpydoc",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
 ]
 
 autosummary_generate = True

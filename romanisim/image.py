@@ -8,9 +8,9 @@ import time
 import logging
 import copy
 import numpy as np
+import astropy.time
 from astropy import units as u
 from astropy import coordinates
-from astropy import time
 import asdf
 import galsim
 from galsim import roman
@@ -22,8 +22,11 @@ from . import psf
 from . import parameters
 from . import util
 import romanisim.l1
+import romanisim.bandpass
+import romanisim.psf
 from romanisim import log
 from romanisim import parameters
+import crds
 
 # galsim fluxes are in photons / cm^2 / s
 # we need to specify the area and exposure time in drawImage if
@@ -49,80 +52,46 @@ from romanisim import parameters
 # folding_ratio for speed, as well as directly rendering into the image.
 
 
-def make_l2(counts, sca, return_variance=False, read_noise=None,
-            rng=None, seed=None):
+def make_l2(resultants, ma_table, read_noise=None):
     """
-    Simulate an image in a filter given a total count image.
+    Simulate an image in a filter given resultants.
 
-    The idea is that the total count image includes all of the hard work of
-    convolving the scene with the PSF and applying the distortion map, and
-    produces an idealized image of how many photons / electrons land in each
-    pixel.  This routine then has the easier job of translating that into an
-    L2 image.
-
-    This routine doesn't presently think very hard about what is in an L2
-    image, and just applies some systematics and noise sources on top.
-    Down the road, we need to think about what the noise really looks like
-    for the slope fits coming out of ramp fitting.
-
-    In particular, we just leave the count image the same and add noise;
-    we don't yet make adjustments for the fact that the total exposure time
-    is different from the effective exposure time because at best we only
-    get an exposure time that is the difference of the first and last mean
-    resultant times.
-
-    This should get refactored into a separate l2 module.
+    This routine does idealized ramp fitting on a set of resultants.
 
     Parameters
     ----------
-    counts : galsim.Image
-        total counts in pixel from rate sources in total exposure time
-    sca : int
-        SCA to simulate
-    return_variance : bool
-        If True, also return var_poisson, var_rnoise, var_flat
-        Poisson noise currently does not think about instrumental
-        effects like reciprocity failure, non-linearity, IPC.
+    resultants : np.ndarray[resultants, nx, ny]
+        resultants array
+    ma_table : list[list] (int)
+        list of list of first read numbers and number of reads in each resultant
     read_noise : ndarray-like[n_pix, n_pix]
         read_noise image to use.  If None, use galsim.roman.read_noise.
 
     Returns
     -------
-    If return_variance is True, instead a 4-tuple of galsim.Image.
-        The 4 images represent the observed scene, the Poisson noise,
-        the read noise, and flat field uncertainty-induced noise.
+    im : galsim.Image
+        best fitting slopes
+    var_rnoise : galsim.Image
+        variance in slopes from read noise
+    var_poisson : galsim.Image
+        variance in slopes from source noise
     """
-    if rng is None and seed is None:
-        seed = 44
-        log.warning(
-            'No RNG set, constructing a new default RNG from default seed.')
-    if rng is None:
-        rng = galsim.UniformDeviate(seed)
 
-    var_poisson = counts.copy()
-    # note this is imperfect because the counts already include Poisson noise.
-    # but this is probably what we do in romancal anyway?
-
-    roman.addReciprocityFailure(counts)
-    roman.applyNonlinearity(counts)
-    roman.applyIPC(counts)
     if read_noise is None:
-        read_noise = roman.read_noise
-    if np.ndim(read_noise) != 0:
-        read_noise = galsim.VariableGaussianNoise(rng, read_noise)
-    else:
-        read_noise = galsim.GaussianNoise(rng, sigma=read_noise)
-    counts.addNoise(read_noise)
+        read_noise = galsim.roman.read_noise
 
-    counts /= roman.gain
-    counts.quantize()
+    from . import ramp
+    rampfitter = ramp.RampFitInterpolator(ma_table)
+    log.warning('Gain should be handled as something more interesting '
+                'than a single constant.')
+    ramppar, rampvar = rampfitter.fit_ramps(resultants/galsim.roman.gain,
+                                            read_noise)
+    # could iterate if we wanted to improve the flux estimates
 
-    if return_variance:
-        var_rnoise = counts * 0 + read_noise**2
-        var_flat = counts * 0
-        counts = (counts, var_poisson, var_rnoise, var_flat)
-
-    return counts.array
+    return (ramppar[..., 1],  # the slopes, ignoring the pedestals
+            rampvar[..., 0, 1, 1], # the read noise induced slope variance
+            rampvar[..., 1, 1, 1], # the poisson noise induced slope variance
+           )
 
 
 def simulate_counts(sca, targ_pos, date, objlist, filter_name,
@@ -176,25 +145,27 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
-    galsim_filter_name = bandpass.roman2galsim_bandpass[filter_name]
+    galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
     bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
     imwcs = wcs.get_wcs(world_pos=targ_pos, date=date, sca=sca, usecrds=usecrds)
     chromatic = False
     if len(objlist) > 0 and objlist[0].profile.spectral:
         chromatic = True
-    psf = psf.make_psf(sca, filter_name, wcs=imwcs, chromatic=chromatic,
-                       webbpsf=webbpsf)
+    psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs, chromatic=chromatic,
+                                 webbpsf=webbpsf)
     full_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs)
     sky_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs)
+    dark_image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs)
 
     SCA_cent_pos = imwcs.toWorld(sky_image.true_center)
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
-                                  date=date.datetime)
+                                  date=date.datetime, exptime=1) * exptime
     sky_level *= (1.0 + roman.stray_light_fraction)
     imwcs.makeSkyImage(sky_image, sky_level)
     sky_image += roman.thermal_backgrounds[galsim_filter_name] * exptime
     imbd = full_image.bounds
-    abflux = bandpass.get_abflux(filter_name)
+    abflux = romanisim.bandpass.get_abflux(filter_name)
+    log.info('Adding sources to image...')
 
     nrender = 0
     final = None
@@ -247,14 +218,8 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
 
     if darkrate is None:
         darkrate = roman.dark_current
-    dark_counts = darkrate * exptime
-    if np.ndim(dark_counts) == 0:
-        dark_noise = galsim.DeviateNoise(
-            galsim.PoissonDeviate(rng, dark_counts))
-        full_image.addNoise(dark_noise)
-    else:
-        dark_counts.addNoise(poisson_noise)
-        full_image += dark_counts
+    dark_image += darkrate * exptime
+    dark_image.addNoise(poisson_noise)
 
     full_image.quantize()
 
@@ -286,7 +251,8 @@ def simulate(metadata, objlist,
     webbpsf : bool
         use webbpsf to generate PSF
     level : int
-        1 or 2, specifying level 1 or level 2 image
+        0, 1 or 2, specifying level 1 or level 2 image
+        0 makes a special idealized 'counts' image
     rng : galsim.BaseDeviate
         Random number generator to use
     seed : int
@@ -308,8 +274,8 @@ def simulate(metadata, objlist,
         ra=all_metadata['roman.meta.pointing.ra_v1']*u.deg,
         dec=all_metadata['roman.meta.pointing.dec_v1']*u.deg)
     start_time = all_metadata['roman.meta.exposure.start_time']
-    if not isinstance(start_time, time.Time):
-        start_time = time.Time(start_time, format='isot')
+    if not isinstance(start_time, astropy.time.Time):
+        start_time = astropy.time.Time(start_time, format='isot')
     date = start_time
     filter_name = all_metadata['roman.meta.instrument.optical_element']
 
@@ -318,11 +284,14 @@ def simulate(metadata, objlist,
     exptime = last_read * parameters.read_time
 
     if usecrds:
-        reffiles = crds.getreferences(allmetadata, reftypes=['readnoise', 'dark'],
+        reffiles = crds.getreferences(all_metadata, reftypes=['readnoise', 'dark'],
                                       observatory='roman')
         read_noise = asdf.open(reffiles['readnoise'])['roman']['data']
         darkrate = asdf.open(reffiles['dark'])['roman']['data']
         darkrate = darkrate[-1] / (np.mean(ma_table[-1])*parameters.read_time)
+        nborder = parameters.nborder
+        read_noise = read_noise[nborder:-nborder, nborder:-nborder]
+        darkrate = darkrate[nborder:-nborder, nborder:-nborder]
     else:
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
@@ -342,13 +311,15 @@ def simulate(metadata, objlist,
         sca, coord, date, objlist, filter_name, rng=rng,
         exptime=exptime, usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf)
-    if level == 2:
-        im = make_l2(counts, sca, read_noise=read_noise, rng=rng, **kwargs)
-        im = make_asdf(im, metadata=all_metadata)
-    elif level == 1:
-        im = romanisim.l1.make_l1(
-            counts, ma_table_number, read_noise=read_noise, rng=rng, **kwargs)
-        im = romanisim.l1.make_asdf(im, metadata=all_metadata)
+    if level == 0:
+        return counts
+    l1 = romanisim.l1.make_l1(
+        counts, ma_table_number, read_noise=read_noise, rng=rng, **kwargs)
+    if level == 1:
+        im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
+    elif level == 2:
+        slopeinfo = make_l2(l1, ma_table, read_noise=read_noise)
+        im = make_asdf(*slopeinfo, metadata=all_metadata)
     return im
 
 
@@ -363,7 +334,7 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
     coord = coordinates.SkyCoord(
         ra=metadata['roman.meta.pointing.ra_v1']*u.deg,
         dec=metadata['roman.meta.pointing.dec_v1']*u.deg)
-    date = time.Time(
+    date = astropy.time.Time(
         metadata['roman.meta.exposure.start_time'],
         format='isot')
     imwcs = wcs.get_wcs(world_pos=coord, date=date, sca=sca, usecrds=usecrds)
@@ -373,14 +344,18 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
     rng = galsim.UniformDeviate(0)
     out = dict()
     for filter_name in filters:
-        im = simulate(metadata, rng=rng, usecrds=usecrds, webbpsf=webbpsf,
+        im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds, webbpsf=webbpsf,
                       **kwargs)
         out[filter_name] = im
     return out
 
 
-def make_asdf(im, metadata=None, filepath=None):
-    """Wrap a galsim simulated image with ASDF/roman_datamodel metadata."""
+def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
+              filepath=None):
+    """Wrap a galsim simulated image with ASDF/roman_datamodel metadata.
+
+    Eventually this needs to get enough info to reconstruct a refit WCS.
+    """
 
     out = roman_datamodels.testing.utils.mk_level2_image()
     # fill this output with as much real information as possible.
@@ -438,44 +413,14 @@ def make_asdf(im, metadata=None, filepath=None):
             util.unflatten_dictionary(metadata)['roman']['meta']))
         out['meta'].update(util.unflatten_dictionary(tmpmeta))
 
-    out['data'] = im
-    out['dq'] = (im*0).astype('u4')
-    out['var_poisson'] = im*0
-    out['var_rnoise'] = im*0
-    out['var_flat'] = im*0
-    out['err'] = im*0
+    out['data'] = slope
+    out['dq'] = (slope*0).astype('u4')
+    out['var_poisson'] = slopevar_poisson
+    out['var_rnoise'] = slopevar_rn
+    out['var_flat'] = slope*0
+    out['err'] = slope*0
     if filepath:
         af = asdf.AsdfFile()
         af.tree = {'roman': out}
         af.write_to(filepath)
     return out
-
-
-# add in darks next?
-# I need to better understand what the dark reference file means.
-# It contains 6 images.  These correlate beautifully with one another pixel-by-pixel,
-# appearing to just be linear rescalings of one another.
-# It seems to me like since I am making a L2 image, I need to think a little about what
-# ramp fitting means in terms of delivered read noise
-# galsim.roman.read_noise is 8.5; c.f. roman_wfi_readnoise_0171.asdf = 5.
-# Naive ramp fitting of just differencing the zero and last measurements would give
-# readnoise of 5*sqrt(2) = 7.07.
-# electrons vs. counts?  galsim.roman has a gain of 1, though.
-# I spent a while thinking about this.  In the read noise-dominated limit,
-# it's straightforward to work out simple analytic expressions for everything, and
-# the final slope uncertainties are just sigma**2_rn / (N * t_N**2) * C, with C a constant
-# depending on the distribution of reads within the integration.  It's 1 if all the reads
-# are at the end and you have a strong prior for the zero value; it's 12 for the usual
-# independent slope-and-offset fitting mode and uniform reads, and 4 for a limiting
-# all-reads-at-beginning-and-end mode.
-# For _background limited_ sources, which seems the usual case, life is harder.
-# It's almost certainly easiest to just compute the final read noise as
-# (A^T C^-1 A)^-1, with A = [ones, time distribution], and C an appropriate sum of
-# read noise and background noise.
-# C is annoying because of correlations.  But it's not so bad.
-# C just ends up being sigma^2 on the diagonal and rate*t on the off-diagonal,
-# where t is the smaller of the two contributing integration times.  There is
-# some discussion in one of the papers about whether this formulation or an
-# alternative formulation where the measurements are delta-f_i is easier (the latter
-# has only one off-diagonal correlation term from the read noises), but I don't
-# immediately expect this matrix multiplication to be expensive overall.

@@ -126,7 +126,7 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     """
     if bandpasses is None:
         bandpasses = roman.getBandpasses().keys()
-    locs = random_points_in_cap(coord, radius, nobj, rng=rng)
+    locs = util.random_points_in_cap(coord, radius, nobj, rng=rng)
     # n ~ 10^(3m/5) is what one gets for standard columns in a flat universe
     # cut off at 26th mag, go arbitrarily bright.
     # at least not crazy for a dummy catalog
