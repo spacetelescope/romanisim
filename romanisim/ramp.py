@@ -8,16 +8,20 @@ of the work of ramp fitting.
 There are a few different proposed ramp fitting algorithms, differing in their
 weights.  The final derived covariances are all somewhat similarly difficult
 to compute, however, since we ultimately end up needing to compute
+
 .. math:: (A^T C^{-1} A)^{-1}
+
 for the "optimal" case, or
+
 .. math:: (A^T W^{-1} A)^{-1} A^T C^{-1} A (A^T W^{-1} A)^{-1}
+
 for some alternative weighting.
 
 We start trying the "optimal" case below.
 
 For the "optimal" case, a challenge is that we don't want to compute
 :math:`C^{-1}` for every pixel individually.  Fortunately, we only
-need :math:`(A^T C^{-1} A)^{-1} (which is only a 2x2 matrix) for variances,
+need :math:`(A^T C^{-1} A)^{-1}` (which is only a 2x2 matrix) for variances,
 and only :math:`(A^T C^{-1} A)^{-1} A^T C^{-1}` for ramp fitting, which is 2xn.
 Both of these matrices are effectively single parameter families, depending
 after rescaling by the read noise only on the ratio of the read noise and flux.
@@ -42,7 +46,8 @@ def ma_table_to_tbar(ma_table):
 
     Returns
     -------
-    The mean time of the reads of each resultant.
+    tbar : np.ndarray[n_resultant] (float)
+        The mean time of the reads of each resultant.
     """
     firstreads = np.array([x[0] for x in ma_table])
     nreads = np.array([x[1] for x in ma_table])
@@ -69,7 +74,7 @@ def ma_table_to_tau(ma_table):
 
     Returns
     -------
-    :math:`tau`
+    :math:`\\tau`
         A time scale appropriate for computing variances.
     """
 
@@ -160,23 +165,23 @@ def construct_ki_and_variances(atcinva, atcinv, covars):
     """Construct the :math:`k_i` weights and variances for ramp fitting.
 
     Following Casertano (2022), the ramp fit resultants are k.dot(differences),
-    where k = :math:`(A^T C^{-1} A)^{-1} A^T C^{-1}`, and differences is the
+    where :math:`k=(A^T C^{-1} A)^{-1} A^T C^{-1}`, and differences is the
     result of resultants_to_differences(resultants).  Meanwhile the variances
     are :math:`k C k^T`.  This function computes these k and variances.
 
     Parameters
     ----------
     atcinva : np.ndarray[2, 2] (float)
-        :math:`A^T C^-1 A` from construct_ramp_fitting_matrices
+        :math:`A^T C^{-1} A` from construct_ramp_fitting_matrices
     atcinv : np.ndarray[2, n_resultant] (float)
-        :math:`A^T C^-1` from construct_ramp_fitting_matrices
+        :math:`A^T C^{-1}` from construct_ramp_fitting_matrices
     covars : list[np.ndarray[n_resultant, n_resultant]]
         covariance matrices to contract against :math:`k` to compute variances
     
     Returns
     -------
     k, variances : np.ndarray[2, n_resultant], list[np.ndarray[2, 2]] (float)
-        :math:`k = (A^T C^-1 A)^-1 A^T C^-1` from Casertano (2022)
+        :math:`k = (A^T C^{-1} A)^-1 A^T C^{-1}` from Casertano (2022)
         variances = :math:`k C_i k^T` for different covariance matrices C_i
         supplied in covars
     """
@@ -206,7 +211,6 @@ def ki_and_variance_grid(ma_table, flux_on_readvar_pts):
 
     Returns
     -------
-    kigrid, vargrid
     kigrid : np.ndarray[len(flux_on_readvar_pts), 2, n_resultants] (float)
         :math:`k` for each value of flux_on_readvar_pts
     vargrid : np.ndarray[len(flux_on_readvar_pts), n_covar, 2, 2] (float)
