@@ -12,9 +12,6 @@ The parsed metadata is used to make a ``counts`` image that is an idealized imag
 * WFI reads are averaged on the telescope into resultants; ground images see only resultants.
 
 These idealized count images are then used to either make a level 2 image or a level 1 image, which are intended to include
-the effects of these complications.  The construction of L1 images is described :doc:`here </romanisim/l1>`.
-
-L2 images are currently constructed from count images at present simply by adding the following effects: reciprocity failure, nonlinearity, interpixel capacitance, and read noise.  Then the gain is divided out and the image is quantized.  The L2 images also do not yet remove the mean dark count rate.  Most critically, this process ignores the details of ramp fitting and how that translates into uncertainties on each pixel, but at least the pieces are in place to include that sort of effect.  The L2 images should not presently be taken seriously.
-
+the effects of these complications.  The construction of L1 images is described :doc:`here </romanisim/l1>`, and the construction of L2 images is described :doc:`here </romanisim/l2>`.
 
 .. automodapi:: romanisim.image

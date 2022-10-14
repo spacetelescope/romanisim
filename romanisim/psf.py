@@ -25,6 +25,7 @@ from astropy import units as u
 import galsim
 from galsim import roman
 from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
+from romanisim import log
 
 
 def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
@@ -69,8 +70,8 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
         return roman.getPSF(sca, filter_name, wcs=wcs, SCA_pos=scapos,
                             wavelength=bandpass, **defaultkw)
     if chromatic:
-        raise ValueError('romanisim does not yet support chromatic PSFs '
-                         'chromatic PSFs with webbpsf')
+        log.warning('romanisim does not yet support chromatic PSFs '
+                    'with webbpsf')
     import webbpsf as wpsf
     filter_name = galsim2roman_bandpass[filter_name]
     wfi = wpsf.WFI()

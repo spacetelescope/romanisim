@@ -25,14 +25,14 @@ package also implements WFI up-the-ramp sampled and averaged images like those
 that will be downlinked from the telescope, and the official Roman WFI file
 format (asdf).
 
-The best way to interact with romanisim is to make an image.  Running
+The best way to interact with romanisim is to make an image.  Running ::
 
     romanisim-make-image out.asdf
 
 will make a test image in the file ``out.asdf``.  Naturally, usually one has a
 particular astronomical scene in mind, and one can't really simulate a scene
 without knowing where the telescope is pointing and when the observation is
-being made.  A more complete invocation would be
+being made.  A more complete invocation would be ::
 
     romanisim-make-image --catalog input.ecsv --radec 270 66 --bandpass F087 --sca 7 --date 2026 1 1 --level 1 out.asdf
 

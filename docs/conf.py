@@ -41,9 +41,9 @@ except AttributeError:
     release = 'dev'
 
 extensions = [
+    "numpydoc",
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
-    "numpydoc",
     "sphinx.ext.intersphinx",
 ]
 
@@ -62,7 +62,7 @@ graphviz_dot_args = [
     '-Gfontname=Helvetica Neue, Helvetica, Arial, sans-serif'
 ]
 
-html_theme = "stsci_rtd_theme"
+html_theme = "sphinx_rtd_theme"
 html_theme_options = {
     "collapse_navigation": True
 }

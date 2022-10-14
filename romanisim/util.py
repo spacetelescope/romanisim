@@ -63,10 +63,8 @@ def scalergb(rgb, scales=None, lumrange=None):
     ----------
     rgb : np.ndarray[npix, npix, 3]
         the RGB images to scale
-
     scales : list[float] (must contain 3 floats)
         rescale each image by this amount
-
     lumrange : list[float] (must contain 2 floats)
         minimum and maximum luminosity
 
@@ -98,13 +96,10 @@ def random_points_in_cap(coord, radius, nobj, rng=None):
     ----------
     coord : astropy.coordinates.SkyCoord
         location around which to generate points
-
     radius : float
         radius in deg of region in which to generate points
-
     nobj : int
         number of objects to generate
-
     rng : galsim.UniformDeviate
         random number generator to use
 

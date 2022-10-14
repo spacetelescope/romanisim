@@ -2,6 +2,7 @@
 
 import argparse
 import datetime
+import logging
 from copy import deepcopy
 import asdf
 from astropy.coordinates import SkyCoord
@@ -12,7 +13,7 @@ from astropy.time import Time
 import galsim
 from romanisim import catalog, image, wcs
 from romanisim.parameters import default_parameters_dictionary
-from romanisim.image import log
+from romanisim import log
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -31,12 +32,14 @@ if __name__ == '__main__':
     parser.add_argument('--webbpsf', action='store_true',
                         help='Use webbpsf for PSF')
     parser.add_argument('--date', type=int, nargs=3, default=None,
-                        help='Date of observation to simulate')
+                        help='Date of observation to simulate, year month day')
     parser.add_argument('--level', type=int, default=2,
                         help='1 or 2, for L1 or L2 output')
     parser.add_argument('--ma_table_number', type=int, default=1)
     parser.add_argument('--seed', type=int, default=None)
     args = parser.parse_args()
+
+    log.info('Starting simulation...')
 
     metadata = deepcopy(default_parameters_dictionary)
 

@@ -126,7 +126,7 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     """
     if bandpasses is None:
         bandpasses = roman.getBandpasses().keys()
-    locs = random_points_in_cap(coord, radius, nobj, rng=rng)
+    locs = util.random_points_in_cap(coord, radius, nobj, rng=rng)
     # n ~ 10^(3m/5) is what one gets for standard columns in a flat universe
     # cut off at 26th mag, go arbitrarily bright.
     # at least not crazy for a dummy catalog
@@ -179,20 +179,13 @@ def table_to_catalog(table, bandpasses):
     We want to read in a catalog and make a list of CatalogObjects.  The table
     must have the following columns:
 
-    * ra : float..
-      right ascension in degrees
-    * dec : float..
-      declination in degrees
-    * type : str..
-      'PSF' or 'SER' for PSF or sersic profiles respectively
-    * n : float..
-      sersic index
-    * half_light_radius : float..
-      half light radius in arcsec
-    * pa : float..
-      position angle of ellipse relative to north (on the sky) in degrees
-    * ba : float..
-      ratio of semiminor axis b over semimajor axis a
+    * ra : float, right ascension in degrees
+    * dec : float, declination in degrees
+    * type : str, 'PSF' or 'SER' for PSF or sersic profiles respectively
+    * n : float, sersic index
+    * half_light_radius : float, half light radius in arcsec
+    * pa : float, position angle of ellipse relative to north (on the sky) in degrees
+    * ba : float, ratio of semiminor axis b over semimajor axis a
 
     Additionally there must be a column for each bandpass giving the flux
     in that bandbass.

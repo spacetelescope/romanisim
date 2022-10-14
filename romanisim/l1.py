@@ -176,8 +176,9 @@ def apportion_counts_to_resultants(counts, tij):
 
     There's an alternative approach where you have a count rate image and
     need to do Poisson draws from it.  That's easier, and isn't this function.
-    It turns out that Poisson draws are more expensive than binomial draws,
-    too, so it's not clear that that approach offers advantages.
+    On some systems I've used Poisson draws have been slower than binomial
+    draws, so it's not clear that approach offers any advantages, either---
+    though I've had mixed experience there.
 
     We loop over the reads, each time sampling from the counts image according
     to the probability that a photon lands in that particular read.  This
@@ -220,11 +221,11 @@ def apportion_counts_to_resultants(counts, tij):
     resultant_counts = np.zeros(counts.shape, dtype='f4')
 
     for i, pi in enumerate(pij):
-        resultant_counts *= 0
+        resultant_counts[...] = 0
         for j, p in enumerate(pi):
             read = np.random.binomial((counts - counts_so_far).astype('i4'), p)
             counts_so_far += read
-            resultant_counts += read
+            resultant_counts += counts_so_far
         resultants[i, ...] = resultant_counts / len(pi)
     return resultants
 
@@ -259,14 +260,16 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
             'No RNG set, constructing a new default RNG from default seed.')
     if rng is None:
         rng = galsim.GaussianDeviate(seed)
+    else:
+        rng = galsim.GaussianDeviate(rng)
 
-    noise = np.empty(resultants.shape)
+    noise = np.empty(resultants.shape, dtype='f4')
     rng.generate(noise)
     if read_noise is None:
         read_noise = parameters.read_noise
     noise *= read_noise / np.array(
         [len(x)**0.5 for x in tij]).reshape(-1, 1, 1)
-    resultants = resultants + noise
+    resultants += noise
     return resultants
 
 
@@ -318,15 +321,19 @@ def ma_table_to_tij(ma_table_number):
 
     Parameters
     ----------
-    ma_table_number : int
-        id of multiaccum table to use
+    ma_table_number : int or list[list]
+        if int, id of multiaccum table to use
+        otherwise a list of (first_read, n_reads) tuples going into resultants.
 
     Returns
     -------
     list[list[float]]
         list of list of readout times for each read entering a resultant
     """
-    tab = parameters.ma_table[ma_table_number]
+    if isinstance(ma_table_number, int):
+        tab = parameters.ma_table[ma_table_number]
+    else:
+        tab = ma_table_number
     tij = [parameters.read_time * np.arange(f, f+n) for (f, n) in tab]
     return tij
 
@@ -369,6 +376,7 @@ def make_l1(counts, ma_table_number,
         rng = galsim.GaussianDeviate(seed)
 
     tij = ma_table_to_tij(ma_table_number)
+    log.info('Apportioning counts to resultants...')
     resultants = apportion_counts_to_resultants(counts.array, tij)
 
     # we need to think harder around here about ndarrays vs. galsim
@@ -392,6 +400,7 @@ def make_l1(counts, ma_table_number,
     # Those functions call namesakes in galsim.Image which the simple
     # namespace object above doesn't have, with specialized coefficients.
     # We could duplicate that, in principle.
+    log.info('Adding read noise...')
     resultants = add_read_noise_to_resultants(resultants, tij, rng=rng,
                                               seed=seed, read_noise=read_noise)
     # presently in _electrons_ here; is read_noise in ADU or in electrons?!
