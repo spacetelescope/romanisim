@@ -235,14 +235,16 @@ def simulate(metadata, objlist,
              **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 
+    Parameters
+    ----------
     metadata : dict
         metadata structure for Roman asdf file, including information about
 
-        pointing: metadata['pointing']['ra_v1'], metadata['pointing']['dec_v1']
-        date: metadata['exposure']['start_time']
-        sca: metadata['instrument']['detector']
-        bandpass: metadata['instrument']['optical_detector']
-        ma_table_number: metadata['exposure']['ma_table_number']
+        * pointing: metadata['pointing']['ra_v1'], metadata['pointing']['dec_v1']
+        * date: metadata['exposure']['start_time']
+        * sca: metadata['instrument']['detector']
+        * bandpass: metadata['instrument']['optical_detector']
+        * ma_table_number: metadata['exposure']['ma_table_number']
 
     objlist : list[CatalogObject]
         List of objects in the field to simulate

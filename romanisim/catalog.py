@@ -179,20 +179,13 @@ def table_to_catalog(table, bandpasses):
     We want to read in a catalog and make a list of CatalogObjects.  The table
     must have the following columns:
 
-    * ra : float..
-      right ascension in degrees
-    * dec : float..
-      declination in degrees
-    * type : str..
-      'PSF' or 'SER' for PSF or sersic profiles respectively
-    * n : float..
-      sersic index
-    * half_light_radius : float..
-      half light radius in arcsec
-    * pa : float..
-      position angle of ellipse relative to north (on the sky) in degrees
-    * ba : float..
-      ratio of semiminor axis b over semimajor axis a
+    * ra : float, right ascension in degrees
+    * dec : float, declination in degrees
+    * type : str, 'PSF' or 'SER' for PSF or sersic profiles respectively
+    * n : float, sersic index
+    * half_light_radius : float, half light radius in arcsec
+    * pa : float, position angle of ellipse relative to north (on the sky) in degrees
+    * ba : float, ratio of semiminor axis b over semimajor axis a
 
     Additionally there must be a column for each bandpass giving the flux
     in that bandbass.

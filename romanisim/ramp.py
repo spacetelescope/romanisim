@@ -180,9 +180,10 @@ def construct_ki_and_variances(atcinva, atcinv, covars):
     
     Returns
     -------
-    k, variances : np.ndarray[2, n_resultant], list[np.ndarray[2, 2]] (float)
+    k : np.ndarray[2, n_resultant]
         :math:`k = (A^T C^{-1} A)^-1 A^T C^{-1}` from Casertano (2022)
-        variances = :math:`k C_i k^T` for different covariance matrices C_i
+    variances : list[np.ndarray[2, 2]] (float)
+        :math:`k C_i k^T` for different covariance matrices C_i
         supplied in covars
     """
 
