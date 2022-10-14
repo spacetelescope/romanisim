@@ -13,7 +13,7 @@ to compute, however, since we ultimately end up needing to compute
 
 for the "optimal" case, or
 
-.. math:: (A^T W^{-1} A)^{-1} A^T C^{-1} A (A^T W^{-1} A)^{-1}
+.. math:: (A^T W^{-1} A)^{-1} A^T W^{-1} C W^{-1} A (A^T W^{-1} A)^{-1}
 
 for some alternative weighting.
 
