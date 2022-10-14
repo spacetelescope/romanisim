@@ -6,6 +6,7 @@ import sys
 from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test as TestCommand
 from glob import glob
+from os.path import basename
 
 SCRIPTS = [s for s in glob('scripts/*') if basename(s) != '__pycache__']
 
