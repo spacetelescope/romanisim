@@ -8,7 +8,7 @@ from setuptools.command.test import test as TestCommand
 from glob import glob
 from os.path import basename
 
-SCRIPTS = [s for s in glob('scripts/*') if basename(s) != '__pycache__']
+scripts = [s for s in glob('scripts/*') if basename(s) != '__pycache__']
 
 setup(
     setup_requires=["setuptools_scm"],
