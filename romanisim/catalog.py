@@ -18,7 +18,7 @@ class CatalogObject:
     """Simple class to hold galsim positions and profiles of objects."""
     sky_pos: galsim.CelestialCoord
     profile: galsim.GSObject
-    flux : dict
+    flux: dict
 
 
 def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,

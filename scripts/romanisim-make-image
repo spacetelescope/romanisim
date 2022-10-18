@@ -18,7 +18,8 @@ from romanisim import log
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Make a demo image.',
-        epilog='EXAMPLE: %(prog)s output_image.fits')
+        epilog='EXAMPLE: %(prog)s output_image.fits',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('filename', type=str, help='output image (fits)')
     parser.add_argument('--catalog', type=str, help='input catalog (csv)',
                         default=None)
@@ -75,10 +76,14 @@ if __name__ == '__main__':
         cat = Table.read(args.catalog)
     objlist = catalog.table_to_catalog(cat, [args.bandpass])
     rng = galsim.UniformDeviate(args.seed)
-    im = image.simulate(metadata, objlist, usecrds=args.usecrds,
-                        webbpsf=args.webbpsf, level=args.level,
-                        rng=rng)
+    im, simcatobj = image.simulate(
+        metadata, objlist, usecrds=args.usecrds,
+        webbpsf=args.webbpsf, level=args.level,
+        rng=rng)
+
+    romanisimdict = vars(args)
+    romanisimdict['simcatobj'] = simcatobj
 
     af = asdf.AsdfFile()
-    af.tree = {'roman': im}
+    af.tree = {'roman': im, 'romanisim': romanisimdict}
     af.write_to(args.filename)

@@ -94,6 +94,38 @@ def make_l2(resultants, ma_table, read_noise=None):
            )
 
 
+def in_bounds(objlist, wcs, imbd, margin):
+    """Filter sources in an objlist to those landing on an image.
+
+    gWCS objects can be somewhat expensive to evaluate source-by-source, so
+    this transforms the object list back into an array to do this in a
+    vectorized way, and gives the results.
+
+    Parameters
+    ----------
+    objlist : list[romanisim.catalog.CatalogObject]
+        list of objects
+    wcs : galsim.wcs.CelestialWCS
+        wcs of chip
+    imbd : galsim.Image.Bounds
+        bounds of image
+    margin : int
+        keep sources up to margin outside of bounds
+
+    Returns
+    -------
+    keep : np.ndarray (bool)
+        whether each source lands near the image (True) or not (False)
+    xx, yy : np.ndarray (float)
+        x, y locations of sources on chip
+    """
+    coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad] for o in objlist])
+    xx, yy = wcs._xy(coord[:, 0], coord[:, 1])
+    keep = ((xx > imbd.xmin - margin) & (xx < imbd.xmax + margin) &
+            (yy > imbd.ymin - margin) & (yy < imbd.ymax + margin))
+    return keep, xx, yy
+
+
 def simulate_counts(sca, targ_pos, date, objlist, filter_name,
                     exptime=None, rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
@@ -131,10 +163,12 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
 
     Returns
     -------
-    galsim.Image
+    image : galsim.Image
         idealized image of scene as seen by Roman, giving total electron counts
         from rate sources (astronomical objects; backgrounds; dark current) in
         each pixel.
+    simcatobj : np.ndarray
+        catalog of simulated objects in image
     """
     if exptime is None:
         exptime = roman.exptime
@@ -144,6 +178,9 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
             'No RNG set, constructing a new default RNG from default seed.')
     if rng is None:
         rng = galsim.UniformDeviate(seed)
+
+    simcatobj = np.zeros(
+        len(objlist), dtype=[('x', 'f4'), ('y', 'f4'), ('photons', 'f4')])
 
     galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
     bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
@@ -170,19 +207,15 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     nrender = 0
     final = None
     info = []
+    keep, xpos, ypos = in_bounds(objlist, imwcs, imbd, ignore_distant_sources)
     for i, obj in enumerate(objlist):
-        # this is kind of slow.  We need to do an initial vectorized cull before
-        # reaching this point.
         t0 = time.time()
-        image_pos = imwcs.toImage(obj.sky_pos)
-        if ((image_pos.x < imbd.xmin - ignore_distant_sources) or
-                (image_pos.x > imbd.xmax + ignore_distant_sources) or
-                (image_pos.y < imbd.ymin - ignore_distant_sources) or
-                (image_pos.y > imbd.ymax + ignore_distant_sources)):
+        if not keep[i]:
             # ignore source off edge.  Could do better by looking at
             # source size.
             info.append(0)
             continue
+        image_pos = galsim.PositionD(xpos[i], ypos[i])
         final = galsim.Convolve(obj.profile * exptime, psf)
         if chromatic:
             stamp = final.drawImage(
@@ -191,7 +224,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         else:
             if obj.flux is not None:
                 final = final.withFlux(
-                    obj.flux[filter_name] * abflux)
+                    obj.flux[filter_name] * abflux * exptime)
                 try:
                     stamp = final.drawImage(center=image_pos,
                                             wcs=imwcs.local(image_pos))
@@ -201,10 +234,12 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         bounds = stamp.bounds & full_image.bounds
         if bounds.area() == 0:
             continue
+        simcatobj[i] = (xpos[i], ypos[i], np.sum(stamp.array))
         full_image[bounds] += stamp[bounds]
         nrender += 1
         info.append(time.time() - t0)
     log.info('Rendered %d sources...' % nrender)
+    simcatobj = simcatobj[keep]
 
     poisson_noise = galsim.PoissonNoise(rng)
     sky_image.addNoise(poisson_noise)
@@ -226,7 +261,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     if return_info:
         full_image = (full_image, info)
 
-    return full_image
+    return full_image, simcatobj
 
 
 def simulate(metadata, objlist,
@@ -262,9 +297,11 @@ def simulate(metadata, objlist,
 
     Returns
     -------
-    asdf structure with simulated image
+    image : roman_datamodels model
+        simulated image
+    simcatobj : np.ndarray
+        image positions and fluxes of simulated objects
     """
-
     all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     flatmetadata = util.flatten_dictionary(metadata)
     flatmetadata = {'roman.meta'+k if k.find('roman.meta') != 0 else k: v
@@ -309,7 +346,7 @@ def simulate(metadata, objlist,
 
 
     log.info('Simulating filter {0}...'.format(filter_name))
-    counts = simulate_counts(
+    counts, simcatobj = simulate_counts(
         sca, coord, date, objlist, filter_name, rng=rng,
         exptime=exptime, usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf)
@@ -322,7 +359,7 @@ def simulate(metadata, objlist,
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise)
         im = make_asdf(*slopeinfo, metadata=all_metadata)
-    return im
+    return im, simcatobj
 
 
 def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
