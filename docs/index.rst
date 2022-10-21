@@ -15,6 +15,7 @@ Contents
    romanisim/image
    romanisim/l1
    romanisim/l2
+   romanisim/refs
 
    romanisim/catalog
    romanisim/apt
