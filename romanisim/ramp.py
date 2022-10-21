@@ -347,7 +347,12 @@ class RampFitInterpolator:
         fluxonreadvar = np.clip(
             fluxonreadvar, self.flux_on_readvar_pts[0],
             self.flux_on_readvar_pts[-1])
-        return self.var_interpolator(fluxonreadvar).astype('f4')*read_noise**2
+        var = self.var_interpolator(fluxonreadvar).astype('f4')
+        read_noise = np.array(read_noise)
+        read_noise = read_noise.reshape(
+            read_noise.shape + (1,)*(len(var.shape)-len(read_noise.shape)))
+        var *= read_noise**2
+        return var
 
     def fit_ramps(self, resultants, read_noise, fluxest=None):
         """Fit ramps for a set of resultants and their read noise.

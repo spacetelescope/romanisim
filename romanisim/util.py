@@ -119,8 +119,7 @@ def random_points_in_cap(coord, radius, nobj, rng=None):
     dist = np.arccos(1-(1-np.cos(np.radians(radius)))*dist)
     c1 = SkyCoord(coord.ra.rad*u.rad, coord.dec.rad*u.rad, frame='icrs')
     c1 = c1.directional_offset_by(ang*u.rad, dist*u.rad)
-    sky_pos = [celestialcoord(x) for x in c1]
-    return sky_pos
+    return c1
 
 
 def flatten_dictionary(d):

@@ -164,7 +164,7 @@ def tij_to_pij(tij):
             tremaining -= (t - tlast)
             tlast = t
         pij.append(pi)
-    return pij
+    return np.clip(pij, 0, 1)
 
 
 def apportion_counts_to_resultants(counts, tij):
@@ -339,7 +339,8 @@ def ma_table_to_tij(ma_table_number):
 
 
 def make_l1(counts, ma_table_number,
-            read_noise=None, filepath=None, rng=None, seed=None):
+            read_noise=None, filepath=None, rng=None, seed=None,
+            gain=None):
     """Make an L1 image from a counts image.
 
     This apportions the total counts among the different resultants and adds
@@ -362,6 +363,8 @@ def make_l1(counts, ma_table_number,
         Random number generator to use
     seed : int
         Seed for populating RNG.  Only used if rng is None.
+    gain : float or np.ndarray[float]
+        Gain (electrons / count) for converting counts to electrons
 
     Returns
     -------
@@ -407,6 +410,6 @@ def make_l1(counts, ma_table_number,
     log.warning('We need to make sure we have the right units on the read '
                 'noise.')
 
-    resultants /= roman.gain
+    resultants /= gain
     resultants = np.round(resultants)
     return resultants

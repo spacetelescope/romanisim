@@ -64,7 +64,7 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
     objlist = []
     locs = util.random_points_in_cap(coord, radius, nobj, rng=rng)
     for i in range(nobj):
-        sky_pos = locs[i]
+        sky_pos = util.celestialcoord(locs[i])
         p = rng()
         # prescription follows galsim demo13.
         if p < 0.8:  # 80% of targets; faint galaxies
@@ -157,8 +157,8 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     hlr[star] = 0
 
     out = table.Table()
-    out['ra'] = [x.ra.deg for x in locs]
-    out['dec'] = [x.dec.deg for x in locs]
+    out['ra'] = locs.ra.to(u.deg).value
+    out['dec'] = locs.dec.to(u.deg).value
     out['type'] = types
     out['n'] = sersic_index
     out['half_light_radius'] = hlr

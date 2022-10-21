@@ -51,8 +51,13 @@ import crds
 # I've at least caught these for the moment, but we should explore lower
 # folding_ratio for speed, as well as directly rendering into the image.
 
+# should we let people specify reference files?
+# what reference files do we use?
+# distortion, read noise, dark, gain, flat
+# these would each be optional arguments that would override
 
-def make_l2(resultants, ma_table, read_noise=None):
+
+def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None):
     """
     Simulate an image in a filter given resultants.
 
@@ -66,6 +71,8 @@ def make_l2(resultants, ma_table, read_noise=None):
         list of list of first read numbers and number of reads in each resultant
     read_noise : ndarray-like[n_pix, n_pix]
         read_noise image to use.  If None, use galsim.roman.read_noise.
+    flat : np.ndarray[float]
+        flat field to use
 
     Returns
     -------
@@ -80,18 +87,27 @@ def make_l2(resultants, ma_table, read_noise=None):
     if read_noise is None:
         read_noise = galsim.roman.read_noise
 
+    if gain is None:
+        gain = galsim.roman.gain
+
     from . import ramp
     rampfitter = ramp.RampFitInterpolator(ma_table)
     log.warning('Gain should be handled as something more interesting '
                 'than a single constant.')
-    ramppar, rampvar = rampfitter.fit_ramps(resultants/galsim.roman.gain,
-                                            read_noise)
+    ramppar, rampvar = rampfitter.fit_ramps(resultants*gain, read_noise)
     # could iterate if we wanted to improve the flux estimates
 
-    return (ramppar[..., 1],  # the slopes, ignoring the pedestals
-            rampvar[..., 0, 1, 1], # the read noise induced slope variance
-            rampvar[..., 1, 1, 1], # the poisson noise induced slope variance
-           )
+    slopes = ramppar[..., 1]
+    readvar = rampvar[..., 0, 1, 1]
+    poissonvar = rampvar[..., 1, 1, 1]
+
+    if flat is not None:
+        flat = np.clip(flat, 1e-9, np.inf)
+        slopes /= flat
+        readvar /= flat**2
+        poissonvar /= flat**2
+
+    return slopes, readvar, poissonvar
 
 
 def in_bounds(objlist, wcs, imbd, margin):
@@ -130,7 +146,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
                     exptime=None, rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
                     return_info=False, webbpsf=True,
-                    darkrate=None):
+                    darkrate=None, flat=None):
     """Simulate total counts in a single SCA.
 
     This gives the total counts in an idealized instrument with no systematics;
@@ -158,8 +174,10 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         do not render sources more than this many pixels off edge of detector
     usecrds : bool
         use CRDS distortion map
-    darkrate : float or np.ndarray of float
+    darkrate : float or np.ndarray[float]
         dark rate image to use (electrons / s)
+    flat : float or np.ndarray[float]
+        flat field to use
 
     Returns
     -------
@@ -202,8 +220,22 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     sky_image += roman.thermal_backgrounds[galsim_filter_name] * exptime
     imbd = full_image.bounds
     abflux = romanisim.bandpass.get_abflux(filter_name)
-    log.info('Adding sources to image...')
 
+    if flat is None:
+        flat = 1
+    # for some reason, galsim doesn't like multiplying an SED by 1, but it's
+    # okay with multiplying an SED by 1.0.
+    maxflat = float(np.max(flat))
+    if maxflat > 1.1:
+        log.warning('max(flat) > 1.1; this seems weird?!')
+    if maxflat > 2:
+        log.error('max(flat) > 2; this seems really weird?!')
+    # how to deal with the flat field?  We artificially inflate the
+    # exposure time of each source by maxflat when rendering.  And then we
+    # do a binomial sampling of the total number of photons obtained per pixel
+    # to figure out how many "should" have entered the pixel.
+
+    log.info('Adding sources to image...')
     nrender = 0
     final = None
     info = []
@@ -216,7 +248,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
             info.append(0)
             continue
         image_pos = galsim.PositionD(xpos[i], ypos[i])
-        final = galsim.Convolve(obj.profile * exptime, psf)
+        final = galsim.Convolve(obj.profile * exptime * maxflat, psf)
         if chromatic:
             stamp = final.drawImage(
                 bandpass, center=image_pos, wcs=imwcs.local(image_pos),
@@ -224,7 +256,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         else:
             if obj.flux is not None:
                 final = final.withFlux(
-                    obj.flux[filter_name] * abflux * exptime)
+                    obj.flux[filter_name] * abflux * exptime * maxflat)
                 try:
                     stamp = final.drawImage(center=image_pos,
                                             wcs=imwcs.local(image_pos))
@@ -249,12 +281,17 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     if final is not None and not final.spectral:
         full_image.addNoise(poisson_noise)
 
+    if not np.all(flat == 1):
+        full_image.array[:, :] = np.random.binomial(
+            np.round(full_image.array).astype('i4'), flat/maxflat)
+
     full_image += sky_image
 
     if darkrate is None:
         darkrate = roman.dark_current
     dark_image += darkrate * exptime
     dark_image.addNoise(poisson_noise)
+    full_image += dark_image
 
     full_image.quantize()
 
@@ -322,18 +359,39 @@ def simulate(metadata, objlist,
     last_read = ma_table[-1][0] + ma_table[-1][1] - 1
     exptime = last_read * parameters.read_time
 
+    # TODO: replace this stanza with a function that looks at the metadata
+    # and keywords and returns a dictionary with all of the relevant reference
+    # data in numpy arrays.
+    # should query CRDS for any reference files not specified on the command
+    # line.
     if usecrds:
-        reffiles = crds.getreferences(all_metadata, reftypes=['readnoise', 'dark'],
-                                      observatory='roman')
+        reffiles = crds.getreferences(
+            all_metadata, observatory='roman',
+            reftypes=['readnoise', 'dark', 'gain'])
         read_noise = asdf.open(reffiles['readnoise'])['roman']['data']
         darkrate = asdf.open(reffiles['dark'])['roman']['data']
-        darkrate = darkrate[-1] / (np.mean(ma_table[-1])*parameters.read_time)
+        gain = asdf.open(reffiles['gain'])['roman']['data']
+        try:
+            reffiles = crds.getreferences(
+                all_metadata, observatory='roman',
+                reftypes=['flat'])
+            flat = asdf.open(reffiles['flat'])['roman']['data']
+        except crds.core.exceptions.CrdsLookupError:
+            log.warning('Could not find flat; using 1')
+            flat = 1
+        # convert the last dark resultant into a dark rate by dividing by the
+        # mean time in that resultant.
+        darkrate = darkrate[-1] / (
+            (ma_table[-1][0] + (ma_table[-1][1]-1)/2) * parameters.read_time)
         nborder = parameters.nborder
         read_noise = read_noise[nborder:-nborder, nborder:-nborder]
         darkrate = darkrate[nborder:-nborder, nborder:-nborder]
+        gain = gain[nborder:-nborder, nborder:-nborder]
     else:
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
+        gain = galsim.roman.gain
+        flat = 1
 
     out = dict()
 
@@ -349,15 +407,17 @@ def simulate(metadata, objlist,
     counts, simcatobj = simulate_counts(
         sca, coord, date, objlist, filter_name, rng=rng,
         exptime=exptime, usecrds=usecrds, darkrate=darkrate,
-        webbpsf=webbpsf)
+        webbpsf=webbpsf, flat=flat)
     if level == 0:
         return counts
     l1 = romanisim.l1.make_l1(
-        counts, ma_table_number, read_noise=read_noise, rng=rng, **kwargs)
+        counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
+        **kwargs)
     if level == 1:
         im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
     elif level == 2:
-        slopeinfo = make_l2(l1, ma_table, read_noise=read_noise)
+        slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
+                            gain=gain, flat=flat)
         im = make_asdf(*slopeinfo, metadata=all_metadata)
     return im, simcatobj
 
