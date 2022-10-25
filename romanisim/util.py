@@ -26,8 +26,8 @@ def skycoord(celestial):
     if isinstance(celestial, SkyCoord):
         return celestial
     else:
-        return SkyCoord(ra=(celestial.ra / galsim.radians)*u.rad,
-                        dec=(celestial.dec / galsim.radians)*u.rad,
+        return SkyCoord(ra=(celestial.ra / galsim.radians) * u.rad,
+                        dec=(celestial.dec / galsim.radians) * u.rad,
                         frame='icrs')
 
 
@@ -47,8 +47,8 @@ def celestialcoord(sky):
     if isinstance(sky, galsim.CelestialCoord):
         return sky
     else:
-        return galsim.CelestialCoord(sky.ra.to(u.rad).value*galsim.radians,
-                                     sky.dec.to(u.rad).value*galsim.radians)
+        return galsim.CelestialCoord(sky.ra.to(u.rad).value * galsim.radians,
+                                     sky.dec.to(u.rad).value * galsim.radians)
 
 
 def scalergb(rgb, scales=None, lumrange=None):
@@ -115,10 +115,10 @@ def random_points_in_cap(coord, radius, nobj, rng=None):
     dist = np.zeros(nobj, dtype='f8')
     rng.generate(ang)
     rng.generate(dist)
-    ang *= 2*np.pi
-    dist = np.arccos(1-(1-np.cos(np.radians(radius)))*dist)
-    c1 = SkyCoord(coord.ra.rad*u.rad, coord.dec.rad*u.rad, frame='icrs')
-    c1 = c1.directional_offset_by(ang*u.rad, dist*u.rad)
+    ang *= 2 * np.pi
+    dist = np.arccos(1 - (1 - np.cos(np.radians(radius))) * dist)
+    c1 = SkyCoord(coord.ra.rad * u.rad, coord.dec.rad * u.rad, frame='icrs')
+    c1 = c1.directional_offset_by(ang * u.rad, dist * u.rad)
     return c1
 
 
@@ -155,7 +155,7 @@ def flatten_dictionary(d):
         if isinstance(value, dict):
             flattened = flatten_dictionary(value)
             for subkey, subvalue in flattened.items():
-                out[key+'.'+subkey] = subvalue
+                out[key + '.' + subkey] = subvalue
         else:
             flatval = value
             if isinstance(flatval, Time):
@@ -193,7 +193,7 @@ def unflatten_dictionary(d):
             v = Time(v, format='isot')
             if 'file' in k:
                 v = stnode.FileDate(v)
-        except Exception as e:
+        except Exception:
             pass
         return v
 

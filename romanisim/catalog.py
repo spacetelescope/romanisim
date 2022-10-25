@@ -75,8 +75,8 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
         elif p < 0.9:  # 10% of targets; stars
             mu_x = 1.e5
             sigma_x = 2.e5
-            mu = np.log(mu_x**2 / (mu_x**2+sigma_x**2)**0.5)
-            sigma = (np.log(1 + sigma_x**2/mu_x**2))**0.5
+            mu = np.log(mu_x**2 / (mu_x**2 + sigma_x**2)**0.5)
+            sigma = (np.log(1 + sigma_x**2 / mu_x**2))**0.5
             gd = galsim.GaussianDeviate(rng, mean=mu, sigma=sigma)
             flux = np.exp(gd()) / roman.exptime
             if chromatic:
@@ -132,7 +132,7 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     # at least not crazy for a dummy catalog
     faintmag = 26 - 3  # get some brighter sources!
     hlr_at_faintmag = 0.6  # arcsec
-    mag = faintmag - np.random.exponential(size=nobj, scale=5/3/np.log(10))
+    mag = faintmag - np.random.exponential(size=nobj, scale=5 / 3 / np.log(10))
     # okay, now we need to mark some star/galaxy decisions.
     sersic_index = np.random.uniform(low=1, high=4.0, size=nobj)
     star = np.random.uniform(size=nobj) < 0.1
@@ -148,10 +148,10 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     ba = np.clip(ba, 0.2, 1)
     ba[star] = 1
     # ugh.  Half light radii should correlate with magnitude, with some scatter.
-    hlr = 10**((faintmag - mag)/5) * hlr_at_faintmag
+    hlr = 10**((faintmag - mag) / 5) * hlr_at_faintmag
     # hlr is hlr_at_faintmag for faintmag sources
     # and let's put some log normal distribution on top of this
-    hlr *= np.clip(np.exp(np.random.randn(nobj)*0.5), 0.1, 10)
+    hlr *= np.clip(np.exp(np.random.randn(nobj) * 0.5), 0.1, 10)
     # let's not make anything too too small.
     hlr[hlr < 0.01] = 0.01
     hlr[star] = 0
@@ -168,7 +168,7 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
         mag_thisband = mag + np.random.randn(nobj)
         # sigma of one mag isn't nuts.  But this will be totally uncorrelated
         # in different bands, so we'll get some weird colored objects
-        out[bandpass] = 10.**(-mag_thisband/2.5)
+        out[bandpass] = 10.**(-mag_thisband / 2.5)
         # maggies!  what units should I actually pick here?
     return out
 
@@ -209,7 +209,7 @@ def table_to_catalog(table, bandpasses):
 
     out = list()
     for i in range(len(table)):
-        pos = coordinates.SkyCoord(table['ra'][i]*u.deg, table['dec'][i]*u.deg,
+        pos = coordinates.SkyCoord(table['ra'][i] * u.deg, table['dec'][i] * u.deg,
                                    frame='icrs')
         pos = util.celestialcoord(pos)
         fluxes = {bp: table[bp][i] for bp in bandpasses}
@@ -218,7 +218,7 @@ def table_to_catalog(table, bandpasses):
         elif table['type'][i] == 'SER':
             obj = galsim.Sersic(table['n'][i], table['half_light_radius'][i])
             obj = obj.shear(
-                q=table['ba'][i], beta=(table['pa'][i]+np.pi/2)*galsim.radians)
+                q=table['ba'][i], beta=(table['pa'][i] + np.pi / 2) * galsim.radians)
         else:
             raise ValueError('Catalog types must be either PSF or SER.')
         out.append(CatalogObject(pos, obj, fluxes))

@@ -6,7 +6,7 @@ for reading in a few of the example Roman APTs but only supports a tiny
 fraction of what an APT file seems able to do.
 """
 
-import xml
+# import xml
 from xml.etree import ElementTree
 from astropy import coordinates
 from astropy import units as u

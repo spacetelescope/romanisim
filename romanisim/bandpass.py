@@ -24,7 +24,7 @@ from astropy import units as u
 # the galsim bandpass names to the Roman bandpass names and vice versa.
 # it would be nice to be agnostic about which one we use.
 galsim_bandpasses = ['Z087', 'Y106', 'J129', 'H158', 'F184', 'W149']
-galsim2roman_bandpass = {x: 'F'+x[1:] for x in galsim_bandpasses}
+galsim2roman_bandpass = {x: 'F' + x[1:] for x in galsim_bandpasses}
 roman2galsim_bandpass = {v: k for k, v in galsim2roman_bandpass.items()}
 
 # provide some no-ops if we are given a key in the right bandpass
@@ -84,13 +84,13 @@ def compute_abflux(effarea=None):
     out = dict()
     for bandpass in filter_names:
         integrand = abfv * constants.c / (
-            effarea['Wave']*u.micron)**2  # f_lambda
+            effarea['Wave'] * u.micron)**2  # f_lambda
         integrand /= constants.h * constants.c / (
-            effarea['Wave']*u.micron)  # hc/lambda
-        integrand *= effarea[bandpass]*u.m**2  # effective area in filter
+            effarea['Wave'] * u.micron)  # hc/lambda
+        integrand *= effarea[bandpass] * u.m**2  # effective area in filter
         # integrate.simpson looks like it loses units.  So convert to something
         # we know about.
-        integrand = integrand.to(1/(u.s*u.micron)).value
+        integrand = integrand.to(1 / (u.s * u.micron)).value
         zpflux = integrate.simpson(integrand, effarea['Wave'])
         # effarea['Wave'] is in microns, so we're left with a number of counts
         # per second

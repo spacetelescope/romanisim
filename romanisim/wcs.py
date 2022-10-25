@@ -20,6 +20,7 @@ import warnings
 import numpy as np
 import astropy.coordinates
 from astropy import units as u
+from astropy import Time
 import crds
 import asdf
 import gwcs.geometry
@@ -124,7 +125,7 @@ def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360):
     # roll_ref for each SCA, and how that would best be done; if nothing else,
     # we do some finite differences to get the direction +V3 on the sky and
     # compute an angle wrt north.
-    v2_ref = v3_ref = 0
+    # v2_ref = v3_ref = 0
     ra_ref = targ_pos.ra.to(u.deg).value
     dec_ref = targ_pos.dec.to(u.deg).value
 
@@ -137,9 +138,9 @@ def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360):
 
     # distortion takes pixels to V2V3
     # V2V3 are in arcseconds, while SphericalToCartesian expects degrees.
-    model = distortion | ((Scale(1 / 3600) & Scale(1 / 3600)) |
-        gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
-         | rot | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
+    model = distortion | ((Scale(1 / 3600) & Scale(1 / 3600)
+                           ) | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at) | rot | (
+                               gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at)))
     model.name = 'pixeltosky'
     detector = cf.Frame2D(name='detector', axes_order=(0, 1),
                           unit=(u.pix, u.pix))
@@ -224,4 +225,4 @@ class GWCS(galsim.wcs.CelestialWCS):
     def __repr__(self):
         # tag = 'wcs=%r'%self.wcs
         tag = 'wcs=gWCS'  # gWCS repr strings can be very long.
-        return "romanisim.wcs.GWCS(%s, origin=%r)"%(tag, self.origin)
+        return "romanisim.wcs.GWCS(%s, origin=%r)" % (tag, self.origin)

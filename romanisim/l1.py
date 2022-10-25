@@ -50,7 +50,12 @@ Things this doesn't allow neatly:
 * non-linearity?
 * weird non-linear systematics in darks?
 
-Possibly some systematics need to be applied to the individual reads, rather than to the final image.  e.g., clearly nonlinearity?  I need to think about when in the chain things like IPC, etc., come in.  But it still seems correct to first generate the total number of counts that an ideal detector would measure from sources, and then apply these effects read-by-read as we build up the resultants---i.e., I expect the current framework will be able to handle this without major issue.
+Possibly some systematics need to be applied to the individual reads, rather than to
+the final image.  e.g., clearly nonlinearity?  I need to think about when in the chain
+things like IPC, etc., come in.  But it still seems correct to first generate the total
+number of counts that an ideal detector would measure from sources, and then apply
+these effects read-by-read as we build up the resultants---i.e., I expect the current
+framework will be able to handle this without major issue.
 
 This approach is not super fast.  For a high latitude set of resultants,
 generating all of the random numbers to determine the apportionment takes
@@ -104,7 +109,7 @@ going to pursue this avenue further.
 import numpy as np
 import asdf
 import galsim
-from galsim import roman
+# from galsim import roman
 from . import parameters
 from . import log
 from . import util
@@ -334,7 +339,7 @@ def ma_table_to_tij(ma_table_number):
         tab = parameters.ma_table[ma_table_number]
     else:
         tab = ma_table_number
-    tij = [parameters.read_time * np.arange(f, f+n) for (f, n) in tab]
+    tij = [parameters.read_time * np.arange(f, f + n) for (f, n) in tab]
     return tij
 
 
