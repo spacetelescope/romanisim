@@ -1,0 +1,11 @@
+# flake8 does not support pyproject.toml (https://github.com/PyCQA/flake8/issues/234)
+
+[flake8]
+select = F, W, E, C
+# We should set max line length lower eventually
+max-line-length = 130
+exclude =
+    docs,
+    .tox,
+    .eggs,
+    build

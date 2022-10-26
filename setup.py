@@ -1,14 +1,7 @@
-#!/usr/bin/env python
+from pathlib import Path
 
-from setuptools import setup, find_packages
-from glob import glob
-from os.path import basename
+from setuptools import setup
 
-scripts = [s for s in glob('scripts/*') if basename(s) != '__pycache__']
+scripts = [str(s) for s in Path('scripts/').iterdir() if s.is_file() and s.name != '__pycache__']
 
-setup(
-    setup_requires=["setuptools_scm"],
-    packages=find_packages(exclude=["examples"]),
-    scripts=scripts,
-    use_scm_version=True,
-    include_package_data=True,)
+setup(scripts=scripts)
