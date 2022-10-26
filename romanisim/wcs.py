@@ -20,7 +20,7 @@ import warnings
 import numpy as np
 import astropy.coordinates
 from astropy import units as u
-from astropy import Time
+import astropy.time
 import crds
 import asdf
 import gwcs.geometry
@@ -72,8 +72,8 @@ def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
     elif sca is None:
         sca = int(parameters['roman.meta.instrument.detector'][3:])
     if date is None:
-        date = Time(parameters['roman.meta.exposure.start_time'],
-                    format='isot')
+        date = astropy.time.Time(parameters['roman.meta.exposure.start_time'],
+                                 format='isot')
     if usecrds:
         fn = crds.getreferences(parameters, reftypes=['distortion'],
                                 observatory='roman')

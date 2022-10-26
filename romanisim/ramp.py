@@ -62,7 +62,7 @@ def ma_table_to_tbar(ma_table):
 def ma_table_to_tau(ma_table):
     """Construct the tau for each resultant from an ma_table.
 
-    .. math:: \\tau = \overline{t} - (n - 1)(n + 1)\delta t / 6n
+    .. math:: \\tau = \\overline{t} - (n - 1)(n + 1)\\delta t / 6n
 
     following Casertano (2022).
 

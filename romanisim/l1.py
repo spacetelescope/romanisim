@@ -12,18 +12,18 @@ those for each resultant and average, as done on the spacecraft.
 It's tempting to go straight to making the appropriate resultants.  Following
 Casertano (2022?), the variance in each resultant is:
 
-.. math:: V = \sigma_{read}^2/N + f \\tau
+.. math:: V = \\sigma_{read}^2/N + f \\tau
 
 where f is the count rate, N is the number of reads in the resultant, and :math:`\\tau`
 is the 'variance-based resultant time'
 
-.. math:: \\tau = 1/N^2 \sum_{reads} (2 (N - k) - 1) t_k
+.. math:: \\tau = 1/N^2 \\sum_{reads} (2 (N - k) - 1) t_k
 
 where the t_k is the time of the kth read in the resultant.
 
 For uniformly spaced reads,
 
-.. math:: \\tau = t_0 + d (N/3 + 1/6N - 1/2) \, ,
+.. math:: \\tau = t_0 + d (N/3 + 1/6N - 1/2) \\, ,
 
 where t_0 is the time of the first read in the resultant and d is the spacing
 of the reads.
@@ -73,7 +73,7 @@ resultant is rather than looking at each read individually.  That would
 likely bring a ~10x speed-up.  The read noise there is easy.  The
 poisson noise is a sum of scaled Poisson variables:
 
-.. math:: \sum_{i=0, ..., N-1} (N-i) c_i \, ,
+.. math:: \\sum_{i=0, ..., N-1} (N-i) c_i \\, ,
 
 where :math:`c_i` is a Poisson-distributed variable.
 The sum of Poisson-distributed variables is Poisson-distributed, but I wasn't
@@ -89,14 +89,14 @@ e.g., via the binomial distribution, and then you'd want to draw a number
 for what the average number of counts was among the reads comprising the
 resultant, conditional on the total number of counts.  Then
 
-.. math:: \sum_{i=0, ..., N-1} (N-i) c_i
+.. math:: \\sum_{i=0, ..., N-1} (N-i) c_i
 
 is some kind of statistic of the multinomial distribution.  That sounds a
 little more tractable?
 
-.. math:: c_i \sim \mathrm{multinomial}(\mathrm{total}, [1/N, ..., 1/N])
+.. math:: c_i \\sim \\mathrm{multinomial}(\\mathrm{total}, [1/N, ..., 1/N])
 
-We want to draw from :math:`\sum (N-i) c_i`.
+We want to draw from :math:`\\sum (N-i) c_i`.
 I think the probabilities are always :math:`1/N`, with the possible small but
 important
 exception of 'skipped' or 'dropped' reads, in which case the first read would
