@@ -315,8 +315,6 @@ class RampFitInterpolator:
             ramp pixels
         """
         # clip points outside range to edges.
-        # mingrid = self.flux_on_readvar_pts[0]
-        # maxgrid = self.flux_on_readvar_pts[-1]
         fluxonreadvar = flux / read_noise**2
         fluxonreadvar = np.clip(
             fluxonreadvar, self.flux_on_readvar_pts[0],
@@ -341,8 +339,6 @@ class RampFitInterpolator:
             and the total noise
         """
         # clip points outside range to edges.
-        # mingrid = self.flux_on_readvar_pts[0]
-        # maxgrid = self.flux_on_readvar_pts[-1]
         fluxonreadvar = flux / read_noise**2
         fluxonreadvar = np.clip(
             fluxonreadvar, self.flux_on_readvar_pts[0],
@@ -444,7 +440,7 @@ def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, ma_table=None):
         simulated resultants
     """
     from . import l1
-    # read_time = parameters.read_time
+
     if ma_table is None:
         ma_table = [[1, 4], [5, 1], [6, 3], [9, 10], [19, 3], [22, 15]]
     nread = np.array([x[1] for x in ma_table])

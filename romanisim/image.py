@@ -5,7 +5,6 @@ for most of the real work.
 """
 
 import time
-# import logging
 import copy
 import numpy as np
 import astropy.time
@@ -17,15 +16,12 @@ from galsim import roman
 import roman_datamodels.testing.utils
 from . import wcs
 from . import catalog
-# from . import bandpass
-# from . import psf
 from . import parameters
 from . import util
 import romanisim.l1
 import romanisim.bandpass
 import romanisim.psf
 from romanisim import log
-# from romanisim import parameters
 import crds
 
 # galsim fluxes are in photons / cm^2 / s
@@ -392,8 +388,6 @@ def simulate(metadata, objlist,
         darkrate = galsim.roman.dark_current
         gain = galsim.roman.gain
         flat = 1
-
-    # out = dict()
 
     if rng is None and seed is None:
         seed = 43

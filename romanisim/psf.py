@@ -21,7 +21,6 @@ should consider the following:
 """
 
 import numpy as np
-# from astropy import units as u
 import galsim
 from galsim import roman
 from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass

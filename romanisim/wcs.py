@@ -125,7 +125,6 @@ def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360):
     # roll_ref for each SCA, and how that would best be done; if nothing else,
     # we do some finite differences to get the direction +V3 on the sky and
     # compute an angle wrt north.
-    # v2_ref = v3_ref = 0
     ra_ref = targ_pos.ra.to(u.deg).value
     dec_ref = targ_pos.dec.to(u.deg).value
 
@@ -192,19 +191,15 @@ class GWCS(galsim.wcs.CelestialWCS):
         if np.ndim(x) == np.ndim(y) == 0:
             return r[0], d[0]
         else:
-            # assert np.ndim(x) == np.ndim(y)
-            # assert x.shape == y.shape
             if ((np.ndim(x) == np.ndim(y)) and (x.shape == y.shape)):
                 return r, d
             else:
                 if (np.ndim(x) != np.ndim(y)):
-                    raise Exception("np.ndim(x) != np.ndim(y) => " + str(
-                        np.ndim(x)) + " != " + str(np.ndim(y)))
+                    raise ValueError(f"np.ndim(x) != np.ndim(y) => {np.ndim(x)} != {np.ndim(y)}")
                 elif (x.shape != y.shape):
-                    raise Exception("x.shape != y.shape => " + str(
-                        x.shape) + " != " + str(y.shape))
+                    raise ValueError(f"x.shape != y.shape => {x.shape} != {y.shape}")
                 else:
-                    raise Exception("Invalid x & y.")
+                    raise ValueError("Invalid x & y.")
 
     def _xy(self, ra, dec, color=None):
         # _xy accepts ra/dec in radians; we decorate r1, d1 appropriately.
@@ -218,17 +213,12 @@ class GWCS(galsim.wcs.CelestialWCS):
         if np.ndim(ra) == np.ndim(dec) == 0:
             return x[0], y[0]
         else:
-            # assert np.ndim(ra) == np.ndim(dec)
-            # assert ra.shape == dec.shape
-            # return x, y
             if (np.ndim(ra) != np.ndim(dec)):
-                raise Exception("np.ndim(ra) != np.ndim(dec) => " + str(
-                    np.ndim(ra)) + " != " + str(np.ndim(dec)))
+                raise ValueError(f"np.ndim(ra) != np.ndim(dec) => {np.ndim(ra)} != {np.ndim(dec)}")
             elif (x.shape != y.shape):
-                raise Exception("ra.shape != dec.shape => " + str(
-                    ra.shape) + " != " + str(dec.shape))
+                raise ValueError(f"ra.shape != dec.shape => {ra.shape} != {dec.shape}")
             else:
-                raise Exception("Invalid ra & dec.")
+                raise ValueError("Invalid ra & dec.")
 
     def _newOrigin(self, origin):
         ret = self.copy()

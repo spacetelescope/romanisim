@@ -193,8 +193,8 @@ def unflatten_dictionary(d):
             v = Time(v, format='isot')
             if 'file' in k:
                 v = stnode.FileDate(v)
-        except Exception as e:
-            raise Exception(e)
+        except Exception:
+            return v
         return v
 
     out = dict()
