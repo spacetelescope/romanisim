@@ -76,6 +76,15 @@ jobs:
         toxenv: [ test-numpy120, test-numpy121, test-numpy120 ]
         python-version: [ '3.8', '3.9', '3.10', '3.11' ]
         os: [ ubuntu-latest ]
+        exclude:
+          - python-version: '3.10'
+            toxenv: test-numpy120
+          - python-version: '3.11'
+            toxenv: test-numpy120
+          - python-version: '3.11'
+            toxenv: test-numpy121
+          - python-version: '3.11'
+            toxenv: test-numpy122
     steps:
       - uses: actions/checkout@v3
         with:
