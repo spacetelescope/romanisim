@@ -52,7 +52,7 @@ def ma_table_to_tbar(ma_table):
     firstreads = np.array([x[0] for x in ma_table])
     nreads = np.array([x[1] for x in ma_table])
     read_time = parameters.read_time
-    meantimes = read_time * firstreads + read_time * (nreads - 1)/2
+    meantimes = read_time * firstreads + read_time * (nreads - 1) / 2
     # at some point I need to think hard about whether the first read has
     # slightly less exposure time than all other reads due to the read/reset
     # time being slightly less than the read time.
@@ -62,7 +62,7 @@ def ma_table_to_tbar(ma_table):
 def ma_table_to_tau(ma_table):
     """Construct the tau for each resultant from an ma_table.
 
-    .. math:: \\tau = \overline{t} - (n - 1)(n + 1)\delta t / 6n
+    .. math:: \\tau = \\overline{t} - (n - 1)(n + 1)\\delta t / 6n
 
     following Casertano (2022).
 
@@ -81,7 +81,7 @@ def ma_table_to_tau(ma_table):
     meantimes = ma_table_to_tbar(ma_table)
     nreads = np.array([x[1] for x in ma_table])
     read_time = parameters.read_time
-    return meantimes - (nreads - 1)*(nreads + 1)*read_time/6/nreads
+    return meantimes - (nreads - 1) * (nreads + 1) * read_time / 6 / nreads
 
 
 def construct_covar(read_noise, flux, ma_table):
@@ -104,7 +104,7 @@ def construct_covar(read_noise, flux, ma_table):
         covariance matrix of first finite differences of unevenly sampled
         resultants.
     """
-    read_time = parameters.read_time
+    # read_time = parameters.read_time
     tau = ma_table_to_tau(ma_table)
     tbar = ma_table_to_tbar(ma_table)
     nreads = np.array([x[1] for x in ma_table])
@@ -113,12 +113,12 @@ def construct_covar(read_noise, flux, ma_table):
     # diagonal -> (rn)^2/(1/N_i + 1/N_{i-1}) + f(tau_i + tau_{i-1} - 2t_{i-1}).
     # off diagonal: f(t_{i-1} - tau_{i-1}) - (rn)^2/N_{i-1}
     # further off diagonal: 0.
-    diagonal = [[read_noise**2 / nreads[0] + flux*tau[0]],
-                (read_noise**2 * (1/nreads[1:] + 1/nreads[:-1])  +
-                 flux*(tau[1:] + tau[:-1] - 2*tbar[:-1]))]
+    diagonal = [[read_noise**2 / nreads[0] + flux * tau[0]],
+                (read_noise**2 * (1 / nreads[1:] + 1 / nreads[:-1]) + flux * (
+                    tau[1:] + tau[:-1] - 2 * tbar[:-1]))]
     cc = np.diag(np.concatenate(diagonal))
 
-    off_diagonal = flux*(tbar[:-1] - tau[:-1]) - read_noise**2/nreads[:-1]
+    off_diagonal = flux * (tbar[:-1] - tau[:-1]) - read_noise**2 / nreads[:-1]
     cc += np.diag(off_diagonal, 1)
     cc += np.diag(off_diagonal, -1)
     return cc.astype('f4')
@@ -177,7 +177,7 @@ def construct_ki_and_variances(atcinva, atcinv, covars):
         :math:`A^T C^{-1}` from construct_ramp_fitting_matrices
     covars : list[np.ndarray[n_resultant, n_resultant]]
         covariance matrices to contract against :math:`k` to compute variances
-    
+
     Returns
     -------
     k : np.ndarray[2, n_resultant]
@@ -315,8 +315,6 @@ class RampFitInterpolator:
             ramp pixels
         """
         # clip points outside range to edges.
-        mingrid = self.flux_on_readvar_pts[0]
-        maxgrid = self.flux_on_readvar_pts[-1]
         fluxonreadvar = flux / read_noise**2
         fluxonreadvar = np.clip(
             fluxonreadvar, self.flux_on_readvar_pts[0],
@@ -341,8 +339,6 @@ class RampFitInterpolator:
             and the total noise
         """
         # clip points outside range to edges.
-        mingrid = self.flux_on_readvar_pts[0]
-        maxgrid = self.flux_on_readvar_pts[-1]
         fluxonreadvar = flux / read_noise**2
         fluxonreadvar = np.clip(
             fluxonreadvar, self.flux_on_readvar_pts[0],
@@ -350,7 +346,7 @@ class RampFitInterpolator:
         var = self.var_interpolator(fluxonreadvar).astype('f4')
         read_noise = np.array(read_noise)
         read_noise = read_noise.reshape(
-            read_noise.shape + (1,)*(len(var.shape)-len(read_noise.shape)))
+            read_noise.shape + (1,) * (len(var.shape) - len(read_noise.shape)))
         var *= read_noise**2
         return var
 
@@ -382,8 +378,8 @@ class RampFitInterpolator:
         differences = resultants_to_differences(resultants)
         if fluxest is None:
             dtbar_reshape = dtbar.reshape(
-                (dtbar.shape[0],) + (1,)*len(differences.shape[1:]))
-            fluxest = np.median(differences[1:]/dtbar_reshape, axis=0)
+                (dtbar.shape[0],) + (1,) * len(differences.shape[1:]))
+            fluxest = np.median(differences[1:] / dtbar_reshape, axis=0)
         ki = self.ki(fluxest, read_noise)
         par = np.einsum('...cd,d...->...c', ki, differences)
         var = self.variances(fluxest, read_noise)
@@ -392,7 +388,7 @@ class RampFitInterpolator:
 
 def resultants_to_differences(resultants):
     """Convert resultants to their finite differences.
-    
+
     This is essentially np.diff(...), but retains the first
     resultant.  The resulting structure has tri-diagonal covariance,
     which can be a little useful.
@@ -425,7 +421,7 @@ def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, ma_table=None):
     ntrial : int
         number of ramps to simulate
     flux : float
-        flux in electrons / s 
+        flux in electrons / s
     read_noise : float
         read noise in electrons
     ma_table : list[list] (int)
@@ -444,15 +440,13 @@ def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, ma_table=None):
         simulated resultants
     """
     from . import l1
-    read_time = parameters.read_time
+
     if ma_table is None:
         ma_table = [[1, 4], [5, 1], [6, 3], [9, 10], [19, 3], [22, 15]]
     nread = np.array([x[1] for x in ma_table])
     tij = l1.ma_table_to_tij(ma_table)
-    totcounts = np.random.poisson(flux*np.max(np.concatenate(tij)), ntrial)
+    totcounts = np.random.poisson(flux * np.max(np.concatenate(tij)), ntrial)
     resultants = l1.apportion_counts_to_resultants(totcounts, tij)
-    resultants += np.random.randn(len(ma_table), ntrial)*(
-        readnoise/np.sqrt(nread)).reshape(len(ma_table), 1)
+    resultants += np.random.randn(len(ma_table), ntrial) * (
+        readnoise / np.sqrt(nread)).reshape(len(ma_table), 1)
     return (ma_table, flux, readnoise, resultants)
-
-

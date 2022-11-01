@@ -21,7 +21,6 @@ should consider the following:
 """
 
 import numpy as np
-from astropy import units as u
 import galsim
 from galsim import roman
 from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
@@ -85,10 +84,9 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     else:
         # get the actual pixel scale from the WCS
         cen = wcs.toWorld(galsim.PositionD(*pix))
-        p1 = wcs.toWorld(galsim.PositionD(pix[0]+1, pix[1]))
-        p2 = wcs.toWorld(galsim.PositionD(pix[0], pix[1]+1))
-        scale = np.sqrt(cen.distanceTo(p1).deg*60*60 *
-                        cen.distanceTo(p2).deg*60*60)
+        p1 = wcs.toWorld(galsim.PositionD(pix[0] + 1, pix[1]))
+        p2 = wcs.toWorld(galsim.PositionD(pix[0], pix[1] + 1))
+        scale = np.sqrt(cen.distanceTo(p1).deg * 60 * 60 * cen.distanceTo(p2).deg * 60 * 60)
     intimg = galsim.InterpolatedImage(
         galsim.Image(psf[0].data, scale=scale / oversample),
         normalization='flux')

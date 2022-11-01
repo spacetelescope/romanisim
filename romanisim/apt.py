@@ -6,8 +6,7 @@ for reading in a few of the example Roman APTs but only supports a tiny
 fraction of what an APT file seems able to do.
 """
 
-import xml
-from xml.etree import ElementTree
+import defusedxml.ElementTree
 from astropy import coordinates
 from astropy import units as u
 import dataclasses
@@ -48,7 +47,8 @@ def read_apt(filename):
     """
     # I don't know anything about reading XML.
     # In general it's very flexible and can do anything.
-    tree = ElementTree.parse(filename)
+    # tree = ElementTree.parse(filename)
+    tree = defusedxml.ElementTree.parse(filename)
     targs = tree.find(XMLNS + 'Targets')
     target_elements = targs.findall(XMLNS + 'FixedTarget')
     target_dict = dict()

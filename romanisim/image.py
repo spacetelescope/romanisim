@@ -5,7 +5,6 @@ for most of the real work.
 """
 
 import time
-import logging
 import copy
 import numpy as np
 import astropy.time
@@ -17,15 +16,12 @@ from galsim import roman
 import roman_datamodels.testing.utils
 from . import wcs
 from . import catalog
-from . import bandpass
-from . import psf
 from . import parameters
 from . import util
 import romanisim.l1
 import romanisim.bandpass
 import romanisim.psf
 from romanisim import log
-from romanisim import parameters
 import crds
 
 # galsim fluxes are in photons / cm^2 / s
@@ -94,7 +90,7 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None):
     rampfitter = ramp.RampFitInterpolator(ma_table)
     log.warning('Gain should be handled as something more interesting '
                 'than a single constant.')
-    ramppar, rampvar = rampfitter.fit_ramps(resultants*gain, read_noise)
+    ramppar, rampvar = rampfitter.fit_ramps(resultants * gain, read_noise)
     # could iterate if we wanted to improve the flux estimates
 
     slopes = ramppar[..., 1]
@@ -137,8 +133,8 @@ def in_bounds(objlist, wcs, imbd, margin):
     """
     coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad] for o in objlist])
     xx, yy = wcs._xy(coord[:, 0], coord[:, 1])
-    keep = ((xx > imbd.xmin - margin) & (xx < imbd.xmax + margin) &
-            (yy > imbd.ymin - margin) & (yy < imbd.ymax + margin))
+    keep = ((xx > imbd.xmin - margin) & (xx < imbd.xmax + margin) & (
+        yy > imbd.ymin - margin) & (yy < imbd.ymax + margin))
     return keep, xx, yy
 
 
@@ -283,7 +279,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
 
     if not np.all(flat == 1):
         full_image.array[:, :] = np.random.binomial(
-            np.round(full_image.array).astype('i4'), flat/maxflat)
+            np.round(full_image.array).astype('i4'), flat / maxflat)
 
     full_image += sky_image
 
@@ -341,14 +337,14 @@ def simulate(metadata, objlist,
     """
     all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     flatmetadata = util.flatten_dictionary(metadata)
-    flatmetadata = {'roman.meta'+k if k.find('roman.meta') != 0 else k: v
+    flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
                     for k, v in flatmetadata.items()}
     all_metadata.update(**util.flatten_dictionary(metadata))
     ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
     sca = int(all_metadata['roman.meta.instrument.detector'][3:])
     coord = coordinates.SkyCoord(
-        ra=all_metadata['roman.meta.pointing.ra_v1']*u.deg,
-        dec=all_metadata['roman.meta.pointing.dec_v1']*u.deg)
+        ra=all_metadata['roman.meta.pointing.ra_v1'] * u.deg,
+        dec=all_metadata['roman.meta.pointing.dec_v1'] * u.deg)
     start_time = all_metadata['roman.meta.exposure.start_time']
     if not isinstance(start_time, astropy.time.Time):
         start_time = astropy.time.Time(start_time, format='isot')
@@ -382,7 +378,7 @@ def simulate(metadata, objlist,
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
         darkrate = darkrate[-1] / (
-            (ma_table[-1][0] + (ma_table[-1][1]-1)/2) * parameters.read_time)
+            (ma_table[-1][0] + (ma_table[-1][1] - 1) / 2) * parameters.read_time)
         nborder = parameters.nborder
         read_noise = read_noise[nborder:-nborder, nborder:-nborder]
         darkrate = darkrate[nborder:-nborder, nborder:-nborder]
@@ -393,15 +389,12 @@ def simulate(metadata, objlist,
         gain = galsim.roman.gain
         flat = 1
 
-    out = dict()
-
     if rng is None and seed is None:
         seed = 43
         log.warning(
             'No RNG set, constructing a new default RNG from default seed.')
     if rng is None:
         rng = galsim.UniformDeviate(seed)
-
 
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
@@ -431,8 +424,8 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
         filters = ['Y106', 'J129', 'H158']
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     coord = coordinates.SkyCoord(
-        ra=metadata['roman.meta.pointing.ra_v1']*u.deg,
-        dec=metadata['roman.meta.pointing.dec_v1']*u.deg)
+        ra=metadata['roman.meta.pointing.ra_v1'] * u.deg,
+        dec=metadata['roman.meta.pointing.dec_v1'] * u.deg)
     date = astropy.time.Time(
         metadata['roman.meta.exposure.start_time'],
         format='isot')
@@ -513,11 +506,11 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         out['meta'].update(util.unflatten_dictionary(tmpmeta))
 
     out['data'] = slope
-    out['dq'] = (slope*0).astype('u4')
+    out['dq'] = (slope * 0).astype('u4')
     out['var_poisson'] = slopevar_poisson
     out['var_rnoise'] = slopevar_rn
-    out['var_flat'] = slope*0
-    out['err'] = slope*0
+    out['var_flat'] = slope * 0
+    out['err'] = slope * 0
     if filepath:
         af = asdf.AsdfFile()
         af.tree = {'roman': out}
