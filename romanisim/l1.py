@@ -112,6 +112,7 @@ import galsim
 from . import parameters
 from . import log
 from . import util
+from . import nonlinearity
 
 
 def validate_times(tij):
@@ -131,21 +132,23 @@ def validate_times(tij):
     return np.all(np.diff(times) > 0)
 
 
-def tij_to_pij(tij):
+def tij_to_pij(tij, remaining=False):
     """Convert a set of times tij to corresponding probabilities for sampling.
 
-    The probabilities are those needed for sampling from a binomial distribution
-    for each read.  These are conceptually roughly delta_t / sum(delta_t), the
-    fraction of time in each read over the total time, with one important
-    difference.  Since we remove the counts that we've already allocated
-    to reads from the number of counts remaining, the probabilities of
-    subsequent reads get scaled up like so that each pij is
-    delta_t / time_remaining.
+    The probabilities are those needed for sampling from a binomial
+    distribution for each read.  These are delta_t / sum(delta_t), the
+    fraction of time in each read over the total time, when `remaining` is
+    False.  When remaining is true, we scale these probabilities not by
+    the total time but by the remaining time, so that subsequent reads get
+    subsequent reads get scaled up so that each pij is
+    delta_t / time_remaining, and the last read always has pij = 1.
 
     Parameters
     ----------
     tij : list[list[float]]
         list of list of readout times for each read entering a resultant
+    remaining : bool
+        scale by remaining time rather than total time
 
     Returns
     -------
@@ -165,13 +168,14 @@ def tij_to_pij(tij):
         pi = []
         for t in resultant:
             pi.append((t - tlast) / tremaining)
-            tremaining -= (t - tlast)
+            if remaining:
+                tremaining -= (t - tlast)
             tlast = t
         pij.append(pi)
     return np.clip(pij, 0, 1)
 
 
-def apportion_counts_to_resultants(counts, tij):
+def apportion_counts_to_resultants(counts, tij, linearity=None):
     """Apportion counts to resultants given read times.
 
     This finds a statistically appropriate assignment of counts to each
@@ -208,6 +212,8 @@ def apportion_counts_to_resultants(counts, tij):
         included beyond PSF & distortion.
     tij : list[list[float]]
         list of list of readout times for each read entering a resultant
+    linearity : romanisim.nonlinearity.NL or None
+        Object implementing non-linearity correction
 
     Returns
     -------
@@ -219,18 +225,61 @@ def apportion_counts_to_resultants(counts, tij):
         raise ValueError('apportion_counts_to_resultants expects the counts '
                          'to be integers!')
 
-    pij = tij_to_pij(tij)
+    pij = tij_to_pij(tij, remaining=True)
     resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
     counts_so_far = np.zeros(counts.shape, dtype='f4')
     resultant_counts = np.zeros(counts.shape, dtype='f4')
 
+    efficiency = 1
+    if linearity is not None:
+        pij_per_read = tij_to_pij(tij)
+        ki_numerator = np.cumsum(pij_per_read)
+        ki_denominator = np.zeros(counts_so_far.shape, dtype='f4')
+
+    # The implementation of non-linearity below is subtle.  The efficiency
+    # quantity is the fraction of the photons that would enter this read
+    # absent non-linearity that actually are detected in this read.  That
+    # just comes into the probability of a given photon being detected and
+    # is relatively straightforward.
+    # The ki factor bears some explanation.
+    # We need to adjust the number drawn by the fraction of the total counts
+    # that would be remaining absent nonlinearity (1 - ki_numerator)
+    # over the counts that are actually remaining with nonlinearity
+    # (1 - ki_denominator).  The numerator is known ahead of time from the
+    # ma table and is just 1 - delta T / T_exp, modulo skipped reads.
+    # The denominator depends on the realized efficiency of each pixel
+    # and so must be built up during the read.
+
+    readnum = 0
+    nlflag = np.zeros(counts.shape, dtype='bool')
     for i, pi in enumerate(pij):
         resultant_counts[...] = 0
         for j, p in enumerate(pi):
-            read = np.random.binomial((counts - counts_so_far).astype('i4'), p)
+            if linearity is None or ((i == 0) and (j == 0)):
+                ki = 1
+                efficiency = 1
+            else:
+                ki = (1 - ki_numerator[readnum - 1]) / (1 - ki_denominator)
+                efficiency = linearity.efficiency(
+                    counts_so_far
+                    + counts * (efficiency * pij_per_read[i][j] / 2))
+                m = (efficiency < 0) | (efficiency > 1)
+                nlflag[m] = True
+                efficiency = np.clip(efficiency, 0, 1)
+            read = np.random.binomial((counts - counts_so_far).astype('i4'),
+                                      p * efficiency * ki)
             counts_so_far += read
             resultant_counts += counts_so_far
+            if linearity is not None:
+                ki_denominator += efficiency*pij_per_read[i][j]
+            readnum += 1
         resultants[i, ...] = resultant_counts / len(pi)
+    nweirdpixfrac = np.sum(nlflag)/np.product(nlflag.shape)
+    if nweirdpixfrac > 0:
+        log.warning(f'{nweirdpixfrac:5.1e} fraction of pixels have '
+                    'observed(corrected) nonlinearity slopes of >1 or <0.  '
+                    'The CRDS reference values are likely problematic for '
+                    'these pixels.')
     return resultants
 
 
@@ -344,7 +393,7 @@ def ma_table_to_tij(ma_table_number):
 
 def make_l1(counts, ma_table_number,
             read_noise=None, filepath=None, rng=None, seed=None,
-            gain=None):
+            gain=None, linearity=None):
     """Make an L1 image from a counts image.
 
     This apportions the total counts among the different resultants and adds
@@ -369,6 +418,8 @@ def make_l1(counts, ma_table_number,
         Seed for populating RNG.  Only used if rng is None.
     gain : float or np.ndarray[float]
         Gain (electrons / count) for converting counts to electrons
+    linearity : romanisim.nonlinearity.NL or None
+        Object describing the non-linearity corrections.
 
     Returns
     -------
@@ -384,7 +435,8 @@ def make_l1(counts, ma_table_number,
 
     tij = ma_table_to_tij(ma_table_number)
     log.info('Apportioning counts to resultants...')
-    resultants = apportion_counts_to_resultants(counts.array, tij)
+    resultants = apportion_counts_to_resultants(counts.array, tij,
+                                                linearity=linearity)
 
     # we need to think harder around here about ndarrays vs. galsim
     # images.  All of the roman.function calls expect 2D galsim
