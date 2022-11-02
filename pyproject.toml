@@ -77,6 +77,7 @@ norecursedirs = [
     'docs/_build',
     'docs/exts',
     'scripts',
+    'build',
     '.tox',
 ]
 doctest_plus = 'enabled'
