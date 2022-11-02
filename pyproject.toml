@@ -81,6 +81,9 @@ norecursedirs = [
 ]
 doctest_plus = 'enabled'
 doctest_rst = 'enabled'
+markers = [
+    'soctests: run only the SOC tests in the suite.',
+]
 
 [tool.coverage]
 run = { omit = [
