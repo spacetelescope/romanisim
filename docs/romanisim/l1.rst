@@ -23,5 +23,12 @@ To address (1), we adjust the probability of the number of counts we draw from t
 
 Note that this picture of nonlinearity is that the pixels are not recording all of the photons in the presence of nonlinearity.  Another picture is that the effective gain changes---i.e., the relationship between recorded counts and photons---but that the Poisson statistics on the number of photons should be consistent with having counted all of the photons.  That's not what the code is doing at the moment, though it's straightforward.
 
+Interpixel Capacitance
+----------------------
+
+Interpixel capacitance (IPC) is added following non-linearity and before read-out.  Read noise remains independent among different pixels but the Poisson noise is correlated between pixels by the IPC.  We simply convolve the resultants by a 3x3 kernel after apportioning counts to resultants and applying non-linearity but before adding read noise.
+
+This is slightly different than including IPC in the PSF kernel because including IPC in the PSF kernel leaves the Poisson noise uncorrelated.
+
 .. automodapi:: romanisim.l1
 .. automodapi:: romanisim.nonlinearity
