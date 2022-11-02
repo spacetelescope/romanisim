@@ -151,10 +151,6 @@ def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360):
 class GWCS(galsim.wcs.CelestialWCS):
     """This WCS uses gWCS to implent a galsim CelestialWCS.
 
-    GWCS is initialized via
-
-       >>> wcs = romanisim.wcs.GWCS(gwcs)
-
     Based on galsim.fitswcs.AstropyWCS, edited to eliminate header functionality
     and to adopt the shared API supported by both gWCS and astropy.wcs.
 
