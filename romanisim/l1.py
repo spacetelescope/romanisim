@@ -458,13 +458,15 @@ def make_l1(counts, ma_table_number,
     # Those functions call namesakes in galsim.Image which the simple
     # namespace object above doesn't have, with specialized coefficients.
     # We could duplicate that, in principle.
-    log.info('Adding read noise...')
-    resultants = add_read_noise_to_resultants(resultants, tij, rng=rng,
-                                              seed=seed, read_noise=read_noise)
-    # presently in _electrons_ here; is read_noise in ADU or in electrons?!
-    log.warning('We need to make sure we have the right units on the read '
-                'noise.')
 
+    log.info('Adding read noise...')
     resultants /= gain
+    # resultants are now in counts.
+    # read noise is in counts.
+    resultants = add_read_noise_to_resultants(
+        resultants, tij, rng=rng, seed=seed,
+        read_noise=read_noise)
+
+    # quantize
     resultants = np.round(resultants)
     return resultants

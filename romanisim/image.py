@@ -96,8 +96,10 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     from . import ramp
     rampfitter = ramp.RampFitInterpolator(ma_table)
-    ramppar, rampvar = rampfitter.fit_ramps(resultants * gain, read_noise)
+    ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
+                                            read_noise * gain)
     # could iterate if we wanted to improve the flux estimates
+    # read noise is in counts; must be converted to electrons.
 
     slopes = ramppar[..., 1]
     readvar = rampvar[..., 0, 1, 1]

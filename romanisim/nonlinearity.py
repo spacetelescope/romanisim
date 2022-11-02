@@ -26,7 +26,7 @@ of photons read in in future samples down further to reflect that the
 photons lost to non-linearity will not be read out later down the ramp.
 
 We do some simple sanity checks on the non-linearity coefficients, but we
-do not yet check to make sure that :math:`dO/dC <= 1`.  i.e., we don't yet
+do not yet check to make sure that :math:`dO/dC \\leq 1`.  i.e., we don't yet
 check that the non-linearity correction function corresponds to a curve that
 always means that the number of photons recorded is smaller than the number
 of photons entering the read.  Such cases are likely to cause problems when
