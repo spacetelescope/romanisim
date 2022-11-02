@@ -8,7 +8,7 @@ absent nonlinearity.  Non-linearity is typically described instead by some
 polynomial that takes the observed number of photons to the corrected number
 of photons.
 
-.. math:: C = f(O) \, ,
+.. math:: C = f(O) \\, ,
 
 where :math:`f` is a polynomial depending on some coefficients that are
 different for each pixel, :math:`C` is the corrected number of photons, and
@@ -102,7 +102,7 @@ def derivative(coeffs):
         raise ValueError('NaNs in nonlinearity coefficients.')
     if np.any(np.all(coeffs == 0, axis=0)):
         raise ValueError('All zero nonlinearity coefficients.')
-    
+
     coeffs = np.array(coeffs)
     derivcoeffs = coeffs * np.arange(0, coeffs.shape[0]).reshape(
         coeffs.shape[0:1] + (1,) * (len(coeffs.shape) - 1))
@@ -139,7 +139,7 @@ def efficiency(counts, derivcoeffs, reversed=False):
     else:
         cc = derivcoeffs[::-1, ...]
     dfdo = np.polyval(cc, counts)
-    return 1/dfdo
+    return 1 / dfdo
 
 
 def correct(counts, coeffs, reversed=False):
@@ -176,7 +176,7 @@ def correct(counts, coeffs, reversed=False):
 
 class NL:
     """Keep track of non-linearity coefficients.
-    
+
     This is a wrapper class to help other classes need to know less
     about non-linearity, but it doesn't presently do much more than
     cache the non-linearity derivative coefficients so that they may be
@@ -217,7 +217,7 @@ class NL:
 
     def correct(self, counts):
         """Compute the correction of observed to true counts
-        
+
         Parameters
         ----------
         counts : np.ndarray[nx, ny] (float)

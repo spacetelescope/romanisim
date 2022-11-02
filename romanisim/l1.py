@@ -112,7 +112,6 @@ import galsim
 from . import parameters
 from . import log
 from . import util
-from . import nonlinearity
 
 
 def validate_times(tij):
@@ -271,10 +270,10 @@ def apportion_counts_to_resultants(counts, tij, linearity=None):
             counts_so_far += read
             resultant_counts += counts_so_far
             if linearity is not None:
-                ki_denominator += efficiency*pij_per_read[i][j]
+                ki_denominator += efficiency * pij_per_read[i][j]
             readnum += 1
         resultants[i, ...] = resultant_counts / len(pi)
-    nweirdpixfrac = np.sum(nlflag)/np.product(nlflag.shape)
+    nweirdpixfrac = np.sum(nlflag) / np.product(nlflag.shape)
     if nweirdpixfrac > 0:
         log.warning(f'{nweirdpixfrac:5.1e} fraction of pixels have '
                     'observed(corrected) nonlinearity slopes of >1 or <0.  '

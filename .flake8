@@ -2,6 +2,7 @@
 
 [flake8]
 select = F, W, E, C
+ignore = W503
 # We should set max line length lower eventually
 max-line-length = 130
 exclude =
