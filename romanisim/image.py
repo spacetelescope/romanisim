@@ -18,6 +18,7 @@ from . import wcs
 from . import catalog
 from . import parameters
 from . import util
+from . import nonlinearity
 import romanisim.l1
 import romanisim.bandpass
 import romanisim.psf
@@ -53,7 +54,8 @@ import crds
 # these would each be optional arguments that would override
 
 
-def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None):
+def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
+            linearity=None):
     """
     Simulate an image in a filter given resultants.
 
@@ -69,6 +71,8 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None):
         read_noise image to use.  If None, use galsim.roman.read_noise.
     flat : np.ndarray[float]
         flat field to use
+    linearity : romanisim.nonlinearity.NL object or None
+        non-linearity correction to use.
 
     Returns
     -------
@@ -86,12 +90,16 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None):
     if gain is None:
         gain = galsim.roman.gain
 
+    if linearity is not None:
+        resultants = linearity.correct(resultants)
+        # no error propagation
+
     from . import ramp
     rampfitter = ramp.RampFitInterpolator(ma_table)
-    log.warning('Gain should be handled as something more interesting '
-                'than a single constant.')
-    ramppar, rampvar = rampfitter.fit_ramps(resultants * gain, read_noise)
+    ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
+                                            read_noise * gain)
     # could iterate if we wanted to improve the flux estimates
+    # read noise is in counts; must be converted to electrons.
 
     slopes = ramppar[..., 1]
     readvar = rampvar[..., 0, 1, 1]
@@ -363,10 +371,11 @@ def simulate(metadata, objlist,
     if usecrds:
         reffiles = crds.getreferences(
             all_metadata, observatory='roman',
-            reftypes=['readnoise', 'dark', 'gain'])
+            reftypes=['readnoise', 'dark', 'gain', 'linearity'])
         read_noise = asdf.open(reffiles['readnoise'])['roman']['data']
         darkrate = asdf.open(reffiles['dark'])['roman']['data']
         gain = asdf.open(reffiles['gain'])['roman']['data']
+        linearity = asdf.open(reffiles['linearity'])['roman']['coeffs']
         try:
             reffiles = crds.getreferences(
                 all_metadata, observatory='roman',
@@ -375,6 +384,7 @@ def simulate(metadata, objlist,
         except crds.core.exceptions.CrdsLookupError:
             log.warning('Could not find flat; using 1')
             flat = 1
+
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
         darkrate = darkrate[-1] / (
@@ -383,11 +393,14 @@ def simulate(metadata, objlist,
         read_noise = read_noise[nborder:-nborder, nborder:-nborder]
         darkrate = darkrate[nborder:-nborder, nborder:-nborder]
         gain = gain[nborder:-nborder, nborder:-nborder]
+        linearity = linearity[:, nborder:-nborder, nborder:-nborder]
+        linearity = nonlinearity.NL(linearity)
     else:
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
         gain = galsim.roman.gain
         flat = 1
+        linearity = None
 
     if rng is None and seed is None:
         seed = 43
@@ -405,12 +418,12 @@ def simulate(metadata, objlist,
         return counts
     l1 = romanisim.l1.make_l1(
         counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-        **kwargs)
+        linearity=linearity, **kwargs)
     if level == 1:
         im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
-                            gain=gain, flat=flat)
+                            gain=gain, flat=flat, linearity=linearity)
         im = make_asdf(*slopeinfo, metadata=all_metadata)
     return im, simcatobj
 

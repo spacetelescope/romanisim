@@ -11,4 +11,17 @@ This process proceeds by simulating each read, drawing the appropriate number of
 
 After apportioning counts to resultants, systematic effects are added to the resultants.  Presently only read noise is added.  The read noise is averaged down like :math:`1/\sqrt{N}`, where :math:`N` is the number of reads contributing to the resultant.
 
+Nonlinearity
+------------
+
+Non-linearity is considered when L1 images are constructed and a non-linearity model is provided (e.g., from CRDS).  Non-linearity is implemented by including an additional "efficiency" parameter that is the linearity-affected count rate divided by the idealized count rate absent nonlinearity; this is the reciprocal of the derivative of the non-linearity correction function.  Two complications arise:
+
+1. We need to keep track of the number of counts lost due to non-linearity, so we don't apportion them to future reads.
+2. The efficiency varies over each read; ignoring this effect and using only the efficiency at the start of each reach can lead to 1-2% biases depending on how quickly the efficiency changes with flux.
+
+To address (1), we adjust the probability of the number of counts we draw from the binomial distribution to effectively remove the lost photons from the count.  To mitigate (2), we compute the efficiency for each read based on a guess for what the efficiency will be at the midpoint of the read, after half the charges have been accumulated, based on the idealized count rate for the pixel and the efficiency of the last read.  One could imagine a higher order scheme to do better here, but this reduced the errors to <0.5 mmag.
+
+Note that this picture of nonlinearity is that the pixels are not recording all of the photons in the presence of nonlinearity.  Another picture is that the effective gain changes---i.e., the relationship between recorded counts and photons---but that the Poisson statistics on the number of photons should be consistent with having counted all of the photons.  That's not what the code is doing at the moment, though it's straightforward.
+
 .. automodapi:: romanisim.l1
+.. automodapi:: romanisim.nonlinearity

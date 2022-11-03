@@ -187,15 +187,11 @@ class GWCS(galsim.wcs.CelestialWCS):
         if np.ndim(x) == np.ndim(y) == 0:
             return r[0], d[0]
         else:
-            if ((np.ndim(x) == np.ndim(y)) and (x.shape == y.shape)):
-                return r, d
-            else:
-                if (np.ndim(x) != np.ndim(y)):
-                    raise ValueError(f"np.ndim(x) != np.ndim(y) => {np.ndim(x)} != {np.ndim(y)}")
-                elif (x.shape != y.shape):
-                    raise ValueError(f"x.shape != y.shape => {x.shape} != {y.shape}")
-                else:
-                    raise ValueError("Invalid x & y.")
+            if (np.ndim(x) != np.ndim(y)):
+                raise ValueError(f"np.ndim(x) != np.ndim(y) => {np.ndim(x)} != {np.ndim(y)}")
+            elif (x.shape != y.shape):
+                raise ValueError(f"x.shape != y.shape => {x.shape} != {y.shape}")
+            return r, d
 
     def _xy(self, ra, dec, color=None):
         # _xy accepts ra/dec in radians; we decorate r1, d1 appropriately.
@@ -213,8 +209,7 @@ class GWCS(galsim.wcs.CelestialWCS):
                 raise ValueError(f"np.ndim(ra) != np.ndim(dec) => {np.ndim(ra)} != {np.ndim(dec)}")
             elif (x.shape != y.shape):
                 raise ValueError(f"ra.shape != dec.shape => {ra.shape} != {dec.shape}")
-            else:
-                raise ValueError("Invalid ra & dec.")
+            return x, y
 
     def _newOrigin(self, origin):
         ret = self.copy()
