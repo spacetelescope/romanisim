@@ -31,7 +31,7 @@ read_time = 3.04
 # following kernel, 0.2% of the flux is redistributed to the pixel
 # that is +1 - N spaces ahead in memory.
 ipc_kernel = np.array(
-    [[ 0.21,  1.66,  0.22],
-     [ 1.88, 91.59,  1.87],
-     [ 0.21,  1.62,  0.2 ]])
+    [[0.21, 1.66, 0.22],
+     [1.88, 91.59, 1.87],
+     [0.21, 1.62, 0.2]])
 ipc_kernel /= np.sum(ipc_kernel)
