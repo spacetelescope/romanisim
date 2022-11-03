@@ -109,6 +109,7 @@ going to pursue this avenue further.
 import numpy as np
 import asdf
 import galsim
+from scipy import ndimage
 from . import parameters
 from . import log
 from . import util
@@ -437,27 +438,19 @@ def make_l1(counts, ma_table_number,
     resultants = apportion_counts_to_resultants(counts.array, tij,
                                                 linearity=linearity)
 
-    # we need to think harder around here about ndarrays vs. galsim
-    # images.  All of the roman.function calls expect 2D galsim
-    # images, but maybe wouldn't break with a 3D image.
-    # lot's of im.array[:, :], but that seems to return the whole image?
-    # from types import SimpleNamespace
-    # resultants_object = SimpleNamespace()
-    # resultants_object.array = resultants
-
-    # these aren't quite right; we should be applying these to the reads
-    # rather than to the resultants.
-    # I can't decide how much to care---the effect is small.
-    # The IPC computation is probably commutative, but the nonlinearity
-    # corrections will not be.
     # roman.addReciprocityFailure(resultants_object)
-    # roman.applyNonlinearity(resultants_object)
-    # roman.applyIPC(resultants_object)
     # the roman systematic effects take a little more work
     # if we want to implement them directly on the individual resultants.
     # Those functions call namesakes in galsim.Image which the simple
     # namespace object above doesn't have, with specialized coefficients.
     # We could duplicate that, in principle.
+
+    # add in IPC
+    # the reference pixels have basically no flux, so for these real pixels we
+    # extend the array with a constant equal to zero.
+    log.info('Adding IPC...')
+    resultants = ndimage.convolve(resultants, parameters.ipc_kernel[None, ...],
+                                  mode='constant', cval=0)
 
     log.info('Adding read noise...')
     resultants /= gain
