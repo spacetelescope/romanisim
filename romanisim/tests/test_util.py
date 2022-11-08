@@ -41,6 +41,8 @@ def test_coordconv():
         v2 = c1.separation(c3).to(u.deg).value
         assert v1 < eps
         assert v2 < eps
+    assert util.skycoord(skycoord) is skycoord
+    assert util.celestialcoord(celcoord[0]) is celcoord[0]
 
 
 def test_scalergb():
