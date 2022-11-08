@@ -26,8 +26,8 @@ def test_coordconv():
     dec = np.random.uniform(-90, 90, npts)
     from astropy.coordinates import SkyCoord
     from galsim import CelestialCoord
-    skycoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg)
-    celcoord = [CelestialCoord(r*galsim.degrees, d*galsim.degrees)
+    skycoord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
+    celcoord = [CelestialCoord(r * galsim.degrees, d * galsim.degrees)
                 for (r, d) in zip(ra, dec)]
     celcoordp = [util.skycoord(c) for c in celcoord]
     skycoordp = [util.celestialcoord(s) for s in skycoord]
@@ -36,7 +36,7 @@ def test_coordconv():
         c1 = c
         c2 = SkyCoord(s.ra / galsim.radians * u.rad,
                       s.dec / galsim.radians * u.rad)
-        c3 = SkyCoord(ra[i]*u.deg, dec[i]*u.deg)
+        c3 = SkyCoord(ra[i] * u.deg, dec[i] * u.deg)
         v1 = c1.separation(c2).to(u.deg).value
         v2 = c1.separation(c3).to(u.deg).value
         assert v1 < eps
@@ -56,14 +56,14 @@ def test_scalergb():
     testim[1, 0, :] = [-1000, 0, 0]
     answers[1, 0, :] = 0
     testim[1, 1, :] = [1, 5, 2]
-    answers[1, 1, :] = np.array([1, 5, 2])/np.sqrt(1+25+4)
+    answers[1, 1, :] = np.array([1, 5, 2]) / np.sqrt(1 + 25 + 4)
     response = util.scalergb(testim)
     assert np.allclose(response, answers)
     response = util.scalergb(testim, lumrange=[0, 10])
-    answers[1, 1, : ] = np.array([1, 5, 2])/10
+    answers[1, 1, :] = np.array([1, 5, 2]) / 10
     assert np.allclose(response, answers)
     response = util.scalergb(testim, scales=[1, 2, 3], lumrange=[0, 10])
-    assert np.allclose(answers/np.array([1, 2, 3])[None, None, :], response)
+    assert np.allclose(answers / np.array([1, 2, 3])[None, None, :], response)
 
 
 def test_random_points_in_cap():
@@ -73,15 +73,15 @@ def test_random_points_in_cap():
     from astropy.coordinates import SkyCoord
     from astropy import units as u
     npts = 10000
-    cen = SkyCoord(ra=60*u.deg, dec=-10*u.deg)
+    cen = SkyCoord(ra=60 * u.deg, dec=-10 * u.deg)
     rad = 5
     pts = util.random_points_in_cap(cen, rad, npts)
     assert len(pts) == npts
     seps = cen.separation(pts).to(u.deg).value
     assert np.max(seps) < 5
-    fracininnerhalf = np.sum(seps < 5/np.sqrt(2))/npts
+    fracininnerhalf = np.sum(seps < 5 / np.sqrt(2)) / npts
     # should be distributed with stdev ~ sqrt(0.5*npts)/npts = sqrt(0.5/npts)
-    assert np.abs(fracininnerhalf - 0.5) < 10*np.sqrt(0.5/npts)
+    assert np.abs(fracininnerhalf - 0.5) < 10 * np.sqrt(0.5 / npts)
 
 
 # not going to test flatten / unflatten dictionary at this point, since we only
