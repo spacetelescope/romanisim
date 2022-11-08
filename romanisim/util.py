@@ -54,6 +54,8 @@ def celestialcoord(sky):
 def scalergb(rgb, scales=None, lumrange=None):
     """Scales three flux images into a range of luminosity for displaying.
 
+    Images are scaled into [0, 1].
+
     This routine is intended to help with cases where you want to display
     some images and want the color scale to cover only a certain range,
     but saturated regions should retain their appropriate hue and not be
@@ -74,7 +76,7 @@ def scalergb(rgb, scales=None, lumrange=None):
         scaled RGB image suitable for displaying
     """
 
-    rgb = rgb.copy()
+    rgb = np.clip(rgb, 0, np.inf)
     if scales is not None:
         for i in range(3):
             rgb[:, :, i] /= scales[i]
@@ -85,7 +87,7 @@ def scalergb(rgb, scales=None, lumrange=None):
                       0, 1)
     out = rgb.copy()
     for i in range(3):
-        out[:, :, i] = out[:, :, i] * newnorm / norm
+        out[:, :, i] = out[:, :, i] * newnorm / (norm + (norm == 0))
     return out
 
 
