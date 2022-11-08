@@ -55,7 +55,7 @@ import crds
 
 
 def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
-            linearity=None):
+            linearity=None, dark=None):
     """
     Simulate an image in a filter given resultants.
 
@@ -63,16 +63,18 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     Parameters
     ----------
-    resultants : np.ndarray[resultants, nx, ny]
+    resultants : np.ndarray[nresultants, nx, ny]
         resultants array
     ma_table : list[list] (int)
         list of list of first read numbers and number of reads in each resultant
-    read_noise : ndarray-like[n_pix, n_pix]
+    read_noise : np.ndarray[nx, ny] (float)
         read_noise image to use.  If None, use galsim.roman.read_noise.
-    flat : np.ndarray[float]
+    flat : np.ndarray[nx, ny] (float)
         flat field to use
     linearity : romanisim.nonlinearity.NL object or None
         non-linearity correction to use.
+    dark : np.ndarray[nresultants, nx, ny] (float)
+        dark current image to subtract from ramps
 
     Returns
     -------
@@ -93,6 +95,9 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     if linearity is not None:
         resultants = linearity.correct(resultants)
         # no error propagation
+
+    if dark is not None:
+        resultants = resultants - dark
 
     from . import ramp
     rampfitter = ramp.RampFitInterpolator(ma_table)
@@ -373,7 +378,7 @@ def simulate(metadata, objlist,
             all_metadata, observatory='roman',
             reftypes=['readnoise', 'dark', 'gain', 'linearity'])
         read_noise = asdf.open(reffiles['readnoise'])['roman']['data']
-        darkrate = asdf.open(reffiles['dark'])['roman']['data']
+        dark = asdf.open(reffiles['dark'])['roman']['data']
         gain = asdf.open(reffiles['gain'])['roman']['data']
         linearity = asdf.open(reffiles['linearity'])['roman']['coeffs']
         try:
@@ -387,11 +392,12 @@ def simulate(metadata, objlist,
 
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
-        darkrate = darkrate[-1] / (
+        darkrate = dark[-1] / (
             (ma_table[-1][0] + (ma_table[-1][1] - 1) / 2) * parameters.read_time)
         nborder = parameters.nborder
         read_noise = read_noise[nborder:-nborder, nborder:-nborder]
         darkrate = darkrate[nborder:-nborder, nborder:-nborder]
+        dark = dark[:, nborder:-nborder, nborder:-nborder]
         gain = gain[nborder:-nborder, nborder:-nborder]
         linearity = linearity[:, nborder:-nborder, nborder:-nborder]
         linearity = nonlinearity.NL(linearity)
@@ -423,7 +429,8 @@ def simulate(metadata, objlist,
         im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
-                            gain=gain, flat=flat, linearity=linearity)
+                            gain=gain, flat=flat, linearity=linearity,
+                            dark=dark)
         im = make_asdf(*slopeinfo, metadata=all_metadata)
     return im, simcatobj
 
