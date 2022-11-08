@@ -2,19 +2,27 @@
 Unit tests for catalog functions.
 """
 
+import os
 import numpy as np
 import galsim
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
+path, filename = os.path.split(galsim.__file__)
+datapath = os.path.abspath(os.path.join(
+    path, "share/COSMOS_23.5_training_sample/"))
+cosmos_filename = os.path.join(
+    datapath, 'real_galaxy_catalog_23.5.fits')
+
 
 def test_make_dummy_catalog():
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.2
     nobj = 100
-    cat = catalog.make_dummy_catalog(cen, radius=radius, seed=11, nobj=nobj,
-                                     chromatic=True)
+    cat = catalog.make_dummy_catalog(
+        cen, radius=radius, seed=11, nobj=nobj, chromatic=True,
+        galaxy_sample_file_name=cosmos_filename)
     assert len(cat) == nobj
     skycoord = SkyCoord(
         ra=[c.sky_pos.ra / galsim.degrees * u.deg for c in cat],
@@ -22,8 +30,9 @@ def test_make_dummy_catalog():
     assert np.max(cen.separation(skycoord).to(u.deg).value) < radius
     assert cat[0].profile.spectral
     assert cat[0].flux is None  # fluxes built into profile
-    cat = catalog.make_dummy_catalog(cen, radius=radius, nobj=nobj,
-                                     chromatic=False)
+    cat = catalog.make_dummy_catalog(
+        cen, radius=radius, nobj=nobj, chromatic=False,
+        galaxy_sample_file_name=cosmos_filename)
     assert not cat[0].profile.spectral
 
 
