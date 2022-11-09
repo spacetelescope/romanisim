@@ -3,26 +3,31 @@ Unit tests for catalog functions.
 """
 
 import os
+import urllib.request
 import numpy as np
 import galsim
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
-path, filename = os.path.split(galsim.__file__)
-datapath = os.path.abspath(os.path.join(
-    path, "share/COSMOS_23.5_training_sample/"))
-cosmos_filename = os.path.join(
-    datapath, 'real_galaxy_catalog_23.5.fits')
+cosmos_url = ('https://github.com/GalSim-developers/GalSim/raw/releases/'
+              '2.4/examples/data/real_galaxy_catalog_23.5_example.fits')
 
-
-def test_make_dummy_catalog():
+def test_make_dummy_catalog(tmp_path):
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.2
     nobj = 100
+    fn = os.path.join(tmp_path, 'example.fits')
+    urllib.request.urlretrieve(cosmos_url, fn)
+    urllib.request.urlretrieve(cosmos_url.replace('.fits', '_selection.fits'),
+                               fn.replace('.fits', '_selection.fits'))
+    urllib.request.urlretrieve(cosmos_url.replace('.fits', '_fits.fits'),
+                               fn.replace('.fits', '_fits.fits'))
+    from astropy.io import fits
+    print(fits.getdata(fn).dtype)
     cat = catalog.make_dummy_catalog(
         cen, radius=radius, seed=11, nobj=nobj, chromatic=True,
-        galaxy_sample_file_name=cosmos_filename)
+        galaxy_sample_file_name=str(fn))
     assert len(cat) == nobj
     skycoord = SkyCoord(
         ra=[c.sky_pos.ra / galsim.degrees * u.deg for c in cat],
@@ -32,7 +37,7 @@ def test_make_dummy_catalog():
     assert cat[0].flux is None  # fluxes built into profile
     cat = catalog.make_dummy_catalog(
         cen, radius=radius, nobj=nobj, chromatic=False,
-        galaxy_sample_file_name=cosmos_filename)
+        galaxy_sample_file_name=str(fn))
     assert not cat[0].profile.spectral
 
 
