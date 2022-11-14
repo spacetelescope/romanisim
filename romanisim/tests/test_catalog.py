@@ -31,13 +31,6 @@ def test_make_dummy_catalog(tmp_path):
                   fn.replace('.fits', '_selection.fits'))
     _download_url(cosmos_url.replace('.fits', '_fits.fits'),
                   fn.replace('.fits', '_fits.fits'))
-    # urllib.request.urlretrieve(cosmos_url, fn)
-    # urllib.request.urlretrieve(cosmos_url.replace('.fits', '_selection.fits'),
-    #                            fn.replace('.fits', '_selection.fits'))
-    # urllib.request.urlretrieve(cosmos_url.replace('.fits', '_fits.fits'),
-    #                            fn.replace('.fits', '_fits.fits'))
-    from astropy.io import fits
-    print(fits.getdata(fn).dtype)
     cat = catalog.make_dummy_catalog(
         cen, radius=radius, seed=11, nobj=nobj, chromatic=True,
         galaxy_sample_file_name=str(fn))
@@ -75,7 +68,6 @@ def test_table_catalog(tmp_path):
     assert np.all(table['ba'][m] == 1)
     assert np.all(table['pa'][~m] != 0)
     assert np.all(table['ba'][~m] != 0)
-    print(table.dtype.names)
     for b in bands:
         assert b in table.dtype.names
     cat = catalog.table_to_catalog(table, bands)
