@@ -7,6 +7,8 @@ import numpy as np
 from astropy import units as u
 import galsim
 from romanisim import util
+from astropy.coordinates import SkyCoord
+from galsim import CelestialCoord
 
 
 def test_dummy():
@@ -24,8 +26,6 @@ def test_coordconv():
     npts = 100
     ra = np.random.uniform(-720, 720, npts)
     dec = np.random.uniform(-90, 90, npts)
-    from astropy.coordinates import SkyCoord
-    from galsim import CelestialCoord
     skycoord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
     celcoord = [CelestialCoord(r * galsim.degrees, d * galsim.degrees)
                 for (r, d) in zip(ra, dec)]
@@ -72,8 +72,6 @@ def test_random_points_in_cap():
     """Make sure that all the points land in the cap, and that there are the
     right number, and maybe that their radial distribution isn't crazy?"""
 
-    from astropy.coordinates import SkyCoord
-    from astropy import units as u
     npts = 10000
     cen = SkyCoord(ra=60 * u.deg, dec=-10 * u.deg)
     rad = 5
