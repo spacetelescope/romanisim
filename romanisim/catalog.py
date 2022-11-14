@@ -22,7 +22,7 @@ class CatalogObject:
 
 
 def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
-                       chromatic=True):
+                       chromatic=True, galaxy_sample_file_name=None):
     """Make a dummy catalog for testing purposes.
 
     Parameters
@@ -50,10 +50,15 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
-    cat1 = galsim.COSMOSCatalog(sample='25.2', area=roman.collecting_area,
-                                exptime=1)
-    cat2 = galsim.COSMOSCatalog(sample='23.5', area=roman.collecting_area,
-                                exptime=1)
+    if galaxy_sample_file_name is None:
+        cat1 = galsim.COSMOSCatalog(sample='25.2', area=roman.collecting_area,
+                                    exptime=1)
+        cat2 = galsim.COSMOSCatalog(sample='23.5', area=roman.collecting_area,
+                                    exptime=1)
+    else:
+        cat1 = galsim.COSMOSCatalog(galaxy_sample_file_name,
+                                    area=roman.collecting_area, exptime=1)
+        cat2 = cat1
 
     if chromatic:
         # following Roman demo13, all stars currently have the SED of Vega.
