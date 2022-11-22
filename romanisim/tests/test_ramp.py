@@ -63,11 +63,11 @@ def test_ramp(test_table=None):
     param = np.array([10, 100], dtype='f4')
     yy = aa.dot(param)
     param2 = np.linalg.inv(atcinva).dot(atcinv.dot(yy))
-    assert np.allclose(param, param2)
+    assert np.allclose(param, param2, rtol=1e-3)
     ki, var = ramp.construct_ki_and_variances(
         atcinva, atcinv, [covar1, covar2, covar3])
-    assert np.allclose(var[2], np.linalg.inv(atcinva))
-    assert np.allclose(ki, np.linalg.inv(atcinva).dot(atcinv))
+    assert np.allclose(var[2], np.linalg.inv(atcinva), rtol=1e-3)
+    assert np.allclose(ki, np.linalg.inv(atcinva).dot(atcinv), rtol=1e-3)
     npts = 101
     flux_on_readvar_pts = 10.**(np.linspace(-5, 5, npts))
     kigrid, vargrid = ramp.ki_and_variance_grid(
