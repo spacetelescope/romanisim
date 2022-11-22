@@ -380,6 +380,8 @@ class RampFitInterpolator:
             dtbar_reshape = dtbar.reshape(
                 (dtbar.shape[0],) + (1,) * len(differences.shape[1:]))
             fluxest = np.median(differences[1:] / dtbar_reshape, axis=0)
+        if (np.ndim(fluxest) == 0) and (np.ndim(resultants) > 1):
+            fluxest = fluxest * np.ones(resultants.shape[1:])
         ki = self.ki(fluxest, read_noise)
         par = np.einsum('...cd,d...->...c', ki, differences)
         var = self.variances(fluxest, read_noise)
