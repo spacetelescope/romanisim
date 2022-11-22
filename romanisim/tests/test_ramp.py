@@ -84,7 +84,7 @@ def test_ramp(test_table=None):
             acovar, test_table)
         scale = flux_on_readvar_pts[i]
         ki, var = ramp.construct_ki_and_variances(
-            atcinva, atcinv, [rcovar, fcovar*scale, acovar])
+            atcinva, atcinv, [rcovar, fcovar * scale, acovar])
         assert np.allclose(kigrid[i], ki, atol=1e-7)
         assert np.allclose(vargrid[i], var, atol=1e-7)
     fitter = ramp.RampFitInterpolator(test_table, flux_on_readvar_pts)
@@ -143,4 +143,4 @@ def test_simulated_ramps():
 def test_resultants_to_differences():
     resultants = np.array([[10, 11, 12, 13, 14, 15]], dtype='f4').T
     differences = ramp.resultants_to_differences(resultants)
-    assert np.allclose(differences , np.array([[10, 1, 1, 1, 1, 1]]).T)
+    assert np.allclose(differences, np.array([[10, 1, 1, 1, 1, 1]]).T)
