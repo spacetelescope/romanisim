@@ -1,3 +1,5 @@
+[![CI](https://github.com/spacetelescope/romanisim/actions/workflows/ci.yml/badge.svg)](https://github.com/spacetelescope/romanisim/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/spacetelescope/romanisim/branch/master/graph/badge.svg?token=pkoLtQOa2v)](https://codecov.io/gh/spacetelescope/romanisim)
+
 # romanisim: an image simulator for Roman
 
 romanisim is a Galsim-based simulator of imaging data from the Wide
