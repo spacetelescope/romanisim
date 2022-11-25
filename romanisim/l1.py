@@ -167,12 +167,12 @@ def tij_to_pij(tij, remaining=False):
     for resultant in tij:
         pi = []
         for t in resultant:
-            pi.append((t - tlast) / tremaining)
+            pi.append(min([(t - tlast) / tremaining, 1]))
             if remaining:
                 tremaining -= (t - tlast)
             tlast = t
         pij.append(pi)
-    return np.clip(pij, 0, 1)
+    return pij
 
 
 def apportion_counts_to_resultants(counts, tij, linearity=None):
