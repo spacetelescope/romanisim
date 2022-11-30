@@ -114,6 +114,9 @@ def get_abflux(bandpass):
         the zero point flux (photons / s)s
     """
     bandpass = galsim2roman_bandpass.get(bandpass, bandpass)
+
+    # If abflux for this bandpass has been calculated, return the calculated
+    # value instead of rerunning an expensive calculation
     abflux = getattr(get_abflux, 'abflux', None)
     if abflux is None:
         abflux = compute_abflux()
