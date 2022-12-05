@@ -44,6 +44,8 @@ jobs:
           key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
       - run: tox -e ${{ matrix.toxenv }}
   download_data:
+    name: Download data
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Get WebbPSF & galsim Data
         run: | # Get WebbPSF data files (just a subset of the full dataset!) and set up environment variable
