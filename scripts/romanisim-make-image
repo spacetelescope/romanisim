@@ -41,6 +41,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     log.info('Starting simulation...')
+    log.warning("romanisim is under active developement.  Its output has "
+                "not been validated and is likely not correct.  It is not "
+                "appropriate for preparation of ROSES proposals.  Other "
+                "packages like galsim's roman package or STIPS may better "
+                "serve such purposes.")
 
     metadata = deepcopy(default_parameters_dictionary)
 

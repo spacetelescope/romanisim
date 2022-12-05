@@ -83,6 +83,9 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
         scale = 0.11
     else:
         # get the actual pixel scale from the WCS
+        # we really should do better here, aiming to get the full
+        # CD matrix.
+        # We can't just use wcs since it doesn't have the oversampling.
         cen = wcs.toWorld(galsim.PositionD(*pix))
         p1 = wcs.toWorld(galsim.PositionD(pix[0] + 1, pix[1]))
         p2 = wcs.toWorld(galsim.PositionD(pix[0], pix[1] + 1))
