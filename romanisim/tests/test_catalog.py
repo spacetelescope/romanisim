@@ -10,9 +10,9 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 
-# assumes that ci.yml has populated GALSIM_CAT_PATH and downloaded files
-# there appropriately.
-def test_make_dummy_catalog(tmp_path):
+# assumes GALSIM_CAT_PATH has been populated with downloaded files.
+# currently done by conftest.py
+def test_make_dummy_catalog():
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.2
     nobj = 100
