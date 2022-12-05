@@ -19,6 +19,9 @@ ramp-fitting, so that romanisim can produce realistic L1 images ("raw" sets
 of up the ramp samples like those that will be delivered from the telescope) and
 L2 images (calibrated images of astronomical flux per pixel).
 
+> **Warning**
+> romanisim is under active developement.  Its output has not been formally validated; only limited testing has been performed.  For this reason, use of romanisim for preparation of ROSES proposals is not advised.  Other packages like galsim's roman package or STIPS may better serve such purposes.
+
 ## Documentation
 
 See the full romanisim [documentation](https://romanisim.readthedocs.org) at readthedocs.
