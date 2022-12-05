@@ -43,24 +43,9 @@ jobs:
           path: .tox
           key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
       - run: tox -e ${{ matrix.toxenv }}
-  download_data:
-    name: Download data
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get WebbPSF & galsim Data
-        run: | # Get WebbPSF data files (just a subset of the full dataset!) and set up environment variable
-          wget https://stsci.box.com/shared/static/963l3m4hcrpc29bqxq68ilcsfgfqwiyc.gz  -O /tmp/minimal-webbpsf-data.tar.gz
-          tar -xzvf /tmp/minimal-webbpsf-data.tar.gz
-          echo "WEBBPSF_PATH=${{github.workspace}}/webbpsf-data" >> $GITHUB_ENV
-          galsimurl=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
-          wget $galsimurl/real_galaxy_catalog_23.5_example.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example.fits
-          wget $galsimurl/real_galaxy_catalog_23.5_example_selection.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example_selection.fits
-          wget $galsimurl/real_galaxy_catalog_23.5_example_fits.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example_fits.fits
-          export GALSIM_CAT_PATH="$GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example.fits"
-          echo "GALSIM_CAT_PATH=$GALSIM_CAT_PATH" >> $GITHUB_ENV
   test:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ check, download_data ]
+    needs: [ check ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -83,7 +68,7 @@ jobs:
       - run: tox -e ${{ matrix.toxenv }}
   test_older_numpy:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test, download_data ]
+    needs: [ test ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -115,7 +100,7 @@ jobs:
       - run: tox -e ${{ matrix.toxenv }}
   test_pyargs:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }}
-    needs: [ test, download_data ]
+    needs: [ test ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -137,7 +122,7 @@ jobs:
       - run: tox -e ${{ matrix.toxenv }}
   test_with_coverage:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test, download_data ]
+    needs: [ test ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -166,7 +151,7 @@ jobs:
           fail_ci_if_error: true
   build:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test, download_data ]
+    needs: [ test ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
