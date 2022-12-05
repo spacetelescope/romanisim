@@ -45,7 +45,7 @@ jobs:
       - run: tox -e ${{ matrix.toxenv }}
   download_data:
     name: Download data
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Get WebbPSF & galsim Data
         run: | # Get WebbPSF data files (just a subset of the full dataset!) and set up environment variable
