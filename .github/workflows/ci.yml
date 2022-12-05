@@ -46,18 +46,16 @@ jobs:
   download_data:
     steps:
       - name: Get WebbPSF & galsim Data
-      run: | # Get WebbPSF data files (just a subset of the full dataset!) and set up environment variable
-           wget https://stsci.box.com/shared/static/963l3m4hcrpc29bqxq68ilcsfgfqwiyc.gz  -O /tmp/minimal-webbpsf-data.tar.gz
-           tar -xzvf /tmp/minimal-webbpsf-data.tar.gz
-           echo "WEBBPSF_PATH=${{github.workspace}}/webbpsf-data" >> $GITHUB_ENV
-           galsimurl=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
-           wget $galsimurl/real_galaxy_catalog_23.5_example.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example.fits
-           wget $galsimurl/real_galaxy_catalog_23.5_example_selection.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example_selection.fits
-           wget $galsimurl/real_galaxy_catalog_23.5_example_fits.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example_fits.fits
-           export GALSIM_CAT_PATH="$GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example.fits"
-           echo "GALSIM_CAT_PATH=$GALSIM_CAT_PATH" >> $GITHUB_ENV
-
-
+      - run: | # Get WebbPSF data files (just a subset of the full dataset!) and set up environment variable
+          wget https://stsci.box.com/shared/static/963l3m4hcrpc29bqxq68ilcsfgfqwiyc.gz  -O /tmp/minimal-webbpsf-data.tar.gz
+          tar -xzvf /tmp/minimal-webbpsf-data.tar.gz
+          echo "WEBBPSF_PATH=${{github.workspace}}/webbpsf-data" >> $GITHUB_ENV
+          galsimurl=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
+          wget $galsimurl/real_galaxy_catalog_23.5_example.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example.fits
+          wget $galsimurl/real_galaxy_catalog_23.5_example_selection.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example_selection.fits
+          wget $galsimurl/real_galaxy_catalog_23.5_example_fits.fits -O $GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example_fits.fits
+          export GALSIM_CAT_PATH="$GITHUB_WORKSPACE/real_galaxy_catalog_23.5_example.fits"
+          echo "GALSIM_CAT_PATH=$GALSIM_CAT_PATH" >> $GITHUB_ENV
   test:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     needs: [ check, download_data ]
