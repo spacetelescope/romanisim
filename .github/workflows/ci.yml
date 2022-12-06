@@ -89,7 +89,6 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: webbpsf-data-hash
-          path: webbpsf_data_hash.txt
       - run: |
           echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
           echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
@@ -128,7 +127,6 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: webbpsf-data-hash
-          path: webbpsf_data_hash.txt
       - run: |
           echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
           echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
@@ -157,7 +155,6 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: webbpsf-data-hash
-          path: webbpsf_data_hash.txt
       - run: |
           echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
           echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
@@ -187,7 +184,6 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: webbpsf-data-hash
-          path: webbpsf_data_hash.txt
       - run: |
           echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
           echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
