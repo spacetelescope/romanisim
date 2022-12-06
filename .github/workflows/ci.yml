@@ -15,19 +15,14 @@ on:
 
 jobs:
   check:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.toxenv }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        toxenv: [ check-style, check-security ]
+        toxenv: [ check-style, check-security, check-build ]
         python-version: [ '3.x' ]
         os: [ ubuntu-latest ]
-        include:
-          - name: Code style check
-            toxenv: check-style
-          - name: Security audit
-            toxenv: check-security
     steps:
       - uses: actions/checkout@v3
         with:
@@ -35,11 +30,9 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
-      - uses: actions/cache@v3
-        with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
       - run: tox -e ${{ matrix.toxenv }}
   download_data:
     name: Download data
@@ -89,6 +82,8 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
       - uses: actions/download-artifact@v3
         with:
@@ -106,7 +101,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toxenv: [ test-numpy120, test-numpy121, test-numpy120 ]
+        toxenv: [ test-numpy120, test-numpy121, test-numpy122 ]
         python-version: [ '3.8', '3.9', '3.10', '3.11' ]
         os: [ ubuntu-latest ]
         exclude:
@@ -125,6 +120,8 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
       - uses: actions/download-artifact@v3
         with:
@@ -151,6 +148,8 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
       - uses: actions/download-artifact@v3
         with:
@@ -178,6 +177,8 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
       - uses: actions/download-artifact@v3
         with:
@@ -194,21 +195,3 @@ jobs:
           file: ./coverage.xml
           flags: unit
           fail_ci_if_error: true
-  build:
-    name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        toxenv: [ build-twine ]
-        python-version: [ '3.8', '3.9', '3.10', '3.11' ]
-        os: [ ubuntu-latest, macos-latest ]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install tox
-      - run: tox -e ${{ matrix.toxenv }}
