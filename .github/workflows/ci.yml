@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - run: echo DATA_PATH=${{ github.workspace }}/romanisim/data >> $GITHUB_ENV
+      - run: echo DATA_PATH=~/romanisim/romanisim/romanisim/data >> $GITHUB_ENV
       - run: |
           wget https://stsci.box.com/shared/static/963l3m4hcrpc29bqxq68ilcsfgfqwiyc.gz -O ${{ env.DATA_PATH }}/minimal-webbpsf-data.tar.gz
           cd ${{ env.DATA_PATH }}
