@@ -32,7 +32,7 @@ from . import util
 
 
 def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
-            usecrds=True):
+            usecrds=True, distortion=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
 
     Parameters
@@ -74,13 +74,13 @@ def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
     if date is None:
         date = astropy.time.Time(parameters['roman.meta.exposure.start_time'],
                                  format='isot')
-    if usecrds:
+    if (distortion is None) and usecrds:
         fn = crds.getreferences(parameters, reftypes=['distortion'],
                                 observatory='roman')
         distortion = asdf.open(fn['distortion'])
-        wcs = make_wcs(
-            util.skycoord(world_pos), roll_ref,
-            distortion['roman']['coordinate_distortion_transform'])
+        distortion = distortion['roman']['coordinate_distortion_transform']
+    if distortion is not None:
+        wcs = make_wcs(util.skycoord(world_pos), roll_ref, distortion)
         wcs = GWCS(wcs)
     else:
         # use galsim.roman
@@ -137,9 +137,10 @@ def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360):
 
     # distortion takes pixels to V2V3
     # V2V3 are in arcseconds, while SphericalToCartesian expects degrees.
-    model = distortion | ((Scale(1 / 3600) & Scale(1 / 3600)
-                           ) | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at) | rot | (
-                               gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at)))
+    model = (distortion | (Scale(1 / 3600) & Scale(1 / 3600))
+             | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
+             | rot
+             | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
     model.name = 'pixeltosky'
     detector = cf.Frame2D(name='detector', axes_order=(0, 1),
                           unit=(u.pix, u.pix))
@@ -188,9 +189,11 @@ class GWCS(galsim.wcs.CelestialWCS):
             return r[0], d[0]
         else:
             if (np.ndim(x) != np.ndim(y)):
-                raise ValueError(f"np.ndim(x) != np.ndim(y) => {np.ndim(x)} != {np.ndim(y)}")
+                raise ValueError(
+                    f"np.ndim(x) != np.ndim(y) => {np.ndim(x)} != {np.ndim(y)}")
             elif (x.shape != y.shape):
-                raise ValueError(f"x.shape != y.shape => {x.shape} != {y.shape}")
+                raise ValueError(
+                    f"x.shape != y.shape => {x.shape} != {y.shape}")
             return r, d
 
     def _xy(self, ra, dec, color=None):
@@ -206,9 +209,12 @@ class GWCS(galsim.wcs.CelestialWCS):
             return x[0], y[0]
         else:
             if (np.ndim(ra) != np.ndim(dec)):
-                raise ValueError(f"np.ndim(ra) != np.ndim(dec) => {np.ndim(ra)} != {np.ndim(dec)}")
+                raise ValueError(
+                    f"np.ndim(ra) != np.ndim(dec) => "
+                    f"{np.ndim(ra)} != {np.ndim(dec)}")
             elif (x.shape != y.shape):
-                raise ValueError(f"ra.shape != dec.shape => {ra.shape} != {dec.shape}")
+                raise ValueError(f"ra.shape != dec.shape => "
+                                 f"{ra.shape} != {dec.shape}")
             return x, y
 
     def _newOrigin(self, origin):
