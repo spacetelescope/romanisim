@@ -71,7 +71,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: ci-env
-          path: ci-env.txt
+          path: ci_env.txt
   test:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     needs: [ download_data, check ]
@@ -93,7 +93,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: ci-env
-      - run: cat ci-env.txt >> $GITHUB_ENV
+      - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
@@ -129,7 +129,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: ci-env
-      - run: cat ci-env.txt >> $GITHUB_ENV
+      - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
@@ -155,7 +155,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: ci-env
-      - run: cat ci-env.txt >> $GITHUB_ENV
+      - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
@@ -182,7 +182,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: ci-env
-      - run: cat ci-env.txt >> $GITHUB_ENV
+      - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
