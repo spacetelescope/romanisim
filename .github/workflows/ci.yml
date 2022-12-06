@@ -53,21 +53,25 @@ jobs:
           cd romanisim/data
           tar -xzvf minimal-webbpsf-data.tar.gz
           echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
+          DATA_DIRECTORY=${{ github.workspace }}/romanisim/data
           GALSIM_URL=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
-          wget $GALSIM_URL/real_galaxy_catalog_23.5_example.fits -O ${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example.fits
-          wget $GALSIM_URL/real_galaxy_catalog_23.5_example_selection.fits -O ${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example_selection.fits
-          wget $GALSIM_URL/real_galaxy_catalog_23.5_example_fits.fits -O ${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example_fits.fits
-          echo "GALSIM_CAT_PATH=${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example.fits" >> $GITHUB_ENV
-      - run: echo "WEBBPSF_DATA_HASH=${{ hashFiles( env.WEBBPSF_PATH ) }}" >> $GITHUB_ENV
-      - run: echo ${{ env.WEBBPSF_DATA_HASH }} > webbpsf_data_hash.txt
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example.fits -O $DATA_DIRECTORY/real_galaxy_catalog_23.5_example.fits
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example_selection.fits -O $DATA_DIRECTORY/real_galaxy_catalog_23.5_example_selection.fits
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example_fits.fits -O $DATA_DIRECTORY/real_galaxy_catalog_23.5_example_fits.fits
+      - run: echo WEBBPSF_DATA_HASH=${{ hashFiles( env.WEBBPSF_PATH ) }} >> $GITHUB_ENV
+      - run: |
+          touch ci_env.txt
+          echo WEBBPSF_PATH=${{ env.WEBBPSF_PATH }} >> ci_env.txt
+          echo GALSIM_CAT_PATH=${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example.fits >> ci_env.txt
+          echo WEBBPSF_DATA_HASH=${{ env.WEBBPSF_DATA_HASH }} >> ci_env.txt
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
           key: data-${{ env.WEBBPSF_DATA_HASH }}
       - uses: actions/upload-artifact@v3
         with:
-          name: webbpsf-data-hash
-          path: webbpsf_data_hash.txt
+          name: ci-env
+          path: ci-env.txt
   test:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     needs: [ download_data, check ]
@@ -88,10 +92,8 @@ jobs:
       - run: pip install tox
       - uses: actions/download-artifact@v3
         with:
-          name: webbpsf-data-hash
-      - run: |
-          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
-          echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
+          name: ci-env
+      - run: cat ci-env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
@@ -126,10 +128,8 @@ jobs:
       - run: pip install tox
       - uses: actions/download-artifact@v3
         with:
-          name: webbpsf-data-hash
-      - run: |
-          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
-          echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
+          name: ci-env
+      - run: cat ci-env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
@@ -154,10 +154,8 @@ jobs:
       - run: pip install tox
       - uses: actions/download-artifact@v3
         with:
-          name: webbpsf-data-hash
-      - run: |
-          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
-          echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
+          name: ci-env
+      - run: cat ci-env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
@@ -183,10 +181,8 @@ jobs:
       - run: pip install tox
       - uses: actions/download-artifact@v3
         with:
-          name: webbpsf-data-hash
-      - run: |
-          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
-          echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
+          name: ci-env
+      - run: cat ci-env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
           path: ${{ env.WEBBPSF_PATH }}
