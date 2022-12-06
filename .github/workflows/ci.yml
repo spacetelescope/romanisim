@@ -54,10 +54,10 @@ jobs:
       - run: echo "DATA_HASH=${{ hashFiles( env.DATA_PATH ) }}" >> $GITHUB_ENV
       - run: |
           touch ci_env.txt
-          echo "DATA_PATH=romanisim/data" >> ci_env.txt
+          echo "DATA_PATH=$HOME/work/romanisim/romanisim/romanisim/data" >> ci_env.txt
           echo "DATA_HASH=${{ env.DATA_HASH }}" >> ci_env.txt
-          echo "WEBBPSF_PATH=romanisim/data/webbpsf-data" >> ci_env.txt
-          echo "GALSIM_CAT_PATH=romanisim/data/galsim-data/real_galaxy_catalog_23.5_example.fits" >> ci_env.txt
+          echo "WEBBPSF_PATH=$HOME/work/romanisim/romanisim/romanisim/data/webbpsf-data" >> ci_env.txt
+          echo "GALSIM_CAT_PATH=$HOME/work/romanisim/romanisim/romanisim/data/galsim-data/real_galaxy_catalog_23.5_example.fits" >> ci_env.txt
       - uses: actions/cache@v3
         with:
           path: ${{ env.DATA_PATH }}
