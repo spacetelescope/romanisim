@@ -2,6 +2,7 @@ import os
 import urllib.request
 import tempfile
 import tarfile
+import pkg_resources
 
 
 cosmos_url = ('https://github.com/GalSim-developers/GalSim/raw/releases/'
@@ -23,8 +24,8 @@ def pytest_configure(config):
     tempdir = tempfile.TemporaryDirectory()
     if os.environ.get('WEBBPSF_PATH', None) is None:
         os.environ['WEBBPSF_PATH'] = os.path.join(tempdir.name, 'webbpsf-data')
-        outfn = os.path.join(tempdir.name, 'minimal-webbpsf-data.tar.gz')
-        _download_url(webbpsf_url, outfn)
+        dirname = pkg_resources.resource_filename('romanisim', 'data')
+        outfn = os.path.join(dirname, 'minimal-webbpsf-data.tar.gz')
         tf = tarfile.open(outfn, mode='r:gz')
         tf.extractall(path=tempdir.name)
     if os.environ.get('GALSIM_CAT_PATH', None) is None:
