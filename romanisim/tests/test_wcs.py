@@ -6,7 +6,7 @@ import numpy as np
 from astropy.modeling import rotations, projections, models
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-from romanisim import wcs
+from romanisim import wcs, util, parameters
 import galsim
 
 
@@ -60,3 +60,16 @@ def test_wcs():
     xx2, yy2 = wcsgalsim._xy(rr, dd)
     assert np.allclose(xx, xx2)
     assert np.allclose(yy, yy2)
+    wcswrap = wcs.get_wcs(cc, distortion=distortion, sca=1)
+    cc2 = util.skycoord(wcswrap.toWorld(galsim.PositionD(0, 0)))
+    assert cc.separation(cc2).to(u.arcsec).value < 1e-3
+    celpole = SkyCoord(270 * u.deg, 66 * u.deg)
+    wcsgalsim = wcs.get_wcs(celpole, sca=1, usecrds=False)
+    cc3 = util.skycoord(wcsgalsim.toWorld(galsim.PositionD(128, 128)))
+    assert cc3.separation(celpole).to(u.degree).value < 3
+    # big margin here of 3 deg!  The CCDs are not really at the boresight.
+    par = parameters.default_parameters_dictionary
+    par['roman.meta.instrument.detector'] = 'WFI01'
+    wcswrap2 = wcs.get_wcs(cc, distortion=distortion, parameters=par)
+    cc3 = util.skycoord(wcswrap2.toWorld(galsim.PositionD(0, 0)))
+    assert cc.separation(cc3).to(u.arcsec).value < 1e-3
