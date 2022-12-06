@@ -56,8 +56,8 @@ jobs:
           touch ci_env.txt
           echo "DATA_PATH=${{ env.DATA_PATH }}" >> ci_env.txt
           echo "DATA_HASH=${{ env.DATA_HASH }}" >> ci_env.txt
-          echo "WEBBPSF_PATH=$DATA_PATH/webbpsf-data" >> ci_env.txt
-          echo "GALSIM_CAT_PATH=$DATA_PATH/galsim-data/real_galaxy_catalog_23.5_example.fits" >> ci_env.txt
+          echo "WEBBPSF_PATH=${{ env.DATA_PATH }}/webbpsf-data" >> ci_env.txt
+          echo "GALSIM_CAT_PATH=${{ env.DATA_PATH }}/galsim-data/real_galaxy_catalog_23.5_example.fits" >> ci_env.txt
       - uses: actions/cache@v3
         with:
           path: ${{ env.DATA_PATH }}
