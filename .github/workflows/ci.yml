@@ -51,7 +51,7 @@ jobs:
           wget $GALSIM_URL/real_galaxy_catalog_23.5_example.fits -O galsim-data/real_galaxy_catalog_23.5_example.fits
           wget $GALSIM_URL/real_galaxy_catalog_23.5_example_selection.fits -O galsim-data/real_galaxy_catalog_23.5_example_selection.fits
           wget $GALSIM_URL/real_galaxy_catalog_23.5_example_fits.fits -O galsim-data/real_galaxy_catalog_23.5_example_fits.fits
-      - run: echo "DATA_HASH=${{ hashFiles( env.DATA_PATH ) }}" >> $GITHUB_ENV
+      - run: echo "DATA_HASH=${{ hashFiles( 'romanisim/data' ) }}" >> $GITHUB_ENV
       - run: |
           touch ci_env.txt
           echo "DATA_PATH=${{ env.DATA_PATH }}" >> ci_env.txt
