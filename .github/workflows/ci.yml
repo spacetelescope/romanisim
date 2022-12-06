@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - run: echo "DATA_PATH=\$HOME/work/romanisim/romanisim/romanisim/data" >> $GITHUB_ENV
+      - run: echo "DATA_PATH=$HOME/work/romanisim/romanisim/romanisim/data" >> $GITHUB_ENV
       - run: |
           wget https://stsci.box.com/shared/static/963l3m4hcrpc29bqxq68ilcsfgfqwiyc.gz -O ${{ env.DATA_PATH }}/minimal-webbpsf-data.tar.gz
           cd ${{ env.DATA_PATH }}
@@ -89,6 +89,8 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: ci-env
+      - run: sed -i'' -e 's/\/home\//\/Users\//g' ci_env.txt
+        if: runner.os == 'MacOS'
       - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
@@ -127,6 +129,8 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: ci-env
+      - run: sed -i'' -e 's/\/home\//\/Users\//g' ci_env.txt
+        if: runner.os == 'MacOS'
       - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
@@ -155,6 +159,8 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: ci-env
+      - run: sed -i'' -e 's/\/home\//\/Users\//g' ci_env.txt
+        if: runner.os == 'MacOS'
       - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
@@ -184,6 +190,8 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: ci-env
+      - run: sed -i'' -e 's/\/home\//\/Users\//g' ci_env.txt
+        if: runner.os == 'MacOS'
       - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
