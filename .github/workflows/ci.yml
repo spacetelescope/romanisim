@@ -60,7 +60,7 @@ jobs:
           echo "GALSIM_CAT_PATH=${{ env.DATA_PATH }}/galsim-data/real_galaxy_catalog_23.5_example.fits" >> ci_env.txt
       - uses: actions/cache@v3
         with:
-          path: ${{ env.DATA_PATH }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
           key: data-${{ env.DATA_HASH }}
       - uses: actions/upload-artifact@v3
         with:
@@ -94,7 +94,7 @@ jobs:
       - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: ${{ env.DATA_PATH }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
           key: data-${{ env.DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_older_numpy:
@@ -134,7 +134,7 @@ jobs:
       - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: ${{ env.DATA_PATH }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
           key: data-${{ env.DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_pyargs:
@@ -164,7 +164,7 @@ jobs:
       - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: ${{ env.DATA_PATH }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
           key: data-${{ env.DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_with_coverage:
@@ -195,7 +195,7 @@ jobs:
       - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: ${{ env.DATA_PATH }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
           key: data-${{ env.DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
       - if: ${{ contains(matrix.toxenv,'-cov') }}
