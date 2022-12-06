@@ -43,9 +43,33 @@ jobs:
           path: .tox
           key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
       - run: tox -e ${{ matrix.toxenv }}
+  download_data:
+    name: Download data
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          wget https://stsci.box.com/shared/static/963l3m4hcrpc29bqxq68ilcsfgfqwiyc.gz -O romanisim/data/minimal-webbpsf-data.tar.gz
+          cd romanisim/data
+          tar -xzvf minimal-webbpsf-data.tar.gz
+          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
+          GALSIM_URL=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example.fits -O ${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example.fits
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example_selection.fits -O ${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example_selection.fits
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example_fits.fits -O ${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example_fits.fits
+          echo "GALSIM_CAT_PATH=${{ github.workspace }}/romanisim/data/real_galaxy_catalog_23.5_example.fits" >> $GITHUB_ENV
+      - run: echo "WEBBPSF_DATA_HASH=${{ hashFiles( env.WEBBPSF_PATH ) }}" >> $GITHUB_ENV
+      - run: echo ${{ env.WEBBPSF_DATA_HASH }} > webbpsf_data_hash.txt
+      - uses: actions/cache@v3
+        with:
+          path: ${{ env.WEBBPSF_PATH }}
+          key: data-${{ env.WEBBPSF_DATA_HASH }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: webbpsf-data-hash
+          path: webbpsf_data_hash.txt
   test:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ check ]
+    needs: [ download_data, check ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -61,14 +85,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install tox
+      - uses: actions/download-artifact@v3
+        with:
+          name: webbpsf-data-hash
+          path: webbpsf_data_hash.txt
+      - run: |
+          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
+          echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
+          path: ${{ env.WEBBPSF_PATH }}
+          key: data-${{ env.WEBBPSF_DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_older_numpy:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test ]
+    needs: [ download_data, test ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -93,14 +124,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install tox
+      - uses: actions/download-artifact@v3
+        with:
+          name: webbpsf-data-hash
+          path: webbpsf_data_hash.txt
+      - run: |
+          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
+          echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
+          path: ${{ env.WEBBPSF_PATH }}
+          key: data-${{ env.WEBBPSF_DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_pyargs:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }}
-    needs: [ test ]
+    needs: [ download_data, test ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -115,14 +153,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install tox
+      - uses: actions/download-artifact@v3
+        with:
+          name: webbpsf-data-hash
+          path: webbpsf_data_hash.txt
+      - run: |
+          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
+          echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
+          path: ${{ env.WEBBPSF_PATH }}
+          key: data-${{ env.WEBBPSF_DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_with_coverage:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test ]
+    needs: [ download_data, test ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -138,10 +183,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install tox
+      - uses: actions/download-artifact@v3
+        with:
+          name: webbpsf-data-hash
+          path: webbpsf_data_hash.txt
+      - run: |
+          echo "WEBBPSF_PATH=${{ github.workspace }}/romanisim/data/webbpsf-data" >> $GITHUB_ENV
+          echo "WEBBPSF_DATA_HASH=$(cat webbpsf_data_hash.txt)" >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
+          path: ${{ env.WEBBPSF_PATH }}
+          key: data-${{ env.WEBBPSF_DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
       - if: ${{ contains(matrix.toxenv,'-cov') }}
         uses: codecov/codecov-action@v3
@@ -166,8 +218,4 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install tox
-      - uses: actions/cache@v3
-        with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
       - run: tox -e ${{ matrix.toxenv }}
