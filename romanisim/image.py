@@ -119,19 +119,13 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     return slopes, readvar, poissonvar
 
 
-def in_bounds(objlist, wcs, imbd, margin):
+def in_bounds(xx, yy, imbd, margin):
     """Filter sources in an objlist to those landing on an image.
-
-    gWCS objects can be somewhat expensive to evaluate source-by-source, so
-    this transforms the object list back into an array to do this in a
-    vectorized way, and gives the results.
 
     Parameters
     ----------
-    objlist : list[romanisim.catalog.CatalogObject]
-        list of objects
-    wcs : galsim.wcs.CelestialWCS
-        wcs of chip
+    xx, yy: ndarray[nobj] (float)
+        x & y positions of sources on image
     imbd : galsim.Image.Bounds
         bounds of image
     margin : int
@@ -141,14 +135,167 @@ def in_bounds(objlist, wcs, imbd, margin):
     -------
     keep : np.ndarray (bool)
         whether each source lands near the image (True) or not (False)
-    xx, yy : np.ndarray (float)
-        x, y locations of sources on chip
     """
-    coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad] for o in objlist])
-    xx, yy = wcs._xy(coord[:, 0], coord[:, 1])
+
     keep = ((xx > imbd.xmin - margin) & (xx < imbd.xmax + margin) & (
         yy > imbd.ymin - margin) & (yy < imbd.ymax + margin))
     return keep, xx, yy
+
+
+def add_objects_to_image(image, objlist, xpos, ypos, wcs, psf,
+                         flux_to_counts_factor, bandpass=None, filter_name=None,
+                         rng=None, seed=None):
+    """Add sources to an image.
+
+    Parameters
+    ----------
+    image : galsim.Image
+        Image to which to add sources
+    objlist : list[CatalogObject]
+        Objects to add to image
+    xpos, ypos : array_like
+        x & y positions of sources (pixel) at which sources should be added
+    wcs : galsim.BaseWCS
+        BaseWCS for image
+    psf : galsim.Profile
+        PSF for image
+    flux_to_counts_factor : float
+        physical fluxes in objlist (whether in profile SEDs or flux arrays)
+        should be multiplied by this factor to convert to total counts in the
+        image
+    bandpass : galsim.Bandpass
+        bandpass in which image is being rendered.  This is used only in cases
+        where chromatic profiles & PSFs are being used.
+    filter_name : str
+        filter to use to select appropriate flux from objlist.  This is only
+        used when achromatic PSFs and sources are being rendered.
+    rng : galsim.BaseDeviate
+        random number generator to use
+    seed : int
+        seed to use for random number generator
+
+    Returns
+    -------
+    outinfo : np.ndarray
+        Array structure containing rows for each source.  The columns give
+        the total number of counts from the source entering the image and
+        the time taken to render the source.
+    """
+    if rng is None and seed is None:
+        seed = 143
+        log.warning(
+            'No RNG set, constructing a new default RNG from default seed.')
+    if rng is None:
+        rng = galsim.UniformDeviate(seed)
+
+    log.info('Adding sources to image...')
+    nrender = 0
+
+    chromatic = False
+    if len(objlist) > 0 and objlist[0].profile.spectral:
+        chromatic = True
+    if chromatic and bandpass is None:
+        raise ValueError('bandpass must be set for chromatic PSF rendering.')
+    if not chromatic and filter_name is None:
+        raise ValueError('must specify filter when not doing chromatic PSF '
+                         'rendering.')
+
+    outinfo = np.zeros(len(objlist), dtype=[('counts', 'f4'), ('time', 'f4')])
+    for i, obj in enumerate(objlist):
+        t0 = time.time()
+        image_pos = galsim.PositionD(xpos[i], ypos[i])
+        final = galsim.Convolve(obj.profile * flux_to_counts_factor, psf)
+        if chromatic:
+            stamp = final.drawImage(
+                bandpass, center=image_pos, wcs=wcs.local(image_pos),
+                method='phot', rng=rng)
+        else:
+            if obj.flux is not None:
+                final = final.withFlux(
+                    obj.flux[filter_name] * flux_to_counts_factor)
+                try:
+                    stamp = final.drawImage(center=image_pos,
+                                            wcs=wcs.local(image_pos))
+                except galsim.GalSimFFTSizeError:
+                    log.warning(f'Skipping source {i} due to too '
+                                f'large FFT needed for desired accuracy.')
+        bounds = stamp.bounds & image.bounds
+        if bounds.area() == 0:
+            continue
+        image[bounds] += stamp[bounds]
+        nrender += 1
+        outinfo[i] = (np.sum(stamp[bounds]), time.time() - t0)
+    log.info('Rendered %d sources...' % nrender)
+    return outinfo
+
+
+def simulate_counts_generic(imshape, wcs, objlist=None, psf=None, zpflux=None,
+                            background=None, flat=None, xpos=None, ypos=None,
+                            ignore_distant_sources=10, bandpass=None,
+                            filter_name=None, rng=None, seed=None):
+    if rng is None and seed is None:
+        seed = 144
+        log.warning(
+            'No RNG set, constructing a new default RNG from default seed.')
+    if rng is None:
+        rng = galsim.UniformDeviate(seed)
+    if (objlist is not None and len(objlist) > 0
+            and wcs is None and (xpos is None or ypos is None)):
+        raise ValueError('xpos and ypos must be set if rendering objects '
+                         'without a WCS.')
+    if objlist is None:
+        objlist = []
+    if len(objlist) > 0 and xpos is None:
+        coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
+                          for o in objlist])
+        xx, yy = wcs._xy(coord[:, 0], coord[:, 1])
+        # use private vectorized transformation
+    image = galsim.Image(galsim.BoundsI(0, imshape[0], 0, imshape[1]),
+                         dtype='f4', init_value=0)
+    if len(objlist) > 0:
+        keep = in_bounds(xx, yy, image.bounds, ignore_distant_sources)
+
+    if flat is None:
+        flat = 1
+    # for some reason, galsim doesn't like multiplying an SED by 1, but it's
+    # okay with multiplying an SED by 1.0.
+    maxflat = float(np.max(flat))
+    if maxflat > 1.1:
+        log.warning('max(flat) > 1.1; this seems weird?!')
+    if maxflat > 2:
+        log.error('max(flat) > 2; this seems really weird?!')
+    # how to deal with the flat field?  We artificially inflate the
+    # exposure time of each source by maxflat when rendering.  And then we
+    # do a binomial sampling of the total number of photons obtained per pixel
+    # to figure out how many "should" have entered the pixel.
+
+    add_objects_to_image(image, [o for o, k in zip(objlist, keep) if k],
+                         xpos[keep], ypos[keep], wcs, psf,
+                         flux_to_counts_factor, bandpass=bandpass,
+                         filter_name=None, rng=rng)
+
+    poisson_noise = galsim.PoissonNoise(rng)
+    sky_image.addNoise(poisson_noise)
+
+    # add Poisson noise if we made a noiseless, not-photon-shooting
+    # image.
+    if final is not None and not final.spectral:
+        full_image.addNoise(poisson_noise)
+
+    if not np.all(flat == 1):
+        full_image.array[:, :] = np.random.binomial(
+            np.round(full_image.array).astype('i4'), flat / maxflat)
+
+    full_image += sky_image
+
+    if darkrate is None:
+        darkrate = roman.dark_current
+    dark_image += darkrate * exptime
+    dark_image.addNoise(poisson_noise)
+    full_image += dark_image
+
+    full_image.quantize()
+    pass
 
 
 def simulate_counts(sca, targ_pos, date, objlist, filter_name,
@@ -248,7 +395,11 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     nrender = 0
     final = None
     info = []
-    keep, xpos, ypos = in_bounds(objlist, imwcs, imbd, ignore_distant_sources)
+
+    coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad] for o in objlist])
+    xx, yy = wcs._xy(coord[:, 0], coord[:, 1])
+    # use private vectorized transformation
+    keep, xpos, ypos = in_bounds(xx, yy, imbd, ignore_distant_sources)
     for i, obj in enumerate(objlist):
         t0 = time.time()
         if not keep[i]:
