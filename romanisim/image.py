@@ -13,6 +13,7 @@ from astropy import coordinates
 import asdf
 import galsim
 from galsim import roman
+import gwcs
 import roman_datamodels.testing.utils
 from . import wcs
 from . import catalog
@@ -196,6 +197,8 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         each pixel.
     simcatobj : np.ndarray
         catalog of simulated objects in image
+    wcs : romanisim.wcs.GWCS
+        WCS for image
     """
     if exptime is None:
         exptime = roman.exptime
@@ -307,7 +310,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     if return_info:
         full_image = (full_image, info)
 
-    return full_image, simcatobj
+    return full_image, simcatobj, wcs
 
 
 def simulate(metadata, objlist,
@@ -416,10 +419,12 @@ def simulate(metadata, objlist,
         rng = galsim.UniformDeviate(seed)
 
     log.info('Simulating filter {0}...'.format(filter_name))
-    counts, simcatobj = simulate_counts(
+    counts, simcatobj, imwcs = simulate_counts(
         sca, coord, date, objlist, filter_name, rng=rng,
         exptime=exptime, usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat)
+    if isinstance(imwcs.wcs, gwcs.wcs.WCS):
+        metadata['wcs'] = imwcs.wcs
     if level == 0:
         return counts
     l1 = romanisim.l1.make_l1(
