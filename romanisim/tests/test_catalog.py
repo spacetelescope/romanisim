@@ -3,34 +3,20 @@ Unit tests for catalog functions.
 """
 
 import os
-import urllib.request
 import numpy as np
 import galsim
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
-cosmos_url = ('https://github.com/GalSim-developers/GalSim/raw/releases/'
-              '2.4/examples/data/real_galaxy_catalog_23.5_example.fits')
 
-
-def _download_url(url, filename):
-    req = urllib.request.Request(url)
-    # marking the below as nosec; we're reading a fixed URL
-    with urllib.request.urlopen(req) as r, open(filename, 'wb') as f:  # nosec
-        f.write(r.read())
-
-
-def test_make_dummy_catalog(tmp_path):
+# assumes GALSIM_CAT_PATH has been populated with downloaded files.
+# currently done by conftest.py
+def test_make_dummy_catalog():
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.2
     nobj = 100
-    fn = os.path.join(tmp_path, 'example.fits')
-    _download_url(cosmos_url, fn)
-    _download_url(cosmos_url.replace('.fits', '_selection.fits'),
-                  fn.replace('.fits', '_selection.fits'))
-    _download_url(cosmos_url.replace('.fits', '_fits.fits'),
-                  fn.replace('.fits', '_fits.fits'))
+    fn = os.environ['GALSIM_CAT_PATH']
     cat = catalog.make_dummy_catalog(
         cen, radius=radius, seed=11, nobj=nobj, chromatic=True,
         galaxy_sample_file_name=str(fn))
