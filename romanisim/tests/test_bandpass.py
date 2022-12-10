@@ -1,4 +1,3 @@
-
 """
 Unit tests for bandpass functions.  Tested routines:
 * read_gsfc_effarea
@@ -6,9 +5,16 @@ Unit tests for bandpass functions.  Tested routines:
 * get_abflux
 """
 
+import pytest
 import numpy as np
 from romanisim import bandpass
+from astropy import constants
 from astropy.table import Table
+from astropy import units as u
+from scipy.stats import norm
+
+FILTERLIST = ['F062', 'F158', 'F213']
+ABVLIST = [4.938e10, 4.0225e10, 2.55e10]
 
 
 def test_read_gsfc_effarea(tmpdir_factory):
@@ -33,30 +39,35 @@ def test_read_gsfc_effarea(tmpdir_factory):
     assert read_table['Dwarf Planet'][2] == 'Makemake'
 
 
-def test_compute_abflux():
-    # Test default values
-    ab_flux = bandpass.compute_abflux()
+@pytest.mark.parametrize("filter", FILTERLIST)
+def test_compute_abflux(filter):
+    # Test calculated abfluxes vs analytical values
 
-    assert ab_flux['F062'] == 49379170641.48872
-    assert ab_flux['Grism_1stOrder'] == 75489060948.47092
-    assert len(ab_flux.keys()) == 11
+    # Define AB zero flux, filter area, and wavelength
+    abfv = 3631e-23 * u.erg / (u.s * u.cm ** 2 * u.hertz)
+    area = 1.0 * u.m ** 2
+    wavel = int(filter[1:]) * 0.001 * u.micron
 
+    # Create dirac-delta-like distribution for filter response
+    wavedist = np.linspace(wavel.value - 0.001, wavel.value + 0.001, 1000)
+    thru = norm.pdf(wavedist, wavel.value, 0.0001)
+
+    # Analytical flux
+    theo_flux = (abfv * area / (constants.h.to(u.erg * u.s) * wavel)).to(1 / (u.s * u.micron))
+
+    # Table for filter data storage
     data_table = Table()
-    data_table['Wave'] = [0.60, 0.61, 0.62, 0.63, 0.64]
-    data_table['F062'] = [0.0, 0.0, 1.0, 0.0, 0.0]
+    data_table['Wave'] = wavedist
+    data_table[filter] = thru
 
-    ab062_flux = bandpass.compute_abflux(data_table)
+    # Computed flux
+    gauss_flux = bandpass.compute_abflux(data_table)
 
-    data_table = Table()
-    data_table['Wave'] = [2.32, 2.33, 2.34, 2.35, 2.36]
-    data_table['F234'] = [0.0, 0.0, 1.0, 0.0, 0.0]
-
-    ab234_flux = bandpass.compute_abflux(data_table)
-
-    assert np.isclose( (ab234_flux['F234'] / ab062_flux['F062']), (1 / (234 / 62)), atol = 1.0e-6)
+    # Comparing both fluxes as magnitudes
+    assert np.isclose(np.log10(theo_flux.value), np.log10(gauss_flux[filter]), atol=1.0e-6)
 
 
-def test_get_abflux():
-    band = 'F062'
-
-    assert bandpass.get_abflux(band) == 49379170641.48872
+@pytest.mark.parametrize("filter, value", zip(FILTERLIST, ABVLIST))
+def test_get_abflux(filter, value):
+    # Test that proper results (within 10%) are returned for select bands.
+    assert np.isclose(bandpass.get_abflux(filter), value, rtol=1.0e-1)
