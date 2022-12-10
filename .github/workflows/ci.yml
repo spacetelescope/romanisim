@@ -17,19 +17,14 @@ on:
 
 jobs:
   check:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.toxenv }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        toxenv: [ check-style, check-security ]
+        toxenv: [ check-style, check-security, check-build ]
         python-version: [ '3.x' ]
         os: [ ubuntu-latest ]
-        include:
-          - name: Code style check
-            toxenv: check-style
-          - name: Security audit
-            toxenv: check-security
     steps:
       - uses: actions/checkout@v3
         with:
@@ -37,15 +32,45 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
+      - run: tox -e ${{ matrix.toxenv }}
+  download_data:
+    name: Download data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: echo "DATA_PATH=$HOME/work/romanisim/romanisim/romanisim/data" >> $GITHUB_ENV
+      - run: |
+          wget https://stsci.box.com/shared/static/963l3m4hcrpc29bqxq68ilcsfgfqwiyc.gz -O ${{ env.DATA_PATH }}/minimal-webbpsf-data.tar.gz
+          cd ${{ env.DATA_PATH }}
+          tar -xzvf minimal-webbpsf-data.tar.gz
+          mkdir galsim-data
+          GALSIM_URL=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example.fits -O galsim-data/real_galaxy_catalog_23.5_example.fits
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example_selection.fits -O galsim-data/real_galaxy_catalog_23.5_example_selection.fits
+          wget $GALSIM_URL/real_galaxy_catalog_23.5_example_fits.fits -O galsim-data/real_galaxy_catalog_23.5_example_fits.fits
+      - run: echo "DATA_HASH=${{ hashFiles( 'romanisim/data' ) }}" >> $GITHUB_ENV
+      - run: |
+          touch ci_env.txt
+          echo "DATA_PATH=${{ env.DATA_PATH }}" >> ci_env.txt
+          echo "DATA_HASH=${{ env.DATA_HASH }}" >> ci_env.txt
+          echo "WEBBPSF_PATH=${{ env.DATA_PATH }}/webbpsf-data" >> ci_env.txt
+          echo "GALSIM_CAT_PATH=${{ env.DATA_PATH }}/galsim-data/real_galaxy_catalog_23.5_example.fits" >> ci_env.txt
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
-      - run: tox -e ${{ matrix.toxenv }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
+          key: data-${{ env.DATA_HASH }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ci-env
+          path: ci_env.txt
   test:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ check ]
+    needs: [ download_data, check ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -60,20 +85,28 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
+      - uses: actions/download-artifact@v3
+        with:
+          name: ci-env
+      - run: sed -i'' -e 's/\/home\//\/Users\//g' ci_env.txt
+        if: runner.os == 'MacOS'
+      - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
+          key: data-${{ env.DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_older_numpy:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test ]
+    needs: [ download_data, test ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        toxenv: [ test-numpy120, test-numpy121, test-numpy120 ]
+        toxenv: [ test-numpy120, test-numpy121, test-numpy122 ]
         python-version: [ '3.8', '3.9', '3.10', '3.11' ]
         os: [ ubuntu-latest ]
         exclude:
@@ -92,15 +125,23 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
+      - uses: actions/download-artifact@v3
+        with:
+          name: ci-env
+      - run: sed -i'' -e 's/\/home\//\/Users\//g' ci_env.txt
+        if: runner.os == 'MacOS'
+      - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
+          key: data-${{ env.DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_pyargs:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }}
-    needs: [ test ]
+    needs: [ download_data, test ]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -114,15 +155,23 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
+      - uses: actions/download-artifact@v3
+        with:
+          name: ci-env
+      - run: sed -i'' -e 's/\/home\//\/Users\//g' ci_env.txt
+        if: runner.os == 'MacOS'
+      - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
+          key: data-${{ env.DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
   test_with_coverage:
     name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test ]
+    needs: [ download_data, test ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -137,11 +186,19 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - run: pip install tox
+      - uses: actions/download-artifact@v3
+        with:
+          name: ci-env
+      - run: sed -i'' -e 's/\/home\//\/Users\//g' ci_env.txt
+        if: runner.os == 'MacOS'
+      - run: cat ci_env.txt >> $GITHUB_ENV
       - uses: actions/cache@v3
         with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
+          path: '~/work/romanisim/romanisim/romanisim/data'
+          key: data-${{ env.DATA_HASH }}
       - run: tox -e ${{ matrix.toxenv }}
       - if: ${{ contains(matrix.toxenv,'-cov') }}
         uses: codecov/codecov-action@v3
@@ -149,25 +206,3 @@ jobs:
           file: ./coverage.xml
           flags: unit
           fail_ci_if_error: true
-  build:
-    name: ${{ matrix.toxenv }} (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    needs: [ test ]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        toxenv: [ build-twine ]
-        python-version: [ '3.8', '3.9', '3.10', '3.11' ]
-        os: [ ubuntu-latest, macos-latest ]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install tox
-      - uses: actions/cache@v3
-        with:
-          path: .tox
-          key: tox-${{ matrix.toxenv }}-${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.*') }}
-      - run: tox -e ${{ matrix.toxenv }}

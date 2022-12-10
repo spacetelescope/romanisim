@@ -404,6 +404,7 @@ def simulate(metadata, objlist,
     else:
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
+        dark = None
         gain = galsim.roman.gain
         flat = 1
         linearity = None
