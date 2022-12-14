@@ -139,7 +139,7 @@ def in_bounds(xx, yy, imbd, margin):
 
     keep = ((xx > imbd.xmin - margin) & (xx < imbd.xmax + margin) & (
         yy > imbd.ymin - margin) & (yy < imbd.ymax + margin))
-    return keep, xx, yy
+    return keep
 
 
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
@@ -222,7 +222,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             continue
         image[bounds] += stamp[bounds]
         nrender += 1
-        outinfo[i] = (np.sum(stamp[bounds]), time.time() - t0)
+        outinfo[i] = (np.sum(stamp[bounds].array), time.time() - t0)
     log.info('Rendered %d sources...' % nrender)
     return outinfo
 
@@ -302,10 +302,10 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     if len(objlist) > 0 and xpos is None:
         coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
                           for o in objlist])
-        xx, yy = image.wcs._xy(coord[:, 0], coord[:, 1])
+        xpos, ypos = image.wcs._xy(coord[:, 0], coord[:, 1])
         # use private vectorized transformation
     if len(objlist) > 0:
-        keep = in_bounds(xx, yy, image.bounds, ignore_distant_sources)
+        keep = in_bounds(xpos, ypos, image.bounds, ignore_distant_sources)
     else:
         keep = []
     if len(objlist) > 0 and psf is None:
@@ -313,8 +313,9 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 
     if flat is None:
         flat = 1
+
     # for some reason, galsim doesn't like multiplying an SED by 1, but it's
-    # okay with multiplying an SED by 1.0.
+    # okay with multiplying an SED by 1.0, so we cast to float.
     maxflat = float(np.max(flat))
     if maxflat > 1.1:
         log.warning('max(flat) > 1.1; this seems weird?!')
@@ -334,7 +335,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     xposk = xpos[keep] if xpos is not None else None
     yposk = ypos[keep] if ypos is not None else None
     objinfokeep = add_objects_to_image(
-        image, [o for o, k in zip(objlist, keep) if k],
+        image, [o for (o, k) in zip(objlist, keep) if k],
         xposk, yposk, psf, flux_to_counts_factor,
         bandpass=bandpass, filter_name=filter_name, rng=rng)
     objinfo = np.zeros(
