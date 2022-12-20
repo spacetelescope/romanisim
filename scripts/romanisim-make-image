@@ -38,6 +38,7 @@ if __name__ == '__main__':
                         help='1 or 2, for L1 or L2 output')
     parser.add_argument('--ma_table_number', type=int, default=1)
     parser.add_argument('--seed', type=int, default=None)
+    parser.add_argument('--nobj', type=int, default=1000)
     args = parser.parse_args()
 
     log.info('Starting simulation...')
@@ -74,7 +75,7 @@ if __name__ == '__main__':
 
     if args.catalog is None:
         cat = catalog.make_dummy_table_catalog(
-            rd_sca, bandpasses=[args.bandpass], nobj=1000)
+            rd_sca, bandpasses=[args.bandpass], nobj=args.nobj)
     else:
         log.warning('Catalog input will probably not work unless the catalog '
                     'covers a lot of area or you have thought carefully about '

@@ -208,21 +208,25 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
                 bandpass, center=image_pos, wcs=image.wcs.local(image_pos),
                 method='phot', rng=rng)
         else:
-            if obj.flux is not None:
-                final = final.withFlux(
-                    obj.flux[filter_name] * flux_to_counts_factor)
-                try:
-                    stamp = final.drawImage(center=image_pos,
-                                            wcs=image.wcs.local(image_pos))
-                except galsim.GalSimFFTSizeError:
-                    log.warning(f'Skipping source {i} due to too '
-                                f'large FFT needed for desired accuracy.')
+            if obj.flux is None:
+                raise ValueError('Non-chromatic sources must have specified '
+                                 'fluxes!')
+            final = final.withFlux(
+                obj.flux[filter_name] * flux_to_counts_factor)
+            try:
+                stamp = final.drawImage(center=image_pos,
+                                        wcs=image.wcs.local(image_pos))
+            except galsim.GalSimFFTSizeError:
+                log.warning(f'Skipping source {i} due to too '
+                            f'large FFT needed for desired accuracy.')
         bounds = stamp.bounds & image.bounds
-        if bounds.area() == 0:
-            continue
-        image[bounds] += stamp[bounds]
+        if bounds.area() > 0:
+            image[bounds] += stamp[bounds]
+            counts = np.sum(stamp[bounds].array)
+        else:
+            counts = 0
         nrender += 1
-        outinfo[i] = (np.sum(stamp[bounds].array), time.time() - t0)
+        outinfo[i] = (counts, time.time() - t0)
     log.info('Rendered %d sources...' % nrender)
     return outinfo
 
@@ -304,6 +308,10 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
                           for o in objlist])
         xpos, ypos = image.wcs._xy(coord[:, 0], coord[:, 1])
         # use private vectorized transformation
+    if xpos is not None:
+        xpos = np.array(xpos)
+    if ypos is not None:
+        ypos = np.array(ypos)
     if len(objlist) > 0:
         keep = in_bounds(xpos, ypos, image.bounds, ignore_distant_sources)
     else:
@@ -330,7 +338,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     if len(objlist) > 0 and objlist[0].profile.spectral:
         chromatic = True
     flux_to_counts_factor = exptime * maxflat
-    if chromatic:
+    if not chromatic:
         flux_to_counts_factor *= zpflux
     xposk = xpos[keep] if xpos is not None else None
     yposk = ypos[keep] if ypos is not None else None
@@ -356,7 +364,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 
     # add Poisson noise if we made a noiseless, not-photon-shooting
     # image.
-    if chromatic:
+    if not chromatic:
         image.addNoise(poisson_noise)
 
     if not np.all(flat == 1):
@@ -377,7 +385,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 def simulate_counts(sca, targ_pos, date, objlist, filter_name,
                     exptime=None, rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
-                    return_info=False, webbpsf=True,
+                    webbpsf=True,
                     darkrate=None, flat=None):
     """Simulate total counts in a single SCA.
 
@@ -467,7 +475,8 @@ def simulate(metadata, objlist,
     metadata : dict
         metadata structure for Roman asdf file, including information about
 
-        * pointing: metadata['pointing']['ra_v1'], metadata['pointing']['dec_v1']
+        * pointing: metadata['pointing']['ra_v1'],
+          metadata['pointing']['dec_v1']
         * date: metadata['exposure']['start_time']
         * sca: metadata['instrument']['detector']
         * bandpass: metadata['instrument']['optical_detector']
@@ -513,6 +522,8 @@ def simulate(metadata, objlist,
     ma_table = parameters.ma_table[ma_table_number]
     last_read = ma_table[-1][0] + ma_table[-1][1] - 1
     exptime = last_read * parameters.read_time
+    exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2)) *
+                   parameters.read_time)
 
     # TODO: replace this stanza with a function that looks at the metadata
     # and keywords and returns a dictionary with all of the relevant reference
@@ -538,8 +549,7 @@ def simulate(metadata, objlist,
 
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
-        darkrate = dark[-1] / (
-            (ma_table[-1][0] + (ma_table[-1][1] - 1) / 2) * parameters.read_time)
+        darkrate = dark[-1] / exptime_tau
         nborder = parameters.nborder
         read_noise = read_noise[nborder:-nborder, nborder:-nborder]
         darkrate = darkrate[nborder:-nborder, nborder:-nborder]
@@ -603,8 +613,8 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
     rng = galsim.UniformDeviate(0)
     out = dict()
     for filter_name in filters:
-        im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds, webbpsf=webbpsf,
-                      **kwargs)
+        im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
+                      webbpsf=webbpsf, **kwargs)
         out[filter_name] = im
     return out
 
