@@ -248,12 +248,13 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 
     Then there are a few of individual components that can be added on to
     an image:
-    - objlist: a list of CatalogObjects to render.  Can be chromatic or not.
+
+    * objlist: a list of CatalogObjects to render.  Can be chromatic or not.
       This will have all your normal PSF and galaxy profiles.
-    - sky: a sky background model.  This is different from a dark in that
+    * sky: a sky background model.  This is different from a dark in that
       it is sensitive to the flat field.
-    - dark: a dark model.
-    - flat: a flat field for modulating the object and sky counts
+    * dark: a dark model.
+    * flat: a flat field for modulating the object and sky counts
 
     Parameters
     ----------
