@@ -6,7 +6,7 @@ These routines exercise the following:
 - add_objects_to_image: Adds some objects to an image.
 - simulate_counts_generic: Adds sky, dark, and an object list to an image.
 - simulate_counts: Wraps simulate_counts_generic, making sky & dark images
-  for Roman to pass on 
+  for Roman to pass on
 - simulate: reads in Roman calibration files.  Sends to simulate_counts, and
   further passes that to L1 and L2 routines.
 - make_test_catalog_and_images: routine which kicks the tires on everything.
@@ -25,8 +25,8 @@ import asdf
 
 def test_in_bounds():
     bounds = galsim.BoundsI(0, 1000, 0, 1000)
-    xx = np.random.rand(1000)*1000
-    yy = np.random.rand(1000)*1000
+    xx = np.random.rand(1000) * 1000
+    yy = np.random.rand(1000) * 1000
     assert np.all(image.in_bounds(xx, yy, bounds, 0))
     xx = np.array([-1, 1001, -2, 1002, 50, 51])
     yy = np.array([50, 51, -20, 1002, -50, 1051])
@@ -43,7 +43,7 @@ def test_make_l2():
     resultants[:, :, :] = np.arange(4)[:, None, None]
     slopes, readvar, poissonvar = image.make_l2(
         resultants, ma_table, gain=1, flat=1, dark=0)
-    assert np.allclose(slopes,  1/parameters.read_time/4)
+    assert np.allclose(slopes, 1 / parameters.read_time / 4)
     assert np.all(np.array(slopes.shape) == np.array(readvar.shape))
     assert np.all(np.array(slopes.shape) == np.array(poissonvar.shape))
     assert np.all(readvar >= 0)
@@ -56,9 +56,6 @@ def test_make_l2():
     # because we change the weights depending on the ratio of read & poisson
     # noise, we can't assume above that readvar2 = readvar1 * 4.
     # But it should be pretty darn close here.
-    print(readvar2)
-    print(readvar1)
-    print(readvar2/readvar1)
     assert np.all(np.abs(readvar2 / (readvar1 * 4) - 1) < 0.1)
     slopes2, readvar2, poissonvar2 = image.make_l2(
         resultants, ma_table, read_noise=1, flat=0.5)
@@ -83,14 +80,14 @@ def set_up_image_rendering_things():
         catalog.CatalogObject(None, galsim.DeltaFunction(), fluxdict),
         catalog.CatalogObject(None, galsim.Sersic(4, half_light_radius=1),
                               fluxdict)
-        ]
+    ]
     vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
     vega_sed = vega_sed.withFlux(counts, bandpass)
     chromcatalog = [
         catalog.CatalogObject(None, galsim.DeltaFunction() * vega_sed, None),
         catalog.CatalogObject(
             None, galsim.Sersic(4, half_light_radius=1) * vega_sed, None)
-        ]
+    ]
     return dict(im=im, impsfgray=impsfgray,
                 impsfchromatic=impsfchromatic,
                 bandpass=bandpass, counts=counts, fluxdict=fluxdict,
@@ -103,7 +100,7 @@ def test_add_objects():
     im, impsfgray = imdict['im'], imdict['impsfgray']
     impsfchromatic = imdict['impsfchromatic']
     bandpass, counts = imdict['bandpass'], imdict['counts']
-    fluxdict, graycatalog = imdict['fluxdict'], imdict['graycatalog']
+    graycatalog = imdict['graycatalog']
     chromcatalog = imdict['chromcatalog']
     image.add_objects_to_image(im, graycatalog, [50, 50], [50, 50],
                                impsfgray, flux_to_counts_factor=1,
@@ -116,7 +113,6 @@ def test_add_objects():
     assert (np.abs(np.sum(im.array) - 2 * counts) < 20 * np.sqrt(counts))
     peaklocs = np.where(im.array == np.max(im.array))
     peakloc = peaklocs[1][0] + im.bounds.xmin, peaklocs[0][0] + im.bounds.ymin
-    print(im.bounds)
     assert (peakloc[0] == 60) & (peakloc[1] == 30)
 
 
@@ -139,13 +135,13 @@ def test_simulate_counts_generic():
     # verify adding the sky increases the counts
     assert np.all(im2.array >= im.array)
     # verify that the count rate is about right.
-    assert (np.mean(im2.array) - zpflux * exptime <
-            20 * np.sqrt(skycountspersecond * zpflux * exptime))
+    assert (np.mean(im2.array) - zpflux * exptime
+            < 20 * np.sqrt(skycountspersecond * zpflux * exptime))
     im3 = im.copy()
     image.simulate_counts_generic(im3, exptime, dark=sky, zpflux=zpflux)
     # verify that the dark counts don't see the zero point conversion
-    assert (np.mean(im3.array) - exptime <
-            20 * np.sqrt(skycountspersecond * exptime))
+    assert (np.mean(im3.array) - exptime
+            < 20 * np.sqrt(skycountspersecond * exptime))
     im4 = im.copy()
     image.simulate_counts_generic(im4, exptime, dark=sky, flat=0.5,
                                   zpflux=zpflux)
@@ -206,14 +202,10 @@ def test_simulate_counts():
     im2 = image.simulate_counts(1, coord, time, graycat, 'F158',
                                 usecrds=False, webbpsf=True,
                                 ignore_distant_sources=100)
-    print(im1[1])
-    print(im2[1])
     im1 = im1[0].array
     im2 = im2[0].array
     maxim = np.where(im1 > im2, im1, im2)
     m = np.abs(im1 - im2) <= 20 * np.sqrt(maxim)
-    print(np.sum(~m))
-    print(im1[~m], im2[~m])
     assert np.all(m)
 
 
@@ -250,7 +242,7 @@ def test_simulate(tmp_path):
                           filepath=tmp_path / 'l2.asdf')
     af.tree = {'roman': res}
     af.validate()
-    
+
 
 def test_make_catalog_and_images():
     # this isn't a real routine that we should consider part of the

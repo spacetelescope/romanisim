@@ -522,8 +522,8 @@ def simulate(metadata, objlist,
     ma_table = parameters.ma_table[ma_table_number]
     last_read = ma_table[-1][0] + ma_table[-1][1] - 1
     exptime = last_read * parameters.read_time
-    exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2)) *
-                   parameters.read_time)
+    exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2))
+                   * parameters.read_time)
 
     # TODO: replace this stanza with a function that looks at the metadata
     # and keywords and returns a dictionary with all of the relevant reference
