@@ -593,9 +593,9 @@ def simulate(metadata, objlist,
     return im, simcatobj
 
 
-def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
-                                 return_variance=False, usecrds=True,
-                                 webbpsf=True, **kwargs):
+def make_test_catalog_and_images(
+        seed=12345, sca=7, filters=None, nobj=1000, return_variance=False,
+        usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')
     if filters is None:
@@ -610,7 +610,9 @@ def make_test_catalog_and_images(seed=12345, sca=7, filters=None, nobj=1000,
     imwcs = wcs.get_wcs(world_pos=coord, date=date, sca=sca, usecrds=usecrds)
     rd_sca = imwcs.toWorld(galsim.PositionD(
         roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
-    cat = catalog.make_dummy_catalog(rd_sca, seed=seed, nobj=nobj)
+    cat = catalog.make_dummy_catalog(
+        rd_sca, seed=seed, nobj=nobj,
+        galaxy_sample_file_name=galaxy_sample_file_name)
     rng = galsim.UniformDeviate(0)
     out = dict()
     for filter_name in filters:

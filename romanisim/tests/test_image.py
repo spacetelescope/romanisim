@@ -13,6 +13,7 @@ These routines exercise the following:
 - make_asdf: Makes an l2 asdf file.
 """
 
+import os
 import numpy as np
 import galsim
 from galsim import roman
@@ -249,5 +250,9 @@ def test_make_catalog_and_images():
     # public interface, and may be removed.  We'll settle for just
     # testing that it runs.
     roman.n_pix = 100
-    res = image.make_test_catalog_and_images(usecrds=False)
+    fn = os.environ.get('GALSIM_CAT_PATH', None)
+    if fn is not None:
+        fn = str(fn)
+    res = image.make_test_catalog_and_images(usecrds=False,
+                                             galaxy_sample_file_name=fn)
     assert len(res) > 0
