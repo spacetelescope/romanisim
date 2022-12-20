@@ -20,13 +20,14 @@ tijlist = [
     [[1], [2, 3], [4, 5], [6, 7]],
     [[100], [101, 102, 103], [110]],
     [[1], [2], [3, 4, 5, 100]],
-    ]
+]
 
 ma_table_list = [
     [[1, 10], [11, 1], [12, 10], [30, 1], [40, 5], [50, 100]],
     [[1, 1]],
     [[1, 1], [10, 1]],
 ]
+
 
 def test_validate_times():
     assert l1.validate_times([[0, 1], [2, 3, 4], [5, 6, 7, 8], [9], [10]])
@@ -48,8 +49,7 @@ def test_tij_to_pij():
         assert np.all(pij > 0)
         assert np.all(pij <= 1)
         assert np.allclose(
-            pij, np.diff(np.concatenate(tij), prepend=0)/tij[-1][-1])
-        
+            pij, np.diff(np.concatenate(tij), prepend=0) / tij[-1][-1])
 
 
 def test_apportion_counts_to_resultants():
@@ -71,7 +71,8 @@ def test_apportion_counts_to_resultants():
             sdev = np.std(res3[plane_index] - resultants[plane_index])
             assert (sdev - read_noise / np.sqrt(len(restij))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
-    
+
+
 def test_ma_table_to_tij():
     tij = l1.ma_table_to_tij(1)
     # this is the only numbered ma_table that we have presently provided.
@@ -79,7 +80,7 @@ def test_ma_table_to_tij():
     for ma_table in ma_table_list:
         tij = l1.ma_table_to_tij(ma_table)
         assert l1.validate_times(tij)
-    
+
 
 def test_make_l1_and_asdf(tmp_path):
     # these two functions basically just wrap the above and we'll really

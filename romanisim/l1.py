@@ -109,7 +109,6 @@ going to pursue this avenue further.
 import numpy as np
 import asdf
 import galsim
-from galsim import roman
 from scipy import ndimage
 from . import parameters
 from . import log
