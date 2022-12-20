@@ -10,16 +10,16 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 
-# assumes GALSIM_CAT_PATH has been populated with downloaded files.
-# currently done by conftest.py
 def test_make_dummy_catalog():
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.2
     nobj = 100
-    fn = os.environ['GALSIM_CAT_PATH']
+    fn = os.environ.get('GALSIM_CAT_PATH', None)
+    if fn is not None:
+        fn = str(fn)
     cat = catalog.make_dummy_catalog(
         cen, radius=radius, seed=11, nobj=nobj, chromatic=True,
-        galaxy_sample_file_name=str(fn))
+        galaxy_sample_file_name=fn)
     assert len(cat) == nobj
     skycoord = SkyCoord(
         ra=[c.sky_pos.ra / galsim.degrees * u.deg for c in cat],
@@ -29,7 +29,7 @@ def test_make_dummy_catalog():
     assert cat[0].flux is None  # fluxes built into profile
     cat = catalog.make_dummy_catalog(
         cen, radius=radius, nobj=nobj, chromatic=False,
-        galaxy_sample_file_name=str(fn))
+        galaxy_sample_file_name=fn)
     assert not cat[0].profile.spectral
 
 

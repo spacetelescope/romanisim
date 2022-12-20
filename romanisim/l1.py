@@ -347,7 +347,9 @@ def make_asdf(resultants, filepath=None, metadata=None):
     """
 
     from roman_datamodels.testing.utils import mk_level1_science_raw
-    out = mk_level1_science_raw(shape=(len(resultants), 4096, 4096))
+    nborder = parameters.nborder
+    npix = galsim.roman.n_pix + 2 * nborder
+    out = mk_level1_science_raw(shape=(len(resultants), npix, npix))
     if metadata is not None:
         tmpmeta = util.flatten_dictionary(out['meta'])
         tmpmeta.update(util.flatten_dictionary(
