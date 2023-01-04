@@ -392,8 +392,8 @@ def simulate(metadata, objlist,
 
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
-        darkrate = dark[-1] / (
-            (ma_table[-1][0] + (ma_table[-1][1] - 1) / 2) * parameters.read_time)
+        darkrate = dark[-1] / parameters.read_time / (
+            (ma_table[-1][0] + (ma_table[-1][1] - 1) / 2))
         nborder = parameters.nborder
         read_noise = read_noise[nborder:-nborder, nborder:-nborder]
         darkrate = darkrate[nborder:-nborder, nborder:-nborder]
