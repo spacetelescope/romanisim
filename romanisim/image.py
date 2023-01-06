@@ -74,7 +74,7 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     linearity : romanisim.nonlinearity.NL object or None
         non-linearity correction to use.
     dark : np.ndarray[nresultants, nx, ny] (float)
-        dark current image to subtract from ramps
+        dark image to subtract from ramps (DN)
 
     Returns
     -------
@@ -392,8 +392,8 @@ def simulate(metadata, objlist,
 
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
-        darkrate = dark[-1] / (
-            (ma_table[-1][0] + (ma_table[-1][1] - 1) / 2) * parameters.read_time)
+        darkrate = dark[-1] / parameters.read_time / (
+            (ma_table[-1][0] + (ma_table[-1][1] - 1) / 2))
         nborder = parameters.nborder
         read_noise = read_noise[nborder:-nborder, nborder:-nborder]
         darkrate = darkrate[nborder:-nborder, nborder:-nborder]
@@ -401,6 +401,7 @@ def simulate(metadata, objlist,
         gain = gain[nborder:-nborder, nborder:-nborder]
         linearity = linearity[:, nborder:-nborder, nborder:-nborder]
         linearity = nonlinearity.NL(linearity)
+        darkrate *= gain
     else:
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
