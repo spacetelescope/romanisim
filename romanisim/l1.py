@@ -347,13 +347,14 @@ def make_asdf(resultants, filepath=None, metadata=None):
     """
 
     from roman_datamodels.testing.utils import mk_level1_science_raw
-    out = mk_level1_science_raw(shape=(len(resultants), 4096, 4096))
+    nborder = parameters.nborder
+    npix = galsim.roman.n_pix + 2 * nborder
+    out = mk_level1_science_raw(shape=(len(resultants), npix, npix))
     if metadata is not None:
         tmpmeta = util.flatten_dictionary(out['meta'])
         tmpmeta.update(util.flatten_dictionary(
             util.unflatten_dictionary(metadata)['roman']['meta']))
         out['meta'].update(util.unflatten_dictionary(tmpmeta))
-    nborder = parameters.nborder
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if filepath:
         af = asdf.AsdfFile()
@@ -392,7 +393,7 @@ def ma_table_to_tij(ma_table_number):
 
 
 def make_l1(counts, ma_table_number,
-            read_noise=None, filepath=None, rng=None, seed=None,
+            read_noise=None, rng=None, seed=None,
             gain=None, linearity=None):
     """Make an L1 image from a counts image.
 
@@ -408,8 +409,6 @@ def make_l1(counts, ma_table_number,
     ma_table_number : int
         multi accum table number indicating how reads are apportioned among
         resultants
-    filepath : str or None
-        optional, path to which to write out L1 image
     read_noise : np.ndarray[nx, ny] (float) or float
         Read noise entering into each read
     rng : galsim.BaseDeviate
@@ -453,7 +452,8 @@ def make_l1(counts, ma_table_number,
                                   mode='constant', cval=0)
 
     log.info('Adding read noise...')
-    resultants /= gain
+    if gain is not None:
+        resultants /= gain
     # resultants are now in counts.
     # read noise is in counts.
     resultants = add_read_noise_to_resultants(
