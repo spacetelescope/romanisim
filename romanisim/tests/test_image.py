@@ -178,11 +178,6 @@ def test_simulate_counts_generic():
 
 
 def test_simulate_counts():
-    # def simulate_counts(sca, targ_pos, date, objlist, filter_name,
-    #                     exptime=None, rng=None, seed=None,
-    #                     ignore_distant_sources=10, usecrds=True,
-    #                     return_info=False, webbpsf=True,
-    #                     darkrate=None, flat=None):
     imdict = set_up_image_rendering_things()
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
