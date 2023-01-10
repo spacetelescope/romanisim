@@ -22,6 +22,9 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
 import asdf
+import webbpsf
+from astropy.modeling.functional_models import Sersic2D
+import pytest
 
 
 def test_in_bounds():
@@ -70,7 +73,7 @@ def test_make_l2():
 
 
 def set_up_image_rendering_things():
-    im = galsim.Image(100, 100, scale=0.1)
+    im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
     filter_name = 'F158'
     impsfgray = psf.make_psf(1, filter_name, webbpsf=True, chromatic=False)
     impsfchromatic = psf.make_psf(1, filter_name, webbpsf=False, chromatic=True)
@@ -94,6 +97,128 @@ def set_up_image_rendering_things():
                 bandpass=bandpass, counts=counts, fluxdict=fluxdict,
                 graycatalog=graycatalog,
                 chromcatalog=chromcatalog, filter_name=filter_name)
+
+
+def central_stamp(im, sz):
+    for s in im.shape:
+        if (s % 2) != 1:
+            raise ValueError('size must be odd')
+    if (sz % 2) != 1:
+        raise ValueError('sz must be odd')
+    center = im.shape[0] // 2
+    szo2 = sz // 2
+    return im[center - szo2: center + szo2 + 1,
+              center - szo2: center + szo2 + 1]
+
+
+@pytest.mark.soctests
+def test_image_rendering():
+    """Tests for image rendering routines.  This is intended to cover:
+    - RUSBREQ-830 / DMS214: point source generation.
+    - RSUBREQ-874 / DMS215: analytic model source generation
+    """
+    oversample = 4
+    filter_name = 'F158'
+    sca = 1
+    pos = [50, 50]
+    impsfgray = psf.make_psf(sca, filter_name, webbpsf=True, chromatic=False,
+                             pix=pos, oversample=oversample)
+    counts = 100000
+    fluxdict = {filter_name: counts}
+    psfcatalog = [catalog.CatalogObject(None, galsim.DeltaFunction(), fluxdict)]
+    wfi = webbpsf.WFI()
+    wfi.detector = f'SCA{sca:02d}'
+    wfi.filter = filter_name
+    wfi.detector_position = pos
+    # oversample = kw.get('oversample', 4)
+    # webbpsf doesn't do distortion
+    psfob = wfi.calc_psf(oversample=oversample)
+    psfim = psfob[1].data * counts
+    # PSF from WebbPSF
+    im = galsim.Image(101, 101, scale=wfi.pixelscale, xmin=0, ymin=0)
+    # also no distortion
+    image.add_objects_to_image(im, psfcatalog, [pos[0]], [pos[1]],
+                               impsfgray, flux_to_counts_factor=1,
+                               filter_name=filter_name)
+    # im has psf from romanisim.  psfim has psf from webbpsf.  Now compare?
+    # some notes: galsim is really trying to integrate over each pixel;
+    # webbpsf is sampling at each 4x4 oversampled pixel and summing.
+    # otherwise we expect perfection in the limit that the oversampling
+    # in both make_psf and wfi.calc_psf becomes arbitrarily large?
+    # object rendering also includes shot noise.
+    sz = 5
+    cenpsfim = central_stamp(psfim, sz)
+    cenim = central_stamp(im.array, sz)
+    uncertainty = np.sqrt(psfim)
+    cenunc = central_stamp(uncertainty, sz)
+
+    # DMS214 - our PSF matches that from WebbPSF
+    assert np.max(np.abs((cenim - cenpsfim) / cenunc)) < 5
+    # 5 sigma isn't so bad.
+    # largest difference is in the center pixel, ~1.5%.  It seems to me that
+    # this is from the simple oversampling-based integration; galsim should
+    # be doing better here with a real integration.  Way out in the wings there
+    # are some other artifacts at the 1% level that appear to be from the galsim
+    # FFTs, though there are only a handful of counts out there.
+
+    # DMS 215 - add a galaxy to an image
+    # this makes a relatively easy sersic galaxy (index = 2)
+    # and oversamples it very aggressively (32x).
+    imsz = 101
+    im = galsim.Image(imsz, imsz, scale=wfi.pixelscale, xmin=0, ymin=0)
+    sersic_index = 2
+    sersic_hlr = 0.6
+    sersic_profile = galsim.Sersic(sersic_index, sersic_hlr)
+    galcatalog = [catalog.CatalogObject(None, sersic_profile, fluxdict)]
+    # impsfgray2 = galsim.DeltaFunction()
+    image.add_objects_to_image(im, galcatalog, [pos[0]], [pos[1]], impsfgray,
+                               flux_to_counts_factor=1, filter_name=filter_name)
+    # now we have an image with a galaxy in it.
+    # how else would we make that galaxy?
+    # integral of a sersic profile:
+    # Ie * re**2 * 2 * pi * n * exp(bn)/(bn**(2*n)) * g2n
+    from scipy.special import gamma, gammaincinv
+    oversample = 15
+    # oversample must be odd, because we need the fftconvolve
+    # kernel image size to be odd for mode='same' not to do an image shift
+    # by one pixel.
+    off = (oversample - 1) / 2
+    xx, yy = np.meshgrid(
+        np.arange(imsz * oversample), np.arange(imsz * oversample))
+    mod = Sersic2D(amplitude=1, r_eff=oversample * sersic_hlr / wfi.pixelscale,
+                   n=sersic_index,
+                   x_0=pos[0] * oversample + off, y_0=pos[0] * oversample + off,
+                   ellip=0, theta=0)
+    modim = mod(xx, yy)
+    from scipy.signal import fftconvolve
+    # convolve with the PSF
+    psfob = wfi.calc_psf(oversample=oversample, fov_pixels=45)
+    psfim = psfob[0].data
+    modim = fftconvolve(modim, psfim, mode='same')
+    modim = np.sum(modim.reshape(-1, imsz, oversample), axis=-1)
+    modim = np.sum(modim.reshape(imsz, oversample, -1), axis=1)
+    bn = gammaincinv(2 * sersic_index, 0.5)
+    g2n = gamma(2 * sersic_index)
+    integral = (1 * (oversample * sersic_hlr / wfi.pixelscale)**2 * g2n * 2
+                * np.pi * sersic_index * np.exp(bn) / bn**(2 * sersic_index))
+    assert abs(np.sum(modim) / integral - 1) < 0.05
+    # if we did this right, we should have counted at least 95% of the flux.
+    # note that the PSF convolution loses 3.2% outside its aperture!
+    # we could use a larger PSF, but fov_pixels = 45 corresponds to the
+    # default used above.
+    modim = modim * counts / integral
+    # now we need to compare the middles of the images
+    # let's say inner 11x11 pixels
+    sz = 11
+    cenmodim = central_stamp(modim, sz)
+    cenim = central_stamp(im.array, sz)
+    cenunc = np.sqrt(cenim)
+
+    # DMS 215
+    assert np.max(np.abs((cenim - cenmodim) / cenunc)) < 5
+    # our two different realizations of this PSF convolved model
+    # Sersic galaxy agree at <5 sigma on all pixels using only
+    # Poisson errors and containing 100k counts.
 
 
 def test_add_objects():
@@ -205,7 +330,11 @@ def test_simulate_counts():
     assert np.all(m)
 
 
+@pytest.mark.soctests
 def test_simulate(tmp_path):
+    """Test convolved image generation and L2 simulation framework.
+    - RSUBREQ-841 / DMS216: convolved image generation - Level 2
+    """
     imdict = set_up_image_rendering_things()
     # simulate gray, chromatic, level0, level1, level2 images
     roman.n_pix = 100
@@ -237,6 +366,7 @@ def test_simulate(tmp_path):
     res = image.make_asdf(l2['data'], l2['var_rnoise'], l2['var_poisson'],
                           filepath=tmp_path / 'l2.asdf')
     af.tree = {'roman': res}
+    # DMS216
     af.validate()
 
 
