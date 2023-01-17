@@ -147,6 +147,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
                          rng=None, seed=None):
     """Add sources to an image.
 
+    Note: this includes Poisson noise when photon shooting is used
+    (i.e., for chromatic source profiles), and otherwise is noise free.
+
     Parameters
     ----------
     image : galsim.Image
@@ -202,17 +205,19 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     for i, obj in enumerate(objlist):
         t0 = time.time()
         image_pos = galsim.PositionD(xpos[i], ypos[i])
-        final = galsim.Convolve(obj.profile * flux_to_counts_factor, psf)
+        profile = obj.profile
+        if not chromatic:
+            if obj.flux is None:
+                raise ValueError('Non-crhomatic sources must have specified '
+                                 'fluxes!')
+            profile = profile.withFlux(
+                obj.flux[filter_name] * flux_to_counts_factor)
+        final = galsim.Convolve(profile * flux_to_counts_factor, psf)
         if chromatic:
             stamp = final.drawImage(
                 bandpass, center=image_pos, wcs=image.wcs.local(image_pos),
                 method='phot', rng=rng)
         else:
-            if obj.flux is None:
-                raise ValueError('Non-chromatic sources must have specified '
-                                 'fluxes!')
-            final = final.withFlux(
-                obj.flux[filter_name] * flux_to_counts_factor)
             try:
                 stamp = final.drawImage(center=image_pos,
                                         wcs=image.wcs.local(image_pos))
@@ -446,7 +451,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
                                  chromatic=chromatic, webbpsf=webbpsf)
-    image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs)
+    image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
                                   date=date.datetime, exptime=1)

@@ -20,7 +20,6 @@ should consider the following:
 
 """
 
-import numpy as np
 import galsim
 from galsim import roman
 from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
@@ -78,19 +77,9 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     wfi.filter = filter_name
     wfi.detector_position = pix
     oversample = kw.get('oversample', 4)
+    # webbpsf doesn't do distortion
     psf = wfi.calc_psf(oversample=oversample)
-    if wcs is None:
-        scale = 0.11
-    else:
-        # get the actual pixel scale from the WCS
-        # we really should do better here, aiming to get the full
-        # CD matrix.
-        # We can't just use wcs since it doesn't have the oversampling.
-        cen = wcs.toWorld(galsim.PositionD(*pix))
-        p1 = wcs.toWorld(galsim.PositionD(pix[0] + 1, pix[1]))
-        p2 = wcs.toWorld(galsim.PositionD(pix[0], pix[1] + 1))
-        scale = np.sqrt(cen.distanceTo(p1).deg * 60 * 60 * cen.distanceTo(p2).deg * 60 * 60)
     intimg = galsim.InterpolatedImage(
-        galsim.Image(psf[0].data, scale=scale / oversample),
+        galsim.Image(psf[0].data, scale=wfi.pixelscale / oversample),
         normalization='flux')
     return intimg
