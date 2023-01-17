@@ -222,7 +222,6 @@ def test_image_rendering():
     log.info('DMS215: rendered galaxy matches astropy Sersic2D after '
              'pixel integration.')
 
-
     # our two different realizations of this PSF convolved model
     # Sersic galaxy agree at <5 sigma on all pixels using only
     # Poisson errors and containing 100k counts.
@@ -376,6 +375,7 @@ def test_simulate(tmp_path):
     # DMS216
     af.validate()
     log.info('DMS216: successfully made a L2 file.')
+
 
 def test_make_catalog_and_images():
     # this isn't a real routine that we should consider part of the
