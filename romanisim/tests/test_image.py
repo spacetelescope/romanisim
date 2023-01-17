@@ -25,6 +25,7 @@ import asdf
 import webbpsf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
+from romanisim import log
 
 
 def test_in_bounds():
@@ -154,6 +155,8 @@ def test_image_rendering():
 
     # DMS214 - our PSF matches that from WebbPSF
     assert np.max(np.abs((cenim - cenpsfim) / cenunc)) < 5
+    log.info('DMS214: rendered PSF matches WebbPSF')
+
     # 5 sigma isn't so bad.
     # largest difference is in the center pixel, ~1.5%.  It seems to me that
     # this is from the simple oversampling-based integration; galsim should
@@ -216,6 +219,10 @@ def test_image_rendering():
 
     # DMS 215
     assert np.max(np.abs((cenim - cenmodim) / cenunc)) < 5
+    log.info('DMS215: rendered galaxy matches astropy Sersic2D after '
+             'pixel integration.')
+
+
     # our two different realizations of this PSF convolved model
     # Sersic galaxy agree at <5 sigma on all pixels using only
     # Poisson errors and containing 100k counts.
@@ -368,7 +375,7 @@ def test_simulate(tmp_path):
     af.tree = {'roman': res}
     # DMS216
     af.validate()
-
+    log.info('DMS216: successfully made a L2 file.')
 
 def test_make_catalog_and_images():
     # this isn't a real routine that we should consider part of the
