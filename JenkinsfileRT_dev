@@ -34,7 +34,7 @@ if (env.PYTEST_ARGS) {
 }
 
 withCredentials([string(
-    credentialsId: 'romanisim-codecov',
+    credentialsId: 'romancal-codecov',
     variable: 'codecov_token')]) {
 
 jobconfig = new JobConfig()
@@ -72,15 +72,15 @@ data_config.match_prefix = '(.*)_result' // .json is appended automatically
 
 // Build and test with dependencies specified in requirements-sdp.txt
 bc0 = new BuildConfig()
-bc0.nodetype = 'romanisim'
-bc0.name = 'stable-deps'
+bc0.nodetype = 'romancal'
+bc0.name = 'unstable-deps'
 bc0.env_vars = env_vars
 bc0.conda_ver = '22.11.1'
 bc0.conda_packages = [
     "python=${python_version}",
     "freetds",
 ]
-bc0.pip_reqs_files = ['requirements-sdp.txt']
+bc0.pip_reqs_files = ['requirements-dev.txt']
 bc0.build_cmds = [
     "pip install -e .[test,ephem]",
     "pip install pytest-xdist pytest-sugar",
@@ -89,10 +89,9 @@ bc0.build_cmds = [
 ]
 bc0.build_cmds = PipInject(env.OVERRIDE_REQUIREMENTS) + bc0.build_cmds
 bc0.test_cmds = [
-    "pytest --cov-report=xml --cov=./ -r sxf -n auto --bigdata --slow \
+    "pytest -r sxf -n auto --bigdata --slow \
     --basetemp=${pytest_basetemp} --junit-xml=results.xml --dist=loadscope \
     --env=${artifactoryenv} ${pytest_args}",
-    'codecov --token=${codecov_token} -F nightly',
 ]
 bc0.test_configs = [data_config]
 bc0.failedFailureThresh = 0
@@ -102,7 +101,7 @@ bc0.failedFailureThresh = 0
 // which is why this is needed.
 bc1 = utils.copy(bc0)
 bc1.nodetype = 'macos'
-bc1.name = 'macos-stable-deps'
+bc1.name = 'macos-unstable-deps'
 bc1.build_cmds = ["pip install -e ."]
 bc1.build_cmds = PipInject(env.OVERRIDE_REQUIREMENTS) + bc1.build_cmds
 bc1.test_cmds = []
