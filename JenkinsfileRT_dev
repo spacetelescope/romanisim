@@ -33,9 +33,9 @@ if (env.PYTEST_ARGS) {
     pytest_args = env.PYTEST_ARGS
 }
 
-withCredentials([string(
-    credentialsId: 'romanisim-codecov',
-    variable: 'codecov_token')]) {
+//withCredentials([string(
+//    credentialsId: 'romanisim-codecov',
+//    variable: 'codecov_token')]) {
 
 jobconfig = new JobConfig()
 jobconfig.enable_env_publication = true
@@ -108,4 +108,4 @@ bc1.test_cmds = []
 bc1.test_configs = []
 
 utils.run([jobconfig, bc0, bc1])
-}  // withCredentials
+//}  // withCredentials
