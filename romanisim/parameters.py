@@ -35,3 +35,5 @@ ipc_kernel = np.array(
      [1.88, 91.59, 1.87],
      [0.21, 1.62, 0.2]])
 ipc_kernel /= np.sum(ipc_kernel)
+
+v2v3_wficen = (1546.3846181707652, -892.7916365721071)

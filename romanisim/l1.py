@@ -288,6 +288,9 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     """Adds read noise to resultants.
 
     The resultants get Gaussian read noise with sigma = sigma_read/sqrt(N).
+    This is not quite right.  In reality read noise is added during each read.
+    This is the same as adding to the resultants and dividing by sqrt(N) except
+    for quantization; this additional subtlety is currently ignored.
 
     Parameters
     ----------
@@ -392,6 +395,31 @@ def ma_table_to_tij(ma_table_number):
     return tij
 
 
+def add_ipc(resultants, ipc_kernel=None):
+    """Add IPC to resultants.
+
+    Parameters
+    ----------
+    resultants : np.ndarray[n_resultant, nx, ny]
+        resultants describing scene
+
+    Returns
+    -------
+    np.ndarray[n_resultant, nx, ny]
+        resultants with IPC
+    """
+    # add in IPC
+    # the reference pixels have basically no flux, so for these real pixels we
+    # extend the array with a constant equal to zero.
+    if ipc_kernel is None:
+        ipc_kernel = parameters.ipc_kernel
+
+    log.info('Adding IPC...')
+    out = ndimage.convolve(resultants, ipc_kernel[None, ...],
+                           mode='constant', cval=0)
+    return out
+
+
 def make_l1(counts, ma_table_number,
             read_noise=None, rng=None, seed=None,
             gain=None, linearity=None):
@@ -444,12 +472,7 @@ def make_l1(counts, ma_table_number,
     # namespace object above doesn't have, with specialized coefficients.
     # We could duplicate that, in principle.
 
-    # add in IPC
-    # the reference pixels have basically no flux, so for these real pixels we
-    # extend the array with a constant equal to zero.
-    log.info('Adding IPC...')
-    resultants = ndimage.convolve(resultants, parameters.ipc_kernel[None, ...],
-                                  mode='constant', cval=0)
+    add_ipc(resultants)
 
     log.info('Adding read noise...')
     if gain is not None:

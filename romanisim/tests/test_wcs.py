@@ -24,22 +24,23 @@ def make_fake_distortion_function():
     """
     # distortion takes from pixels to V2 V3
     # V2V3 is a weird spherical coordinate system where 0, 0 -> the boresight.
-    zen2v2v3 = rotations.EulerAngleRotation(0, -90, 0, 'xyz')
+    zen2v2v3 = (rotations.EulerAngleRotation(0, -90, 0, 'xyz')
+                | (models.Scale(3600) & models.Scale(3600)))
     # zenith -> (0, 0) rotation
     tanproj = projections.Pix2Sky_Gnomonic()
-    pix2tan = models.Scale(0.1) & models.Scale(0.1)
+    pix2tan = models.Scale(0.11 / 3600) & models.Scale(0.11 / 3600)
     return pix2tan | tanproj | zen2v2v3
 
 
 def test_wcs():
     distortion = make_fake_distortion_function()
     cc = SkyCoord(ra=0 * u.deg, dec=0 * u.deg)
-    gwcs = wcs.make_wcs(cc, 0, distortion)
+    gwcs = wcs.make_wcs(cc, 0, distortion, boresight=True)
     assert cc.separation(gwcs(0, 0, with_units=True)).to(u.arcsec).value < 1e-3
-    cc2 = SkyCoord(ra=0 * u.deg, dec=0.1 * u.arcsec)
+    cc2 = SkyCoord(ra=0 * u.deg, dec=0.11 * u.arcsec)
     assert cc2.separation(gwcs(0, 1, with_units=True)).to(u.arcsec).value < 1e-2
     # a tenth of a pixel
-    cc3 = SkyCoord(ra=0.1 * u.arcsec, dec=0 * u.deg)
+    cc3 = SkyCoord(ra=0.11 * u.arcsec, dec=0 * u.deg)
     assert cc3.separation(gwcs(1, 0, with_units=True)).to(u.arcsec).value < 1e-2
     wcsgalsim = wcs.GWCS(gwcs)
     assert wcsgalsim.wcs is gwcs
@@ -60,16 +61,22 @@ def test_wcs():
     xx2, yy2 = wcsgalsim._xy(rr, dd)
     assert np.allclose(xx, xx2)
     assert np.allclose(yy, yy2)
-    wcswrap = wcs.get_wcs(cc, distortion=distortion, sca=1)
+    wcswrap = wcs.get_wcs(cc, distortion=distortion, sca=1, boresight=True)
     cc2 = util.skycoord(wcswrap.toWorld(galsim.PositionD(0, 0)))
     assert cc.separation(cc2).to(u.arcsec).value < 1e-3
     celpole = SkyCoord(270 * u.deg, 66 * u.deg)
-    wcsgalsim = wcs.get_wcs(celpole, sca=1, usecrds=False)
+    wcsgalsim = wcs.get_wcs(celpole, sca=1, usecrds=False, boresight=True)
     cc3 = util.skycoord(wcsgalsim.toWorld(galsim.PositionD(128, 128)))
     assert cc3.separation(celpole).to(u.degree).value < 3
     # big margin here of 3 deg!  The CCDs are not really at the boresight.
     par = parameters.default_parameters_dictionary
     par['roman.meta.instrument.detector'] = 'WFI01'
-    wcswrap2 = wcs.get_wcs(cc, distortion=distortion, parameters=par)
+    wcswrap2 = wcs.get_wcs(cc, distortion=distortion, parameters=par, boresight=True)
     cc3 = util.skycoord(wcswrap2.toWorld(galsim.PositionD(0, 0)))
     assert cc.separation(cc3).to(u.arcsec).value < 1e-3
+    wcswrap3 = wcs.get_wcs(cc, distortion=distortion, parameters=par)
+    cc4 = util.skycoord(wcswrap3.toWorld(galsim.PositionD(0, 0)))
+    # The difference between locations with and without the boresight offset
+    # should be close to the reference v2 & v3 offset.
+    assert np.abs(cc3.separation(cc4).to(u.arcsec).value
+                  - np.hypot(*parameters.v2v3_wficen)) < 1

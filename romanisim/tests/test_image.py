@@ -246,6 +246,11 @@ def test_add_objects():
     peaklocs = np.where(im.array == np.max(im.array))
     peakloc = peaklocs[1][0] + im.bounds.xmin, peaklocs[0][0] + im.bounds.ymin
     assert (peakloc[0] == 60) & (peakloc[1] == 30)
+    im.array[:] = 0
+    image.add_objects_to_image(im, chromcatalog, [60, 60], [30, 30],
+                               impsfchromatic, flux_to_counts_factor=2,
+                               bandpass=bandpass)
+    assert (np.abs(np.sum(im.array) - 2 * counts * 2) < 40 * np.sqrt(counts))
 
 
 def test_simulate_counts_generic():

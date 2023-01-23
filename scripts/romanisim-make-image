@@ -81,10 +81,9 @@ if __name__ == '__main__':
                     'covers a lot of area or you have thought carefully about '
                     'the relation between the boresight and the SCA locations.')
         cat = Table.read(args.catalog)
-    objlist = catalog.table_to_catalog(cat, [args.bandpass])
     rng = galsim.UniformDeviate(args.seed)
     im, simcatobj = image.simulate(
-        metadata, objlist, usecrds=args.usecrds,
+        metadata, cat, usecrds=args.usecrds,
         webbpsf=args.webbpsf, level=args.level,
         rng=rng)
 

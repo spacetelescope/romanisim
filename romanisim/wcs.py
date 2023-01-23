@@ -32,15 +32,15 @@ from . import util
 
 
 def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
-            usecrds=True, distortion=None):
+            usecrds=True, distortion=None, boresight=False):
     """Get a WCS object for a given sca or set of CRDS parameters.
 
     Parameters
     ----------
     world_pos : astropy.coordinates.SkyCoord or galsim.CelestialCoord
-        boresight of telescope
+        boresight or science aperture position
     roll_ref : float
-        roll of telescope V3 axis from North to East at boresight
+        roll of telescope V3 axis from North to East at world_pos
     date : astropy.time.Time
         date of observation; used at least is usecrds = None to determine
         roll_ref.
@@ -52,6 +52,9 @@ def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
     usecrds : bool
         If True, use crds reference distortions rather than galsim.roman
         distortion model.
+    boresight : bool
+        If True, world_pos specifies the location of the telescope boresight;
+        otherwise the location of the science aperture.
 
     Returns
     -------
@@ -80,7 +83,8 @@ def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
         distortion = asdf.open(fn['distortion'])
         distortion = distortion['roman']['coordinate_distortion_transform']
     if distortion is not None:
-        wcs = make_wcs(util.skycoord(world_pos), roll_ref, distortion)
+        wcs = make_wcs(util.skycoord(world_pos), roll_ref, distortion,
+                       boresight=boresight)
         wcs = GWCS(wcs)
     else:
         # use galsim.roman
@@ -94,21 +98,27 @@ def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
     return wcs
 
 
-def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360):
+def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360,
+             boresight=False):
     """Create a gWCS from a target position, a roll, and a distortion map.
 
     Parameters
     ----------
     targ_pos : astropy.coordinates.SkyCoord
-        The celestial coordinates of the boresight.
+        The celestial coordinates of the boresight or science aperture.
 
     roll_ref : float
         The angle of the V3 axis relative to north, increasing from north to
-        east, at the boresight.
+        east, at the boresight or science aperture.
+        Note that the V3 axis is rotated by +60 degree to the +Y axis.
 
     distortion : callable
         The distortion mapping pixel coordinates to V2/V3 coordinates for a
         detector.
+
+    boresight : bool
+        If True, targ_pos and roll_ref are specified for the boresight;
+        otherwise they are specified at the center of the WFI instrument
 
     Returns
     -------
@@ -128,12 +138,23 @@ def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360):
     ra_ref = targ_pos.ra.to(u.deg).value
     dec_ref = targ_pos.dec.to(u.deg).value
 
+    if boresight:
+        v2_ref = 0
+        v3_ref = 0
+    else:
+        from .parameters import v2v3_wficen
+        v2_ref = v2v3_wficen[0] / 3600
+        v3_ref = v2v3_wficen[1] / 3600
+        roll_ref = roll_ref + 60
+        # v2, v3 ref are in arcsec; convert to degrees
+
     # full transformation from romancal.assign_wcs.pointing
     # angles = np.array([v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref])
     # axes = "zyxyz"
     # rot = RotationSequence3D(angles, axes_order=axes)
     from astropy.modeling.models import RotationSequence3D, Scale
-    rot = RotationSequence3D([roll_ref, dec_ref, -ra_ref], 'xyz')
+    rot = RotationSequence3D(
+        [v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref], 'zyxyz')
 
     # distortion takes pixels to V2V3
     # V2V3 are in arcseconds, while SphericalToCartesian expects degrees.
