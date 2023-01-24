@@ -144,6 +144,42 @@ def in_bounds(xx, yy, imbd, margin):
     return keep
 
 
+def trim_objlist(objlist, image):
+    """Trim a Table of objects down to those falling near an image.
+
+    Objects must fall in a circle centered at the center of the image with
+    radius 1.1 times the separation between the center and corner of the image.
+
+    In contrast to in_bounds, this doesn't require the x and y coordinates of
+    the sources, and just uses the ra/dec directly without needing to do the
+    WCS transformation.
+
+    Parameters
+    ----------
+    objlist : astropy.table.Table including ra, dec columns
+        Table of objects
+    image : galsim.Image
+        image near which objects should fall.
+
+    Returns
+    -------
+    objlist : astropy.table.Table
+        objlist trimmed to objects near image.
+    """
+    cc = coordinates.SkyCoord(
+        objlist['ra'] * u.deg, objlist['dec'] * u.deg)
+    center = image.wcs._radec(
+        image.array.shape[0] // 2, image.array.shape[1] // 2)
+    center = coordinates.SkyCoord(*np.array(center) * u.rad)
+    corner = image.wcs._radec(0, 0)
+    corner = coordinates.SkyCoord(*np.array(corner) * u.rad)
+    sep = center.separation(cc)
+    maxsep = 1.1 * corner.separation(center)  # 10% buffer
+    keep = sep < maxsep
+    objlist = objlist[keep]
+    return objlist
+
+
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
                          flux_to_counts_factor, bandpass=None, filter_name=None,
                          rng=None, seed=None):
@@ -235,21 +271,6 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         outinfo[i] = (counts, time.time() - t0)
     log.info('Rendered %d sources...' % nrender)
     return outinfo
-
-
-def trim_objlist(objlist, image):
-    cc = coordinates.SkyCoord(
-        objlist['ra'] * u.deg, objlist['dec'] * u.deg)
-    center = image.wcs._radec(
-        image.array.shape[0] // 2, image.array.shape[1] // 2)
-    center = coordinates.SkyCoord(*np.array(center) * u.rad)
-    corner = image.wcs._radec(0, 0)
-    corner = coordinates.SkyCoord(*np.array(corner) * u.rad)
-    sep = center.separation(cc)
-    maxsep = 1.1 * corner.separation(center)  # 10% buffer
-    keep = sep < maxsep
-    objlist = objlist[keep]
-    return objlist
 
 
 def simulate_counts_generic(image, exptime, objlist=None, psf=None,
