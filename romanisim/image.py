@@ -10,6 +10,7 @@ import numpy as np
 import astropy.time
 from astropy import units as u
 from astropy import coordinates
+from astropy import table
 import asdf
 import galsim
 from galsim import roman
@@ -100,6 +101,7 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
         resultants = resultants - dark
 
     from . import ramp
+    log.info('Fitting ramps.')
     rampfitter = ramp.RampFitInterpolator(ma_table)
     ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
                                             read_noise * gain)
@@ -120,7 +122,7 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
 
 def in_bounds(xx, yy, imbd, margin):
-    """Filter sources in an objlist to those landing on an image.
+    """Filter sources to those landing on an image.
 
     Parameters
     ----------
@@ -140,6 +142,42 @@ def in_bounds(xx, yy, imbd, margin):
     keep = ((xx > imbd.xmin - margin) & (xx < imbd.xmax + margin) & (
         yy > imbd.ymin - margin) & (yy < imbd.ymax + margin))
     return keep
+
+
+def trim_objlist(objlist, image):
+    """Trim a Table of objects down to those falling near an image.
+
+    Objects must fall in a circle centered at the center of the image with
+    radius 1.1 times the separation between the center and corner of the image.
+
+    In contrast to in_bounds, this doesn't require the x and y coordinates of
+    the sources, and just uses the ra/dec directly without needing to do the
+    WCS transformation.
+
+    Parameters
+    ----------
+    objlist : astropy.table.Table including ra, dec columns
+        Table of objects
+    image : galsim.Image
+        image near which objects should fall.
+
+    Returns
+    -------
+    objlist : astropy.table.Table
+        objlist trimmed to objects near image.
+    """
+    cc = coordinates.SkyCoord(
+        objlist['ra'] * u.deg, objlist['dec'] * u.deg)
+    center = image.wcs._radec(
+        image.array.shape[0] // 2, image.array.shape[1] // 2)
+    center = coordinates.SkyCoord(*np.array(center) * u.rad)
+    corner = image.wcs._radec(0, 0)
+    corner = coordinates.SkyCoord(*np.array(corner) * u.rad)
+    sep = center.separation(cc)
+    maxsep = 1.1 * corner.separation(center)  # 10% buffer
+    keep = sep < maxsep
+    objlist = objlist[keep]
+    return objlist
 
 
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
@@ -208,10 +246,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         profile = obj.profile
         if not chromatic:
             if obj.flux is None:
-                raise ValueError('Non-crhomatic sources must have specified '
+                raise ValueError('Non-chromatic sources must have specified '
                                  'fluxes!')
-            profile = profile.withFlux(
-                obj.flux[filter_name] * flux_to_counts_factor)
+            profile = profile.withFlux(obj.flux[filter_name])
         final = galsim.Convolve(profile * flux_to_counts_factor, psf)
         if chromatic:
             stamp = final.drawImage(
@@ -254,8 +291,8 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     Then there are a few of individual components that can be added on to
     an image:
 
-    * objlist: a list of CatalogObjects to render.  Can be chromatic or not.
-      This will have all your normal PSF and galaxy profiles.
+    * objlist: a list of CatalogObjects to render, or a Table.  Can be chromatic
+      or not.  This will have all your normal PSF and galaxy profiles.
     * sky: a sky background model.  This is different from a dark in that
       it is sensitive to the flat field.
     * dark: a dark model.
@@ -267,7 +304,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         Image onto which other effects should be added, with associated WCS.
     exptime : float
         Exposure time
-    objlist : list[CatalogObject] or None
+    objlist : list[CatalogObject], Table, or None
         Sources to render
     psf : galsim.Profile
         PSF to use when rendering sources
@@ -304,15 +341,20 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
     if (objlist is not None and len(objlist) > 0
-            and wcs is None and (xpos is None or ypos is None)):
+            and image.wcs is None and (xpos is None or ypos is None)):
         raise ValueError('xpos and ypos must be set if rendering objects '
                          'without a WCS.')
     if objlist is None:
         objlist = []
     if len(objlist) > 0 and xpos is None:
-        coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
-                          for o in objlist])
-        xpos, ypos = image.wcs._xy(coord[:, 0], coord[:, 1])
+        if isinstance(objlist, table.Table):
+            objlist = trim_objlist(objlist, image)
+            xpos, ypos = image.wcs._xy(
+                np.radians(objlist['ra']), np.radians(objlist['dec']))
+        else:
+            coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
+                             for o in objlist])
+            xpos, ypos = image.wcs._xy(coord[:, 0], coord[:, 1])
         # use private vectorized transformation
     if xpos is not None:
         xpos = np.array(xpos)
@@ -322,6 +364,11 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         keep = in_bounds(xpos, ypos, image.bounds, ignore_distant_sources)
     else:
         keep = []
+    if (len(objlist) > 0) and isinstance(objlist, table.Table):
+        objlist = catalog.table_to_catalog(objlist[keep], [filter_name])
+        xpos = xpos[keep]
+        ypos = ypos[keep]
+        keep = np.ones(len(objlist), dtype='bool')
     if len(objlist) > 0 and psf is None:
         raise ValueError('Must provide a PSF if you want to render objects.')
 
@@ -406,7 +453,7 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
         Location on sky to observe; telescope boresight
     date : astropy.time.Time
         Time at which to simulate observation
-    objlist : list[CatalogObject]
+    objlist : list[CatalogObject] or Table
         Objects to simulate
     filter_name : str
         Roman filter bandpass to use
@@ -447,7 +494,9 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
     imwcs = wcs.get_wcs(world_pos=targ_pos, date=date, sca=sca, usecrds=usecrds)
     chromatic = False
-    if len(objlist) > 0 and objlist[0].profile.spectral:
+    if (len(objlist) > 0
+            and not isinstance(objlist, table.Table)  # this case is always gray
+            and objlist[0].profile.spectral):
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
                                  chromatic=chromatic, webbpsf=webbpsf)
@@ -488,7 +537,7 @@ def simulate(metadata, objlist,
         * bandpass: metadata['instrument']['optical_detector']
         * ma_table_number: metadata['exposure']['ma_table_number']
 
-    objlist : list[CatalogObject]
+    objlist : list[CatalogObject] or Table
         List of objects in the field to simulate
     usecrds : bool
         use CRDS to get distortion maps
@@ -596,6 +645,7 @@ def simulate(metadata, objlist,
                             gain=gain, flat=flat, linearity=linearity,
                             dark=dark)
         im = make_asdf(*slopeinfo, metadata=all_metadata)
+    log.info('Simulation complete.')
     return im, simcatobj
 
 

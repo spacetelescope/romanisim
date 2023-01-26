@@ -17,10 +17,11 @@ import os
 import numpy as np
 import galsim
 from galsim import roman
-from romanisim import image, parameters, catalog, psf
+from romanisim import image, parameters, catalog, psf, util
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
+from astropy import table
 import asdf
 import webbpsf
 from astropy.modeling.functional_models import Sersic2D
@@ -37,6 +38,30 @@ def test_in_bounds():
     yy = np.array([50, 51, -20, 1002, -50, 1051])
     assert ~np.any(image.in_bounds(xx, yy, bounds, 0))
     assert np.all(image.in_bounds(xx, yy, bounds, 60))
+
+
+def test_trim_objlist():
+    cen = SkyCoord(ra=0 * u.deg, dec=0 * u.deg)
+    cat1 = catalog.make_dummy_table_catalog(cen, radius=0.001, nobj=1000)
+    # sources within 0.1 deg
+    cen2 = SkyCoord(ra=180 * u.deg, dec=0 * u.deg)
+    cat2 = catalog.make_dummy_table_catalog(cen2, radius=0.001, nobj=1000)
+    cat3 = catalog.make_dummy_table_catalog(cen, radius=0.003, nobj=1000)
+    affine = galsim.AffineTransform(
+        0.1, 0, 0, 0.1, origin=galsim.PositionI(50, 50),
+        world_origin=galsim.PositionD(0, 0))
+    wcs = galsim.TanWCS(affine,
+                        util.celestialcoord(cen))
+    # image is ~50 pix = 5 arcsec ~ 0.0013 deg.
+    im = galsim.Image(100, 100, wcs=wcs)
+
+    outcat = image.trim_objlist(cat1, im)
+    assert len(outcat) == len(cat1)  # no objects trimmed
+    outcat = image.trim_objlist(cat2, im)
+    assert len(outcat) == 0  # all objects trimmed
+    outcat = image.trim_objlist(cat3, im)
+    assert (len(outcat) > 0) and (len(outcat) < len(cat3))
+    # some objects in, some objects out
 
 
 def test_make_l2():
@@ -93,11 +118,21 @@ def set_up_image_rendering_things():
         catalog.CatalogObject(
             None, galsim.Sersic(4, half_light_radius=1) * vega_sed, None)
     ]
+    tabcat = table.Table()
+    tabcat['ra'] = [270.0]
+    tabcat['dec'] = [66.0]
+    tabcat[filter_name] = counts
+    tabcat['type'] = 'PSF'
+    tabcat['n'] = -1
+    tabcat['half_light_radius'] = -1
+    tabcat['pa'] = -1
+    tabcat['ba'] = -1
     return dict(im=im, impsfgray=impsfgray,
                 impsfchromatic=impsfchromatic,
                 bandpass=bandpass, counts=counts, fluxdict=fluxdict,
                 graycatalog=graycatalog,
-                chromcatalog=chromcatalog, filter_name=filter_name)
+                chromcatalog=chromcatalog, filter_name=filter_name,
+                tabcatalog=tabcat)
 
 
 def central_stamp(im, sz):
@@ -246,6 +281,11 @@ def test_add_objects():
     peaklocs = np.where(im.array == np.max(im.array))
     peakloc = peaklocs[1][0] + im.bounds.xmin, peaklocs[0][0] + im.bounds.ymin
     assert (peakloc[0] == 60) & (peakloc[1] == 30)
+    im.array[:] = 0
+    image.add_objects_to_image(im, chromcatalog, [60, 60], [30, 30],
+                               impsfchromatic, flux_to_counts_factor=2,
+                               bandpass=bandpass)
+    assert (np.abs(np.sum(im.array) - 2 * counts * 2) < 40 * np.sqrt(counts))
 
 
 def test_simulate_counts_generic():
@@ -357,6 +397,7 @@ def test_simulate(tmp_path):
     for o in graycat:
         o.sky_pos = coord
     l0 = image.simulate(meta, graycat, webbpsf=True, level=0, usecrds=False)
+    l0tab = image.simulate(meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False)
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1, usecrds=False)
     l2 = image.simulate(meta, graycat, webbpsf=True, level=2, usecrds=False)
     l2c = image.simulate(meta, chromcat, webbpsf=False, level=2, usecrds=False)
@@ -364,6 +405,7 @@ def test_simulate(tmp_path):
     # I've already tested as many of the image generation things as I can
     # think of at earlier stages.
     assert isinstance(l0, galsim.Image)
+    assert isinstance(l0tab, galsim.Image)
     for ll in [l1, l2, l2c]:
         af = asdf.AsdfFile()
         af.tree = {'roman': ll[0]}

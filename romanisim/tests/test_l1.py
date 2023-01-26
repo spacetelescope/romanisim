@@ -10,8 +10,9 @@ Routines tested:
 - make_l1
 """
 
+import pytest
 import numpy as np
-from romanisim import l1
+from romanisim import l1, log
 import galsim
 import galsim.roman
 import asdf
@@ -52,7 +53,11 @@ def test_tij_to_pij():
             pij, np.diff(np.concatenate(tij), prepend=0) / tij[-1][-1])
 
 
+@pytest.mark.soctests
 def test_apportion_counts_to_resultants():
+    """Test that we can apportion counts to resultants and appropriately add
+    read noise to those resultants, fulfilling DMS220.
+    """
     # we'll skip the linearity tests until new linearity files with
     # inverse coefficients are available in CRDS.
     counts = np.random.poisson(100, size=(100, 100))
@@ -71,6 +76,47 @@ def test_apportion_counts_to_resultants():
             sdev = np.std(res3[plane_index] - resultants[plane_index])
             assert (sdev - read_noise / np.sqrt(len(restij))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
+        log.info('DMS220: successfully added read noise to resultants.')
+
+
+@pytest.mark.soctests
+def test_inject_source_into_ramp():
+    """Inject a source into a ramp.
+    Demonstrates DMS225.
+    """
+    ramp = np.zeros((6, 100, 100), dtype='f4')
+    sourcecounts = np.zeros((100, 100), dtype='f4')
+    flux = 10000
+    sourcecounts[49, 49] = flux  # delta function source with 100 counts.
+    tij = np.arange(1, 6 * 3 + 1).reshape(6, 3)
+    newramp = ramp + l1.apportion_counts_to_resultants(sourcecounts, tij)
+    assert np.all(newramp >= ramp)
+    # only added photons
+    assert np.sum(newramp == ramp) == (100 * 100 - 1) * 6
+    # only added to the one pixel
+    injectedsource = (newramp - ramp)[:, 49, 49]
+    assert (np.abs(injectedsource[-1] - flux * np.mean(tij[-1]) / tij[-1][-1])
+            < 10 * np.sqrt(flux))
+    # added correct number of photons
+    log.info('DMS225: successfully injected a source into a ramp.')
+
+
+@pytest.mark.soctests
+def test_ipc():
+    """Convolve an image with an IPC kernel.
+    Demonstrates DMS226.
+    """
+    nresultant = 6
+    testim = np.zeros((nresultant, 101, 101), dtype='f4')
+    flux = 1e6
+    testim[:, 50, 50] = flux
+    kernel = np.ones((3, 3), dtype='f4')
+    kernel /= np.sum(kernel)
+    newim = l1.add_ipc(testim, kernel)
+    assert np.sum(~np.isclose(newim, testim)) == 9 * nresultant
+    assert (np.sum(np.isclose(newim[:, 49:52, 49:52], flux / 9))
+            == 9 * nresultant)
+    log.info('DMS226: successfully convolved image with IPC kernel.')
 
 
 def test_ma_table_to_tij():
@@ -82,7 +128,11 @@ def test_ma_table_to_tij():
         assert l1.validate_times(tij)
 
 
+@pytest.mark.soctests
 def test_make_l1_and_asdf(tmp_path):
+    """Make an L1 file and save it appropriately.
+    Demonstrates DMS227.
+    """
     # these two functions basically just wrap the above and we'll really
     # just test for sanity.
     counts = np.random.poisson(100, size=(100, 100))
@@ -107,3 +157,4 @@ def test_make_l1_and_asdf(tmp_path):
         af = asdf.AsdfFile()
         af.tree = {'roman': res_forasdf}
         af.validate()
+    log.info('DMS227: successfully made an L1 file that validates.')

@@ -15,7 +15,11 @@ from . import util
 
 @dataclasses.dataclass
 class CatalogObject:
-    """Simple class to hold galsim positions and profiles of objects."""
+    """Simple class to hold galsim positions and profiles of objects.
+
+    Flux element contains the total AB flux from the source; i.e., the
+    -2.5*log10(flux[filter_name]) would be the AB magnitude of the source.
+    """
     sky_pos: galsim.CelestialCoord
     profile: galsim.GSObject
     flux: dict
@@ -174,7 +178,6 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
         # sigma of one mag isn't nuts.  But this will be totally uncorrelated
         # in different bands, so we'll get some weird colored objects
         out[bandpass] = 10.**(-mag_thisband / 2.5)
-        # maggies!  what units should I actually pick here?
     return out
 
 
