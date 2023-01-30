@@ -1,5 +1,5 @@
 import numpy as np
-from astropy import table, coordinates, time, units as u
+from astropy import table, coordinates, units as u
 
 
 def gaia2romanisimcat(gaiacat, date, refepoch=2016.0, boost_parallax=1,
@@ -51,7 +51,7 @@ def gaia2romanisimcat(gaiacat, date, refepoch=2016.0, boost_parallax=1,
     pmra = gaiacat['pmra'].to(u.mas / u.year).value
     pmdec = gaiacat['pmdec'].to(u.mas / u.year).value
     newxyz = (
-        xyz + rahat * dt * radpermas * pmra  + dechat * dt * radpermas * pmdec)
+        xyz + rahat * dt * radpermas * pmra + dechat * dt * radpermas * pmdec)
     plx = gaiacat['parallax'].to(u.mas).value * boost_parallax
     newxyz -= (rahat * earthcoord.dot(rahat) * plx / 2 * radpermas
                + dechat * earthcoord.dot(dechat) * plx / 2 * radpermas)
@@ -61,14 +61,13 @@ def gaia2romanisimcat(gaiacat, date, refepoch=2016.0, boost_parallax=1,
         coordinates.CartesianRepresentation(newxyz))
     newra = newunitspherical.lon
     newdec = newunitspherical.lat
-    outcat['ra'] = np.degrees(newra)
-    outcat['dec'] = np.degrees(newdec)
+    outcat['ra'] = newra.to(u.deg).value
+    outcat['dec'] = newdec.to(u.deg).value
     outcat['type'] = 'PSF'
     outcat['n'] = -1
     outcat['half_light_radius'] = -1
     outcat['pa'] = -1
     outcat['ba'] = -1
     for field in fluxfields:
-        outcat[field] = 10.**(-gaiacat['phot_g_mean_mag']/2.5)
+        outcat[field] = 10. ** (-gaiacat['phot_g_mean_mag'] / 2.5)
     return outcat
-    

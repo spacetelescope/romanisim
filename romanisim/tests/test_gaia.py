@@ -5,6 +5,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from romanisim import gaia
 
+
 def test_gaia():
     fakegaiacat = Table()
     fakegaiacat['ra'] = np.array([270.0] * 5) * u.deg
@@ -20,7 +21,7 @@ def test_gaia():
 
     coords = SkyCoord(ra=np.array([c['ra'] for c in cats]) * u.deg,
                       dec=np.array([c['dec'] for c in cats]) * u.deg)
-    origcoord = SkyCoord(fakegaiacat['ra'], fakegaiacat['dec'] )
+    origcoord = SkyCoord(fakegaiacat['ra'], fakegaiacat['dec'])
     sep = coords.separation(origcoord)
     maxsep = np.max(sep, axis=0)
 
@@ -37,5 +38,3 @@ def test_gaia():
     # sources with zero parallax have increasing separation
     assert np.all(np.diff(sep[:, 0]) > 0)
     assert np.all(np.diff(sep[:, 3]) > 0)
-    
-        
