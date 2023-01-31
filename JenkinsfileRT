@@ -73,7 +73,7 @@ data_config.match_prefix = '(.*)_result' // .json is appended automatically
 // Build and test with dependencies specified in requirements-sdp.txt
 bc0 = new BuildConfig()
 bc0.nodetype = 'romanisim'
-bc0.name = 'unstable-deps'
+bc0.name = 'stable-deps'
 bc0.env_vars = env_vars
 bc0.conda_ver = '22.11.1'
 bc0.conda_packages = [
@@ -101,7 +101,7 @@ bc0.failedFailureThresh = 0
 // which is why this is needed.
 bc1 = utils.copy(bc0)
 bc1.nodetype = 'macos'
-bc1.name = 'macos-unstable-deps'
+bc1.name = 'macos-stable-deps'
 bc1.build_cmds = ["pip install -e ."]
 bc1.build_cmds = PipInject(env.OVERRIDE_REQUIREMENTS) + bc1.build_cmds
 bc1.test_cmds = []
