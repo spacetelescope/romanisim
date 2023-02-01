@@ -72,7 +72,7 @@ data_config.match_prefix = '(.*)_result' // .json is appended automatically
 
 // Build and test with dependencies specified in requirements-sdp.txt
 bc0 = new BuildConfig()
-bc0.nodetype = 'romanisim'
+bc0.nodetype = 'romancal'
 bc0.name = 'stable-deps'
 bc0.env_vars = env_vars
 bc0.conda_ver = '22.11.1'
