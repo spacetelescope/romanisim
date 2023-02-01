@@ -466,11 +466,6 @@ def make_l1(counts, ma_table_number,
                                                 linearity=linearity)
 
     # roman.addReciprocityFailure(resultants_object)
-    # the roman systematic effects take a little more work
-    # if we want to implement them directly on the individual resultants.
-    # Those functions call namesakes in galsim.Image which the simple
-    # namespace object above doesn't have, with specialized coefficients.
-    # We could duplicate that, in principle.
 
     add_ipc(resultants)
 
@@ -485,4 +480,8 @@ def make_l1(counts, ma_table_number,
 
     # quantize
     resultants = np.round(resultants)
+
+    # garbage "saturation" implementation
+    resultants = np.clip(resultants, 0, 2**16-1)
+
     return resultants

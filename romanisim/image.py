@@ -634,10 +634,11 @@ def simulate(metadata, objlist,
         exptime=exptime, usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat)
     if level == 0:
-        return counts
-    l1 = romanisim.l1.make_l1(
-        counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-        linearity=linearity, **kwargs)
+        im = dict(data=counts.array)
+    else:
+        l1 = romanisim.l1.make_l1(
+            counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
+            linearity=linearity, **kwargs)
     if level == 1:
         im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
     elif level == 2:
