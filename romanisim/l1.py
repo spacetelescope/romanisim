@@ -482,6 +482,6 @@ def make_l1(counts, ma_table_number,
     resultants = np.round(resultants)
 
     # garbage "saturation" implementation
-    resultants = np.clip(resultants, 0, 2**16-1)
+    resultants = np.clip(resultants, 0, 2**16 - 1)
 
     return resultants
