@@ -113,6 +113,8 @@ from scipy import ndimage
 from . import parameters
 from . import log
 from . import util
+from astropy import units as u
+from roman_datamodels import units as ru
 
 
 def validate_times(tij):
@@ -323,7 +325,7 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     rng.generate(noise)
     if read_noise is None:
         read_noise = parameters.read_noise
-    noise *= read_noise / np.array(
+    noise = noise * read_noise / np.array(
         [len(x)**0.5 for x in tij]).reshape(-1, 1, 1)
     resultants += noise
     return resultants
@@ -469,11 +471,24 @@ def make_l1(counts, ma_table_number,
 
     add_ipc(resultants)
 
-    log.info('Adding read noise...')
-    if gain is not None:
-        resultants /= gain
+    if not isinstance(resultants, u.Quantity):
+        resultants *= ru.electron
+
+    if gain is None:
+        gain = parameters.gain
+    if gain is not None and not isinstance(gain, u.Quantity):
+        gain = gain * ru.electron / ru.DN
+        log.warning('Making up units for gain.')
+
+    resultants /= gain
+
+    if read_noise is not None and not isinstance(read_noise, u.Quantity):
+        read_noise = read_noise * ru.DN
+        log.warning('Making up units for read noise.')
+
     # resultants are now in counts.
     # read noise is in counts.
+    log.info('Adding read noise...')
     resultants = add_read_noise_to_resultants(
         resultants, tij, rng=rng, seed=seed,
         read_noise=read_noise)
@@ -482,6 +497,6 @@ def make_l1(counts, ma_table_number,
     resultants = np.round(resultants)
 
     # garbage "saturation" implementation
-    resultants = np.clip(resultants, 0, 2**16 - 1)
+    resultants = np.clip(resultants, 0 * ru.DN, (2**16 - 1) * ru.DN)
 
     return resultants

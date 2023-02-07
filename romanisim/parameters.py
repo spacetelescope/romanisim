@@ -2,6 +2,7 @@
 """
 
 import numpy as np
+from roman_datamodels import units as ru
 
 
 default_parameters_dictionary = {
@@ -13,11 +14,18 @@ default_parameters_dictionary = {
     'roman.meta.instrument.optical_element': 'F184',
     'roman.meta.pointing.ra_v1': 270.0,
     'roman.meta.pointing.dec_v1': 66.0,
+    'roman.meta.wcsinfo.ra_ref': 270.0,
+    'roman.meta.wcsinfo.dec_ref': 66.0,
+    'roman.meta.wcsinfo.v2_ref': 0,
+    'roman.meta.wcsinfo.v3_ref': 0,
+    'roman.meta.wcsinfo.roll_ref': 0,
 }
 
-read_noise = 5.0
+read_noise = 5.0 * ru.DN
 # grabbing the median of the read noise image from CRDS at
 # some point
+
+gain = 1 * ru.electron / ru.DN
 
 nborder = 4  # number of border pixels used for reference pixels.
 

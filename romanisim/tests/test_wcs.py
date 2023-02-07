@@ -6,6 +6,7 @@ import numpy as np
 from astropy.modeling import rotations, projections, models
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+from astropy.time import Time
 from romanisim import wcs, util, parameters
 import galsim
 
@@ -35,7 +36,7 @@ def make_fake_distortion_function():
 def test_wcs():
     distortion = make_fake_distortion_function()
     cc = SkyCoord(ra=0 * u.deg, dec=0 * u.deg)
-    gwcs = wcs.make_wcs(cc, 0, distortion, boresight=True)
+    gwcs = wcs.make_wcs(cc, distortion)
     assert cc.separation(gwcs(0, 0, with_units=True)).to(u.arcsec).value < 1e-3
     cc2 = SkyCoord(ra=0 * u.deg, dec=0.11 * u.arcsec)
     assert cc2.separation(gwcs(0, 1, with_units=True)).to(u.arcsec).value < 1e-2
@@ -61,20 +62,25 @@ def test_wcs():
     xx2, yy2 = wcsgalsim._xy(rr, dd)
     assert np.allclose(xx, xx2)
     assert np.allclose(yy, yy2)
-    wcswrap = wcs.get_wcs(cc, distortion=distortion, sca=1, boresight=True)
+    metadata = {'roman.meta.instrument.detector': 'WF101',
+                'roman.meta.exposure.start_time': Time('2026-01-01T00:00:00')
+                }
+    wcs.fill_in_parameters(metadata, cc, boresight=True)
+    wcswrap = wcs.get_wcs(metadata, distortion=distortion)
     cc2 = util.skycoord(wcswrap.toWorld(galsim.PositionD(0, 0)))
     assert cc.separation(cc2).to(u.arcsec).value < 1e-3
     celpole = SkyCoord(270 * u.deg, 66 * u.deg)
-    wcsgalsim = wcs.get_wcs(celpole, sca=1, usecrds=False, boresight=True)
+    wcs.fill_in_parameters(metadata, celpole, boresight=True)
+    wcsgalsim = wcs.get_wcs(metadata, usecrds=False)
     cc3 = util.skycoord(wcsgalsim.toWorld(galsim.PositionD(128, 128)))
     assert cc3.separation(celpole).to(u.degree).value < 3
     # big margin here of 3 deg!  The CCDs are not really at the boresight.
-    par = parameters.default_parameters_dictionary
-    par['roman.meta.instrument.detector'] = 'WFI01'
-    wcswrap2 = wcs.get_wcs(cc, distortion=distortion, parameters=par, boresight=True)
+    wcs.fill_in_parameters(metadata, cc, boresight=True)
+    wcswrap2 = wcs.get_wcs(metadata, distortion=distortion)
     cc3 = util.skycoord(wcswrap2.toWorld(galsim.PositionD(0, 0)))
     assert cc.separation(cc3).to(u.arcsec).value < 1e-3
-    wcswrap3 = wcs.get_wcs(cc, distortion=distortion, parameters=par)
+    wcs.fill_in_parameters(metadata, cc, boresight=False)
+    wcswrap3 = wcs.get_wcs(metadata, distortion=distortion)
     cc4 = util.skycoord(wcswrap3.toWorld(galsim.PositionD(0, 0)))
     # The difference between locations with and without the boresight offset
     # should be close to the reference v2 & v3 offset.

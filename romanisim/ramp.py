@@ -33,6 +33,7 @@ them, and interpolate between them for different different fluxes and ratios.
 import numpy as np
 from . import parameters
 from scipy import interpolate
+from astropy import units as u
 
 
 def ma_table_to_tbar(ma_table):
@@ -91,9 +92,9 @@ def construct_covar(read_noise, flux, ma_table):
     Parameters
     ----------
     read_noise : float
-        The read noise
+        The read noise (electrons)
     flux : float
-        The electrons per second (same units as read_noise)
+        The electrons per second
     ma_table : list[list]
         List of lists specifying the first read and the number of reads in each
         resultant.
@@ -316,9 +317,13 @@ class RampFitInterpolator:
         """
         # clip points outside range to edges.
         fluxonreadvar = flux / read_noise**2
+        if isinstance(fluxonreadvar, u.Quantity):
+            unit = fluxonreadvar.unit
+        else:
+            unit = 1
         fluxonreadvar = np.clip(
-            fluxonreadvar, self.flux_on_readvar_pts[0],
-            self.flux_on_readvar_pts[-1])
+            fluxonreadvar, self.flux_on_readvar_pts[0] * unit,
+            self.flux_on_readvar_pts[-1] * unit)
 
         return self.ki_interpolator(fluxonreadvar).astype('f4')
 
@@ -340,9 +345,13 @@ class RampFitInterpolator:
         """
         # clip points outside range to edges.
         fluxonreadvar = flux / read_noise**2
+        if isinstance(fluxonreadvar, u.Quantity):
+            unit = fluxonreadvar.unit
+        else:
+            unit = 1
         fluxonreadvar = np.clip(
-            fluxonreadvar, self.flux_on_readvar_pts[0],
-            self.flux_on_readvar_pts[-1])
+            fluxonreadvar, self.flux_on_readvar_pts[0] * unit,
+            self.flux_on_readvar_pts[-1] * unit)
         var = self.var_interpolator(fluxonreadvar).astype('f4')
         read_noise = np.array(read_noise)
         read_noise = read_noise.reshape(

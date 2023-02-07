@@ -25,6 +25,7 @@ import romanisim.bandpass
 import romanisim.psf
 from romanisim import log
 import crds
+from roman_datamodels import units as ru
 
 # galsim fluxes are in photons / cm^2 / s
 # we need to specify the area and exposure time in drawImage if
@@ -88,10 +89,10 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     """
 
     if read_noise is None:
-        read_noise = galsim.roman.read_noise
+        read_noise = parameters.read_noise
 
     if gain is None:
-        gain = galsim.roman.gain
+        gain = parameters.gain
 
     if linearity is not None:
         resultants = linearity.correct(resultants)
@@ -106,11 +107,17 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
                                             read_noise * gain)
     # could iterate if we wanted to improve the flux estimates
-    # read noise is in counts; must be converted to electrons.
 
-    slopes = ramppar[..., 1]
-    readvar = rampvar[..., 0, 1, 1]
-    poissonvar = rampvar[..., 1, 1, 1]
+    # The ramp fitter is not presently unit-aware; fix up the units by hand.
+    # To do this right the ramp fitter should be made unit aware.
+    # It takes a bit of work to get this right because we use the fact
+    # that the variance of a Poisson distribution is equal to its mean,
+    # which isn't true as soon as things start having units and requires
+    # special handling.  And we use read_time without units a lot throughout
+    # the code base.
+    slopes = ramppar[..., 1] / u.s
+    readvar = rampvar[..., 0, 1, 1] * (ru.electron / u.s)**2
+    poissonvar = rampvar[..., 1, 1, 1] * (ru.electron / u.s)**2
 
     if flat is not None:
         flat = np.clip(flat, 1e-9, np.inf)
@@ -435,8 +442,8 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     return objinfo
 
 
-def simulate_counts(sca, targ_pos, date, objlist, filter_name,
-                    exptime=None, rng=None, seed=None,
+def simulate_counts(metadata, objlist,
+                    rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
                     webbpsf=True,
                     darkrate=None, flat=None):
@@ -447,18 +454,11 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
 
     Parameters
     ----------
-    sca : int
-        SCA to simulate
-    targ_pos : galsim.CelestialCoord or astropy.coordinates.SkyCoord
-        Location on sky to observe; telescope boresight
-    date : astropy.time.Time
-        Time at which to simulate observation
+    metadata : dict
+        CRDS metadata dictionary
+
     objlist : list[CatalogObject] or Table
         Objects to simulate
-    filter_name : str
-        Roman filter bandpass to use
-    exptime : float
-        Exposure time to use (if None, default to roman.exptime)
     rng : galsim.BaseDeviate
         Random number generator to use
     seed : int
@@ -481,8 +481,10 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     simcatobj : np.ndarray
         catalog of simulated objects in image
     """
-    if exptime is None:
-        exptime = roman.exptime
+    ma_table = parameters.ma_table[
+        metadata['roman.meta.exposure.ma_table_number']]
+    sca = int(metadata['roman.meta.instrument.detector'][3:])
+    exptime = parameters.read_time * (ma_table[-1][0] + ma_table[-1][1] - 1)
     if rng is None and seed is None:
         seed = 43
         log.warning(
@@ -490,9 +492,15 @@ def simulate_counts(sca, targ_pos, date, objlist, filter_name,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
+    filter_name = metadata['roman.meta.instrument.optical_element']
+
+    date = metadata['roman.meta.exposure.start_time']
+    if not isinstance(date, astropy.time.Time):
+        date = astropy.time.Time(date, format='isot')
+
     galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
     bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
-    imwcs = wcs.get_wcs(world_pos=targ_pos, date=date, sca=sca, usecrds=usecrds)
+    imwcs = wcs.get_wcs(metadata, usecrds=usecrds)
     chromatic = False
     if (len(objlist) > 0
             and not isinstance(objlist, table.Table)  # this case is always gray
@@ -530,8 +538,8 @@ def simulate(metadata, objlist,
     metadata : dict
         metadata structure for Roman asdf file, including information about
 
-        * pointing: metadata['pointing']['ra_v1'],
-          metadata['pointing']['dec_v1']
+        * pointing: metadata['wcsinfo']['ra_ref'],
+          metadata['wcsinfo']['dec_ref']
         * date: metadata['exposure']['start_time']
         * sca: metadata['instrument']['detector']
         * bandpass: metadata['instrument']['optical_detector']
@@ -564,19 +572,9 @@ def simulate(metadata, objlist,
                     for k, v in flatmetadata.items()}
     all_metadata.update(**util.flatten_dictionary(metadata))
     ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
-    sca = int(all_metadata['roman.meta.instrument.detector'][3:])
-    coord = coordinates.SkyCoord(
-        ra=all_metadata['roman.meta.pointing.ra_v1'] * u.deg,
-        dec=all_metadata['roman.meta.pointing.dec_v1'] * u.deg)
-    start_time = all_metadata['roman.meta.exposure.start_time']
-    if not isinstance(start_time, astropy.time.Time):
-        start_time = astropy.time.Time(start_time, format='isot')
-    date = start_time
     filter_name = all_metadata['roman.meta.instrument.optical_element']
 
     ma_table = parameters.ma_table[ma_table_number]
-    last_read = ma_table[-1][0] + ma_table[-1][1] - 1
-    exptime = last_read * parameters.read_time
     exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2))
                    * parameters.read_time)
 
@@ -617,7 +615,7 @@ def simulate(metadata, objlist,
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
         dark = None
-        gain = galsim.roman.gain
+        gain = None
         flat = 1
         linearity = None
 
@@ -630,8 +628,8 @@ def simulate(metadata, objlist,
 
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
-        sca, coord, date, objlist, filter_name, rng=rng,
-        exptime=exptime, usecrds=usecrds, darkrate=darkrate,
+        all_metadata, objlist, rng=rng,
+        usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat)
     if level == 0:
         im = dict(data=counts.array)
@@ -658,13 +656,8 @@ def make_test_catalog_and_images(
     if filters is None:
         filters = ['Y106', 'J129', 'H158']
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    coord = coordinates.SkyCoord(
-        ra=metadata['roman.meta.pointing.ra_v1'] * u.deg,
-        dec=metadata['roman.meta.pointing.dec_v1'] * u.deg)
-    date = astropy.time.Time(
-        metadata['roman.meta.exposure.start_time'],
-        format='isot')
-    imwcs = wcs.get_wcs(world_pos=coord, date=date, sca=sca, usecrds=usecrds)
+    metadata['roman.meta.instrument.detector'] = 'WFI%02d' % sca
+    imwcs = wcs.get_wcs(metadata, usecrds=usecrds)
     rd_sca = imwcs.toWorld(galsim.PositionD(
         roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
     cat = catalog.make_dummy_catalog(
@@ -673,6 +666,7 @@ def make_test_catalog_and_images(
     rng = galsim.UniformDeviate(0)
     out = dict()
     for filter_name in filters:
+        metadata['roman.meta.instrument.optical_element'] = filter_name
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
                       webbpsf=webbpsf, **kwargs)
         out[filter_name] = im
@@ -743,11 +737,11 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         out['meta'].update(util.unflatten_dictionary(tmpmeta))
 
     out['data'] = slope
-    out['dq'] = (slope * 0).astype('u4')
+    out['dq'] = np.zeros(slope.shape, dtype='u4')
     out['var_poisson'] = slopevar_poisson
     out['var_rnoise'] = slopevar_rn
-    out['var_flat'] = slope * 0
-    out['err'] = slope * 0
+    out['var_flat'] = slopevar_rn * 0
+    out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
     if filepath:
         af = asdf.AsdfFile()
         af.tree = {'roman': out}
