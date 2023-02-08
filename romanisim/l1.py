@@ -295,7 +295,6 @@ def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
                                       p * efficiency * ki)
             counts_so_far += read
             if crparam is not None:
-                oldcr = cr_so_far.copy()
                 cr.simulate_crs(cr_so_far, parameters.read_time, **crparam,
                                 rng=rng_numpy)
             resultant_counts += counts_so_far + cr_so_far

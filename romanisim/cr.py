@@ -4,11 +4,11 @@ import scipy.interpolate as interpolate
 
 def create_sampler(pdf, x):
     """A function for performing inverse transform sampling.
-    
+
     Parameters
     ----------
     pdf : callable
-        A function or empirical set of tabulated values which can 
+        A function or empirical set of tabulated values which can
         be used to call or evaluate `x`.
     x : 1-d array of floats
         A grid of values where the pdf should be evaluated.
@@ -20,17 +20,17 @@ def create_sampler(pdf, x):
         from the `pdf` distribution within the bounds described
         by the grid `x`.
     """
-    
-    y = pdf(x)                        
-    cdf_y = np.cumsum(y) - y[0]          
-    cdf_y /= cdf_y.max()       
+
+    y = pdf(x)
+    cdf_y = np.cumsum(y) - y[0]
+    cdf_y /= cdf_y.max()
     inverse_cdf = interpolate.interp1d(cdf_y, x)
     return inverse_cdf
 
 
 def moyal_distribution(x, location=1000, scale=300):
-    """Return unnormalized Moyal distribution, which approximates a 
-    Landau distribution and is used to describe the energy loss 
+    """Return unnormalized Moyal distribution, which approximates a
+    Landau distribution and is used to describe the energy loss
     probability distribution of a charged particle through a detector.
 
     Parameters
@@ -48,7 +48,7 @@ def moyal_distribution(x, location=1000, scale=300):
         Moyal distribution (pdf) evaluated on `x` grid of points.
     """
     xs = (x - location) / scale
-    moyal = np.exp(-(xs + np.exp(-xs)) / 2) 
+    moyal = np.exp(-(xs + np.exp(-xs)) / 2)
     return moyal
 
 
@@ -63,7 +63,7 @@ def power_law_distribution(x, slope=-4.33):
     slope : float
         The log-log slope of the distribution, default based on
         Miles et al. (2021).
-    
+
     Returns
     -------
     power_law : 1-d array of floats
@@ -74,13 +74,13 @@ def power_law_distribution(x, slope=-4.33):
 
 
 def sample_cr_params(
-    N_samples, 
-    N_i=4096, 
-    N_j=4096, 
+    N_samples,
+    N_i=4096,
+    N_j=4096,
     min_dEdx=10,
     max_dEdx=10000,
-    min_cr_len=10, 
-    max_cr_len=2000, 
+    min_cr_len=10,
+    max_cr_len=2000,
     grid_size=10000,
     rng=None,
     seed=48,
@@ -91,7 +91,7 @@ def sample_cr_params(
 
     Parameters
     ----------
-    N_samples : int 
+    N_samples : int
         Number of CRs to generate.
     N_x : int
         Number of pixels along x-axis of detector
@@ -137,7 +137,7 @@ def sample_cr_params(
     # sample CR direction [radian]
     cr_phi = rng.random(N_samples) * 2 * np.pi
 
-    # sample path lengths [micron] 
+    # sample path lengths [micron]
     len_grid = np.linspace(min_cr_len, max_cr_len, grid_size)
     inv_cdf_len = create_sampler(power_law_distribution, len_grid)
     cr_length = inv_cdf_len(rng.random(N_samples))
@@ -151,16 +151,16 @@ def sample_cr_params(
 
 
 def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
-    """Given a starting and ending pixel, returns a list of pixel 
+    """Given a starting and ending pixel, returns a list of pixel
     coordinates (ii, jj) and their traversed path lengths.
 
     Parameters
     ----------
     trail_start: two-element array of floats
-        The starting coordinates in (i, j) of the cosmic ray trail, 
+        The starting coordinates in (i, j) of the cosmic ray trail,
         in units of pix.
     trail_end: two-element array of floats, units of pix
-        The ending coordinates in (i, j) of the cosmic ray trail, in 
+        The ending coordinates in (i, j) of the cosmic ray trail, in
         units of pix.
 
     Returns
@@ -170,7 +170,7 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     jj : 1-d array of shape N
         j-axis positions of traversed trail, in units of pix.
     lengths : 1-d array of shape N
-        Chord lengths for each traversed pixel, in units of pix. 
+        Chord lengths for each traversed pixel, in units of pix.
     """
 
     # increase in i-direction
@@ -180,7 +180,7 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     else:
         i1, j1 = trail_start
         i0, j0 = trail_end
-    
+
     di = i1 - i0
     dj = j1 - j0
 
@@ -191,7 +191,7 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
             0, np.floor(np.absolute(di) + 1)).reshape(-1, 1)
         step_i = np.array([[1, (dj / di)]])
         cross_i = cross_i + borders_i @ step_i
-    
+
     # border crossing in i
     cross_j = np.array([i0, j0], dtype=float)
     if dj != 0:
@@ -207,8 +207,8 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
 
     # remove pixels that go outside detector edge
     outside = (
-        (crossings[:, 0] < 0) | (crossings[:, 0] > N_i) |
-        (crossings[:, 1] < 0) | (crossings[:, 1] > N_j)
+        (crossings[:, 0] < 0) | (crossings[:, 0] > N_i)
+        | (crossings[:, 1] < 0) | (crossings[:, 1] > N_j)
     )
     crossings = crossings[~outside]
 
@@ -234,11 +234,11 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
 
     return ii, jj, lengths
 
-    
+
 def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
                  pixel_depth=5, rng=None, seed=47):
     """Adds CRs to an existing image.
-    
+
     Parameters
     ----------
     image : 2-d array of floats
@@ -246,7 +246,7 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
     time : float
         The exposure time, units of s.
     flux : float
-        Cosmic ray flux, units of cm^-2 s^-1. Default value of 8 
+        Cosmic ray flux, units of cm^-2 s^-1. Default value of 8
         is equal to the value assumed by the JWST ETC.
     area : float
         The area of the WFI detector, units of cm^2.
@@ -260,7 +260,7 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
         Random number generator to use
     seed : int
         seed to use for random number generator
-    
+
     Returns
     -------
     image : 2-d array of floats
@@ -282,15 +282,12 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
 
     # go from eV/micron -> counts/pixel
     cr_counts_per_pix = cr_dEdx * pixel_size / gain
-    im1 = image.copy()
+
     for i0, j0, i1, j1, counts_per_pix in zip(
             cr_i0, cr_j0, cr_i1, cr_j1, cr_counts_per_pix):
         ii, jj, length_2d = traverse([i0, j0], [i1, j1])
         length_3d = ((pixel_depth / pixel_size) ** 2 + length_2d ** 2) ** 0.5
         image[ii, jj] += rng.poisson(counts_per_pix * length_3d)
-        if np.any((jj == 76) & (ii == 54)):
-            import pdb
-            pdb.set_trace()
 
     return image
 
@@ -299,9 +296,9 @@ if __name__ == "__main__":
     # initialize a detector
     image = np.zeros((4096, 4096), dtype=float)
 
-    flux = 8 # events/cm^2/s
-    area = 0.168 # cm^2
-    t_exp = 3.04 # s
+    flux = 8  # events/cm^2/s
+    area = 0.168  # cm^2
+    t_exp = 3.04  # s
 
     # simulate 500 resultant frames
     for _ in range(500):
