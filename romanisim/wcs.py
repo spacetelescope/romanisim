@@ -31,24 +31,58 @@ from galsim import roman
 from . import util
 
 
-def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
-            usecrds=True, distortion=None, boresight=False):
+def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
+    """Add WCS info to parameters dictionary.
+
+    Parameters
+    ----------
+    parameters : dict
+        CRDS parameters dictionary
+        keys like roman.meta.pointing.* and roman.meta.wcsinfo.* may be modified
+
+    coord : astropy.coordinates.SkyCoord or galsim.CelestialCoord
+        world coordinates at V2 / V3 ref (boresight or center of WFI CCDs)
+
+    roll_ref : float
+        roll of the V3 axis from north
+
+    boresight : bool
+        whether coord is the telescope boresight (V2 = V3 = 0) or the center of
+        the WFI CCD array
+    """
+    coord = util.skycoord(coord)
+
+    parameters['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
+    parameters['roman.meta.wcsinfo.ra_ref'] = (
+        parameters['roman.meta.pointing.ra_v1'])
+
+    parameters['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
+    parameters['roman.meta.wcsinfo.dec_ref'] = (
+        parameters['roman.meta.pointing.dec_v1'])
+
+    parameters['roman.meta.wcsinfo.roll_ref'] = roll_ref
+
+    if boresight:
+        parameters['roman.meta.wcsinfo.v2_ref'] = 0
+        parameters['roman.meta.wcsinfo.v3_ref'] = 0
+    else:
+        from .parameters import v2v3_wficen
+        v2_ref = v2v3_wficen[0] / 3600
+        v3_ref = v2v3_wficen[1] / 3600
+        parameters['roman.meta.wcsinfo.v2_ref'] = v2_ref
+        parameters['roman.meta.wcsinfo.v3_ref'] = v3_ref
+        parameters['roman.meta.wcsinfo.roll_ref'] = (
+            parameters.get('roman.meta.wcsinfo.roll_ref', 0) + 60)
+
+
+def get_wcs(metadata, usecrds=True, distortion=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
 
     Parameters
     ----------
-    world_pos : astropy.coordinates.SkyCoord or galsim.CelestialCoord
-        boresight or science aperture position
-    roll_ref : float
-        roll of telescope V3 axis from North to East at world_pos
-    date : astropy.time.Time
-        date of observation; used at least is usecrds = None to determine
-        roll_ref.
-    parameters : dict
+    metadata : dict
         CRDS parameters dictionary specifying appropriate reference distortion
         map to load.
-    sca : int
-        WFI sensor chip array number
     usecrds : bool
         If True, use crds reference distortions rather than galsim.roman
         distortion model.
@@ -61,30 +95,23 @@ def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
     galsim.CelestialWCS for an SCA
     """
 
-    from .parameters import default_parameters_dictionary
+    metadata = util.flatten_dictionary(metadata)
+    sca = int(metadata['roman.meta.instrument.detector'][3:])
+    date = astropy.time.Time(metadata['roman.meta.exposure.start_time'])
+    world_pos = astropy.coordinates.SkyCoord(
+        metadata['roman.meta.wcsinfo.ra_ref'] * u.deg,
+        metadata['roman.meta.wcsinfo.dec_ref'] * u.deg)
 
-    if parameters is not None:
-        parameters = util.flatten_dictionary(parameters)
-    if parameters is None and sca is None:
-        raise ValueError('At least one of parameters or sca must be set!')
-    if parameters is None:
-        from copy import deepcopy
-        parameters = deepcopy(default_parameters_dictionary)
-        parameters = util.flatten_dictionary(parameters)
-        parameters['roman.meta.instrument.detector'] = 'WFI%02d' % sca
-    elif sca is None:
-        sca = int(parameters['roman.meta.instrument.detector'][3:])
-    if date is None:
-        date = astropy.time.Time(parameters['roman.meta.exposure.start_time'],
-                                 format='isot')
     if (distortion is None) and usecrds:
-        fn = crds.getreferences(parameters, reftypes=['distortion'],
+        fn = crds.getreferences(metadata, reftypes=['distortion'],
                                 observatory='roman')
         distortion = asdf.open(fn['distortion'])
         distortion = distortion['roman']['coordinate_distortion_transform']
     if distortion is not None:
-        wcs = make_wcs(util.skycoord(world_pos), roll_ref, distortion,
-                       boresight=boresight)
+        wcs = make_wcs(util.skycoord(world_pos), distortion,
+                       v2_ref=metadata['roman.meta.wcsinfo.v2_ref'],
+                       v3_ref=metadata['roman.meta.wcsinfo.v3_ref'],
+                       roll_ref=metadata['roman.meta.wcsinfo.roll_ref'])
         wcs = GWCS(wcs)
     else:
         # use galsim.roman
@@ -98,8 +125,8 @@ def get_wcs(world_pos, roll_ref=0, date=None, parameters=None, sca=None,
     return wcs
 
 
-def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360,
-             boresight=False):
+def make_wcs(targ_pos, distortion, roll_ref=0, v2_ref=0, v3_ref=0,
+             wrap_v2_at=180, wrap_lon_at=360):
     """Create a gWCS from a target position, a roll, and a distortion map.
 
     Parameters
@@ -107,18 +134,20 @@ def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360,
     targ_pos : astropy.coordinates.SkyCoord
         The celestial coordinates of the boresight or science aperture.
 
+    distortion : callable
+        The distortion mapping pixel coordinates to V2/V3 coordinates for a
+        detector.
+
     roll_ref : float
         The angle of the V3 axis relative to north, increasing from north to
         east, at the boresight or science aperture.
         Note that the V3 axis is rotated by +60 degree to the +Y axis.
 
-    distortion : callable
-        The distortion mapping pixel coordinates to V2/V3 coordinates for a
-        detector.
+    v2_ref : float
+        The v2 coordinate (arcsec) corresponding to targ_pos
 
-    boresight : bool
-        If True, targ_pos and roll_ref are specified for the boresight;
-        otherwise they are specified at the center of the WFI instrument
+    v3_ref : float
+        The v3 coordinate (arcsec) corresponding to targ_pos
 
     Returns
     -------
@@ -137,16 +166,6 @@ def make_wcs(targ_pos, roll_ref, distortion, wrap_v2_at=180, wrap_lon_at=360,
     # compute an angle wrt north.
     ra_ref = targ_pos.ra.to(u.deg).value
     dec_ref = targ_pos.dec.to(u.deg).value
-
-    if boresight:
-        v2_ref = 0
-        v3_ref = 0
-    else:
-        from .parameters import v2v3_wficen
-        v2_ref = v2v3_wficen[0] / 3600
-        v3_ref = v2v3_wficen[1] / 3600
-        roll_ref = roll_ref + 60
-        # v2, v3 ref are in arcsec; convert to degrees
 
     # full transformation from romancal.assign_wcs.pointing
     # angles = np.array([v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref])

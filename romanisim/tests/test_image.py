@@ -17,7 +17,7 @@ import os
 import numpy as np
 import galsim
 from galsim import roman
-from romanisim import image, parameters, catalog, psf, util
+from romanisim import image, parameters, catalog, psf, util, wcs
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -27,6 +27,7 @@ import webbpsf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
+from roman_datamodels import units as ru
 
 
 def test_in_bounds():
@@ -71,9 +72,11 @@ def test_make_l2():
         resultants, ma_table, gain=1, flat=1, dark=0)
     assert np.allclose(slopes, 0)
     resultants[:, :, :] = np.arange(4)[:, None, None]
+    resultants *= ru.DN
     slopes, readvar, poissonvar = image.make_l2(
-        resultants, ma_table, gain=1, flat=1, dark=0)
-    assert np.allclose(slopes, 1 / parameters.read_time / 4)
+        resultants, ma_table,
+        gain=1 * ru.electron / ru.DN, flat=1, dark=0)
+    assert np.allclose(slopes, 1 / parameters.read_time / 4 * u.electron / u.s)
     assert np.all(np.array(slopes.shape) == np.array(readvar.shape))
     assert np.all(np.array(slopes.shape) == np.array(poissonvar.shape))
     assert np.all(readvar >= 0)
@@ -353,7 +356,6 @@ def test_simulate_counts():
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
-    time = Time('2020-01-01T00:00:00')
     for o in chromcat:
         o.sky_pos = coord
     for o in graycat:
@@ -363,10 +365,15 @@ def test_simulate_counts():
     # But at least they'll exercise some machinery if the ignore_distant_sources
     # argument is high enough!
     roman.n_pix = 100
-    im1 = image.simulate_counts(1, coord, time, chromcat, 'F158',
-                                usecrds=False, webbpsf=False,
-                                ignore_distant_sources=100)
-    im2 = image.simulate_counts(1, coord, time, graycat, 'F158',
+    metadata = {'roman.meta.exposure.start_time': '2020-01-01T00:00:00',
+                'roman.meta.instrument.detector': 'WFI01',
+                'roman.meta.instrument.optical_element': 'F158',
+                'roman.meta.exposure.ma_table_number': 1,
+                }
+    wcs.fill_in_parameters(metadata, coord)
+    im1 = image.simulate_counts(metadata, chromcat, usecrds=False,
+                                webbpsf=False, ignore_distant_sources=100)
+    im2 = image.simulate_counts(metadata, graycat,
                                 usecrds=False, webbpsf=True,
                                 ignore_distant_sources=100)
     im1 = im1[0].array
@@ -396,16 +403,21 @@ def test_simulate(tmp_path):
         o.sky_pos = coord
     for o in graycat:
         o.sky_pos = coord
-    l0 = image.simulate(meta, graycat, webbpsf=True, level=0, usecrds=False)
-    l0tab = image.simulate(meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False)
-    l1 = image.simulate(meta, graycat, webbpsf=True, level=1, usecrds=False)
-    l2 = image.simulate(meta, graycat, webbpsf=True, level=2, usecrds=False)
-    l2c = image.simulate(meta, chromcat, webbpsf=False, level=2, usecrds=False)
+    l0 = image.simulate(meta, graycat, webbpsf=True, level=0,
+                        usecrds=False)
+    l0tab = image.simulate(
+        meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False)
+    l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
+                        usecrds=False)
+    l2 = image.simulate(meta, graycat, webbpsf=True, level=2,
+                        usecrds=False)
+    l2c = image.simulate(meta, chromcat, webbpsf=False, level=2,
+                         usecrds=False)
     # what should we test here?  At least that the images validate?
     # I've already tested as many of the image generation things as I can
     # think of at earlier stages.
-    assert isinstance(l0, galsim.Image)
-    assert isinstance(l0tab, galsim.Image)
+    assert isinstance(l0[0]['data'], np.ndarray)
+    assert isinstance(l0tab[0]['data'], np.ndarray)
     for ll in [l1, l2, l2c]:
         af = asdf.AsdfFile()
         af.tree = {'roman': ll[0]}
@@ -419,7 +431,7 @@ def test_simulate(tmp_path):
     log.info('DMS216: successfully made a L2 file.')
 
 
-def test_make_catalog_and_images():
+def test_make_test_catalog_and_images():
     # this isn't a real routine that we should consider part of the
     # public interface, and may be removed.  We'll settle for just
     # testing that it runs.

@@ -16,6 +16,8 @@ from romanisim import l1, log
 import galsim
 import galsim.roman
 import asdf
+from roman_datamodels import units as ru
+
 
 tijlist = [
     [[1], [2, 3], [4, 5], [6, 7]],
@@ -67,7 +69,8 @@ def test_apportion_counts_to_resultants():
         assert np.all(np.diff(resultants, axis=0) >= 0)
         assert np.all(resultants >= 0)
         assert np.all(resultants <= counts[None, :, :])
-        res2 = l1.add_read_noise_to_resultants(resultants.copy(), tij)
+        res2 = l1.add_read_noise_to_resultants(resultants.copy() * ru.DN,
+                                               tij)
         res3 = l1.add_read_noise_to_resultants(resultants.copy(), tij,
                                                read_noise=read_noise)
         assert np.all(res2 != resultants)
@@ -138,7 +141,8 @@ def test_make_l1_and_asdf(tmp_path):
     counts = np.random.poisson(100, size=(100, 100))
     galsim.roman.n_pix = 100
     for ma_table in ma_table_list:
-        resultants = l1.make_l1(galsim.Image(counts), ma_table, gain=1)
+        resultants = l1.make_l1(galsim.Image(counts), ma_table,
+                                gain=1 * ru.electron / ru.DN)
         assert resultants.shape[0] == len(ma_table)
         assert resultants.shape[1] == counts.shape[0]
         assert resultants.shape[2] == counts.shape[1]
@@ -147,12 +151,14 @@ def test_make_l1_and_asdf(tmp_path):
         assert np.all(resultants == resultants.astype('i4'))
         # we could look for non-zero correlations from the IPC to
         # check that that is working?  But that is slightly annoying.
-        resultants = l1.make_l1(galsim.Image(counts), ma_table, read_noise=0)
-        assert np.all(resultants <= np.max(counts[None, ...]))
+        resultants = l1.make_l1(galsim.Image(counts), ma_table,
+                                read_noise=0 * ru.DN,
+                                gain=1 * ru.electron / ru.DN)
+        assert np.all(resultants <= np.max(counts[None, ...] * ru.DN))
         # because of IPC, one can't require that each pixel is smaller
         # than the number of counts
-        assert np.all(resultants >= 0)
-        assert np.all(np.diff(resultants, axis=0) >= 0)
+        assert np.all(resultants >= 0 * ru.DN)
+        assert np.all(np.diff(resultants, axis=0) >= 0 * ru.DN)
         res_forasdf = l1.make_asdf(resultants, filepath=tmp_path / 'tmp.asdf')
         af = asdf.AsdfFile()
         af.tree = {'roman': res_forasdf}

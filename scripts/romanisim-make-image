@@ -39,6 +39,9 @@ if __name__ == '__main__':
     parser.add_argument('--ma_table_number', type=int, default=1)
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--nobj', type=int, default=1000)
+    parser.add_argument('--boresight', action='store_true', default=False,
+                        help=('radec specifies location of boresight, not '
+                              'center of WFI.'))
     args = parser.parse_args()
 
     log.info('Starting simulation...')
@@ -52,12 +55,9 @@ if __name__ == '__main__':
     metadata = deepcopy(default_parameters_dictionary)
 
     if args.radec is not None:
-        metadata['roman.meta.pointing.ra_v1'] = args.radec[0]
-        metadata['roman.meta.pointing.dec_v1'] = args.radec[1]
-
-    coord = SkyCoord(ra=metadata['roman.meta.pointing.ra_v1']*u.deg,
-                     dec=metadata['roman.meta.pointing.dec_v1']*u.deg,
-                     frame='icrs')
+        coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
+                         frame='icrs')
+        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight)
 
     if args.date is not None:
         metadata['roman.meta.exposure.start_time'] = Time(
@@ -68,8 +68,7 @@ if __name__ == '__main__':
     metadata['roman.meta.instrument.optical_element'] = args.bandpass
     metadata['roman.meta.exposure.ma_table_number'] = args.ma_table_number
 
-    twcs = wcs.get_wcs(world_pos=coord, date=date, sca=args.sca,
-                       usecrds=args.usecrds)
+    twcs = wcs.get_wcs(metadata, usecrds=args.usecrds)
     rd_sca = twcs.toWorld(galsim.PositionD(
         galsim.roman.n_pix/2, galsim.roman.n_pix/2))
 

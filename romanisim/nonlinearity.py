@@ -47,6 +47,7 @@ be to take this another iteration further, but that feels like overkill.
 """
 
 import numpy as np
+from astropy import units as u
 
 
 def repair_coefficients(coeffs):
@@ -171,7 +172,18 @@ def correct(counts, coeffs, reversed=False):
         cc = coeffs
     else:
         cc = coeffs[::-1, ...]
-    return np.polyval(cc, counts)
+    if isinstance(counts, u.Quantity):
+        unit = counts.unit
+        counts = counts.value
+    else:
+        unit = None
+
+    res = np.polyval(cc, counts)
+
+    if unit is not None:
+        res = res * unit
+
+    return res
 
 
 class NL:
