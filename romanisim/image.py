@@ -636,7 +636,9 @@ def simulate(metadata, objlist,
     else:
         l1 = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-            linearity=linearity, crparam=dict(), **kwargs)
+            linearity=linearity, crparam=dict(), persistence=None,
+            tstart=Time(all_metadata['roman.meta.exposure.start_time']),
+            **kwargs)
     if level == 1:
         im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
     elif level == 2:
