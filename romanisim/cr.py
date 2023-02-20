@@ -206,7 +206,7 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
 
     # compute center of traversed pixel before each crossing
     ii_horiz, jj_horiz = np.round(
-        cross_horiz - np.array([0, 0.5*np.sign(dj)])).astype(int).T
+        cross_horiz - np.array([0, 0.5 * np.sign(dj)])).astype(int).T
     ii_vert, jj_vert = np.round(cross_vert - np.array([0.5, 0])).astype(int).T
 
     # combine crossings and pixel centers
@@ -222,8 +222,8 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
 
     # remove pixels that go outside detector edge -- may not be necessary
     inside_borders = (
-        (crossings[:, 0] > -0.5) & (crossings[:, 0] < (N_i - 0.5)) &
-        (crossings[:, 1] > -0.5) & (crossings[:, 1] < (N_j - 0.5))
+        (crossings[:, 0] > -0.5) & (crossings[:, 0] < (N_i - 0.5))
+        & (crossings[:, 1] > -0.5) & (crossings[:, 1] < (N_j - 0.5))
     )
     crossings = crossings[inside_borders]
     ii = ii[inside_borders]
