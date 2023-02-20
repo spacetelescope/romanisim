@@ -59,7 +59,7 @@ class Persistence:
         if gamma is None:
             gamma = parameters.persistence['gamma']
         if ((np.array(x).shape != np.array(t).shape)
-            or (np.array(x).shape != np.array(index).shape)):
+                or (np.array(x).shape != np.array(index).shape)):
             raise ValueError('x, t, index must have identical shapes!')
         self.x = x
         self.t = t
@@ -72,7 +72,7 @@ class Persistence:
 
     def add_to_read(self, image, tnow, rng=None, seed=50):
         """Add persistence signature to image.
-        
+
         Parameters
         ----------
         image : np.ndarray[float], shape: (npix_x, npix_y)
@@ -109,14 +109,13 @@ class Persistence:
         """
         return fermi(self.x, (tnow - self.t) * 60 * 60 * 24,
                      self.A, self.x0, self.dx, self.alpha, self.gamma)
-    
 
     def update(self, image, tnow):
-        """Update stored fluence values of events worth tracking for future 
+        """Update stored fluence values of events worth tracking for future
         persistence.
 
         New persistence-affected pixels are added and old ones removed
-        according to whether the predicted persistence rate is larger than 
+        according to whether the predicted persistence rate is larger than
         parameters.persistence['ignorerate'].
 
         Parameters
@@ -147,7 +146,7 @@ def fermi(x, dt, A, x0, dx, alpha, gamma):
     The Fermi model for persistence:
     A * (x/x0)**alpha * (t/1000.)**(-gamma) / (exp(-(x-x0)(/dx) + 1)
     For influence level below the half well, the persistence is linear in x.
-    
+
     Parameters
     ----------
     x : np.ndarray[float]
@@ -182,4 +181,3 @@ def fermi(x, dt, A, x0, dx, alpha, gamma):
     if scalar:
         out = out[0]
     return out
-

@@ -20,6 +20,7 @@ from . import catalog
 from . import parameters
 from . import util
 from . import nonlinearity
+from . import persistence
 import romanisim.l1
 import romanisim.bandpass
 import romanisim.psf
@@ -577,6 +578,7 @@ def simulate(metadata, objlist,
     ma_table = parameters.ma_table[ma_table_number]
     exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2))
                    * parameters.read_time)
+    persist = persistence.Persistence()
 
     # TODO: replace this stanza with a function that looks at the metadata
     # and keywords and returns a dictionary with all of the relevant reference
@@ -636,8 +638,9 @@ def simulate(metadata, objlist,
     else:
         l1 = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-            linearity=linearity, crparam=dict(), persistence=None,
-            tstart=Time(all_metadata['roman.meta.exposure.start_time']),
+            linearity=linearity, crparam=dict(), persistence=persist,
+            tstart=astropy.time.Time(
+                all_metadata['roman.meta.exposure.start_time']),
             **kwargs)
     if level == 1:
         im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
