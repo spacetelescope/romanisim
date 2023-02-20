@@ -133,6 +133,8 @@ def sample_cr_params(
 
     # sample CR positions [pix]
     cr_i, cr_j = (rng.random(size=(N_samples, 2)) * (N_i, N_j)).transpose()
+    cr_i -= 0.5
+    cr_j -= 0.5
 
     # sample CR direction [radian]
     cr_phi = rng.random(N_samples) * 2 * np.pi
