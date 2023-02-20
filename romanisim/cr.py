@@ -28,7 +28,7 @@ def create_sampler(pdf, x):
     return inverse_cdf
 
 
-def moyal_distribution(x, location=1000, scale=300):
+def moyal_distribution(x, location=120, scale=50):
     """Return unnormalized Moyal distribution, which approximates a
     Landau distribution and is used to describe the energy loss
     probability distribution of a charged particle through a detector.
@@ -132,14 +132,14 @@ def sample_cr_params(
         rng = np.random.default_rng(seed)
 
     # sample CR positions [pix]
-    cr_i, cr_j = (rng.random(size=(N_samples, 2)) * (N_i, N_j)).transpose()
-    cr_i -= 0.5
-    cr_j -= 0.5
+    cr_i, cr_j = (
+        rng.random(size=(N_samples, 2)) * (N_i, N_j) - 0.5
+    ).transpose()
 
     # sample CR direction [radian]
     cr_phi = rng.random(N_samples) * 2 * np.pi
 
-    # sample path lengths [micron]
+    # sample path lengths [micron] 
     len_grid = np.linspace(min_cr_len, max_cr_len, grid_size)
     inv_cdf_len = create_sampler(power_law_distribution, len_grid)
     cr_length = inv_cdf_len(rng.random(N_samples))
