@@ -332,7 +332,7 @@ if __name__ == "__main__":
     image = np.zeros((4096, 4096), dtype=float)
 
     flux = 8  # events/cm^2/s
-    area = 0.168  # cm^2
+    area = 16.8  # cm^2
     t_exp = 3.04  # s
 
     # simulate 500 resultant frames
