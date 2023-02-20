@@ -261,8 +261,17 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     return ii, jj, lengths
 
 
-def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
-                 pixel_depth=5, rng=None, seed=47):
+def simulate_crs(
+    image, 
+    time, 
+    flux=8, 
+    area=16.8, 
+    conversion_factor=0.5, 
+    pixel_size=10,
+    pixel_depth=5, 
+    rng=None, 
+    seed=47
+):
     """Adds CRs to an existing image.
 
     Parameters
@@ -276,8 +285,9 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
         is equal to the value assumed by the JWST ETC.
     area : float
         The area of the WFI detector, units of cm^2.
-    gain : float
-        The gain to convert from eV to counts, units of eV / counts.
+    conversion_factor : float 
+        The convert from eV to counts, assumed to be the bandgap energy,
+        in units of eV / counts.
     pixel_size : float
         The size of an individual pixel in the detector, units of micron.
     pixel_depth : float
@@ -303,15 +313,14 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
         N_samples, N_i=N_i, N_j=N_j, rng=rng)
 
     cr_length = cr_length / pixel_size
-    cr_i1 = (cr_i0 + cr_length * np.cos(cr_angle)).clip(1, N_i - 1)
-    cr_j1 = (cr_j0 + cr_length * np.sin(cr_angle)).clip(1, N_j - 1)
+    cr_i1 = (cr_i0 + cr_length * np.cos(cr_angle)).clip(-0.5, N_i + 0.5)
+    cr_j1 = (cr_j0 + cr_length * np.sin(cr_angle)).clip(-0.5, N_j + 0.5)
 
     # go from eV/micron -> counts/pixel
-    cr_counts_per_pix = cr_dEdx * pixel_size / gain
-
-    for i0, j0, i1, j1, counts_per_pix in zip(
-            cr_i0, cr_j0, cr_i1, cr_j1, cr_counts_per_pix):
-        ii, jj, length_2d = traverse([i0, j0], [i1, j1])
+    cr_counts_per_pix = cr_dEdx * pixel_size / conversion_factor
+    
+    for i0, j0, i1, j1, counts_per_pix in zip(cr_i0, cr_j0, cr_i1, cr_j1, cr_counts_per_pix):
+        ii, jj, length_2d = traverse([i0, j0], [i1, j1], N_i=N_i, N_j=N_j)
         length_3d = ((pixel_depth / pixel_size) ** 2 + length_2d ** 2) ** 0.5
         image[ii, jj] += rng.poisson(counts_per_pix * length_3d)
 
