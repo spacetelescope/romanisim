@@ -17,7 +17,7 @@ import os
 import numpy as np
 import galsim
 from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs
+from romanisim import image, parameters, catalog, psf, util, wcs, persistence
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -408,11 +408,39 @@ def test_simulate(tmp_path):
     l0tab = image.simulate(
         meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False)
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
-                        usecrds=False)
+                        usecrds=False, crparam=None)
     l2 = image.simulate(meta, graycat, webbpsf=True, level=2,
-                        usecrds=False)
+                        usecrds=False, crparam=dict())
+    # through in some CRs for fun
     l2c = image.simulate(meta, chromcat, webbpsf=False, level=2,
                          usecrds=False)
+    persist = persistence.Persistence()
+    fluence = 30000
+    persist.update(l0[0]['data'] * 0 + fluence, time.mjd - 100 / 60 / 60 / 24)
+    # zap the whole frame
+    l1p = image.simulate(meta, graycat, webbpsf=True, level=1, usecrds=False,
+                         persistence=persist, crparam=None)
+    # the random number gets instatiated from the same seed, but the order in
+    # which the numbers are generated is different so we can't guarantee, e.g.,
+    # that all of the new values are strictly greater than the old ones.
+    # But we've basically added a constant to the whole scene: we can at least
+    # verify it's positive.
+    diff = l1p[0]['data'][-1] * 1.0 - l1[0]['data'][-1] * 1.0
+    # L1 files are unsigned, so the difference gets wonky unless you convert
+    # to floats.
+    # do we have a very rough guess for what the persistence should be?
+    # note that getting this exactly right is hard unless we think about
+    # how the persistence decays over the exposure
+    roughguess = persistence.fermi(
+        fluence, 170, parameters.persistence['A'],
+        parameters.persistence['x0'], parameters.persistence['dx'],
+        parameters.persistence['alpha'], parameters.persistence['gamma'])
+    roughguess = roughguess * 140  # seconds of integration
+    assert np.abs(
+        np.log(np.mean(diff * parameters.gain).value / roughguess)) < 1
+    # within a factor of e
+    log.info('DMS224: added persistence to an image.')
+
     # what should we test here?  At least that the images validate?
     # I've already tested as many of the image generation things as I can
     # think of at earlier stages.

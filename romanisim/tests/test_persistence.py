@@ -18,7 +18,6 @@ def test_fermi():
     hw = parameters.persistence['half_well']
     parameters.persistence['half_well'] = 0.1
     for answer in answers:
-        print(answer)
         rate = persistence.fermi(*answer[:-1])
         assert np.isclose(rate, answer[-1])
         persist = persistence.Persistence(
@@ -49,5 +48,4 @@ def test_persistence():
     assert len(persist.x) == img.reshape(-1).shape[0] * 2
     # all pixels got zapped twice
     persist.update(img3, 1)
-    print(len(persist.x))
     assert len(persist.x) == 0  # one day later, everything is okay again.

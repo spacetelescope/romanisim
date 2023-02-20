@@ -308,8 +308,8 @@ def apportion_counts_to_resultants(
                                 **crparam, rng=rng_numpy)
             if persistence is not None:
                 tnow = tstart + tij[i][j] / (24 * 60 * 60)
-                persistence.add_persistence_to_read(
-                    instrumental_so_far, tnow, persistence, rng=rng_numpy)
+                persistence.add_to_read(
+                    instrumental_so_far, tnow, rng=rng_numpy)
             resultant_counts += counts_so_far + instrumental_so_far
             if linearity is not None:
                 ki_denominator += efficiency * pij_per_read[i][j]
