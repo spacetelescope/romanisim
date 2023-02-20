@@ -152,24 +152,26 @@ def sample_cr_params(
 
 def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     """Given a starting and ending pixel, returns a list of pixel
-    coordinates (ii, jj) and their traversed path lengths.
+    coordinates (ii, jj) and their traversed path lengths. Note that
+    the centers of pixels are treated as integers, while the borders
+    are treated as half-integers.
 
     Parameters
     ----------
-    trail_start: two-element array of floats
+    trail_start : (float, float)
         The starting coordinates in (i, j) of the cosmic ray trail,
         in units of pix.
-    trail_end: two-element array of floats, units of pix
+    trail_end : (float, float)
         The ending coordinates in (i, j) of the cosmic ray trail, in
         units of pix.
 
     Returns
     -------
-    ii : 1-d int array of shape N
+    ii : np.ndarray[int]
         i-axis positions of traversed trail, in units of pix.
-    jj : 1-d array of shape N
+    jj : np.ndarray[int]
         j-axis positions of traversed trail, in units of pix.
-    lengths : 1-d array of shape N
+    lengths : np.ndarray[float]
         Chord lengths for each traversed pixel, in units of pix.
     """
 
@@ -183,54 +185,71 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
 
     di = i1 - i0
     dj = j1 - j0
+    slope = dj / di
+    sign = np.sign(slope)
 
-    # border crossing in j
-    cross_i = np.array([i0, j0], dtype=float)
-    if di != 0:
-        borders_i = np.sign(di) * np.arange(
-            0, np.floor(np.absolute(di) + 1)).reshape(-1, 1)
-        step_i = np.array([[1, (dj / di)]])
-        cross_i = cross_i + borders_i @ step_i
-
-    # border crossing in i
-    cross_j = np.array([i0, j0], dtype=float)
+    # horizontal border crossings at j = integer + 1/2
     if dj != 0:
-        borders_j = np.sign(dj) * np.arange(
-            0, np.floor(np.absolute(dj) + 1)).reshape(-1, 1)
-        step_j = np.array([[(di / dj), 1]])
-        cross_j = cross_j + borders_j @ step_j
-
-    # sort by i-axis and remove duplicates
-    crossings = np.vstack((cross_i, cross_j))
-    crossings = crossings[np.argsort(crossings[:, 0])]
-    crossings = np.unique(crossings, axis=0)
-
-    # remove pixels that go outside detector edge
-    outside = (
-        (crossings[:, 0] < 0) | (crossings[:, 0] > N_i)
-        | (crossings[:, 1] < 0) | (crossings[:, 1] > N_j)
-    )
-    crossings = crossings[~outside]
-
-    # compute traversed distances over pixels
-    if len(crossings) > 1:
-        # convenient for the next few lines
-        crossings_pixel = np.floor(crossings)
-
-        ii, jj = crossings_pixel.astype(int).T
-
-        # compute final trail length and remove if 0
-        last_diff = (crossings - crossings_pixel)[-1]
-        if np.isclose(last_diff, 0).all():
-            ii = ii[:-1]
-            jj = jj[:-1]
-            diffs = np.diff(crossings, axis=0)
-        else:
-            diffs = np.vstack([np.diff(crossings, axis=0), last_diff])
-            lengths = ((diffs ** 2).sum(1) ** 0.5)
+        j_horiz = np.arange(np.round(j0), np.round(j1), sign) + 0.5 * sign
+        i_horiz = i0 + (di / dj) * (j_horiz - j0)
+        cross_horiz = np.transpose([i_horiz, j_horiz])
     else:
-        ii, jj = np.floor(crossings).astype(int).T
-        lengths = np.array([(di ** 2 + dj ** 2) ** 0.5])
+        cross_horiz = np.array([[]])
+
+    # vertical border crossings at i = integer + 1/2
+    if di != 0:
+        i_vert = np.arange(np.round(i0), np.round(i1), 1) + 0.5
+        j_vert = j0 + (dj / di) * (i_vert - i0)
+        cross_vert = np.transpose([i_vert, j_vert])
+    else:
+        cross_vert = np.array([[]])
+
+    # compute center of traversed pixel before each crossing
+    ii_horiz, jj_horiz = np.round(
+        cross_horiz - np.array([0, 0.5*np.sign(dj)])).astype(int).T
+    ii_vert, jj_vert = np.round(cross_vert - np.array([0.5, 0])).astype(int).T
+
+    # combine crossings and pixel centers
+    crossings = np.vstack((cross_horiz, cross_vert))
+    ii = np.concatenate((ii_horiz, ii_vert))
+    jj = np.concatenate((jj_horiz, jj_vert))
+
+    # sort by i axis
+    sorted_by_i = np.argsort(crossings[:, 0])
+    crossings = crossings[sorted_by_i]
+    ii = ii[sorted_by_i]
+    jj = jj[sorted_by_i]
+
+    # remove pixels that go outside detector edge -- may not be necessary
+    inside_borders = (
+        (crossings[:, 0] > -0.5) & (crossings[:, 0] < (N_i - 0.5)) &
+        (crossings[:, 1] > -0.5) & (crossings[:, 1] < (N_j - 0.5))
+    )
+    crossings = crossings[inside_borders]
+    ii = ii[inside_borders]
+    jj = jj[inside_borders]
+
+    # add final pixel center
+    ii = np.concatenate((ii, [np.round(i1).astype(int)]))
+    jj = np.concatenate((jj, [np.round(j1).astype(int)]))
+
+    # if no crossings, then it's just the total Euclidean distance
+    if len(crossings) == 0:
+        lengths = np.linalg.norm([di, dj])
+    # otherwise, compute starting, crossing, and ending distances
+    else:
+        first_length = np.linalg.norm(crossings[0] - np.array(trail_start),
+                                      keepdims=1)
+        middle_lengths = np.linalg.norm(np.diff(crossings, axis=0), axis=1)
+        last_length = np.linalg.norm(np.array(trail_end) - crossings[-1],
+                                     keepdims=1)
+        lengths = np.concatenate([first_length, middle_lengths, last_length])
+
+        # remove 0-length trails
+        positive_lengths = lengths > 0
+        lengths = lengths[positive_lengths]
+        ii = ii[positive_lengths]
+        jj = jj[positive_lengths]
 
     return ii, jj, lengths
 
