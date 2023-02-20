@@ -93,10 +93,10 @@ def sample_cr_params(
     ----------
     N_samples : int
         Number of CRs to generate.
-    N_x : int
-        Number of pixels along x-axis of detector
-    N_y : int
-        Number of pixels along y-axis of detector
+    N_i : int
+        Number of pixels along i-axis of detector
+    N_j : int
+        Number of pixels along j-axis of detector
     min_dEdx : float
         Minimum value of CR energy loss (dE/dx), units of eV / micron.
     max_dEdx : float
@@ -166,6 +166,12 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     trail_end : (float, float)
         The ending coordinates in (i, j) of the cosmic ray trail, in
         units of pix.
+    N_i : int 
+        Number of pixels along i-axis of detector
+    N_j : int 
+        Number of pixels along j-axis of detector
+    eps : float 
+        Tiny value used for stable numerical rounding.
 
     Returns
     -------
@@ -184,13 +190,13 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     else:
         i1, j1 = trail_start
         i0, j0 = trail_end
-
+    
     di = i1 - i0
     dj = j1 - j0
     slope = dj / di
     sign = np.sign(slope)
 
-    # horizontal border crossings at j = integer + 1/2
+    # horizontal border crossings at j = integer + 1/2 
     if dj != 0:
         j_horiz = np.arange(np.round(j0), np.round(j1), sign) + 0.5 * sign
         i_horiz = i0 + (di / dj) * (j_horiz - j0)
@@ -205,11 +211,15 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
         cross_vert = np.transpose([i_vert, j_vert])
     else:
         cross_vert = np.array([[]])
-
+    
     # compute center of traversed pixel before each crossing
+    # note `eps` here covers weird rounnding issues when the corner is intersected
     ii_horiz, jj_horiz = np.round(
-        cross_horiz - np.array([0, 0.5 * np.sign(dj)])).astype(int).T
-    ii_vert, jj_vert = np.round(cross_vert - np.array([0.5, 0])).astype(int).T
+        cross_horiz - np.array([eps, np.sign(dj)*0.5])
+    ).astype(int).T
+    ii_vert, jj_vert = np.round(
+        cross_vert - np.array([0.5, np.sign(dj) * eps])
+    ).astype(int).T
 
     # combine crossings and pixel centers
     crossings = np.vstack((cross_horiz, cross_vert))
@@ -222,29 +232,18 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     ii = ii[sorted_by_i]
     jj = jj[sorted_by_i]
 
-    # remove pixels that go outside detector edge -- may not be necessary
-    inside_borders = (
-        (crossings[:, 0] > -0.5) & (crossings[:, 0] < (N_i - 0.5))
-        & (crossings[:, 1] > -0.5) & (crossings[:, 1] < (N_j - 0.5))
-    )
-    crossings = crossings[inside_borders]
-    ii = ii[inside_borders]
-    jj = jj[inside_borders]
-
     # add final pixel center
     ii = np.concatenate((ii, [np.round(i1).astype(int)]))
     jj = np.concatenate((jj, [np.round(j1).astype(int)]))
-
+    
     # if no crossings, then it's just the total Euclidean distance
     if len(crossings) == 0:
-        lengths = np.linalg.norm([di, dj])
+        lengths = np.linalg.norm([di, dj], keepdims=1)
     # otherwise, compute starting, crossing, and ending distances
     else:
-        first_length = np.linalg.norm(crossings[0] - np.array(trail_start),
-                                      keepdims=1)
+        first_length = np.linalg.norm(crossings[0] - np.array([i0, j0]), keepdims=1)
         middle_lengths = np.linalg.norm(np.diff(crossings, axis=0), axis=1)
-        last_length = np.linalg.norm(np.array(trail_end) - crossings[-1],
-                                     keepdims=1)
+        last_length = np.linalg.norm(np.array([i1, j1]) - crossings[-1], keepdims=1)
         lengths = np.concatenate([first_length, middle_lengths, last_length])
 
         # remove 0-length trails
@@ -253,6 +252,12 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
         ii = ii[positive_lengths]
         jj = jj[positive_lengths]
 
+    # remove any pixels that go off the detector
+    inside_detector = (ii > -0.5) & (ii < (N_i - 0.5)) & (jj > +0.5) & (jj < (N_j + 0.5))
+    ii = ii[inside_detector]
+    jj = jj[inside_detector]
+    lengths = lengths[inside_detector]
+    
     return ii, jj, lengths
 
 
