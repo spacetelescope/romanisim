@@ -152,7 +152,7 @@ def sample_cr_params(
     return cr_i, cr_j, cr_phi, cr_length, cr_dEdx
 
 
-def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
+def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
     """Given a starting and ending pixel, returns a list of pixel
     coordinates (ii, jj) and their traversed path lengths. Note that
     the centers of pixels are treated as integers, while the borders
@@ -190,7 +190,7 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     else:
         i1, j1 = trail_start
         i0, j0 = trail_end
-    
+   
     di = i1 - i0
     dj = j1 - j0
     slope = dj / di
@@ -211,9 +211,9 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
         cross_vert = np.transpose([i_vert, j_vert])
     else:
         cross_vert = np.array([[]])
-    
+  
     # compute center of traversed pixel before each crossing
-    # note `eps` here covers weird rounnding issues when the corner is intersected
+    # note `eps` here covers rounnding issues when the corner is intersected
     ii_horiz, jj_horiz = np.round(
         cross_horiz - np.array([eps, np.sign(dj)*0.5])
     ).astype(int).T
