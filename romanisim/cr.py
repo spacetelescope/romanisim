@@ -139,7 +139,7 @@ def sample_cr_params(
     # sample CR direction [radian]
     cr_phi = rng.random(N_samples) * 2 * np.pi
 
-    # sample path lengths [micron] 
+    # sample path lengths [micron]
     len_grid = np.linspace(min_cr_len, max_cr_len, grid_size)
     inv_cdf_len = create_sampler(power_law_distribution, len_grid)
     cr_length = inv_cdf_len(rng.random(N_samples))
@@ -166,11 +166,11 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
     trail_end : (float, float)
         The ending coordinates in (i, j) of the cosmic ray trail, in
         units of pix.
-    N_i : int 
+    N_i : int
         Number of pixels along i-axis of detector
-    N_j : int 
+    N_j : int
         Number of pixels along j-axis of detector
-    eps : float 
+    eps : float
         Tiny value used for stable numerical rounding.
 
     Returns
@@ -190,13 +190,13 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
     else:
         i1, j1 = trail_start
         i0, j0 = trail_end
-   
+
     di = i1 - i0
     dj = j1 - j0
     slope = dj / di
     sign = np.sign(slope)
 
-    # horizontal border crossings at j = integer + 1/2 
+    # horizontal border crossings at j = integer + 1/2
     if dj != 0:
         j_horiz = np.arange(np.round(j0), np.round(j1), sign) + 0.5 * sign
         i_horiz = i0 + (di / dj) * (j_horiz - j0)
@@ -211,11 +211,11 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
         cross_vert = np.transpose([i_vert, j_vert])
     else:
         cross_vert = np.array([[]])
-  
+
     # compute center of traversed pixel before each crossing
     # note `eps` here covers rounnding issues when the corner is intersected
     ii_horiz, jj_horiz = np.round(
-        cross_horiz - np.array([eps, np.sign(dj)*0.5])
+        cross_horiz - np.array([eps, np.sign(dj) * 0.5])
     ).astype(int).T
     ii_vert, jj_vert = np.round(
         cross_vert - np.array([0.5, np.sign(dj) * eps])
@@ -285,7 +285,7 @@ def simulate_crs(
         is equal to the value assumed by the JWST ETC.
     area : float
         The area of the WFI detector, units of cm^2.
-    conversion_factor : float 
+    conversion_factor : float
         The convert from eV to electrons, assumed to be the bandgap energy,
         in units of eV / electrons.
     pixel_size : float
