@@ -253,7 +253,7 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
         jj = jj[positive_lengths]
 
     # remove any pixels that go off the detector
-    inside_detector = (ii > -0.5) & (ii < (N_i - 0.5)) & (jj > +0.5) & (jj < (N_j + 0.5))
+    inside_detector = (ii > -0.5) & (ii < (N_i - 0.5)) & (jj > -0.5) & (jj < (N_j - 0.5))
     ii = ii[inside_detector]
     jj = jj[inside_detector]
     lengths = lengths[inside_detector]
