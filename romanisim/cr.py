@@ -277,7 +277,7 @@ def simulate_crs(
     Parameters
     ----------
     image : 2-d array of floats
-        The detector image with values in units of counts.
+        The detector image with values in units of electrons.
     time : float
         The exposure time, units of s.
     flux : float
@@ -286,8 +286,8 @@ def simulate_crs(
     area : float
         The area of the WFI detector, units of cm^2.
     conversion_factor : float 
-        The convert from eV to counts, assumed to be the bandgap energy,
-        in units of eV / counts.
+        The convert from eV to electrons, assumed to be the bandgap energy,
+        in units of eV / electrons.
     pixel_size : float
         The size of an individual pixel in the detector, units of micron.
     pixel_depth : float
@@ -300,7 +300,7 @@ def simulate_crs(
     Returns
     -------
     image : 2-d array of floats
-        The detector image, in units of counts, updated to include
+        The detector image, in units of electrons, updated to include
         all of the generated cosmic ray hits.
     """
 
@@ -316,7 +316,7 @@ def simulate_crs(
     cr_i1 = (cr_i0 + cr_length * np.cos(cr_angle)).clip(-0.5, N_i + 0.5)
     cr_j1 = (cr_j0 + cr_length * np.sin(cr_angle)).clip(-0.5, N_j + 0.5)
 
-    # go from eV/micron -> counts/pixel
+    # go from eV/micron -> electrons/pixel
     cr_counts_per_pix = cr_dEdx * pixel_size / conversion_factor
 
     for i0, j0, i1, j1, counts_per_pix in zip(cr_i0, cr_j0, cr_i1, cr_j1, cr_counts_per_pix):
