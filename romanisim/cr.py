@@ -235,7 +235,7 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
     # add final pixel center
     ii = np.concatenate((ii, [np.round(i1).astype(int)]))
     jj = np.concatenate((jj, [np.round(j1).astype(int)]))
-    
+
     # if no crossings, then it's just the total Euclidean distance
     if len(crossings) == 0:
         lengths = np.linalg.norm([di, dj], keepdims=1)
@@ -257,19 +257,19 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
     ii = ii[inside_detector]
     jj = jj[inside_detector]
     lengths = lengths[inside_detector]
-    
+
     return ii, jj, lengths
 
 
 def simulate_crs(
-    image, 
-    time, 
-    flux=8, 
-    area=16.8, 
-    conversion_factor=0.5, 
+    image,
+    time,
+    flux=8,
+    area=16.8,
+    conversion_factor=0.5,
     pixel_size=10,
-    pixel_depth=5, 
-    rng=None, 
+    pixel_depth=5,
+    rng=None,
     seed=47
 ):
     """Adds CRs to an existing image.
@@ -318,7 +318,7 @@ def simulate_crs(
 
     # go from eV/micron -> counts/pixel
     cr_counts_per_pix = cr_dEdx * pixel_size / conversion_factor
-    
+
     for i0, j0, i1, j1, counts_per_pix in zip(cr_i0, cr_j0, cr_i1, cr_j1, cr_counts_per_pix):
         ii, jj, length_2d = traverse([i0, j0], [i1, j1], N_i=N_i, N_j=N_j)
         length_3d = ((pixel_depth / pixel_size) ** 2 + length_2d ** 2) ** 0.5
@@ -329,12 +329,12 @@ def simulate_crs(
 
 if __name__ == "__main__":
     # initialize a detector
-    image = np.zeros((4096, 4096), dtype=float)
+    wfi_image = np.zeros((4096, 4096), dtype=float)
 
-    flux = 8  # events/cm^2/s
-    area = 16.8  # cm^2
+    cr_flux = 8  # events/cm^2/s
+    wfi_area = 16.8  # cm^2
     t_exp = 3.04  # s
 
     # simulate 500 resultant frames
     for _ in range(500):
-        image = simulate_crs(image, flux, area, t_exp)
+        wfi_image = simulate_crs(wfi_image, cr_flux, wfi_area, t_exp)
