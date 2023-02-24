@@ -7,6 +7,7 @@ from romanisim import parameters
 
 def test_fermi():
     # fermi(x, dt, A, x0, dx, alpha, gamma)
+    # x, dt, A, x0, dx, alpha, gamma, answer
     answers = [(1, 1000, 1, 1, 1, 1, 1, 0.5),
                (100, 1000, 1, 1, 1, 1, 1, 100),
                (100, 1000, 2, 1, 1, 1, 1, 200),
@@ -14,7 +15,9 @@ def test_fermi():
                (100, 1000, 1, 100, 1, 1, 1, 0.5),
                (100, 1000, 1, 1, 1, 1, 2, 100),
                (100, 2000, 1, 1, 1, 1, 1, 50),
-               (100, 2000, 1, 1, 1, 1, 2, 25)]
+               (100, 2000, 1, 1, 1, 1, 2, 25),
+               (0, 1000, 1, 1, 1, 1, 1, 0),
+               ]
     hw = parameters.persistence['half_well']
     parameters.persistence['half_well'] = 0.1
     for answer in answers:
@@ -25,6 +28,9 @@ def test_fermi():
         rate2 = persist.current((answer[1]) / 60 / 60 / 24)
         assert np.isclose(rate, rate2)
     parameters.persistence['half_well'] = hw
+    hwpersistence = persistence.fermi(hw, 1000, 1, hw, 1, 1, 1)
+    linpersistence = persistence.fermi(hw / 2, 1000, 1, hw, 1, 1, 1)
+    assert np.isclose(hwpersistence / 2, linpersistence)
 
 
 def test_persistence():
