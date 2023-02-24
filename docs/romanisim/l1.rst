@@ -30,5 +30,19 @@ Interpixel capacitance (IPC) is added following non-linearity and before read-ou
 
 This is slightly different than including IPC in the PSF kernel because including IPC in the PSF kernel leaves the Poisson noise uncorrelated.
 
+Persistence
+-----------
+Persistence is implemented in the simulator following Sanchez+2023.  This follows
+the Fermi description of persistence implemented in GalSim, where the flux in electrons per second recorded in a pixel is parameterized in terms of the total number of counts recorded in an earlier frame.
+
+.. math:: P(t) = A \\frac{1}{1+\exp(\\frac{-(x-x_0)}{\\delta x})} (\\frac{x}{x_0})^\\alpha (\\frac{t}{1000 \\mathrm{s}})^\\gamma \\, .
+
+Here :math:`P(x, t)` is the rate in electrons per second that the pixel records :math:`t` seconds following receiving a total number of electrons :math:`x`.  The parameters :math:`A, x_0, \\delta x, \\alpha, \\gamma` may vary from pixel to pixel, though are presently fixed to global constants.
+
+This persistence rate is sampled with a Poisson distribution and added to each pixel read-by-read and incorporated into the resultants in the L1 images.
+
+Persistence-affected pixels are expected to be rare, and are tracked sparsely via a list of the indices of affected pixels, the amount of the illumination, and the times of their illumination.  Pixels are dropped from persistence tracking when their persistence rate is less than one electron per 100 seconds.  If the same pixel is receives large fluxes multiple times, these are treated as two independent events and the resulting persistence flux is handled by summing the persistence rates given above over each event.
+
 .. automodapi:: romanisim.l1
 .. automodapi:: romanisim.nonlinearity
+.. automodapi:: romanisim.persistence

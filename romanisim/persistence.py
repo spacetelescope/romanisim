@@ -11,9 +11,11 @@ class Persistence:
     """Track persistence information.
 
     There are two important sets of things to keep track of with persistence:
+
     - how pixels respond to persistence
     - what pixels have experienced large fluxes in the past and may be affected
       by persistence.
+
     This class tracks both of those quantities.  The first category is expected
     to be largely constant with time and basically only a function of the specific
     device doing the imaging.  The second category changes in each exposure as
@@ -164,8 +166,8 @@ def fermi(x, dt, A, x0, dx, alpha, gamma):
     gamma : float
         Power law index scaling with time
 
-    Returns:
-    --------
+    Returns
+    -------
     The persistence signal at the current time for the persistence-affected pixels
     described by persistence.
     """
