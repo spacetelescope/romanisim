@@ -35,9 +35,9 @@ Persistence
 Persistence is implemented in the simulator following Sanchez+2023.  This follows
 the Fermi description of persistence implemented in GalSim, where the flux in electrons per second recorded in a pixel is parameterized in terms of the total number of counts recorded in an earlier frame.
 
-.. math:: P(t) = A \\frac{1}{1+\exp(\\frac{-(x-x_0)}{\\delta x})} (\\frac{x}{x_0})^\\alpha (\\frac{t}{1000 \\mathrm{s}})^\\gamma \\, .
+.. math:: P(t) = A \frac{1}{1+\exp\left(\frac{-(x-x_0)}{\delta x}\right)} \left(\frac{x}{x_0}\right)^\alpha \left(\frac{t}{1000 \mathrm{s}}\right)^\gamma \, .
 
-Here :math:`P(x, t)` is the rate in electrons per second that the pixel records :math:`t` seconds following receiving a total number of electrons :math:`x`.  The parameters :math:`A, x_0, \\delta x, \\alpha, \\gamma` may vary from pixel to pixel, though are presently fixed to global constants.
+Here :math:`P(x, t)` is the rate in electrons per second that the pixel records :math:`t` seconds following receiving a total number of electrons :math:`x`.  The parameters :math:`A`, :math:`x_0`, :math:`\delta x`, :math:`\alpha`, :math:`\gamma` may vary from pixel to pixel, though are presently fixed to global constants.  This equation for the rate only applies to pixels which were illuminated more than to fill more than their half-well.  We follow GalSim and linearly increase the persistence from 0 to the half-well value for illuminations between 0 and half-well.
 
 This persistence rate is sampled with a Poisson distribution and added to each pixel read-by-read and incorporated into the resultants in the L1 images.
 
