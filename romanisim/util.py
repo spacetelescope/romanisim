@@ -8,6 +8,7 @@ from astropy import units as u
 from astropy.time import Time
 import galsim
 from roman_datamodels import stnode
+from romanisim import parameters
 
 
 def skycoord(celestial):
@@ -214,3 +215,49 @@ def unflatten_dictionary(d):
             tdict = tsubdict
         tdict[subdicts[-1]] = unflatten_value(key, value)
     return out
+
+
+def add_more_metadata(metadata):
+    """Fill out the metadata dictionary, modifying it in place.
+
+    Parameters
+    ----------
+    metadata : dict
+        CRDS-style dictionary containing keywords like
+        roman.meta.exposure.start_time.
+    """
+
+    # fill out the metadata a bit with redundant stuff for which we
+    # already mostly have the answer.
+    ma_table = parameters.ma_table[
+        metadata['roman.meta.exposure.ma_table_number']]
+    openshuttertime = parameters.read_time * (
+        ma_table[-1][0] + ma_table[-1][1] - 1)
+    offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
+                   end=openshuttertime * u.s)
+    starttime = metadata['roman.meta.exposure.start_time']
+    if not isinstance(starttime, Time):
+        starttime = Time(starttime, format='isot')
+    for prefix, offset in offsets.items():
+        metadata[f'roman.meta.exposure.{prefix}_time'] = (
+            starttime + offset).isot
+        metadata[f'roman.meta.exposure.{prefix}_time_mjd'] = (
+            starttime + offset).mjd
+        metadata[f'roman.meta.exposure.{prefix}_time_tdb'] = (
+            starttime + offset).tdb.mjd
+    metadata['roman.meta.exposure.ngroups'] = len(ma_table)
+    metadata['roman.meta.exposure.nframes'] = ma_table[0][0]
+    metadata['roman.meta.exposure.sca_number'] = (
+        int(metadata['roman.meta.instrument.detector'][-2:]))
+    metadata['roman.meta.exposure.integration_time'] = openshuttertime
+    metadata['roman.meta.exposure.elapsed_exposure_time'] = openshuttertime
+    # ???
+    metadata['roman.meta.exposure.frame_divisor'] = ma_table[0][1]
+    metadata['roman.meta.exposure.groupgap'] = 0
+    metadata['roman.meta.exposure.frame_time'] = parameters.read_time
+    metadata['roman.meta.exposure.group_time'] = (
+        parameters.read_time * ma_table[0][1])
+    metadata['roman.meta.exposure.exposure_time'] = openshuttertime
+    metadata['roman.meta.exposure.effective_exposure_time'] = openshuttertime
+    metadata['roman.meta.exposure.duration'] = openshuttertime
+    # integration_start?  integration_end?  nints = 1?  ...
