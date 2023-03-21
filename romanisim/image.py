@@ -456,7 +456,6 @@ def simulate_counts(metadata, objlist,
     ----------
     metadata : dict
         CRDS metadata dictionary
-
     objlist : list[CatalogObject] or Table
         Objects to simulate
     rng : galsim.BaseDeviate

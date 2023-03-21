@@ -84,5 +84,46 @@ def test_random_points_in_cap():
     assert np.abs(fracininnerhalf - 0.5) < 10 * np.sqrt(0.5 / npts)
 
 
+def test_king_profile():
+    """Test King (1962) profile routines."""
+    # king_profile, sample_king_distances, random_points_in_king
+
+    # truncation radius
+    assert util.king_profile(2, 1, 2) == 0
+    # decreasing
+    xx = np.linspace(0, 2, 1000)
+    profile = util.king_profile(xx, 1, 2)
+    assert np.all(np.diff(profile) < 0)
+
+    xx = util.sample_king_distances(1, 2, 1000)
+    assert np.max(xx) < 2
+    # nothing beyond the truncation radius
+
+    cen = SkyCoord(ra=0 * u.deg, dec=0 * u.deg)
+    cc = util.random_points_in_king(cen, 1, 2, 1000)
+    sep = cen.separation(cc).to(u.deg).value
+    assert np.max(sep) < 2
+    # truncation radius
+
+
+def test_random_points_at_radii():
+    """Test offseting points by random angles and given distances."""
+
+    n = 1000
+    coord = SkyCoord(ra=0 * u.deg, dec=0 * u.deg)
+    distances = np.random.uniform(0, 1, n) * u.deg
+    newpoints = util.random_points_at_radii(coord, distances)
+    sep = coord.separation(newpoints)
+    assert np.allclose(sep, distances)
+    posangle = coord.position_angle(newpoints)
+    # these should be roughly uniform over 2pi.
+    # What's the right test for that?
+    from astropy.stats import circstd
+    assert circstd(posangle, method='angular') > 1
+    # I ran 10k runs of this; peaks at 1.4 with a standard deviation
+    # of ~0.02, smallest value was 1.34.  Should never be
+    # less than 1, or even 1.3.
+
+
 # not going to test flatten / unflatten dictionary at this point, since we only
 # use this for metadata management we intend to remove.
