@@ -108,3 +108,8 @@ report = { exclude_lines = [
     'raise NotImplementedError',
     'if __name__ == "__main__":',
 ] }
+
+[tool.ruff]
+extend-ignore = [
+    "E501", # Line too long
+]
