@@ -84,6 +84,7 @@ bc0.pip_reqs_files = ['requirements-dev.txt']
 bc0.build_cmds = [
     "pip install -e .[test,ephem]",
     "pip install pytest-xdist pytest-sugar",
+    "pip install git+https://github.com/spacetelescope/roman_datamodels",
     "pip freeze",
     'echo "CRDS_CONTEXT = $(crds list --contexts $CRDS_CONTEXT --mappings | grep pmap)"',
 ]
@@ -105,6 +106,7 @@ bc1.name = 'macos-stable-deps'
 bc1.build_cmds = [
     "pip install -e .[test,ephem]",
     "pip install pytest-xdist pytest-sugar",
+    "pip install git+https://github.com/spacetelescope/roman_datamodels",
     "pip freeze",
     'echo "CRDS_CONTEXT = $(crds list --contexts $CRDS_CONTEXT --mappings | grep pmap)"',
 ]
