@@ -351,10 +351,14 @@ def make_asdf(resultants, filepath=None, metadata=None):
         L1 image
     """
 
-    from roman_datamodels.testing.utils import mk_level1_science_raw
+    try:
+        import roman_datamodels.testing.utils as maker_utils
+    except:
+        import roman_datamodels.maker_utils as maker_utils
     nborder = parameters.nborder
     npix = galsim.roman.n_pix + 2 * nborder
-    out = mk_level1_science_raw(shape=(len(resultants), npix, npix))
+    out = maker_utils.mk_level1_science_raw(
+        shape=(len(resultants), npix, npix))
     if metadata is not None:
         tmpmeta = util.flatten_dictionary(out['meta'])
         tmpmeta.update(util.flatten_dictionary(

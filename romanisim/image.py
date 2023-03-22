@@ -14,7 +14,10 @@ from astropy import table
 import asdf
 import galsim
 from galsim import roman
-import roman_datamodels.testing.utils
+try:
+    import roman_datamodels.testing.utils as maker_utils
+except:
+    import roman_datamodels.maker_utils as maker_utils
 from . import wcs
 from . import catalog
 from . import parameters
@@ -679,7 +682,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     Eventually this needs to get enough info to reconstruct a refit WCS.
     """
 
-    out = roman_datamodels.testing.utils.mk_level2_image()
+    out = maker_utils.mk_level2_image()
     # fill this output with as much real information as possible.
     # aperture['name'] gets the correct SCA
     # aperture['position_angle'] gets the correct PA
