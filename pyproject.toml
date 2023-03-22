@@ -24,7 +24,6 @@ dependencies = [
     'galsim >=2.3',
     'gwcs >=0.16.1',
     'jsonschema >=3.0.2',
-    'romancal >=0.7',
     'webbpsf >=1.0.0',
 ]
 dynamic = ['version']
