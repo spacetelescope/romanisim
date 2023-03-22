@@ -353,7 +353,7 @@ def make_asdf(resultants, filepath=None, metadata=None):
 
     try:
         import roman_datamodels.testing.utils as maker_utils
-    except:
+    except ImportError:
         import roman_datamodels.maker_utils as maker_utils
     nborder = parameters.nborder
     npix = galsim.roman.n_pix + 2 * nborder

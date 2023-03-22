@@ -16,7 +16,7 @@ import galsim
 from galsim import roman
 try:
     import roman_datamodels.testing.utils as maker_utils
-except:
+except ImportError:
     import roman_datamodels.maker_utils as maker_utils
 from . import wcs
 from . import catalog
