@@ -10,8 +10,8 @@ import pytest
 from astropy.table import Table
 from ci_watson.artifactory_helpers import UPLOAD_SCHEMA
 from numpy.testing import assert_allclose, assert_equal
-from romancal.regtest.regtestdata import RegtestData
-from romancal.regtest.sdp_pools_source import SDPPoolsSource
+from romanisim.regtest.regtestdata import RegtestData
+from romanisim.regtest.sdp_pools_source import SDPPoolsSource
 
 TODAYS_DATE = datetime.now().strftime("%Y-%m-%d")
 
