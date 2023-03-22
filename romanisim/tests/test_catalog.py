@@ -8,6 +8,7 @@ import galsim
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+from romanisim import log
 
 
 def test_make_dummy_catalog():
@@ -72,3 +73,60 @@ def test_table_catalog(tmp_path):
 
     table = catalog.make_dummy_table_catalog(cen, radius=radius, nobj=nobj)
     assert ('F087' in table.dtype.names) or ('Z087' in table.dtype.names)
+
+    faintmag = 30
+    n = 1000
+    tstar = catalog.make_stars(
+        cen, n=n, radius=1, index=1, faintmag=faintmag,
+        truncation_radius=None, bandpasses=bands)
+    assert len(tstar) == n
+    assert np.all(tstar['type'] == 'PSF')
+    assert np.max(-2.5 * np.log10(tstar[bands[0]])) < faintmag + 6
+    assert np.max(-2.5 * np.log10(tstar[bands[0]])) > faintmag
+    # sigma of 1 mag dispersion added into mags, so it's okay if we go fainter
+    # than faintmag
+    # some test of index or truncation radius?
+    # large index -> more faint stars
+    tstar2 = catalog.make_stars(
+        cen, n=n, radius=1, index=10, faintmag=faintmag,
+        truncation_radius=None, bandpasses=bands)
+    assert np.median(tstar2[bands[0]]) < np.median(tstar[bands[0]])
+    # median star gets fainter when a large index is used
+    # i.e., more stars are close to the faint limit
+    tstar3 = catalog.make_stars(
+        cen, n=n, radius=1, index=1, faintmag=faintmag, truncation_radius=1,
+        bandpasses=bands)
+    tstar4 = catalog.make_stars(
+        cen, n=n, radius=1, index=1, faintmag=faintmag, truncation_radius=2,
+        bandpasses=bands)
+    cc3 = SkyCoord(ra=tstar3['ra'] * u.deg, dec=tstar3['dec'] * u.deg)
+    cc4 = SkyCoord(ra=tstar4['ra'] * u.deg, dec=tstar4['dec'] * u.deg)
+    maxsep3 = np.max(cc3.separation(cen).to(u.deg).value)
+    maxsep4 = np.max(cc4.separation(cen).to(u.deg).value)
+    assert maxsep3 < 1
+    assert maxsep4 < 2
+    assert maxsep4 > maxsep3
+
+    tgal1 = catalog.make_galaxies(
+        cen, n=n, radius=1, index=1, faintmag=faintmag,
+        bandpasses=bands, hlr_at_faintmag=1)
+    tgal2 = catalog.make_galaxies(
+        cen, n=n, radius=1, index=10, faintmag=faintmag,
+        bandpasses=bands)
+    tgal3 = catalog.make_galaxies(
+        cen, n=n, radius=1, index=1, faintmag=faintmag,
+        bandpasses=bands, hlr_at_faintmag=100)
+    assert np.median(tgal2[bands[0]]) < np.median(tgal1[bands[0]])
+    assert np.all(tgal1['type'] == 'SER')
+    assert np.all((tgal1['pa'] > -360) & (tgal1['pa'] < 360))
+    assert np.all((tgal1['ba'] > 0) & (tgal1['ba'] <= 1))
+    assert np.all((tgal1['n'] > 0) & (tgal1['n'] <= 8))
+    # not insane Sersic indices
+    assert np.all((tgal1['half_light_radius'] > 0)
+                  & (tgal1['half_light_radius'] < 3600))
+    assert (np.median(tgal3['half_light_radius'])
+            > np.median(tgal1['half_light_radius']))
+    assert (np.median(tgal1[bands[0]])
+            > np.median(tgal2[bands[0]]))
+    log.info('DMS217: Generated parametric distributions of sources with '
+             'different magnitudes and sizes.')

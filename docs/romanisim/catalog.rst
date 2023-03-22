@@ -31,5 +31,6 @@ Following these required fields is a series of columns giving the fluxes of the 
 
 The simulator then renders these images in the scene and produces the simulated L1 or L2 images.
 
+The simulator API includes a few simple tools to generate parametric distributions of stars and galaxies.  The ``make_stars`` and ``make_galaxies`` routines make random catalogs of stars and galaxies.  The number of stars and galaxies can be adjusted.  Likewise, the power law index by which the sources' magnitudes are sampled can be adjusted, as can their limiting magnitudes.  Galaxy Sersic parameters, half-light radii, and position angles are chosen at random, with a rough attempt to make brighter galaxies appropriately larger (i.e., conserving surface brightness).  Stars can be chosen to be distributed with a King profile.  This functionality is however very rudimentary and limited, and is better suited for toy problems than real scientific work.  We expect scientific uses to be driven by custom-created catalogs rather than these simple routines.
 
 .. automodapi:: romanisim.catalog
