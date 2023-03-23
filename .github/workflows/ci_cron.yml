@@ -23,7 +23,7 @@ jobs:
         run: |
           echo "webbpsf_url=https://stsci.box.com/shared/static/n1fealx9q0m6sdnass6wnyfikvxtc0zz.gz" >> $GITHUB_OUTPUT
           echo "galsim_url=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/" >> $GITHUB_OUTPUT
-          echo "path=$HOME/work/romanisim/romanisim/romanisim/data" >> $GITHUB_OUTPUT
+          echo "path=/tmp/data" >> $GITHUB_OUTPUT
       - run: |
           wget ${{ steps.data.outputs.webbpsf_url }} -O ${{ steps.data.outputs.path }}/minimal-webbpsf-data.tar.gz
           cd ${{ steps.data.outputs.path }}
