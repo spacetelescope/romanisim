@@ -17,7 +17,7 @@ classifiers = [
     'Programming Language :: Python :: 3.9',
 ]
 dependencies = [
-    'asdf >=2.9.2',
+    'asdf >=2.14.2',
     'astropy >=5.0.4',
     'crds >=10.3.1',
     'defusedxml',
