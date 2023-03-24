@@ -40,6 +40,7 @@ jobs:
           echo "galsim_url=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/" >> $GITHUB_OUTPUT
           echo "path=/tmp/data" >> $GITHUB_OUTPUT
       - run: |
+          mkdir ${{ steps.data.outputs.path }}
           wget ${{ steps.data.outputs.webbpsf_url }} -O ${{ steps.data.outputs.path }}/minimal-webbpsf-data.tar.gz
           cd ${{ steps.data.outputs.path }}
           tar -xzvf minimal-webbpsf-data.tar.gz
