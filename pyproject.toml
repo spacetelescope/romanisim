@@ -20,7 +20,7 @@ dependencies = [
     'asdf >=2.14.2',
     'astropy >=5.0.4',
     'crds >=10.3.1',
-    'defusedxml',
+    'defusedxml >=0.5',
     'galsim >=2.3',
     'gwcs >=0.18.1',
     'jsonschema >=4.0.1',
