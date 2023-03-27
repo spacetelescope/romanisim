@@ -9,6 +9,7 @@ from astropy.time import Time
 import galsim
 from roman_datamodels import stnode
 from romanisim import parameters
+from scipy import integrate
 
 
 def skycoord(celestial):
@@ -109,19 +110,65 @@ def random_points_in_cap(coord, radius, nobj, rng=None):
     Returns
     -------
     astropy.coordinates.SkyCoord
+    """
+    if rng is None:
+        rng = galsim.UniformDeviate()
+
+    dist = np.zeros(nobj, dtype='f8')
+    rng.generate(dist)
+    dist = np.arccos(1 - (1 - np.cos(np.radians(radius))) * dist) * u.rad
+    return random_points_at_radii(coord, dist, rng=rng)
+
+
+def random_points_in_king(coord, rc, rt, nobj, rng=None):
+    """Sample points from a King distribution
+
+    Parameters
+    ----------
+    coord : astropy.coordinates.SkyCoord
+        location around which to generate points
+    rc : float
+        core radius in deg
+    rt : float
+        truncation radius in deg
+    nobj : int
+        number of objects to generate
+    rng : galsim.UniformDeviate
+        random number generator to use
+
+    Returns
+    -------
+    astropy.coordinates.SkyCoord
+    """
+    distances = sample_king_distances(rt, rt, nobj, rng=rng) * u.deg
+    return random_points_at_radii(coord, distances, rng=rng)
+
+
+def random_points_at_radii(coord, radii, rng=None):
+    """Choose locations at random at given radii from coord.
+
+    Parameters
+    ----------
+    coord : astropy.coordinates.SkyCoord
+        location around which to generate points
+    distances : astropy.Quantity[float]
+        angular distances points should lie from center
+    rng : galsim.UniformDeviate
+        random number generator to use
+
+    Returns
+    -------
+    astropy.coordinates.SkyCoord
 
     """
     if rng is None:
         rng = galsim.UniformDeviate()
 
-    ang = np.zeros(nobj, dtype='f8')
-    dist = np.zeros(nobj, dtype='f8')
+    ang = np.zeros(len(radii), dtype='f8')
     rng.generate(ang)
-    rng.generate(dist)
     ang *= 2 * np.pi
-    dist = np.arccos(1 - (1 - np.cos(np.radians(radius))) * dist)
     c1 = SkyCoord(coord.ra.rad * u.rad, coord.dec.rad * u.rad, frame='icrs')
-    c1 = c1.directional_offset_by(ang * u.rad, dist * u.rad)
+    c1 = c1.directional_offset_by(ang * u.rad, radii)
     return c1
 
 
@@ -261,3 +308,53 @@ def add_more_metadata(metadata):
     metadata['roman.meta.exposure.effective_exposure_time'] = openshuttertime
     metadata['roman.meta.exposure.duration'] = openshuttertime
     # integration_start?  integration_end?  nints = 1?  ...
+
+
+def king_profile(r, rc, rt):
+    """Compute the King (1962) profile.
+
+    Parameters
+    ----------
+    r : np.ndarray[float]
+        distances at which to evaluate the King profile
+    rc : float
+        core radius
+    rt : float
+        truncation radius
+
+    Returns
+    -------
+        2D number density of stars at r.
+    """
+    return (1 / np.sqrt(1 + (r / rc)**2) - 1 / np.sqrt(1 + (rt / rc)**2))**2
+
+
+def sample_king_distances(rc, rt, npts, rng=None):
+    """Sample distances from a King (1962) profile.
+
+    Parameters
+    ----------
+    rc : float
+        core radius
+    rt : float
+        truncation radius
+    npts : int
+        number of points to generate
+    rng : galsim.BaseDeviate
+        random number generator to use
+
+    Returns
+    -------
+    r : float
+        Distances distributed according to a King (1962) profile.
+    """
+    rng = galsim.UniformDeviate(rng)
+    rr = np.zeros(npts, dtype='f4')
+    rng.generate(rr)
+    logx = np.linspace(np.log(rc) - 4, np.log(rt), 1000)
+    x = np.concatenate([[0], np.exp(logx)])
+    pdf = king_profile(x, rc, rt)
+    cdf = integrate.cumulative_trapezoid(pdf * x, x, initial=0)
+    cdf /= cdf[-1]
+    radii = np.interp(rr, cdf, x)
+    return radii

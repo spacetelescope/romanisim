@@ -114,16 +114,12 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     ----------
     coord : astropy.coordinates.SkyCoord
         Location around which to generate catalog
-
     radius : float
         Radius in degrees of spherical cap in which to generate sources
-
     rng : galsim.BaseDeviate
         Random number generator to use
-
     nobj : int
         Number of objects to generate in spherical cap.
-
     bandpasses : list[str]
         List of names of bandpasses in which to generate fluxes.
 
@@ -133,37 +129,69 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
         Table including fields needed to generate a list of CatalogObject
         entries for rendering.
     """
+    t1 = make_galaxies(coord, radius=radius, rng=rng, n=int(nobj * 0.8),
+                       bandpasses=bandpasses)
+    t2 = make_stars(coord, radius=radius, rng=rng, n=int(nobj * 0.1),
+                    bandpasses=bandpasses)
+    t3 = make_stars(coord, radius=radius / 100, rng=rng, n=int(nobj * 0.1),
+                    bandpasses=bandpasses, truncation_radius=radius * 0.3)
+    return table.vstack([t1, t2, t3])
+
+
+def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
+                  hlr_at_faintmag=0.6, bandpasses=None, rng=None):
+    """Make a simple parametric catalog of galaxies.
+
+    Parameters
+    ----------
+    coord : astropy.coordinates.SkyCoord
+        Location around which to generate sources.
+    n : int
+        number of sources to generate
+    radius : float
+        radius in degrees of cap in which to uniformly generate sources
+    index : int
+        power law index of magnitudes
+    faintmag : float
+        faintest AB magnitude for which to generate sources
+    hlr_at_faintmag : float
+        typical half light radius at faintmag (arcsec)
+    bandpasses : list[str]
+        list of names of bandpasses for which to generate fluxes.
+    rng : galsim.BaseDeviate
+        random number generator to use
+
+    Returns
+    -------
+    catalog : astropy.Table
+        Table for use with table_to_catalog to generate catalog for simulation.
+    """
     if bandpasses is None:
         bandpasses = roman.getBandpasses().keys()
-    locs = util.random_points_in_cap(coord, radius, nobj, rng=rng)
-    # n ~ 10^(3m/5) is what one gets for standard columns in a flat universe
-    # cut off at 26th mag, go arbitrarily bright.
-    # at least not crazy for a dummy catalog
-    faintmag = 26 - 3  # get some brighter sources!
-    hlr_at_faintmag = 0.6  # arcsec
-    mag = faintmag - np.random.exponential(size=nobj, scale=5 / 3 / np.log(10))
-    # okay, now we need to mark some star/galaxy decisions.
-    sersic_index = np.random.uniform(low=1, high=4.0, size=nobj)
-    star = np.random.uniform(size=nobj) < 0.1
-    sersic_index[star] = -1
-    types = np.zeros(nobj, dtype='U3')
+    locs = util.random_points_in_cap(coord, radius, n, rng=rng)
+    if index is None:
+        index = 3 / 5
+    distance_index = 5 * index - 1
+    # i.e., for a dlog10n / dm = 3/5 (uniform), corresponds to a
+    # distance index of 2, which is the normal volume element
+    # dn ~ rho * r^2 dr
+    distance = np.random.power(distance_index + 1, size=n)
+    mag = faintmag + 5 * np.log10(distance)
+    sersic_index = np.random.uniform(low=1, high=4.0, size=n)
+    types = np.zeros(n, dtype='U3')
     types[:] = 'SER'
-    types[star] = 'PSF'
-    pa = np.random.uniform(size=nobj, low=0, high=360)
-    pa[star] = 0
+    pa = np.random.uniform(size=n, low=0, high=360)
     # no clue what a realistic distribution of b/a is, but this at least goes to zero
     # for little tiny needles and peaks around circular objects, which isn't nuts.
-    ba = np.random.beta(3, 1, size=nobj)
+    ba = np.random.beta(3, 1, size=n)
     ba = np.clip(ba, 0.2, 1)
-    ba[star] = 1
-    # ugh.  Half light radii should correlate with magnitude, with some scatter.
+    # Half light radii should correlate with magnitude, with some scatter.
     hlr = 10**((faintmag - mag) / 5) * hlr_at_faintmag
     # hlr is hlr_at_faintmag for faintmag sources
     # and let's put some log normal distribution on top of this
-    hlr *= np.clip(np.exp(np.random.randn(nobj) * 0.5), 0.1, 10)
+    hlr *= np.clip(np.exp(np.random.randn(n) * 0.5), 0.1, 10)
     # let's not make anything too too small.
     hlr[hlr < 0.01] = 0.01
-    hlr[star] = 0
 
     out = table.Table()
     out['ra'] = locs.ra.to(u.deg).value
@@ -174,7 +202,79 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     out['pa'] = pa
     out['ba'] = ba
     for bandpass in bandpasses:
-        mag_thisband = mag + np.random.randn(nobj)
+        mag_thisband = mag + np.random.randn(n)
+        # sigma of one mag isn't nuts.  But this will be totally uncorrelated
+        # in different bands, so we'll get some weird colored objects
+        out[bandpass] = 10.**(-mag_thisband / 2.5)
+    return out
+
+
+def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
+               truncation_radius=None, bandpasses=None, rng=None):
+    """Make a simple parametric catalog of stars.
+
+    If truncation radius is None, this makes a uniform distribution.  If the
+    truncation_radius is not None, it makes a King distribution where the
+    core radius is given by the radius and the truncation radius is given by
+    truncation_radius.
+
+    Parameters
+    ----------
+    coord : astropy.coordinates.SkyCoord
+        Location around which to generate sources.
+    n : int
+        number of sources to generate
+    radius : float
+        radius in degrees of cap in which to generate sources
+    index : int
+        power law index of magnitudes; uniform density & standard candle
+        implies 3/5.
+    faintmag : float
+        faintest AB magnitude for which to generate sources
+    truncation_radius : float
+        truncation radius of cluster if not None; otherwise ignored.
+    bandpasses : list[str]
+        list of names of bandpasses for which to generate fluxes.
+    rng : galsim.BaseDeviate
+        random number generator to use
+
+    Returns
+    -------
+    catalog : astropy.Table
+        Table for use with table_to_catalog to generate catalog for simulation.
+    """
+    if bandpasses is None:
+        bandpasses = roman.getBandpasses().keys()
+    if truncation_radius is None:
+        locs = util.random_points_in_cap(coord, radius, n, rng=rng)
+    else:
+        locs = util.random_points_in_king(coord, radius, truncation_radius,
+                                          n, rng=rng)
+    if index is None:
+        index = 3 / 5
+    distance_index = 5 * index - 1
+    # i.e., for a dlog10n / dm = 3/5 (uniform), corresponds to a
+    # distance index of 2, which is the normal volume element
+    # dn ~ rho * r^2 dr
+    distance = np.random.power(distance_index + 1, size=n)
+    mag = faintmag + 5 * np.log10(distance)
+    types = np.zeros(n, dtype='U3')
+    types[:] = 'PSF'
+    pa = mag * 0
+    ba = mag * 0 + 1
+    hlr = mag * 0
+    sersic_index = mag * 0 - 1
+
+    out = table.Table()
+    out['ra'] = locs.ra.to(u.deg).value
+    out['dec'] = locs.dec.to(u.deg).value
+    out['type'] = types
+    out['n'] = sersic_index
+    out['half_light_radius'] = hlr
+    out['pa'] = pa
+    out['ba'] = ba
+    for bandpass in bandpasses:
+        mag_thisband = mag + np.random.randn(n)
         # sigma of one mag isn't nuts.  But this will be totally uncorrelated
         # in different bands, so we'll get some weird colored objects
         out[bandpass] = 10.**(-mag_thisband / 2.5)
@@ -203,7 +303,6 @@ def table_to_catalog(table, bandpasses):
     table : astropy.table.Table
         astropy Table containing ra, dec, type, n, half_light_radius, pa, ba
         and fluxes in different bandpasses
-
     bandpasses : list[str]
         list of names of bandpasses.  These bandpasses must have
         columns of the corresponding names in the catalog, containing
@@ -244,7 +343,6 @@ def read_catalog(filename, bandpasses):
     ----------
     filename : str
         filename of catalog to read
-
     bandpasses : list[str]
         bandpasses for which fluxes are tabulated in the catalog
 
