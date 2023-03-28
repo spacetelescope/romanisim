@@ -84,6 +84,15 @@ def test_random_points_in_cap():
     assert np.abs(fracininnerhalf - 0.5) < 10 * np.sqrt(0.5 / npts)
 
 
+def test_add_more_metadata():
+    metadata = {'roman.meta.exposure.start_time': '2026-01-01T00:00:00',
+                'roman.meta.instrument.detector': 'WFI01',
+                'roman.meta.exposure.ma_table_number': 1,
+                }
+    util.add_more_metadata(metadata)
+    assert len(metadata) > 3  # some metadata got added.
+
+
 def test_king_profile():
     """Test King (1962) profile routines."""
     # king_profile, sample_king_distances, random_points_in_king

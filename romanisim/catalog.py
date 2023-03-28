@@ -325,7 +325,8 @@ def table_to_catalog(table, bandpasses):
         elif table['type'][i] == 'SER':
             obj = galsim.Sersic(table['n'][i], table['half_light_radius'][i])
             obj = obj.shear(
-                q=table['ba'][i], beta=(table['pa'][i] + np.pi / 2) * galsim.radians)
+                q=table['ba'][i],
+                beta=(table['pa'][i] + np.pi / 2) * galsim.radians)
         else:
             raise ValueError('Catalog types must be either PSF or SER.')
         out.append(CatalogObject(pos, obj, fluxes))

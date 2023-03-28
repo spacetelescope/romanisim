@@ -418,17 +418,17 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         objinfo['counts'][keep] = objinfokeep['counts']
         objinfo['time'][keep] = objinfokeep['time']
 
+    # add Poisson noise if we made a noiseless, not-photon-shooting
+    # image.
     poisson_noise = galsim.PoissonNoise(rng)
+    if not chromatic:
+        image.addNoise(poisson_noise)
+
     if sky is not None:
         workim = image * 0
         workim += sky * maxflat * exptime
         workim.addNoise(poisson_noise)
         image += workim
-
-    # add Poisson noise if we made a noiseless, not-photon-shooting
-    # image.
-    if not chromatic:
-        image.addNoise(poisson_noise)
 
     if not np.all(flat == 1):
         image.quantize()
@@ -570,6 +570,7 @@ def simulate(metadata, objlist,
     """
     all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     flatmetadata = util.flatten_dictionary(metadata)
+    util.add_more_metadata(metadata)
     flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
                     for k, v in flatmetadata.items()}
     all_metadata.update(**util.flatten_dictionary(metadata))
