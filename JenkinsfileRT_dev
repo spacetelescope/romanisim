@@ -34,6 +34,20 @@ pipeline {
         }
         stage('Test') {
             steps {
+                sh("""export WEBBPSF_URL=https://stsci.box.com/shared/static/n1fealx9q0m6sdnass6wnyfikvxtc0zz.gz
+                      export DATA_PATH=/tmp/data
+                      mkdir $DATA_PATH
+                      wget $WEBBPSF_URL -O $DATA_PATH/minimal-webbpsf-data.tar.gz
+                      cd $DATA_PATH
+                      tar -xzvf minimal-webbpsf-data.tar.gz
+                      export GALSIM_URL=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
+                      export GALSIM_PATH=/tmp/data/galsim-data
+                      mkdir $GALSIM_PATH
+                      wget $GALSIM_URL/real_galaxy_catalog_23.5_example.fits -O $GALSIM_PATH/real_galaxy_catalog_23.5_example.fits
+                      wget $GALSIM_URL/real_galaxy_catalog_23.5_example_selection.fits -O $GALSIM_PATH/real_galaxy_catalog_23.5_example_selection.fits
+                      wget $GALSIM_URL/real_galaxy_catalog_23.5_example_fits.fits -O $GALSIM_PATH/real_galaxy_catalog_23.5_example_fits.fits
+                   """
+                )
                 sh("""#!/usr/bin/env bash
                       source $WORKSPACE/miniconda3/etc/profile.d/conda.sh
                       conda activate romanisim
