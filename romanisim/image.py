@@ -14,7 +14,14 @@ from astropy import table
 import asdf
 import galsim
 from galsim import roman
+<<<<<<< HEAD
 from roman_datamodels.testing import utils as maker_utils
+=======
+try:
+    import roman_datamodels.testing.utils as maker_utils
+except ImportError:
+    import roman_datamodels.maker_utils as maker_utils
+>>>>>>> 493137c09a8f62b8a7d707f8857dc53933073961
 from . import wcs
 from . import catalog
 from . import parameters
@@ -416,17 +423,17 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         objinfo['counts'][keep] = objinfokeep['counts']
         objinfo['time'][keep] = objinfokeep['time']
 
+    # add Poisson noise if we made a noiseless, not-photon-shooting
+    # image.
     poisson_noise = galsim.PoissonNoise(rng)
+    if not chromatic:
+        image.addNoise(poisson_noise)
+
     if sky is not None:
         workim = image * 0
         workim += sky * maxflat * exptime
         workim.addNoise(poisson_noise)
         image += workim
-
-    # add Poisson noise if we made a noiseless, not-photon-shooting
-    # image.
-    if not chromatic:
-        image.addNoise(poisson_noise)
 
     if not np.all(flat == 1):
         image.quantize()
@@ -457,7 +464,6 @@ def simulate_counts(metadata, objlist,
     ----------
     metadata : dict
         CRDS metadata dictionary
-
     objlist : list[CatalogObject] or Table
         Objects to simulate
     rng : galsim.BaseDeviate
@@ -574,6 +580,7 @@ def simulate(metadata, objlist,
     simcatobj : np.ndarray
         image positions and fluxes of simulated objects
     """
+<<<<<<< HEAD
     # all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     # flatmetadata = util.flatten_dictionary(metadata)
     # flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
@@ -607,6 +614,16 @@ def simulate(metadata, objlist,
     print(f"XXX image_mod.meta.exposure = {image_mod.meta.exposure}")
     ma_table_number = image_mod.meta.exposure.ma_table_number
     filter_name = image_mod.meta.instrument.optical_element
+=======
+    all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    flatmetadata = util.flatten_dictionary(metadata)
+    util.add_more_metadata(metadata)
+    flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
+                    for k, v in flatmetadata.items()}
+    all_metadata.update(**util.flatten_dictionary(metadata))
+    ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
+    filter_name = all_metadata['roman.meta.instrument.optical_element']
+>>>>>>> 493137c09a8f62b8a7d707f8857dc53933073961
 
     ma_table = parameters.ma_table[ma_table_number]
     exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2))
@@ -720,7 +737,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     Eventually this needs to get enough info to reconstruct a refit WCS.
     """
 
-    out = roman_datamodels.testing.utils.mk_level2_image()
+    out = maker_utils.mk_level2_image()
     # fill this output with as much real information as possible.
     # aperture['name'] gets the correct SCA
     # aperture['position_angle'] gets the correct PA

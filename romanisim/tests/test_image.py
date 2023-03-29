@@ -404,6 +404,7 @@ def test_simulate(tmp_path):
     meta = dict()
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
+<<<<<<< HEAD
     meta = {
         'exposure' : {
             'start_time' : time,
@@ -416,6 +417,14 @@ def test_simulate(tmp_path):
     # meta['roman.meta.exposure.start_time'] = time
     # meta['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
     # meta['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
+=======
+    meta['roman.meta.exposure.start_time'] = time
+    meta['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
+    meta['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
+    meta['roman.meta.exposure.ma_table_number'] = 1
+    meta['roman.meta.instrument.optical_element'] = 'F158'
+    meta['roman.meta.instrument.detector'] = 'WFI01'
+>>>>>>> 493137c09a8f62b8a7d707f8857dc53933073961
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
     for o in chromcat:

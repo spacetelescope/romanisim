@@ -4,8 +4,10 @@ from datetime import datetime
 from pathlib import Path
 
 import stsci_rtd_theme
-import tomli
-
+if sys.version_info < (3, 11):
+    import tomli as tomllib
+else:
+    import tomllib
 
 def setup(app):
     try:
@@ -23,7 +25,7 @@ sys.path.insert(0, str(REPO_ROOT / "romanisim"))
 # Read the package's metadata so that we can use relevant
 # values here:
 with open(REPO_ROOT / "pyproject.toml", "rb") as configuration_file:
-    conf = tomli.load(configuration_file)
+    conf = tomllib.load(configuration_file)
 setup_metadata = conf["project"]
 
 project = setup_metadata["name"]
