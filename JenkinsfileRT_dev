@@ -34,17 +34,18 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh("""mkdir /tmp/data
-                      wget https://stsci.box.com/shared/static/n1fealx9q0m6sdnass6wnyfikvxtc0zz.gz -O /tmp/data/minimal-webbpsf-data.tar.gz
-                      cd /tmp/data
+                sh("""mkdir data
+                      curl https://stsci.box.com/shared/static/n1fealx9q0m6sdnass6wnyfikvxtc0zz.gz -o data/minimal-webbpsf-data.tar.gz
+                      cd data
                       tar -xzvf minimal-webbpsf-data.tar.gz
-                      wget https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example.fits -O galsim-data/real_galaxy_catalog_23.5_example.fits
-                      wget https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_selection.fits -O galsim-data/real_galaxy_catalog_23.5_example_selection.fits
-                      wget https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_fits.fits -O galsim-data/real_galaxy_catalog_23.5_example_fits.fits
+                      curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example.fits -o galsim-data/real_galaxy_catalog_23.5_example.fits
+                      curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_selection.fits -o galsim-data/real_galaxy_catalog_23.5_example_selection.fits
+                      curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_fits.fits -o galsim-data/real_galaxy_catalog_23.5_example_fits.fits
                    """
                 )
                 sh("""#!/usr/bin/env bash
                       source $WORKSPACE/miniconda3/etc/profile.d/conda.sh
+                      export WEBBPSF_PATH=data/webbpsf-data
                       conda activate romanisim
                       pytest romanisim \
                         --bigdata --slow --basetemp=test_outputs \
