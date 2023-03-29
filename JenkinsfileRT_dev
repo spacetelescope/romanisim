@@ -34,15 +34,14 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh("""mkdir data
-                      curl https://stsci.box.com/shared/static/n1fealx9q0m6sdnass6wnyfikvxtc0zz.gz -o data/minimal-webbpsf-data.tar.gz
-                      cd data
-                      tar -xzvf minimal-webbpsf-data.tar.gz
-                      curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example.fits -o galsim-data/real_galaxy_catalog_23.5_example.fits
-                      curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_selection.fits -o galsim-data/real_galaxy_catalog_23.5_example_selection.fits
-                      curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_fits.fits -o galsim-data/real_galaxy_catalog_23.5_example_fits.fits
-                   """
-                )
+                sh("mkdir data")
+                sh("curl https://stsci.box.com/shared/static/n1fealx9q0m6sdnass6wnyfikvxtc0zz.gz -o data/minimal-webbpsf-data.tar.gz")
+                sh("cd data")
+                sh("tar -xzvf minimal-webbpsf-data.tar.gz")
+                sh("mkdir galsim-data")
+                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example.fits -o galsim-data/real_galaxy_catalog_23.5_example.fits")      
+                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_selection.fits -o galsim-data/real_galaxy_catalog_23.5_example_selection.fits")      
+                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_fits.fits -o galsim-data/real_galaxy_catalog_23.5_example_fits.fits")      
                 sh("""#!/usr/bin/env bash
                       source $WORKSPACE/miniconda3/etc/profile.d/conda.sh
                       export WEBBPSF_PATH=data/webbpsf-data
