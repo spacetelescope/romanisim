@@ -14,7 +14,7 @@ from astropy import table
 import asdf
 import galsim
 from galsim import roman
-import roman_datamodels.testing.utils
+from roman_datamodels.testing import utils as maker_utils
 from . import wcs
 from . import catalog
 from . import parameters
@@ -26,6 +26,7 @@ import romanisim.psf
 from romanisim import log
 import crds
 from roman_datamodels import units as ru
+import roman_datamodels
 
 # galsim fluxes are in photons / cm^2 / s
 # we need to specify the area and exposure time in drawImage if
@@ -481,9 +482,14 @@ def simulate_counts(metadata, objlist,
     simcatobj : np.ndarray
         catalog of simulated objects in image
     """
+    # ma_table = parameters.ma_table[
+    #     metadata['roman.meta.exposure.ma_table_number']]
+    print(f"XXXX metadata.exposure = {metadata['exposure']}")
+    print(f"XXXX metadata.exposure = {metadata['exposure']}")
     ma_table = parameters.ma_table[
-        metadata['roman.meta.exposure.ma_table_number']]
-    sca = int(metadata['roman.meta.instrument.detector'][3:])
+        metadata['exposure']['ma_table_number']]
+    # sca = int(metadata['roman.meta.instrument.detector'][3:])
+    sca = int(metadata['instrument']['detector'][3:])
     exptime = parameters.read_time * (ma_table[-1][0] + ma_table[-1][1] - 1)
     if rng is None and seed is None:
         seed = 43
@@ -492,9 +498,11 @@ def simulate_counts(metadata, objlist,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
-    filter_name = metadata['roman.meta.instrument.optical_element']
+    # filter_name = metadata['roman.meta.instrument.optical_element']
+    filter_name = metadata['instrument']['optical_element']
 
-    date = metadata['roman.meta.exposure.start_time']
+    # date = metadata['roman.meta.exposure.start_time']
+    date = metadata['exposure']['start_time']
     if not isinstance(date, astropy.time.Time):
         date = astropy.time.Time(date, format='isot')
 
@@ -566,13 +574,39 @@ def simulate(metadata, objlist,
     simcatobj : np.ndarray
         image positions and fluxes of simulated objects
     """
-    all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    flatmetadata = util.flatten_dictionary(metadata)
-    flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
-                    for k, v in flatmetadata.items()}
-    all_metadata.update(**util.flatten_dictionary(metadata))
-    ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
-    filter_name = all_metadata['roman.meta.instrument.optical_element']
+    # all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    # flatmetadata = util.flatten_dictionary(metadata)
+    # flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
+    #                 for k, v in flatmetadata.items()}
+    # all_metadata.update(**util.flatten_dictionary(metadata))
+
+    # metadata = util.unflatten_dictionary(metadata)
+
+    print(f"XXX metadata = {metadata}")
+    meta = maker_utils.mk_common_meta()
+    meta["photometry"] = maker_utils.mk_photometry()
+    meta["galsim"] = {}
+    #meta = {}
+    for key in parameters.default_parameters_dictionary.keys():
+        meta[key].update(parameters.default_parameters_dictionary[key])
+    print(f"XXX BEFORE UPDATE meta = {meta}")
+    # for key in metadata['roman']['meta'].keys():
+    #     meta[key].update(metadata['roman']['meta'][key])
+    for key in metadata.keys():
+        meta[key].update(metadata[key])
+    print(f"XXX AFTER UPDATE meta = {meta}")
+
+    image_node = maker_utils.mk_level2_image()
+    image_node['meta'] = meta
+    image_mod = roman_datamodels.datamodels.ImageModel(image_node)
+
+    #ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
+    # filter_name = all_metadata['roman.meta.instrument.optical_element']
+
+    print(f"XXX image_mod.meta = {image_mod.meta}")
+    print(f"XXX image_mod.meta.exposure = {image_mod.meta.exposure}")
+    ma_table_number = image_mod.meta.exposure.ma_table_number
+    filter_name = image_mod.meta.instrument.optical_element
 
     ma_table = parameters.ma_table[ma_table_number]
     exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2))
@@ -585,17 +619,19 @@ def simulate(metadata, objlist,
     # line.
     if usecrds:
         reffiles = crds.getreferences(
-            all_metadata, observatory='roman',
+            image_mod, observatory='roman',
+            #all_metadata, observatory='roman',
             reftypes=['readnoise', 'dark', 'gain', 'linearity'])
-        read_noise = asdf.open(reffiles['readnoise'])['roman']['data']
-        dark = asdf.open(reffiles['dark'])['roman']['data']
-        gain = asdf.open(reffiles['gain'])['roman']['data']
-        linearity = asdf.open(reffiles['linearity'])['roman']['coeffs']
+        read_noise = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise']).data
+        dark = roman_datamodels.datamodels.DarkRefModel(reffiles['dark']).data
+        gain = roman_datamodels.datamodels.GuidewindowModel(reffiles['gain']).data
+        linearity = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity']).coeffs
         try:
             reffiles = crds.getreferences(
-                all_metadata, observatory='roman',
+                image_mod, observatory='roman',
+                #all_metadata, observatory='roman',
                 reftypes=['flat'])
-            flat = asdf.open(reffiles['flat'])['roman']['data']
+            flat = roman_datamodels.datamodels.FlatRefModel(reffiles['flat']).data
         except crds.core.exceptions.CrdsLookupError:
             log.warning('Could not find flat; using 1')
             flat = 1
@@ -628,7 +664,8 @@ def simulate(metadata, objlist,
 
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
-        all_metadata, objlist, rng=rng,
+        image_mod.meta, objlist, rng=rng,
+        #all_metadata, objlist, rng=rng,
         usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat)
     if level == 0:
@@ -638,12 +675,14 @@ def simulate(metadata, objlist,
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
             linearity=linearity, **kwargs)
     if level == 1:
-        im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
+        #im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
+        im = romanisim.l1.make_asdf(l1, metadata=image_mod.meta)
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
                             dark=dark)
-        im = make_asdf(*slopeinfo, metadata=all_metadata)
+        #im = make_asdf(*slopeinfo, metadata=all_metadata)
+        im = make_asdf(*slopeinfo, metadata=image_mod.meta)
     log.info('Simulation complete.')
     return im, simcatobj
 
@@ -656,7 +695,7 @@ def make_test_catalog_and_images(
     if filters is None:
         filters = ['Y106', 'J129', 'H158']
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    metadata['roman.meta.instrument.detector'] = 'WFI%02d' % sca
+    metadata['instrument']['detector'] = 'WFI%02d' % sca
     imwcs = wcs.get_wcs(metadata, usecrds=usecrds)
     rd_sca = imwcs.toWorld(galsim.PositionD(
         roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
@@ -666,7 +705,8 @@ def make_test_catalog_and_images(
     rng = galsim.UniformDeviate(0)
     out = dict()
     for filter_name in filters:
-        metadata['roman.meta.instrument.optical_element'] = filter_name
+        metadata['instrument']['optical_element'] = 'F' + filter_name[1:]
+        metadata['galsim']['optical_element'] = filter_name
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
                       webbpsf=webbpsf, **kwargs)
         out[filter_name] = im
@@ -731,10 +771,11 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     if metadata is not None:
         # ugly mess of flattening & unflattening to make sure that deeply
         # nested keywords all get propagated into the metadata structure.
-        tmpmeta = util.flatten_dictionary(out['meta'])
-        tmpmeta.update(util.flatten_dictionary(
-            util.unflatten_dictionary(metadata)['roman']['meta']))
-        out['meta'].update(util.unflatten_dictionary(tmpmeta))
+        # tmpmeta = util.flatten_dictionary(out['meta'])
+        # tmpmeta.update(util.flatten_dictionary(
+        #     util.unflatten_dictionary(metadata)['roman']['meta']))
+        # out['meta'].update(util.unflatten_dictionary(tmpmeta))
+        out['meta'].update(metadata)
 
     out['data'] = slope
     out['dq'] = np.zeros(slope.shape, dtype='u4')

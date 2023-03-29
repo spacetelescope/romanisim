@@ -3,23 +3,47 @@
 
 import numpy as np
 from roman_datamodels import units as ru
+from astropy.time import Time
 
+
+# default_parameters_dictionary = {
+#     'roman.meta.instrument.name': 'WFI',
+#     'roman.meta.instrument.detector': 'WFI07',
+#     'roman.meta.exposure.start_time': '2026-01-01T00:00:00.000',
+#     'roman.meta.exposure.type': 'WFI_IMAGE',
+#     'roman.meta.exposure.ma_table_number': 1,
+#     'roman.meta.instrument.optical_element': 'F184',
+#     'roman.meta.pointing.ra_v1': 270.0,
+#     'roman.meta.pointing.dec_v1': 66.0,
+#     'roman.meta.wcsinfo.ra_ref': 270.0,
+#     'roman.meta.wcsinfo.dec_ref': 66.0,
+#     'roman.meta.wcsinfo.v2_ref': 0,
+#     'roman.meta.wcsinfo.v3_ref': 0,
+#     'roman.meta.wcsinfo.roll_ref': 0,
+# }
 
 default_parameters_dictionary = {
-    'roman.meta.instrument.name': 'WFI',
-    'roman.meta.instrument.detector': 'WFI07',
-    'roman.meta.exposure.start_time': '2026-01-01T00:00:00.000',
-    'roman.meta.exposure.type': 'WFI_IMAGE',
-    'roman.meta.exposure.ma_table_number': 1,
-    'roman.meta.instrument.optical_element': 'F184',
-    'roman.meta.pointing.ra_v1': 270.0,
-    'roman.meta.pointing.dec_v1': 66.0,
-    'roman.meta.wcsinfo.ra_ref': 270.0,
-    'roman.meta.wcsinfo.dec_ref': 66.0,
-    'roman.meta.wcsinfo.v2_ref': 0,
-    'roman.meta.wcsinfo.v3_ref': 0,
-    'roman.meta.wcsinfo.roll_ref': 0,
+    'instrument' : { 'name': 'WFI',
+                     'detector': 'WFI07',
+                     'optical_element': 'F184',
+                     },
+    'exposure' : { 'start_time': Time('2026-01-01T00:00:00'),
+                   'type': 'WFI_IMAGE',
+                   'ma_table_number': 1,
+                   },
+    'pointing' : { 'ra_v1': 270.0,
+                   'dec_v1': 66.0,
+                   },
+    'wcsinfo' : { 'ra_ref': 270.0,
+                  'dec_ref': 66.0,
+                  'v2_ref': 0,
+                  'v3_ref': 0,
+                  'roll_ref': 0,
+                  },
+    'galsim' : { 'optical_element': 'F184',
+                 },
 }
+
 
 read_noise = 5.0 * ru.DN
 # grabbing the median of the read noise image from CRDS at

@@ -123,94 +123,94 @@ def random_points_in_cap(coord, radius, nobj, rng=None):
     c1 = c1.directional_offset_by(ang * u.rad, dist * u.rad)
     return c1
 
-
-def flatten_dictionary(d):
-    """Convert a set of nested dictionaries into a flattened dictionary.
-
-    Some routines want dictionaries of the form dict[key1][key2][key3], while
-    others want dict[key1.key2.key3].  This function converts the former into
-    the latter.
-
-    This can do the wrong thing in cases that don't make sense, e.g., if
-    the top level dictionary contains keys including dots that overlap with
-    the names of keys that this function would like to make.  e.g.:
-    {'a.b': 1, 'a': {'b': 2}}.
-
-    This code is garbage that should be replaced with some better handling of
-    the CRDS <-> ASDF metadata transformations, but I don't fully understand
-    what's happening there and this can stand in as a placeholder.
-
-    Parameters
-    ----------
-    d : dict
-        dictionary to flatten
-
-    Returns
-    -------
-    dict
-        flattened dictionary, with subdictionaries' keys promoted into the
-        top-level directory with keys adjusted to include dots indicating
-        their former position in the hierarchy.
-    """
-    out = dict()
-    for key, value in d.items():
-        if isinstance(value, dict):
-            flattened = flatten_dictionary(value)
-            for subkey, subvalue in flattened.items():
-                out[key + '.' + subkey] = subvalue
-        else:
-            flatval = value
-            if isinstance(flatval, Time):
-                flatval = str(value)
-            elif isinstance(flatval, datetime.datetime):
-                flatval = value.isoformat()
-            out[key] = flatval
-    return out
-
-
-def unflatten_dictionary(d):
-    """Convert a flattened dictionary into a set of nested dictionaries.
-
-    Some routines want dictionaries of the form dict[key1][key2][key3], while
-    others want dict[key1.key2.key3].  This functions converts the latter into
-    the former.
-
-    This code is garbage that should be replaced with some better handling of
-    the CRDS <-> ASDF metadata transformations, but I don't fully understand
-    what's happening there and this can stand in as a placeholder.
-
-    Parameters
-    ----------
-    d : dict
-        dictionary to unflatten
-
-    Returns
-    -------
-    dict
-        unflattened dictionary, with keys with dots promoted into subdictionaries.
-    """
-
-    def unflatten_value(k, v):
-        try:
-            v = Time(v, format='isot')
-            if 'file' in k:
-                v = stnode.FileDate(v)
-        except Exception:
-            return v
-        return v
-
-    out = dict()
-    for key, value in d.items():
-        subdicts = key.split('.')
-        if len(subdicts) == 1:
-            out[key] = unflatten_value(key, value)
-            continue
-        tdict = out
-        for subdict0 in subdicts[:-1]:
-            tsubdict = tdict.get(subdict0, None)
-            if tsubdict is None:
-                tsubdict = dict()
-                tdict[subdict0] = tsubdict
-            tdict = tsubdict
-        tdict[subdicts[-1]] = unflatten_value(key, value)
-    return out
+#
+# def flatten_dictionary(d):
+#     """Convert a set of nested dictionaries into a flattened dictionary.
+#
+#     Some routines want dictionaries of the form dict[key1][key2][key3], while
+#     others want dict[key1.key2.key3].  This function converts the former into
+#     the latter.
+#
+#     This can do the wrong thing in cases that don't make sense, e.g., if
+#     the top level dictionary contains keys including dots that overlap with
+#     the names of keys that this function would like to make.  e.g.:
+#     {'a.b': 1, 'a': {'b': 2}}.
+#
+#     This code is garbage that should be replaced with some better handling of
+#     the CRDS <-> ASDF metadata transformations, but I don't fully understand
+#     what's happening there and this can stand in as a placeholder.
+#
+#     Parameters
+#     ----------
+#     d : dict
+#         dictionary to flatten
+#
+#     Returns
+#     -------
+#     dict
+#         flattened dictionary, with subdictionaries' keys promoted into the
+#         top-level directory with keys adjusted to include dots indicating
+#         their former position in the hierarchy.
+#     """
+#     out = dict()
+#     for key, value in d.items():
+#         if isinstance(value, dict):
+#             flattened = flatten_dictionary(value)
+#             for subkey, subvalue in flattened.items():
+#                 out[key + '.' + subkey] = subvalue
+#         else:
+#             flatval = value
+#             if isinstance(flatval, Time):
+#                 flatval = str(value)
+#             elif isinstance(flatval, datetime.datetime):
+#                 flatval = value.isoformat()
+#             out[key] = flatval
+#     return out
+#
+#
+# def unflatten_dictionary(d):
+#     """Convert a flattened dictionary into a set of nested dictionaries.
+#
+#     Some routines want dictionaries of the form dict[key1][key2][key3], while
+#     others want dict[key1.key2.key3].  This functions converts the latter into
+#     the former.
+#
+#     This code is garbage that should be replaced with some better handling of
+#     the CRDS <-> ASDF metadata transformations, but I don't fully understand
+#     what's happening there and this can stand in as a placeholder.
+#
+#     Parameters
+#     ----------
+#     d : dict
+#         dictionary to unflatten
+#
+#     Returns
+#     -------
+#     dict
+#         unflattened dictionary, with keys with dots promoted into subdictionaries.
+#     """
+#
+#     def unflatten_value(k, v):
+#         try:
+#             v = Time(v, format='isot')
+#             if 'file' in k:
+#                 v = stnode.FileDate(v)
+#         except Exception:
+#             return v
+#         return v
+#
+#     out = dict()
+#     for key, value in d.items():
+#         subdicts = key.split('.')
+#         if len(subdicts) == 1:
+#             out[key] = unflatten_value(key, value)
+#             continue
+#         tdict = out
+#         for subdict0 in subdicts[:-1]:
+#             tsubdict = tdict.get(subdict0, None)
+#             if tsubdict is None:
+#                 tsubdict = dict()
+#                 tdict[subdict0] = tsubdict
+#             tdict = tsubdict
+#         tdict[subdicts[-1]] = unflatten_value(key, value)
+#     return out

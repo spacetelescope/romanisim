@@ -365,15 +365,25 @@ def test_simulate_counts():
     # But at least they'll exercise some machinery if the ignore_distant_sources
     # argument is high enough!
     roman.n_pix = 100
-    metadata = {'roman.meta.exposure.start_time': '2020-01-01T00:00:00',
-                'roman.meta.instrument.detector': 'WFI01',
-                'roman.meta.instrument.optical_element': 'F158',
-                'roman.meta.exposure.ma_table_number': 1,
-                }
-    wcs.fill_in_parameters(metadata, coord)
-    im1 = image.simulate_counts(metadata, chromcat, usecrds=False,
+    # metadata = {'roman.meta.exposure.start_time': '2020-01-01T00:00:00',
+    #             'roman.meta.instrument.detector': 'WFI01',
+    #             'roman.meta.instrument.optical_element': 'F158',
+    #             'roman.meta.exposure.ma_table_number': 1,
+    #             }
+    meta = {
+        'exposure': {
+            'start_time': Time('2020-01-01T00:00:00'),
+            'ma_table_number' : 1,
+        },
+        'instrument': {
+            'detector': 'WFI01',
+            'optical_element': 'F158',
+        },
+    }
+    wcs.fill_in_parameters(meta, coord)
+    im1 = image.simulate_counts(meta, chromcat, usecrds=False,
                                 webbpsf=False, ignore_distant_sources=100)
-    im2 = image.simulate_counts(metadata, graycat,
+    im2 = image.simulate_counts(meta, graycat,
                                 usecrds=False, webbpsf=True,
                                 ignore_distant_sources=100)
     im1 = im1[0].array
@@ -394,9 +404,18 @@ def test_simulate(tmp_path):
     meta = dict()
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
-    meta['roman.meta.exposure.start_time'] = time
-    meta['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
-    meta['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
+    meta = {
+        'exposure' : {
+            'start_time' : time,
+        },
+        'pointing' : {
+            'ra_v1' : coord.ra.to(u.deg).value,
+            'dec_v1' : coord.dec.to(u.deg).value,
+        },
+    }
+    # meta['roman.meta.exposure.start_time'] = time
+    # meta['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
+    # meta['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
     for o in chromcat:

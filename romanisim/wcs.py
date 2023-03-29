@@ -52,27 +52,34 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
     """
     coord = util.skycoord(coord)
 
-    parameters['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
-    parameters['roman.meta.wcsinfo.ra_ref'] = (
-        parameters['roman.meta.pointing.ra_v1'])
+    if 'pointing' not in parameters.keys():
+        parameters['pointing'] = {}
 
-    parameters['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
-    parameters['roman.meta.wcsinfo.dec_ref'] = (
-        parameters['roman.meta.pointing.dec_v1'])
+    parameters['pointing']['ra_v1'] = coord.ra.to(u.deg).value
 
-    parameters['roman.meta.wcsinfo.roll_ref'] = roll_ref
+    if 'wcsinfo' not in parameters.keys():
+        parameters['wcsinfo'] = {}
+
+    parameters['wcsinfo']['ra_ref'] = (
+        parameters['pointing']['ra_v1'])
+
+    parameters['pointing']['dec_v1'] = coord.dec.to(u.deg).value
+    parameters['wcsinfo']['dec_ref'] = (
+        parameters['pointing']['dec_v1'])
+
+    parameters['wcsinfo']['roll_ref'] = roll_ref
 
     if boresight:
-        parameters['roman.meta.wcsinfo.v2_ref'] = 0
-        parameters['roman.meta.wcsinfo.v3_ref'] = 0
+        parameters['wcsinfo']['v2_ref'] = 0
+        parameters['wcsinfo']['v3_ref'] = 0
     else:
         from .parameters import v2v3_wficen
         v2_ref = v2v3_wficen[0] / 3600
         v3_ref = v2v3_wficen[1] / 3600
-        parameters['roman.meta.wcsinfo.v2_ref'] = v2_ref
-        parameters['roman.meta.wcsinfo.v3_ref'] = v3_ref
-        parameters['roman.meta.wcsinfo.roll_ref'] = (
-            parameters.get('roman.meta.wcsinfo.roll_ref', 0) + 60)
+        parameters['wcsinfo']['v2_ref'] = v2_ref
+        parameters['wcsinfo']['v3_ref'] = v3_ref
+        parameters['wcsinfo']['roll_ref'] = (
+            parameters['wcsinfo'].get('roll_ref', 0) + 60)
 
 
 def get_wcs(metadata, usecrds=True, distortion=None):
@@ -95,12 +102,20 @@ def get_wcs(metadata, usecrds=True, distortion=None):
     galsim.CelestialWCS for an SCA
     """
 
-    metadata = util.flatten_dictionary(metadata)
-    sca = int(metadata['roman.meta.instrument.detector'][3:])
-    date = astropy.time.Time(metadata['roman.meta.exposure.start_time'])
+    # metadata = util.flatten_dictionary(metadata)
+    # sca = int(metadata['roman.meta.instrument.detector'][3:])
+    # date = astropy.time.Time(metadata['roman.meta.exposure.start_time'])
+    # world_pos = astropy.coordinates.SkyCoord(
+    #     metadata['roman.meta.wcsinfo.ra_ref'] * u.deg,
+    #     metadata['roman.meta.wcsinfo.dec_ref'] * u.deg)
+
+
+    sca = int(metadata['instrument']['detector'][3:])
+    date = astropy.time.Time(metadata['exposure']['start_time'])
+    print(f"XXX metadata = {metadata}")
     world_pos = astropy.coordinates.SkyCoord(
-        metadata['roman.meta.wcsinfo.ra_ref'] * u.deg,
-        metadata['roman.meta.wcsinfo.dec_ref'] * u.deg)
+        metadata['wcsinfo']['ra_ref'] * u.deg,
+        metadata['wcsinfo']['dec_ref'] * u.deg)
 
     if (distortion is None) and usecrds:
         fn = crds.getreferences(metadata, reftypes=['distortion'],
@@ -108,10 +123,14 @@ def get_wcs(metadata, usecrds=True, distortion=None):
         distortion = asdf.open(fn['distortion'])
         distortion = distortion['roman']['coordinate_distortion_transform']
     if distortion is not None:
+        # wcs = make_wcs(util.skycoord(world_pos), distortion,
+        #                v2_ref=metadata['roman.meta.wcsinfo.v2_ref'],
+        #                v3_ref=metadata['roman.meta.wcsinfo.v3_ref'],
+        #                roll_ref=metadata['roman.meta.wcsinfo.roll_ref'])
         wcs = make_wcs(util.skycoord(world_pos), distortion,
-                       v2_ref=metadata['roman.meta.wcsinfo.v2_ref'],
-                       v3_ref=metadata['roman.meta.wcsinfo.v3_ref'],
-                       roll_ref=metadata['roman.meta.wcsinfo.roll_ref'])
+                       v2_ref=metadata['wcsinfo']['v2_ref'],
+                       v3_ref=metadata['wcsinfo']['v3_ref'],
+                       roll_ref=metadata['wcsinfo']['roll_ref'])
         wcs = GWCS(wcs)
     else:
         # use galsim.roman

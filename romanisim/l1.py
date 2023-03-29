@@ -356,10 +356,12 @@ def make_asdf(resultants, filepath=None, metadata=None):
     npix = galsim.roman.n_pix + 2 * nborder
     out = mk_level1_science_raw(shape=(len(resultants), npix, npix))
     if metadata is not None:
-        tmpmeta = util.flatten_dictionary(out['meta'])
-        tmpmeta.update(util.flatten_dictionary(
-            util.unflatten_dictionary(metadata)['roman']['meta']))
-        out['meta'].update(util.unflatten_dictionary(tmpmeta))
+        # tmpmeta = util.flatten_dictionary(out['meta'])
+        # tmpmeta.update(util.flatten_dictionary(
+        #     util.unflatten_dictionary(metadata)['roman']['meta']))
+        # for key in metadata.keys():
+        #     out['meta'][key].update(metadata[key])
+        out['meta'].update(metadata)
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if filepath:
         af = asdf.AsdfFile()

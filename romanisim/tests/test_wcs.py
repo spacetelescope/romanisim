@@ -62,9 +62,16 @@ def test_wcs():
     xx2, yy2 = wcsgalsim._xy(rr, dd)
     assert np.allclose(xx, xx2)
     assert np.allclose(yy, yy2)
-    metadata = {'roman.meta.instrument.detector': 'WF101',
-                'roman.meta.exposure.start_time': Time('2026-01-01T00:00:00')
+    # metadata = {'roman.meta.instrument.detector': 'WF101',
+    #             'roman.meta.exposure.start_time': Time('2026-01-01T00:00:00')
+    #             }
+    metadata = {'instrument' : {
+                    'detector': 'WF101',
+                },
+                'exposure' : {
+                    'start_time': Time('2026-01-01T00:00:00'),
                 }
+    }
     wcs.fill_in_parameters(metadata, cc, boresight=True)
     wcswrap = wcs.get_wcs(metadata, distortion=distortion)
     cc2 = util.skycoord(wcswrap.toWorld(galsim.PositionD(0, 0)))
