@@ -27,8 +27,7 @@ pipeline {
                 sh("""#!/usr/bin/env bash
                       source $WORKSPACE/miniconda3/etc/profile.d/conda.sh
                       conda activate romanisim
-                      pip install -U pip
-                      pip install -e .
+                      pip install -e .[test] pytest-xdist
                    """
                 )
             }
@@ -38,7 +37,9 @@ pipeline {
                 sh("""#!/usr/bin/env bash
                       source $WORKSPACE/miniconda3/etc/profile.d/conda.sh
                       conda activate romanisim
-                      pytest --bigdata --slow --basetemp=test_outputs romanisim
+                      pytest romanisim \
+                        --bigdata --slow --basetemp=test_outputs \
+                        -n auto
                    """
                 )
             }
