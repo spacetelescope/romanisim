@@ -15,10 +15,10 @@ def create_sampler(pdf, x):
 
     Returns
     -------
-    inverse_cdf : 1-d array of floats
-        The cumulative distribution function which allows sampling
-        from the `pdf` distribution within the bounds described
-        by the grid `x`.
+    inverse_cdf : callable
+        Callable that gives the cumulative distribution function
+        which allows sampling from the `pdf` distribution within
+        the bounds described by the grid `x`.
     """
 
     y = pdf(x)
@@ -86,8 +86,6 @@ def sample_cr_params(
     seed=48,
 ):
     """Generates cosmic ray parameters randomly sampled from distribution.
-    One might re-implement this by reading in parameters from a reference
-    file, or something similar.
 
     Parameters
     ----------

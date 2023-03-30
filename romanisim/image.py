@@ -528,7 +528,7 @@ def simulate_counts(metadata, objlist,
 
 
 def simulate(metadata, objlist,
-             usecrds=True, webbpsf=True, level=2,
+             usecrds=True, webbpsf=True, level=2, crparam=dict(),
              seed=None, rng=None,
              **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
@@ -554,6 +554,9 @@ def simulate(metadata, objlist,
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
         0 makes a special idealized 'counts' image
+    crparam : dict
+        Parameters for cosmic ray simulations.  None for no cosmic rays.
+        Empty dictionary for default parameters.
     rng : galsim.BaseDeviate
         Random number generator to use
     seed : int
@@ -636,7 +639,7 @@ def simulate(metadata, objlist,
     else:
         l1 = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-            linearity=linearity, crparam=dict(), **kwargs)
+            linearity=linearity, crparam=crparam, **kwargs)
     if level == 1:
         im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
     elif level == 2:

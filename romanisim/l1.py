@@ -242,7 +242,11 @@ def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
     if rng is None:
         rng = galsim.GaussianDeviate(seed)
 
-    rng_numpy = np.random.default_rng(rng.raw())
+    rng_numpy_seed = rng.raw()
+    rng_numpy = np.random.default_rng(rng_numpy_seed)
+    rng_numpy_cr = np.random.default_rng(rng_numpy_seed + 1)
+    # two separate generators so that if you turn off CRs
+    # you don't change the image
 
     pij = tij_to_pij(tij, remaining=True)
     resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
@@ -296,7 +300,7 @@ def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
             counts_so_far += read
             if crparam is not None:
                 cr.simulate_crs(cr_so_far, parameters.read_time, **crparam,
-                                rng=rng_numpy)
+                                rng=rng_numpy_cr)
             resultant_counts += counts_so_far + cr_so_far
             if linearity is not None:
                 ki_denominator += efficiency * pij_per_read[i][j]
