@@ -50,8 +50,8 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     Returns
     -------
     profile : galsim.gsobject.GSObject
-        galsim profile object for convolution with source profiles when rendering
-        scenes.
+        galsim profile object for convolution with source profiles when
+        rendering scenes.
     """
     pix = pix if pix is not None else (2044, 2044)
     if not webbpsf:
@@ -79,7 +79,24 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     oversample = kw.get('oversample', 4)
     # webbpsf doesn't do distortion
     psf = wfi.calc_psf(oversample=oversample)
+    gimg = galsim.Image(
+        psf[0].data, scale=wfi.pixelscale / oversample)
+
+    # This code block could be used to fix the centroid of WebbPSF calculated
+    # PSFs to be zero.  This makes downstream comparisons with WebbPSF
+    # PSFs a little harder, and so is currently disabled.  But it is
+    # recommended by Marshall Perrin and is probably what we should do.
+
+    #  centroid = []
+    #  for i, ll in enumerate(psf[0].data.shape):
+    #      cc = np.arange(ll) - (ll - 1) / 2
+    #      newshape = [1] * len(psf[0].data.shape)
+    #      newshape[-(i + 1)] = -1
+    #      cen = np.sum(cc.reshape(newshape) * psf[0].data) / np.sum(psf[0].data)
+    #      centroid.append(cen)
+    #  centroid = np.array(centroid)
+
+    centroid = None
     intimg = galsim.InterpolatedImage(
-        galsim.Image(psf[0].data, scale=wfi.pixelscale / oversample),
-        normalization='flux')
+        gimg, normalization='flux', use_true_center=True, offset=centroid)
     return intimg

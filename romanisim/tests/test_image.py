@@ -397,6 +397,9 @@ def test_simulate(tmp_path):
     meta['roman.meta.exposure.start_time'] = time
     meta['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
     meta['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
+    meta['roman.meta.exposure.ma_table_number'] = 1
+    meta['roman.meta.instrument.optical_element'] = 'F158'
+    meta['roman.meta.instrument.detector'] = 'WFI01'
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
     for o in chromcat:

@@ -14,7 +14,10 @@ from astropy import table
 import asdf
 import galsim
 from galsim import roman
-import roman_datamodels.testing.utils
+try:
+    import roman_datamodels.testing.utils as maker_utils
+except ImportError:
+    import roman_datamodels.maker_utils as maker_utils
 from . import wcs
 from . import catalog
 from . import parameters
@@ -415,17 +418,17 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         objinfo['counts'][keep] = objinfokeep['counts']
         objinfo['time'][keep] = objinfokeep['time']
 
+    # add Poisson noise if we made a noiseless, not-photon-shooting
+    # image.
     poisson_noise = galsim.PoissonNoise(rng)
+    if not chromatic:
+        image.addNoise(poisson_noise)
+
     if sky is not None:
         workim = image * 0
         workim += sky * maxflat * exptime
         workim.addNoise(poisson_noise)
         image += workim
-
-    # add Poisson noise if we made a noiseless, not-photon-shooting
-    # image.
-    if not chromatic:
-        image.addNoise(poisson_noise)
 
     if not np.all(flat == 1):
         image.quantize()
@@ -456,7 +459,6 @@ def simulate_counts(metadata, objlist,
     ----------
     metadata : dict
         CRDS metadata dictionary
-
     objlist : list[CatalogObject] or Table
         Objects to simulate
     rng : galsim.BaseDeviate
@@ -568,6 +570,7 @@ def simulate(metadata, objlist,
     """
     all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     flatmetadata = util.flatten_dictionary(metadata)
+    util.add_more_metadata(metadata)
     flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
                     for k, v in flatmetadata.items()}
     all_metadata.update(**util.flatten_dictionary(metadata))
@@ -682,7 +685,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     Eventually this needs to get enough info to reconstruct a refit WCS.
     """
 
-    out = roman_datamodels.testing.utils.mk_level2_image()
+    out = maker_utils.mk_level2_image()
     # fill this output with as much real information as possible.
     # aperture['name'] gets the correct SCA
     # aperture['position_angle'] gets the correct PA

@@ -17,15 +17,15 @@ classifiers = [
     'Programming Language :: Python :: 3.9',
 ]
 dependencies = [
-    'asdf >=2.9.2',
-    'astropy >=5.0.4',
+    'asdf >=2.14.2',
+    'astropy >=5.2',
     'crds >=10.3.1',
-    'defusedxml',
+    'defusedxml >=0.5',
     'galsim >=2.3',
-    'gwcs >=0.16.1',
-    'jsonschema >=3.0.2',
-    'romancal >=0.7',
+    'gwcs >=0.18.1',
+    'jsonschema >=4.0.1',
     'webbpsf >=1.0.0',
+    'roman_datamodels >=0.14.1',
 ]
 dynamic = ['version']
 
@@ -108,3 +108,8 @@ report = { exclude_lines = [
     'raise NotImplementedError',
     'if __name__ == "__main__":',
 ] }
+
+[tool.ruff]
+extend-ignore = [
+    "E501", # Line too long
+]

@@ -1,27 +1,12 @@
-name: CI
+name: Weekly cron
 
 on:
-  push:
-    branches:
-      - main
-      - '*.x'
-    tags:
-      - '*'
-  pull_request:
-    branches:
-      - main
   schedule:
-    # Weekly Monday 9AM build
-    # * is a special character in YAML so you have to quote this string
-    - cron: '0 9 * * 0'
+    # Weekly Monday 6AM build
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
 
 jobs:
-  check:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
-    with:
-      envs: |
-        - linux: check-style
-        - linux: build-dist
   data:
     name: Download data
     runs-on: ubuntu-latest
@@ -68,18 +53,9 @@ jobs:
       cache-path: ${{ needs.data.outputs.path }}
       cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
-        - linux: test-oldestdeps-cov-xdist
-          python-version: 3.8
-        - linux: test-xdist
-          python-version: 3.8
-        - linux: test-xdist
-          python-version: 3.9
-        - linux: test-xdist
-          python-version: 3.10
-        - linux: test-xdist
-          python-version: 3.11
         - macos: test-xdist
-          python-version: 3.11
-        - linux: test-pyargs-xdist
-        - linux: test-xdist-cov
-          coverage: codecov
+          python-version: 3.8
+        - macos: test-xdist
+          python-version: 3.9
+        - macos: test-xdist
+          python-version: 3.10
