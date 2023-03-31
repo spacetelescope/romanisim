@@ -152,7 +152,7 @@ def central_stamp(im, sz):
 
 @pytest.mark.soctests
 def test_image_rendering():
-    """Tests for image rendering routines.  This is intended to cover:
+    """Tests for image rendering routines.  This is demonstrates:
     - RUSBREQ-830 / DMS214: point source generation.
     - RSUBREQ-874 / DMS215: analytic model source generation
     """
@@ -386,7 +386,8 @@ def test_simulate_counts():
 @pytest.mark.soctests
 def test_simulate(tmp_path):
     """Test convolved image generation and L2 simulation framework.
-    - RSUBREQ-841 / DMS216: convolved image generation - Level 2
+    Demonstrates DMS216: convolved image generation - Level 2
+    Demonstrates DMS224: persistence.
     """
     imdict = set_up_image_rendering_things()
     # simulate gray, chromatic, level0, level1, level2 images

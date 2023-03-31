@@ -315,6 +315,10 @@ def apportion_counts_to_resultants(
                 ki_denominator += efficiency * pij_per_read[i][j]
             readnum += 1
         resultants[i, ...] = resultant_counts / len(pi)
+
+    if persistence is not None:
+        persistence.update(counts_so_far + instrumental_so_far, tnow, rng=rng_numpy_ps)
+
     nweirdpixfrac = np.sum(nlflag) / np.product(nlflag.shape)
     if nweirdpixfrac > 0:
         log.warning(f'{nweirdpixfrac:5.1e} fraction of pixels have '
@@ -370,7 +374,7 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     return resultants
 
 
-def make_asdf(resultants, filepath=None, metadata=None):
+def make_asdf(resultants, filepath=None, metadata=None, persistence=None):
     """Package and optionally write out an L1 frame.
 
     This routine packages an L1 data file with the appropriate Roman data
@@ -403,6 +407,8 @@ def make_asdf(resultants, filepath=None, metadata=None):
         tmpmeta.update(util.flatten_dictionary(
             util.unflatten_dictionary(metadata)['roman']['meta']))
         out['meta'].update(util.unflatten_dictionary(tmpmeta))
+    if persistence is not None:
+        out['meta']['romanisim']['persistence'] = persistence.to_dict()
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if filepath:
         af = asdf.AsdfFile()

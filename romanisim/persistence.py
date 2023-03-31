@@ -5,6 +5,7 @@ This module implements a persistence simulation following Sanchez+2023.
 
 from . import parameters
 import numpy as np
+import asdf
 
 
 class Persistence:
@@ -141,6 +142,42 @@ class Persistence:
         self.x = np.concatenate([newx, self.x[oldidx]])
         self.t = np.concatenate([newt, self.t[oldidx]])
         self.index = np.concatenate([newidx, self.index[oldidx]])
+
+    def to_dict(self):
+        """Convert this persistence object to a dictionary.
+
+        Returns
+        -------
+        dictionary representing persistence object.
+        """
+        return dict(x=self.x, t=self.t, index=self.index, A=self.A,
+                    x0=self.x0, dx=self.dx, alpha=self.alpha, gamma=self.gamma)
+
+    @staticmethod
+    def from_dict(d):
+        """Convert a dictionary to a Persistence object.
+        
+        Parameters
+        ----------
+        d : dict
+            The dictionary representing the persistence object.
+
+        Returns
+        -------
+        Persistence object represented by d.
+        """
+        return Persistence(**d)
+
+    def write(self, filename):
+        af = asdf.AsdfFile()
+        af.tree = {'persistence': Persistence.to_dict(self)}
+        af.write_to(filename)
+
+    @staticmethod
+    def read(filename):
+        af = asdf.open(filename)
+        persistdict = af['persistence']
+        return persistence.from_dict(persistdict)
 
 
 def fermi(x, dt, A, x0, dx, alpha, gamma):

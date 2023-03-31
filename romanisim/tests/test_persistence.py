@@ -1,6 +1,7 @@
 """Unit tests for persistence module."""
 
 import numpy as np
+import asdf
 from romanisim import persistence
 from romanisim import parameters
 
@@ -28,12 +29,12 @@ def test_fermi():
         rate2 = persist.current((answer[1]) / 60 / 60 / 24)
         assert np.isclose(rate, rate2)
     parameters.persistence['half_well'] = hw
-    hwpersistence = persistence.fermi(hw, 1000, 1, hw, 1, 1, 1)
-    linpersistence = persistence.fermi(hw / 2, 1000, 1, hw, 1, 1, 1)
+    hwpersistence = persistence.fermi(hw, 1000, 1, hw, 100, 1, 1)
+    linpersistence = persistence.fermi(hw / 2, 1000, 1, hw, 100, 1, 1)
     assert np.isclose(hwpersistence / 2, linpersistence)
 
 
-def test_persistence():
+def test_persistence(tmp_path):
     persist = persistence.Persistence()
     img = np.zeros((100, 100), dtype='i4')
     img2 = img.copy()
@@ -55,3 +56,9 @@ def test_persistence():
     # all pixels got zapped twice
     persist.update(img3, 1)
     assert len(persist.x) == 0  # one day later, everything is okay again.
+    fn = tmp_path / 'persist.asdf'
+    persist.write(fn)
+    persist2 = persistence.Persistence.read(fn)
+    af = asdf.open(fn)
+    for name in af['persistence']:
+        assert np.all(getattr(persist, name) == getattr(persist2, name))
