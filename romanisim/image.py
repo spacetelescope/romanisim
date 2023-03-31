@@ -14,14 +14,12 @@ from astropy import table
 import asdf
 import galsim
 from galsim import roman
-<<<<<<< HEAD
-from roman_datamodels.testing import utils as maker_utils
-=======
+
 try:
-    import roman_datamodels.testing.utils as maker_utils
-except ImportError:
     import roman_datamodels.maker_utils as maker_utils
->>>>>>> 493137c09a8f62b8a7d707f8857dc53933073961
+except ImportError:
+    import roman_datamodels.testing.utils as maker_utils
+
 from . import wcs
 from . import catalog
 from . import parameters
@@ -488,13 +486,10 @@ def simulate_counts(metadata, objlist,
     simcatobj : np.ndarray
         catalog of simulated objects in image
     """
-    # ma_table = parameters.ma_table[
-    #     metadata['roman.meta.exposure.ma_table_number']]
-    print(f"XXXX metadata.exposure = {metadata['exposure']}")
-    print(f"XXXX metadata.exposure = {metadata['exposure']}")
+
     ma_table = parameters.ma_table[
         metadata['exposure']['ma_table_number']]
-    # sca = int(metadata['roman.meta.instrument.detector'][3:])
+
     sca = int(metadata['instrument']['detector'][3:])
     exptime = parameters.read_time * (ma_table[-1][0] + ma_table[-1][1] - 1)
     if rng is None and seed is None:
@@ -580,50 +575,27 @@ def simulate(metadata, objlist,
     simcatobj : np.ndarray
         image positions and fluxes of simulated objects
     """
-<<<<<<< HEAD
-    # all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    # flatmetadata = util.flatten_dictionary(metadata)
-    # flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
-    #                 for k, v in flatmetadata.items()}
-    # all_metadata.update(**util.flatten_dictionary(metadata))
-
-    # metadata = util.unflatten_dictionary(metadata)
-
-    print(f"XXX metadata = {metadata}")
     meta = maker_utils.mk_common_meta()
     meta["photometry"] = maker_utils.mk_photometry()
+    # The following should be updated to an actual object
     meta["galsim"] = {}
-    #meta = {}
+
     for key in parameters.default_parameters_dictionary.keys():
         meta[key].update(parameters.default_parameters_dictionary[key])
-    print(f"XXX BEFORE UPDATE meta = {meta}")
-    # for key in metadata['roman']['meta'].keys():
-    #     meta[key].update(metadata['roman']['meta'][key])
+
+    util.add_more_metadata(meta)
+
+
     for key in metadata.keys():
         meta[key].update(metadata[key])
-    print(f"XXX AFTER UPDATE meta = {meta}")
 
+    # Create Image model to track validation
     image_node = maker_utils.mk_level2_image()
     image_node['meta'] = meta
     image_mod = roman_datamodels.datamodels.ImageModel(image_node)
 
-    #ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
-    # filter_name = all_metadata['roman.meta.instrument.optical_element']
-
-    print(f"XXX image_mod.meta = {image_mod.meta}")
-    print(f"XXX image_mod.meta.exposure = {image_mod.meta.exposure}")
     ma_table_number = image_mod.meta.exposure.ma_table_number
     filter_name = image_mod.meta.instrument.optical_element
-=======
-    all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    flatmetadata = util.flatten_dictionary(metadata)
-    util.add_more_metadata(metadata)
-    flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
-                    for k, v in flatmetadata.items()}
-    all_metadata.update(**util.flatten_dictionary(metadata))
-    ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
-    filter_name = all_metadata['roman.meta.instrument.optical_element']
->>>>>>> 493137c09a8f62b8a7d707f8857dc53933073961
 
     ma_table = parameters.ma_table[ma_table_number]
     exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2))
@@ -637,7 +609,6 @@ def simulate(metadata, objlist,
     if usecrds:
         reffiles = crds.getreferences(
             image_mod, observatory='roman',
-            #all_metadata, observatory='roman',
             reftypes=['readnoise', 'dark', 'gain', 'linearity'])
         read_noise = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise']).data
         dark = roman_datamodels.datamodels.DarkRefModel(reffiles['dark']).data
@@ -682,7 +653,6 @@ def simulate(metadata, objlist,
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng,
-        #all_metadata, objlist, rng=rng,
         usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat)
     if level == 0:
@@ -692,13 +662,11 @@ def simulate(metadata, objlist,
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
             linearity=linearity, **kwargs)
     if level == 1:
-        #im = romanisim.l1.make_asdf(l1, metadata=all_metadata)
         im = romanisim.l1.make_asdf(l1, metadata=image_mod.meta)
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
                             dark=dark)
-        #im = make_asdf(*slopeinfo, metadata=all_metadata)
         im = make_asdf(*slopeinfo, metadata=image_mod.meta)
     log.info('Simulation complete.')
     return im, simcatobj
@@ -786,12 +754,6 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     # var_rnoise: okay
     # var_flat: currently zero
     if metadata is not None:
-        # ugly mess of flattening & unflattening to make sure that deeply
-        # nested keywords all get propagated into the metadata structure.
-        # tmpmeta = util.flatten_dictionary(out['meta'])
-        # tmpmeta.update(util.flatten_dictionary(
-        #     util.unflatten_dictionary(metadata)['roman']['meta']))
-        # out['meta'].update(util.unflatten_dictionary(tmpmeta))
         out['meta'].update(metadata)
 
     out['data'] = slope

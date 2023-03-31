@@ -1,13 +1,12 @@
 """Miscellaneous utility routines.
 """
 
-import datetime
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
 import galsim
-from roman_datamodels import stnode
+
 from romanisim import parameters
 from scipy import integrate
 
@@ -171,192 +170,6 @@ def random_points_at_radii(coord, radii, rng=None):
     c1 = c1.directional_offset_by(ang * u.rad, radii)
     return c1
 
-<<<<<<< HEAD
-#
-# def flatten_dictionary(d):
-#     """Convert a set of nested dictionaries into a flattened dictionary.
-#
-#     Some routines want dictionaries of the form dict[key1][key2][key3], while
-#     others want dict[key1.key2.key3].  This function converts the former into
-#     the latter.
-#
-#     This can do the wrong thing in cases that don't make sense, e.g., if
-#     the top level dictionary contains keys including dots that overlap with
-#     the names of keys that this function would like to make.  e.g.:
-#     {'a.b': 1, 'a': {'b': 2}}.
-#
-#     This code is garbage that should be replaced with some better handling of
-#     the CRDS <-> ASDF metadata transformations, but I don't fully understand
-#     what's happening there and this can stand in as a placeholder.
-#
-#     Parameters
-#     ----------
-#     d : dict
-#         dictionary to flatten
-#
-#     Returns
-#     -------
-#     dict
-#         flattened dictionary, with subdictionaries' keys promoted into the
-#         top-level directory with keys adjusted to include dots indicating
-#         their former position in the hierarchy.
-#     """
-#     out = dict()
-#     for key, value in d.items():
-#         if isinstance(value, dict):
-#             flattened = flatten_dictionary(value)
-#             for subkey, subvalue in flattened.items():
-#                 out[key + '.' + subkey] = subvalue
-#         else:
-#             flatval = value
-#             if isinstance(flatval, Time):
-#                 flatval = str(value)
-#             elif isinstance(flatval, datetime.datetime):
-#                 flatval = value.isoformat()
-#             out[key] = flatval
-#     return out
-#
-#
-# def unflatten_dictionary(d):
-#     """Convert a flattened dictionary into a set of nested dictionaries.
-#
-#     Some routines want dictionaries of the form dict[key1][key2][key3], while
-#     others want dict[key1.key2.key3].  This functions converts the latter into
-#     the former.
-#
-#     This code is garbage that should be replaced with some better handling of
-#     the CRDS <-> ASDF metadata transformations, but I don't fully understand
-#     what's happening there and this can stand in as a placeholder.
-#
-#     Parameters
-#     ----------
-#     d : dict
-#         dictionary to unflatten
-#
-#     Returns
-#     -------
-#     dict
-#         unflattened dictionary, with keys with dots promoted into subdictionaries.
-#     """
-#
-#     def unflatten_value(k, v):
-#         try:
-#             v = Time(v, format='isot')
-#             if 'file' in k:
-#                 v = stnode.FileDate(v)
-#         except Exception:
-#             return v
-#         return v
-#
-#     out = dict()
-#     for key, value in d.items():
-#         subdicts = key.split('.')
-#         if len(subdicts) == 1:
-#             out[key] = unflatten_value(key, value)
-#             continue
-#         tdict = out
-#         for subdict0 in subdicts[:-1]:
-#             tsubdict = tdict.get(subdict0, None)
-#             if tsubdict is None:
-#                 tsubdict = dict()
-#                 tdict[subdict0] = tsubdict
-#             tdict = tsubdict
-#         tdict[subdicts[-1]] = unflatten_value(key, value)
-#     return out
-=======
-
-def flatten_dictionary(d):
-    """Convert a set of nested dictionaries into a flattened dictionary.
-
-    Some routines want dictionaries of the form dict[key1][key2][key3], while
-    others want dict[key1.key2.key3].  This function converts the former into
-    the latter.
-
-    This can do the wrong thing in cases that don't make sense, e.g., if
-    the top level dictionary contains keys including dots that overlap with
-    the names of keys that this function would like to make.  e.g.:
-    {'a.b': 1, 'a': {'b': 2}}.
-
-    This code is garbage that should be replaced with some better handling of
-    the CRDS <-> ASDF metadata transformations, but I don't fully understand
-    what's happening there and this can stand in as a placeholder.
-
-    Parameters
-    ----------
-    d : dict
-        dictionary to flatten
-
-    Returns
-    -------
-    dict
-        flattened dictionary, with subdictionaries' keys promoted into the
-        top-level directory with keys adjusted to include dots indicating
-        their former position in the hierarchy.
-    """
-    out = dict()
-    for key, value in d.items():
-        if isinstance(value, dict):
-            flattened = flatten_dictionary(value)
-            for subkey, subvalue in flattened.items():
-                out[key + '.' + subkey] = subvalue
-        else:
-            flatval = value
-            if isinstance(flatval, Time):
-                flatval = str(value)
-            elif isinstance(flatval, datetime.datetime):
-                flatval = value.isoformat()
-            out[key] = flatval
-    return out
-
-
-def unflatten_dictionary(d):
-    """Convert a flattened dictionary into a set of nested dictionaries.
-
-    Some routines want dictionaries of the form dict[key1][key2][key3], while
-    others want dict[key1.key2.key3].  This functions converts the latter into
-    the former.
-
-    This code is garbage that should be replaced with some better handling of
-    the CRDS <-> ASDF metadata transformations, but I don't fully understand
-    what's happening there and this can stand in as a placeholder.
-
-    Parameters
-    ----------
-    d : dict
-        dictionary to unflatten
-
-    Returns
-    -------
-    dict
-        unflattened dictionary, with keys with dots promoted into subdictionaries.
-    """
-
-    def unflatten_value(k, v):
-        try:
-            v = Time(v, format='isot')
-            if 'file' in k:
-                v = stnode.FileDate(v)
-        except Exception:
-            return v
-        return v
-
-    out = dict()
-    for key, value in d.items():
-        subdicts = key.split('.')
-        if len(subdicts) == 1:
-            out[key] = unflatten_value(key, value)
-            continue
-        tdict = out
-        for subdict0 in subdicts[:-1]:
-            tsubdict = tdict.get(subdict0, None)
-            if tsubdict is None:
-                tsubdict = dict()
-                tdict[subdict0] = tsubdict
-            tdict = tsubdict
-        tdict[subdicts[-1]] = unflatten_value(key, value)
-    return out
-
-
 def add_more_metadata(metadata):
     """Fill out the metadata dictionary, modifying it in place.
 
@@ -369,37 +182,40 @@ def add_more_metadata(metadata):
 
     # fill out the metadata a bit with redundant stuff for which we
     # already mostly have the answer.
+
+    if 'exposure' not in metadata.keys():
+        metadata['exposure'] = {}
     ma_table = parameters.ma_table[
-        metadata['roman.meta.exposure.ma_table_number']]
+        metadata['exposure']['ma_table_number']]
     openshuttertime = parameters.read_time * (
         ma_table[-1][0] + ma_table[-1][1] - 1)
     offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
                    end=openshuttertime * u.s)
-    starttime = metadata['roman.meta.exposure.start_time']
+    starttime = metadata['exposure']['start_time']
     if not isinstance(starttime, Time):
         starttime = Time(starttime, format='isot')
     for prefix, offset in offsets.items():
-        metadata[f'roman.meta.exposure.{prefix}_time'] = (
-            starttime + offset).isot
-        metadata[f'roman.meta.exposure.{prefix}_time_mjd'] = (
+        metadata['exposure'][f'{prefix}_time'] = Time((
+            starttime + offset).isot)
+        metadata['exposure'][f'{prefix}_time_mjd'] = (
             starttime + offset).mjd
-        metadata[f'roman.meta.exposure.{prefix}_time_tdb'] = (
+        metadata['exposure'][f'{prefix}_time_tdb'] = (
             starttime + offset).tdb.mjd
-    metadata['roman.meta.exposure.ngroups'] = len(ma_table)
-    metadata['roman.meta.exposure.nframes'] = ma_table[0][0]
-    metadata['roman.meta.exposure.sca_number'] = (
-        int(metadata['roman.meta.instrument.detector'][-2:]))
-    metadata['roman.meta.exposure.integration_time'] = openshuttertime
-    metadata['roman.meta.exposure.elapsed_exposure_time'] = openshuttertime
+    metadata['exposure']['ngroups'] = len(ma_table)
+    metadata['exposure'][f'nframes'] = ma_table[0][0]
+    metadata['exposure'][f'sca_number'] = (
+        int(metadata['instrument']['detector'][-2:]))
+    metadata['exposure']['integration_time'] = openshuttertime
+    metadata['exposure']['elapsed_exposure_time'] = openshuttertime
     # ???
-    metadata['roman.meta.exposure.frame_divisor'] = ma_table[0][1]
-    metadata['roman.meta.exposure.groupgap'] = 0
-    metadata['roman.meta.exposure.frame_time'] = parameters.read_time
-    metadata['roman.meta.exposure.group_time'] = (
+    metadata['exposure']['frame_divisor'] = ma_table[0][1]
+    metadata['exposure']['groupgap'] = 0
+    metadata['exposure']['frame_time'] = parameters.read_time
+    metadata['exposure']['group_time'] = (
         parameters.read_time * ma_table[0][1])
-    metadata['roman.meta.exposure.exposure_time'] = openshuttertime
-    metadata['roman.meta.exposure.effective_exposure_time'] = openshuttertime
-    metadata['roman.meta.exposure.duration'] = openshuttertime
+    metadata['exposure']['exposure_time'] = openshuttertime
+    metadata['exposure']['effective_exposure_time'] = openshuttertime
+    metadata['exposure']['duration'] = openshuttertime
     # integration_start?  integration_end?  nints = 1?  ...
 
 
@@ -451,4 +267,3 @@ def sample_king_distances(rc, rt, npts, rng=None):
     cdf /= cdf[-1]
     radii = np.interp(rr, cdf, x)
     return radii
->>>>>>> 493137c09a8f62b8a7d707f8857dc53933073961

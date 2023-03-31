@@ -20,6 +20,7 @@ import warnings
 import numpy as np
 import astropy.coordinates
 from astropy import units as u
+from astropy.modeling.models import RotationSequence3D, Scale
 import astropy.time
 import crds
 import asdf
@@ -102,17 +103,9 @@ def get_wcs(metadata, usecrds=True, distortion=None):
     galsim.CelestialWCS for an SCA
     """
 
-    # metadata = util.flatten_dictionary(metadata)
-    # sca = int(metadata['roman.meta.instrument.detector'][3:])
-    # date = astropy.time.Time(metadata['roman.meta.exposure.start_time'])
-    # world_pos = astropy.coordinates.SkyCoord(
-    #     metadata['roman.meta.wcsinfo.ra_ref'] * u.deg,
-    #     metadata['roman.meta.wcsinfo.dec_ref'] * u.deg)
-
-
     sca = int(metadata['instrument']['detector'][3:])
     date = astropy.time.Time(metadata['exposure']['start_time'])
-    print(f"XXX metadata = {metadata}")
+
     world_pos = astropy.coordinates.SkyCoord(
         metadata['wcsinfo']['ra_ref'] * u.deg,
         metadata['wcsinfo']['dec_ref'] * u.deg)
@@ -123,10 +116,6 @@ def get_wcs(metadata, usecrds=True, distortion=None):
         distortion = asdf.open(fn['distortion'])
         distortion = distortion['roman']['coordinate_distortion_transform']
     if distortion is not None:
-        # wcs = make_wcs(util.skycoord(world_pos), distortion,
-        #                v2_ref=metadata['roman.meta.wcsinfo.v2_ref'],
-        #                v3_ref=metadata['roman.meta.wcsinfo.v3_ref'],
-        #                roll_ref=metadata['roman.meta.wcsinfo.roll_ref'])
         wcs = make_wcs(util.skycoord(world_pos), distortion,
                        v2_ref=metadata['wcsinfo']['v2_ref'],
                        v3_ref=metadata['wcsinfo']['v3_ref'],
@@ -190,7 +179,6 @@ def make_wcs(targ_pos, distortion, roll_ref=0, v2_ref=0, v3_ref=0,
     # angles = np.array([v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref])
     # axes = "zyxyz"
     # rot = RotationSequence3D(angles, axes_order=axes)
-    from astropy.modeling.models import RotationSequence3D, Scale
     rot = RotationSequence3D(
         [v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref], 'zyxyz')
 

@@ -6,22 +6,6 @@ from roman_datamodels import units as ru
 from astropy.time import Time
 
 
-# default_parameters_dictionary = {
-#     'roman.meta.instrument.name': 'WFI',
-#     'roman.meta.instrument.detector': 'WFI07',
-#     'roman.meta.exposure.start_time': '2026-01-01T00:00:00.000',
-#     'roman.meta.exposure.type': 'WFI_IMAGE',
-#     'roman.meta.exposure.ma_table_number': 1,
-#     'roman.meta.instrument.optical_element': 'F184',
-#     'roman.meta.pointing.ra_v1': 270.0,
-#     'roman.meta.pointing.dec_v1': 66.0,
-#     'roman.meta.wcsinfo.ra_ref': 270.0,
-#     'roman.meta.wcsinfo.dec_ref': 66.0,
-#     'roman.meta.wcsinfo.v2_ref': 0,
-#     'roman.meta.wcsinfo.v3_ref': 0,
-#     'roman.meta.wcsinfo.roll_ref': 0,
-# }
-
 default_parameters_dictionary = {
     'instrument' : { 'name': 'WFI',
                      'detector': 'WFI07',

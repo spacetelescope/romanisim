@@ -60,16 +60,11 @@ if __name__ == '__main__':
         wcs.fill_in_parameters(metadata, coord, boresight=args.boresight)
 
     if args.date is not None:
-        # metadata['roman.meta.exposure.start_time'] = Time(
-        #     datetime.datetime(*args.date)).isot
         metadata['exposure']['start_time'] = Time(
             datetime.datetime(*args.date)).isot
-    # date = Time(metadata['roman.meta.exposure.start_time'], format='isot')
+
     date = Time(metadata['exposure']['start_time'], format='isot')
 
-    # metadata['roman.meta.instrument.detector'] = f'WFI{args.sca:02d}'
-    # metadata['roman.meta.instrument.optical_element'] = args.bandpass
-    # metadata['roman.meta.exposure.ma_table_number'] = args.ma_table_number
     metadata['instrument']['detector'] = f'WFI{args.sca:02d}'
     metadata['instrument']['optical_element'] = args.bandpass
     metadata['exposure']['ma_table_number'] = args.ma_table_number
