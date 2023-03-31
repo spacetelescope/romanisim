@@ -62,9 +62,7 @@ def test_wcs():
     xx2, yy2 = wcsgalsim._xy(rr, dd)
     assert np.allclose(xx, xx2)
     assert np.allclose(yy, yy2)
-    # metadata = {'roman.meta.instrument.detector': 'WF101',
-    #             'roman.meta.exposure.start_time': Time('2026-01-01T00:00:00')
-    #             }
+
     metadata = {'instrument' : {
                     'detector': 'WF101',
                 },

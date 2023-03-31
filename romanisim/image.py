@@ -499,10 +499,8 @@ def simulate_counts(metadata, objlist,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
-    # filter_name = metadata['roman.meta.instrument.optical_element']
     filter_name = metadata['instrument']['optical_element']
 
-    # date = metadata['roman.meta.exposure.start_time']
     date = metadata['exposure']['start_time']
     if not isinstance(date, astropy.time.Time):
         date = astropy.time.Time(date, format='isot')
