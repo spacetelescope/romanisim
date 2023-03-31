@@ -15,10 +15,10 @@ def create_sampler(pdf, x):
 
     Returns
     -------
-    inverse_cdf : 1-d array of floats
-        The cumulative distribution function which allows sampling
-        from the `pdf` distribution within the bounds described
-        by the grid `x`.
+    inverse_cdf : callable
+        Callable that gives the cumulative distribution function
+        which allows sampling from the `pdf` distribution within
+        the bounds described by the grid `x`.
     """
 
     y = pdf(x)
@@ -28,7 +28,7 @@ def create_sampler(pdf, x):
     return inverse_cdf
 
 
-def moyal_distribution(x, location=1000, scale=300):
+def moyal_distribution(x, location=120, scale=50):
     """Return unnormalized Moyal distribution, which approximates a
     Landau distribution and is used to describe the energy loss
     probability distribution of a charged particle through a detector.
@@ -86,17 +86,15 @@ def sample_cr_params(
     seed=48,
 ):
     """Generates cosmic ray parameters randomly sampled from distribution.
-    One might re-implement this by reading in parameters from a reference
-    file, or something similar.
 
     Parameters
     ----------
     N_samples : int
         Number of CRs to generate.
-    N_x : int
-        Number of pixels along x-axis of detector
-    N_y : int
-        Number of pixels along y-axis of detector
+    N_i : int
+        Number of pixels along i-axis of detector
+    N_j : int
+        Number of pixels along j-axis of detector
     min_dEdx : float
         Minimum value of CR energy loss (dE/dx), units of eV / micron.
     max_dEdx : float
@@ -132,9 +130,9 @@ def sample_cr_params(
         rng = np.random.default_rng(seed)
 
     # sample CR positions [pix]
-    cr_i, cr_j = (rng.random(size=(N_samples, 2)) * (N_i, N_j)).transpose()
-    cr_i -= 0.5
-    cr_j -= 0.5
+    cr_i, cr_j = (
+        rng.random(size=(N_samples, 2)) * (N_i, N_j) - 0.5
+    ).transpose()
 
     # sample CR direction [radian]
     cr_phi = rng.random(N_samples) * 2 * np.pi
@@ -152,7 +150,7 @@ def sample_cr_params(
     return cr_i, cr_j, cr_phi, cr_length, cr_dEdx
 
 
-def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
+def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
     """Given a starting and ending pixel, returns a list of pixel
     coordinates (ii, jj) and their traversed path lengths. Note that
     the centers of pixels are treated as integers, while the borders
@@ -166,6 +164,12 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     trail_end : (float, float)
         The ending coordinates in (i, j) of the cosmic ray trail, in
         units of pix.
+    N_i : int
+        Number of pixels along i-axis of detector
+    N_j : int
+        Number of pixels along j-axis of detector
+    eps : float
+        Tiny value used for stable numerical rounding.
 
     Returns
     -------
@@ -207,9 +211,13 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
         cross_vert = np.array([[]])
 
     # compute center of traversed pixel before each crossing
+    # note `eps` here covers rounnding issues when the corner is intersected
     ii_horiz, jj_horiz = np.round(
-        cross_horiz - np.array([0, 0.5 * np.sign(dj)])).astype(int).T
-    ii_vert, jj_vert = np.round(cross_vert - np.array([0.5, 0])).astype(int).T
+        cross_horiz - np.array([eps, np.sign(dj) * 0.5])
+    ).astype(int).T
+    ii_vert, jj_vert = np.round(
+        cross_vert - np.array([0.5, np.sign(dj) * eps])
+    ).astype(int).T
 
     # combine crossings and pixel centers
     crossings = np.vstack((cross_horiz, cross_vert))
@@ -222,29 +230,18 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
     ii = ii[sorted_by_i]
     jj = jj[sorted_by_i]
 
-    # remove pixels that go outside detector edge -- may not be necessary
-    inside_borders = (
-        (crossings[:, 0] > -0.5) & (crossings[:, 0] < (N_i - 0.5))
-        & (crossings[:, 1] > -0.5) & (crossings[:, 1] < (N_j - 0.5))
-    )
-    crossings = crossings[inside_borders]
-    ii = ii[inside_borders]
-    jj = jj[inside_borders]
-
     # add final pixel center
     ii = np.concatenate((ii, [np.round(i1).astype(int)]))
     jj = np.concatenate((jj, [np.round(j1).astype(int)]))
 
     # if no crossings, then it's just the total Euclidean distance
     if len(crossings) == 0:
-        lengths = np.linalg.norm([di, dj])
+        lengths = np.linalg.norm([di, dj], keepdims=1)
     # otherwise, compute starting, crossing, and ending distances
     else:
-        first_length = np.linalg.norm(crossings[0] - np.array(trail_start),
-                                      keepdims=1)
+        first_length = np.linalg.norm(crossings[0] - np.array([i0, j0]), keepdims=1)
         middle_lengths = np.linalg.norm(np.diff(crossings, axis=0), axis=1)
-        last_length = np.linalg.norm(np.array(trail_end) - crossings[-1],
-                                     keepdims=1)
+        last_length = np.linalg.norm(np.array([i1, j1]) - crossings[-1], keepdims=1)
         lengths = np.concatenate([first_length, middle_lengths, last_length])
 
         # remove 0-length trails
@@ -253,17 +250,32 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096):
         ii = ii[positive_lengths]
         jj = jj[positive_lengths]
 
+    # remove any pixels that go off the detector
+    inside_detector = (ii > -0.5) & (ii < (N_i - 0.5)) & (jj > -0.5) & (jj < (N_j - 0.5))
+    ii = ii[inside_detector]
+    jj = jj[inside_detector]
+    lengths = lengths[inside_detector]
+
     return ii, jj, lengths
 
 
-def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
-                 pixel_depth=5, rng=None, seed=47):
+def simulate_crs(
+    image,
+    time,
+    flux=8,
+    area=16.8,
+    conversion_factor=0.5,
+    pixel_size=10,
+    pixel_depth=5,
+    rng=None,
+    seed=47
+):
     """Adds CRs to an existing image.
 
     Parameters
     ----------
     image : 2-d array of floats
-        The detector image with values in units of counts.
+        The detector image with values in units of electrons.
     time : float
         The exposure time, units of s.
     flux : float
@@ -271,8 +283,9 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
         is equal to the value assumed by the JWST ETC.
     area : float
         The area of the WFI detector, units of cm^2.
-    gain : float
-        The gain to convert from eV to counts, units of eV / counts.
+    conversion_factor : float
+        The convert from eV to electrons, assumed to be the bandgap energy,
+        in units of eV / electrons.
     pixel_size : float
         The size of an individual pixel in the detector, units of micron.
     pixel_depth : float
@@ -285,7 +298,7 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
     Returns
     -------
     image : 2-d array of floats
-        The detector image, in units of counts, updated to include
+        The detector image, in units of electrons, updated to include
         all of the generated cosmic ray hits.
     """
 
@@ -298,15 +311,14 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
         N_samples, N_i=N_i, N_j=N_j, rng=rng)
 
     cr_length = cr_length / pixel_size
-    cr_i1 = (cr_i0 + cr_length * np.cos(cr_angle)).clip(1, N_i - 1)
-    cr_j1 = (cr_j0 + cr_length * np.sin(cr_angle)).clip(1, N_j - 1)
+    cr_i1 = (cr_i0 + cr_length * np.cos(cr_angle)).clip(-0.5, N_i + 0.5)
+    cr_j1 = (cr_j0 + cr_length * np.sin(cr_angle)).clip(-0.5, N_j + 0.5)
 
-    # go from eV/micron -> counts/pixel
-    cr_counts_per_pix = cr_dEdx * pixel_size / gain
+    # go from eV/micron -> electrons/pixel
+    cr_counts_per_pix = cr_dEdx * pixel_size / conversion_factor
 
-    for i0, j0, i1, j1, counts_per_pix in zip(
-            cr_i0, cr_j0, cr_i1, cr_j1, cr_counts_per_pix):
-        ii, jj, length_2d = traverse([i0, j0], [i1, j1])
+    for i0, j0, i1, j1, counts_per_pix in zip(cr_i0, cr_j0, cr_i1, cr_j1, cr_counts_per_pix):
+        ii, jj, length_2d = traverse([i0, j0], [i1, j1], N_i=N_i, N_j=N_j)
         length_3d = ((pixel_depth / pixel_size) ** 2 + length_2d ** 2) ** 0.5
         image[ii, jj] += rng.poisson(counts_per_pix * length_3d)
 
@@ -315,12 +327,12 @@ def simulate_crs(image, time, flux=8, area=0.168, gain=3.8, pixel_size=10,
 
 if __name__ == "__main__":
     # initialize a detector
-    image = np.zeros((4096, 4096), dtype=float)
+    wfi_image = np.zeros((4096, 4096), dtype=float)
 
-    flux = 8  # events/cm^2/s
-    area = 0.168  # cm^2
+    cr_flux = 8  # events/cm^2/s
+    wfi_area = 16.8  # cm^2
     t_exp = 3.04  # s
 
     # simulate 500 resultant frames
     for _ in range(500):
-        image = simulate_crs(image, flux, area, t_exp)
+        wfi_image = simulate_crs(wfi_image, cr_flux, wfi_area, t_exp)
