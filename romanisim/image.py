@@ -531,13 +531,8 @@ def simulate_counts(metadata, objlist,
 
 
 def simulate(metadata, objlist,
-<<<<<<< HEAD
-             usecrds=True, webbpsf=True, level=2,
-             persistence=None,
-=======
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
->>>>>>> cr
-             seed=None, rng=None,
+             persistence=None, seed=None, rng=None,
              **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -562,14 +557,11 @@ def simulate(metadata, objlist,
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
         0 makes a special idealized 'counts' image
-<<<<<<< HEAD
     persistence : romanisim.persistence.Persistence
         persistence object to use; None for no persistence
-=======
     crparam : dict
         Parameters for cosmic ray simulations.  None for no cosmic rays.
         Empty dictionary for default parameters.
->>>>>>> cr
     rng : galsim.BaseDeviate
         Random number generator to use
     seed : int
@@ -656,14 +648,11 @@ def simulate(metadata, objlist,
     else:
         l1 = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-<<<<<<< HEAD
+            crparam=crparam,
             linearity=linearity, tstart=astropy.time.Time(
                 all_metadata['roman.meta.exposure.start_time']),
             persistence=persistence,
             **kwargs)
-=======
-            linearity=linearity, crparam=crparam, **kwargs)
->>>>>>> cr
     if level == 1:
         im = romanisim.l1.make_asdf(l1, metadata=all_metadata,
                                     persistence=persistence)
@@ -772,7 +761,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     out['var_flat'] = slopevar_rn * 0
     out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
     if persistence is not None:
-        out['meta']['romanisim']['persistence'] = persistence.to_dict()
+        out['meta']['persistence'] = persistence.to_dict()
     if filepath:
         af = asdf.AsdfFile()
         af.tree = {'roman': out}

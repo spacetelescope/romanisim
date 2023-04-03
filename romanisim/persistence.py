@@ -156,7 +156,7 @@ class Persistence:
     @staticmethod
     def from_dict(d):
         """Convert a dictionary to a Persistence object.
-        
+
         Parameters
         ----------
         d : dict
@@ -177,7 +177,7 @@ class Persistence:
     def read(filename):
         af = asdf.open(filename)
         persistdict = af['persistence']
-        return persistence.from_dict(persistdict)
+        return Persistence.from_dict(persistdict)
 
 
 def fermi(x, dt, A, x0, dx, alpha, gamma):

@@ -251,7 +251,8 @@ def apportion_counts_to_resultants(
     rng_numpy_seed = rng.raw()
     rng_numpy = np.random.default_rng(rng_numpy_seed)
     rng_numpy_cr = np.random.default_rng(rng_numpy_seed + 1)
-    # two separate generators so that if you turn off CRs
+    rng_numpy_ps = np.random.default_rng(rng_numpy_seed + 2)
+    # two separate generators so that if you turn off CRs / persistence
     # you don't change the image
 
     pij = tij_to_pij(tij, remaining=True)
@@ -313,7 +314,7 @@ def apportion_counts_to_resultants(
             if persistence is not None:
                 tnow = tstart + tij[i][j] / (24 * 60 * 60)
                 persistence.add_to_read(
-                    instrumental_so_far, tnow, rng=rng_numpy)
+                    instrumental_so_far, tnow, rng=rng_numpy_ps)
             resultant_counts += counts_so_far + instrumental_so_far
             if linearity is not None:
                 ki_denominator += efficiency * pij_per_read[i][j]
@@ -321,7 +322,10 @@ def apportion_counts_to_resultants(
         resultants[i, ...] = resultant_counts / len(pi)
 
     if persistence is not None:
-        persistence.update(counts_so_far + instrumental_so_far, tnow, rng=rng_numpy_ps)
+        # should the electrons from persistence contribute to future
+        # persistence?  Here they do.  But hopefully this choice is second
+        # order enough that either decision would be fine.
+        persistence.update(counts_so_far + instrumental_so_far, tnow)
 
     nweirdpixfrac = np.sum(nlflag) / np.product(nlflag.shape)
     if nweirdpixfrac > 0:
@@ -412,7 +416,7 @@ def make_asdf(resultants, filepath=None, metadata=None, persistence=None):
             util.unflatten_dictionary(metadata)['roman']['meta']))
         out['meta'].update(util.unflatten_dictionary(tmpmeta))
     if persistence is not None:
-        out['meta']['romanisim']['persistence'] = persistence.to_dict()
+        out['meta']['persistence'] = persistence.to_dict()
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if filepath:
         af = asdf.AsdfFile()

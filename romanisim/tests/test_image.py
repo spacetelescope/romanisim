@@ -413,6 +413,11 @@ def test_simulate(tmp_path):
         meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False)
     # seed = 0 is special and means "don't actually use a seed."  Any other
     # choice of seed gives deterministic behavior
+    # note that we have scaled down the size of the image to 100x100 pix
+    # in order to save time.  But the CR module fixes the area of the detector
+    # rather than the area of a pixel, so this means that all of the normal
+    # CRs are detected, except in a 100x100 region instead of a 4kx4k region;
+    # i.e., there are 1600x too many CRs.  Fine for unit tests?
     rng = galsim.BaseDeviate(1)
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
                         crparam=dict(), usecrds=False, rng=rng)
@@ -429,15 +434,16 @@ def test_simulate(tmp_path):
     persist = persistence.Persistence()
     fluence = 30000
     persist.update(l0[0]['data'] * 0 + fluence, time.mjd - 100 / 60 / 60 / 24)
-    # zap the whole frame
+    # zap the whole frame, 100 seconds ago.
+    rng = galsim.BaseDeviate(1)
     l1p = image.simulate(meta, graycat, webbpsf=True, level=1, usecrds=False,
-                         persistence=persist, crparam=None)
+                         persistence=persist, crparam=None, rng=rng)
     # the random number gets instatiated from the same seed, but the order in
     # which the numbers are generated is different so we can't guarantee, e.g.,
     # that all of the new values are strictly greater than the old ones.
     # But we've basically added a constant to the whole scene: we can at least
     # verify it's positive.
-    diff = l1p[0]['data'][-1] * 1.0 - l1[0]['data'][-1] * 1.0
+    diff = l1p[0]['data'][-1] * 1.0 - l1_nocr[0]['data'][-1] * 1.0
     # L1 files are unsigned, so the difference gets wonky unless you convert
     # to floats.
     # do we have a very rough guess for what the persistence should be?
