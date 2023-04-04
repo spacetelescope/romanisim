@@ -11,6 +11,7 @@ Contents
 
    romanisim/overview
    romanisim/install
+   romanisim/running
 
    romanisim/image
    romanisim/l1
