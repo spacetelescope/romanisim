@@ -14,6 +14,7 @@ These routines exercise the following:
 """
 
 import os
+import copy
 import numpy as np
 import galsim
 from galsim import roman
@@ -28,6 +29,7 @@ from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
 from roman_datamodels import units as ru
+from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 
 
 def test_in_bounds():
@@ -461,3 +463,57 @@ def test_make_test_catalog_and_images():
     res = image.make_test_catalog_and_images(usecrds=False,
                                              galaxy_sample_file_name=fn)
     assert len(res) > 0
+
+@pytest.mark.parametrize(
+    "level",
+    [
+        1, 2,
+    ],
+)
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason=(
+        "Roman CRDS servers are not currently available outside the internal network"
+    ),
+)
+def test_reference_file_crds_match(level):
+    #wfi = webbpsf.WFI()
+
+    #im = galsim.Image(4088, 4088, scale=wfi.pixelscale, xmin=0, ymin=0)
+
+    galsim.roman.n_pix = 4088
+
+
+    # Set up parameters for simulation run
+    metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    metadata['instrument']['detector'] = f'WFI07'
+    metadata['instrument']['optical_element'] = 'F158'
+    metadata['exposure']['ma_table_number'] = 1
+
+    twcs = wcs.get_wcs(metadata, usecrds=True)
+    rd_sca = twcs.toWorld(galsim.PositionD(
+        galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
+    print(f"XXX TEST galsim.roman.n_pix = {galsim.roman.n_pix}")
+
+    cat = catalog.make_dummy_table_catalog(
+        rd_sca, bandpasses=[metadata['instrument']['optical_element']], nobj=1000)
+
+    rng = galsim.UniformDeviate(None)
+    im, simcatobj = image.simulate(
+        metadata, cat, usecrds=True,
+        webbpsf=True, level=level,
+        rng=rng)
+
+
+    # print(f"XXX TEST type(im) = {type(im)}")
+    # print(f"XXX TEST im.meta = ")
+    # # from pprint import pprint
+    # # pprint(dict(im.meta))
+    # print(f"XXX TEST type(simcatobj) = {type(simcatobj)}")
+
+    assert im.meta.ref_file.crds.sw_version != '12.3.1'
+
+    if (level==1):
+        assert (type(im) == WfiScienceRaw)
+    else: #level = 2
+        assert (type(im) == WfiImage)

@@ -30,6 +30,14 @@ import gwcs.wcs
 import galsim.wcs
 from galsim import roman
 from . import util
+from . import parameters
+
+import roman_datamodels
+try:
+    import roman_datamodels.maker_utils as maker_utils
+except ImportError:
+    import roman_datamodels.testing.utils as maker_utils
+
 
 
 def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
@@ -110,7 +118,31 @@ def get_wcs(metadata, usecrds=True, distortion=None):
         metadata['wcsinfo']['ra_ref'] * u.deg,
         metadata['wcsinfo']['dec_ref'] * u.deg)
 
-    if (distortion is None) and usecrds:
+    # meta = maker_utils.mk_common_meta()
+    # meta["photometry"] = maker_utils.mk_photometry()
+    #
+    # for key in parameters.default_parameters_dictionary.keys():
+    #     meta[key].update(parameters.default_parameters_dictionary[key])
+    #
+    # util.add_more_metadata(meta)
+    #
+    # for key in metadata.keys():
+    #     meta[key].update(metadata[key])
+    #
+    # image_node = maker_utils.mk_level2_image()
+    # image_node['meta'] = meta
+    # image_mod = roman_datamodels.datamodels.ImageModel(image_node)
+
+    # metadata = image_mod
+    #
+    #
+    # from pprint import pprint
+    # pprint(f"XXX type(metadata) = {type(metadata)}")
+    # pprint(f"XXX metadata = \n")
+    # # pprint(dict(metadata))
+
+    #if (distortion is None) and usecrds:
+    if False:
         fn = crds.getreferences(metadata, reftypes=['distortion'],
                                 observatory='roman')
         distortion = asdf.open(fn['distortion'])

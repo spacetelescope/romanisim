@@ -24,8 +24,6 @@ default_parameters_dictionary = {
                   'v3_ref': 0,
                   'roll_ref': 0,
                   },
-    'galsim' : { 'optical_element': 'F184',
-                 },
 }
 
 

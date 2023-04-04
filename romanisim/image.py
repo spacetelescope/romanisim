@@ -15,10 +15,6 @@ import asdf
 import galsim
 from galsim import roman
 
-try:
-    import roman_datamodels.maker_utils as maker_utils
-except ImportError:
-    import roman_datamodels.testing.utils as maker_utils
 
 from . import wcs
 from . import catalog
@@ -30,8 +26,16 @@ import romanisim.bandpass
 import romanisim.psf
 from romanisim import log
 import crds
-from roman_datamodels import units as ru
+from stpipe import crds_client
+
+
 import roman_datamodels
+from roman_datamodels import units as ru
+try:
+    import roman_datamodels.maker_utils as maker_utils
+except ImportError:
+    import roman_datamodels.testing.utils as maker_utils
+
 
 # galsim fluxes are in photons / cm^2 / s
 # we need to specify the area and exposure time in drawImage if
@@ -575,14 +579,11 @@ def simulate(metadata, objlist,
     """
     meta = maker_utils.mk_common_meta()
     meta["photometry"] = maker_utils.mk_photometry()
-    # The following should be updated to an actual object
-    meta["galsim"] = {}
 
     for key in parameters.default_parameters_dictionary.keys():
         meta[key].update(parameters.default_parameters_dictionary[key])
 
     util.add_more_metadata(meta)
-
 
     for key in metadata.keys():
         meta[key].update(metadata[key])
@@ -604,35 +605,88 @@ def simulate(metadata, objlist,
     # data in numpy arrays.
     # should query CRDS for any reference files not specified on the command
     # line.
+    print(f"XXX CRDS check!")
     if usecrds:
-        reffiles = crds.getreferences(
-            image_mod, observatory='roman',
-            reftypes=['readnoise', 'dark', 'gain', 'linearity'])
-        read_noise = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise']).data
-        dark = roman_datamodels.datamodels.DarkRefModel(reffiles['dark']).data
-        gain = roman_datamodels.datamodels.GuidewindowModel(reffiles['gain']).data
-        linearity = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity']).coeffs
+        print(f"XXX USING CRDS!")
+
+        # reffiles = crds.getreferences(
+        #     image_mod, observatory='roman',
+        #     reftypes=['readnoise', 'dark', 'gain', 'linearity'])
+
+        refnames_lst = ['readnoise', 'dark', 'gain', 'linearity']
+        reffiles = {}
+
+        for refname in refnames_lst:
+            reffiles[refname] = crds_client.get_reference_file(
+                image_mod.get_crds_parameters(),
+                # reference_file_type,
+                # ['readnoise', 'dark', 'gain', 'linearity'],
+                # model.crds_observatory,
+                refname,
+                'roman',
+            )
+
+        print(f"XXX In usecrds")
+        #read_noise = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise']).data.copy()
+        read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise'])
+        print(f"read_noise_model = {read_noise_model}")
+        #dark = roman_datamodels.datamodels.DarkRefModel(reffiles['dark']).data
+        dark_model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
+        print(f"dark_model = {dark_model}")
+        #gain = roman_datamodels.datamodels.GainRefModel(reffiles['gain']).data
+        gain_model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
+        print(f"gain_model = {gain_model}")
+        #linearity = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity']).coeffs
+        linearity_model = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity'])
+        print(f"linearity_model = {linearity_model}")
         try:
-            reffiles = crds.getreferences(
-                image_mod, observatory='roman',
-                #all_metadata, observatory='roman',
-                reftypes=['flat'])
-            flat = roman_datamodels.datamodels.FlatRefModel(reffiles['flat']).data
+            # reffiles = crds.getreferences(
+            #     image_mod, observatory='roman',
+            #     # all_metadata, observatory='roman',
+            #     reftypes=['flat'])
+            # flat = roman_datamodels.datamodels.FlatRefModel(reffiles['flat']).data
+            print("XXX flat 0")
+            flatfile = crds_client.get_reference_file(
+                image_mod.get_crds_parameters(),
+                'flat', 'roman')
+            print("XXX flat 1")
+            flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
+            flat = flat_model.data
+            print("XXX flat 2")
         except crds.core.exceptions.CrdsLookupError:
             log.warning('Could not find flat; using 1')
             flat = 1
 
+        print(f"XXX convert 0. exptime_tau = {exptime_tau}")
+        print(f"reffiles['dark'] = {reffiles['dark']}")
+        # print(f"type(dark) = {type(dark)}")
+        # print(f"dark.shape = {dark.shape}")
+        # print(f"dark.value = {dark.value}")
+        # print(f"dark = {dark}")
+        # print(f"dark[0,0,0] = {dark[0,0,0]}")
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
-        darkrate = dark[-1] / exptime_tau
+        #REAL
+        # darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
+        #darkrate = dark
+        print("XXX convert 10")
         nborder = parameters.nborder
-        read_noise = read_noise[nborder:-nborder, nborder:-nborder]
-        darkrate = darkrate[nborder:-nborder, nborder:-nborder]
-        dark = dark[:, nborder:-nborder, nborder:-nborder]
-        gain = gain[nborder:-nborder, nborder:-nborder]
-        linearity = linearity[:, nborder:-nborder, nborder:-nborder]
+        read_noise = read_noise_model.data[nborder:-nborder, nborder:-nborder]
+        #darkrate = darkrate[nborder:-nborder, nborder:-nborder]
+        darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
+        print("XXX convert 50")
+        dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
+        gain = gain_model.data[nborder:-nborder, nborder:-nborder]
+        linearity = linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder]
         linearity = nonlinearity.NL(linearity)
         darkrate *= gain
+        print("XXX convert 100")
+        # from pprint import pprint
+        # pprint(dict(image_mod.meta))
+        image_mod.meta.ref_file.crds.sw_version = crds_client.get_svn_version()
+        image_mod.meta.ref_file.crds.context_used = crds_client.get_context_used(
+            image_mod.crds_observatory
+        )
     else:
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
@@ -689,7 +743,6 @@ def make_test_catalog_and_images(
     out = dict()
     for filter_name in filters:
         metadata['instrument']['optical_element'] = 'F' + filter_name[1:]
-        metadata['galsim']['optical_element'] = filter_name
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
                       webbpsf=webbpsf, **kwargs)
         out[filter_name] = im
