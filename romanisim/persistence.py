@@ -168,15 +168,21 @@ class Persistence:
         """
         return Persistence(**d)
 
-    def write(self, filename):
-        af = asdf.AsdfFile()
-        af.tree = {'persistence': Persistence.to_dict(self)}
-        af.write_to(filename)
-
     @staticmethod
     def read(filename):
+        """Read a persistence dictionary from a simulated image.
+
+        Parameters
+        ----------
+        filename : str
+            The file name to read
+
+        Returns
+        -------
+        Persistence object stored in filename.
+        """
         af = asdf.open(filename)
-        persistdict = af['persistence']
+        persistdict = af['roman']['meta']['persistence']
         return Persistence.from_dict(persistdict)
 
 

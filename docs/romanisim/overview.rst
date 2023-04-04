@@ -66,6 +66,5 @@ and number of photons of each simulated source.
 
 Features not included so far:
 
-* any pedestal/frame 0 features
+* pedestal/frame 0 features
 * non-linear dark features
-* realistic treatment of the noise properties in L2 images, using information about how we go from L1 images & resultants to rate images.

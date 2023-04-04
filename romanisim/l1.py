@@ -415,9 +415,9 @@ def make_asdf(resultants, filepath=None, metadata=None, persistence=None):
         tmpmeta.update(util.flatten_dictionary(
             util.unflatten_dictionary(metadata)['roman']['meta']))
         out['meta'].update(util.unflatten_dictionary(tmpmeta))
+    out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if persistence is not None:
         out['meta']['persistence'] = persistence.to_dict()
-    out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if filepath:
         af = asdf.AsdfFile()
         af.tree = {'roman': out}
