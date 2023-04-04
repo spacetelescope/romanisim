@@ -185,11 +185,23 @@ class Persistence:
         persistdict = af['roman']['meta']['persistence']
         return Persistence.from_dict(persistdict)
 
+    def write(self, filename):
+        """Write a persistence dictionary from a simulated image.
+
+        Parameters
+        ----------
+        filename : str
+            The file name to read
+        """
+        af = asdf.AsdfFile()
+        af.tree = dict(roman=dict(meta=dict(persistence=self.to_dict())))
+        af.write_to(filename)
+
 
 def fermi(x, dt, A, x0, dx, alpha, gamma):
     """
     The Fermi model for persistence:
-    A * (x/x0)**alpha * (t/1000.)**(-gamma) / (exp(-(x-x0)(/dx) + 1)
+    A * (x/x0)**alpha * (t/1000.)**(-gamma) / (exp(-(x-x0)/dx) + 1)
     For influence level below the half well, the persistence is linear in x.
 
     Parameters

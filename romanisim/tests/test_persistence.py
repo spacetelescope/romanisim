@@ -1,7 +1,6 @@
 """Unit tests for persistence module."""
 
 import numpy as np
-import asdf
 from romanisim import persistence
 from romanisim import parameters
 
@@ -59,6 +58,6 @@ def test_persistence(tmp_path):
     fn = tmp_path / 'persist.asdf'
     persist.write(fn)
     persist2 = persistence.Persistence.read(fn)
-    af = asdf.open(fn)
-    for name in af['persistence']:
+    dd = persist.to_dict()
+    for name in dd:
         assert np.all(getattr(persist, name) == getattr(persist2, name))
