@@ -115,6 +115,7 @@ from . import log
 from . import util
 from astropy import units as u
 from roman_datamodels import units as ru
+from . import cr
 
 
 def validate_times(tij):
@@ -177,7 +178,8 @@ def tij_to_pij(tij, remaining=False):
     return pij
 
 
-def apportion_counts_to_resultants(counts, tij, linearity=None):
+def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
+                                   rng=None, seed=None):
     """Apportion counts to resultants given read times.
 
     This finds a statistically appropriate assignment of counts to each
@@ -216,16 +218,35 @@ def apportion_counts_to_resultants(counts, tij, linearity=None):
         list of list of readout times for each read entering a resultant
     linearity : romanisim.nonlinearity.NL or None
         Object implementing non-linearity correction
+    crparam : dict
+        Dictionary of keywords sent to romanisim.cr.simulate_crs for simulating
+        cosmic rays.  If None, no CRs are added
+    rng : galsim.BaseDeviate
+        random number generator
+    seed : int
+        seed to use for random number generator
 
     Returns
     -------
     np.ndarray[n_resultant, nx, ny]
         array of n_resultant images giving each resultant
     """
-
     if not np.all(counts == np.round(counts)):
         raise ValueError('apportion_counts_to_resultants expects the counts '
                          'to be integers!')
+
+    if rng is None and seed is None:
+        seed = 46
+        log.warning(
+            'No RNG set, constructing a new default RNG from default seed.')
+    if rng is None:
+        rng = galsim.GaussianDeviate(seed)
+
+    rng_numpy_seed = rng.raw()
+    rng_numpy = np.random.default_rng(rng_numpy_seed)
+    rng_numpy_cr = np.random.default_rng(rng_numpy_seed + 1)
+    # two separate generators so that if you turn off CRs
+    # you don't change the image
 
     pij = tij_to_pij(tij, remaining=True)
     resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
@@ -254,6 +275,12 @@ def apportion_counts_to_resultants(counts, tij, linearity=None):
 
     readnum = 0
     nlflag = np.zeros(counts.shape, dtype='bool')
+
+    if crparam is None:
+        cr_so_far = 0
+    else:
+        cr_so_far = np.zeros(counts.shape, dtype='i4')
+
     for i, pi in enumerate(pij):
         resultant_counts[...] = 0
         for j, p in enumerate(pi):
@@ -268,10 +295,13 @@ def apportion_counts_to_resultants(counts, tij, linearity=None):
                 m = (efficiency < 0) | (efficiency > 1)
                 nlflag[m] = True
                 efficiency = np.clip(efficiency, 0, 1)
-            read = np.random.binomial((counts - counts_so_far).astype('i4'),
+            read = rng_numpy.binomial((counts - counts_so_far).astype('i4'),
                                       p * efficiency * ki)
             counts_so_far += read
-            resultant_counts += counts_so_far
+            if crparam is not None:
+                cr.simulate_crs(cr_so_far, parameters.read_time, **crparam,
+                                rng=rng_numpy_cr)
+            resultant_counts += counts_so_far + cr_so_far
             if linearity is not None:
                 ki_denominator += efficiency * pij_per_read[i][j]
             readnum += 1
@@ -425,7 +455,7 @@ def add_ipc(resultants, ipc_kernel=None):
 
 def make_l1(counts, ma_table_number,
             read_noise=None, rng=None, seed=None,
-            gain=None, linearity=None):
+            gain=None, linearity=None, crparam=None):
     """Make an L1 image from a counts image.
 
     This apportions the total counts among the different resultants and adds
@@ -450,23 +480,21 @@ def make_l1(counts, ma_table_number,
         Gain (electrons / count) for converting counts to electrons
     linearity : romanisim.nonlinearity.NL or None
         Object describing the non-linearity corrections.
+    crparam : dict
+        Keyword arguments to romanisim.cr.simulate_crs.  If None, no
+        cosmic rays are simulated.
 
     Returns
     -------
     np.ndarray[n_resultant, nx, ny]
         resultants image array including systematic effects
     """
-    if rng is None and seed is None:
-        seed = 45
-        log.warning(
-            'No RNG set, constructing a new default RNG from default seed.')
-    if rng is None:
-        rng = galsim.GaussianDeviate(seed)
 
     tij = ma_table_to_tij(ma_table_number)
     log.info('Apportioning counts to resultants...')
-    resultants = apportion_counts_to_resultants(counts.array, tij,
-                                                linearity=linearity)
+    resultants = apportion_counts_to_resultants(
+        counts.array, tij, linearity=linearity, crparam=crparam,
+        rng=rng, seed=seed)
 
     # roman.addReciprocityFailure(resultants_object)
 

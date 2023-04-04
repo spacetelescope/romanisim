@@ -30,5 +30,11 @@ Interpixel capacitance (IPC) is added following non-linearity and before read-ou
 
 This is slightly different than including IPC in the PSF kernel because including IPC in the PSF kernel leaves the Poisson noise uncorrelated.
 
+Cosmic rays
+-----------
+Cosmic rays are added to the simulation read-by-read.  The cosmic ray parameters follow Wu et al. (2023).  The locations of cosmic rays are chosen at random to sample the focal plane uniformly.  Lengths are chosen according to a power law distribution :math:`p(l) \\sim l^{-4.33}`, with lengths between 10 and 10,000 microns.  Charge deposition rates per micron are selected from a Moyal distribution located at 120 electrons per micron with a width of 50 electrons per micron.  An idealized charge is computed for each pixel in a read according to the product of the deposition rate per micron and the length of the cosmic ray's path within that pixel.  This idealized charge is Poisson sampled and added to the relevant pixels in a read.
+
+
 .. automodapi:: romanisim.l1
 .. automodapi:: romanisim.nonlinearity
+.. automodapi:: romanisim.cr

@@ -428,8 +428,16 @@ def test_simulate(tmp_path):
                         usecrds=False)
     l0tab = image.simulate(
         meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False)
+    # seed = 0 is special and means "don't actually use a seed."  Any other
+    # choice of seed gives deterministic behavior
+    rng = galsim.BaseDeviate(1)
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
-                        usecrds=False)
+                        crparam=dict(), usecrds=False, rng=rng)
+    rng = galsim.BaseDeviate(1)
+    l1_nocr = image.simulate(meta, graycat, webbpsf=True, level=1,
+                             usecrds=False, crparam=None, rng=rng)
+    assert np.all(l1[0].data >= l1_nocr[0].data)
+    log.info('DMS221: Successfully added cosmic rays to an L1 image.')
     l2 = image.simulate(meta, graycat, webbpsf=True, level=2,
                         usecrds=False)
     l2c = image.simulate(meta, chromcat, webbpsf=False, level=2,
