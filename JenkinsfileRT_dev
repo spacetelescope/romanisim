@@ -2,10 +2,10 @@ pipeline {
     agent { label 'macos' }
        environment {
         HOME="${WORKSPACE}"
-        MIRAGE_DATA="/ifs/jwst/wit/mirage_data/"
-        TEST_BIGDATA="https://bytesalad.stsci.edu/artifactory/simcal"
-        CRDS_SERVER_URL = "https://jwst-crds.stsci.edu"
+        TEST_BIGDATA="https://bytesalad.stsci.edu/artifactory/romanisim"
+        CRDS_SERVER_URL = "https://roman-crds.stsci.edu"
         CRDS_PATH = "${WORKSPACE}/crds_cache"
+        PYSYN_CDBS="${WORKSPACE}/cdbs"
         PATH ="${WORKSPACE}/miniconda3/bin:${PATH}"
         TMPDIR="${WORKSPACE}/tmp"
         XDG_CACHE_HOME="${WORKSPACE}/tmp/.cache"
@@ -34,18 +34,17 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh("mkdir data")
-                sh("curl https://stsci.box.com/shared/static/t90gqazqs82d8nh25249oq1obbjfstq8.gz -o data/webbpsf-data-1.1.1.tar.gz")
-                sh("tar -xzvf data/webbpsf-data-1.1.1.tar.gz -C data/")
+                sh("mkdir ${WORKSPACE}/data")
+                sh("curl https://stsci.box.com/shared/static/t90gqazqs82d8nh25249oq1obbjfstq8.gz -o ${WORKSPACE}/data/webbpsf-data-1.1.1.tar.gz")
+                sh("tar -xzvf ${WORKSPACE}/data/webbpsf-data-1.1.1.tar.gz -C ${WORKSPACE}/data/")
                 sh("mkdir data/galsim-data")
-                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example.fits -o data/galsim-data/real_galaxy_catalog_23.5_example.fits")      
-                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_selection.fits -o data/galsim-data/real_galaxy_catalog_23.5_example_selection.fits")      
-                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_fits.fits -o data/galsim-data/real_galaxy_catalog_23.5_example_fits.fits")      
+                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example.fits")      
+                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_selection.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example_selection.fits")      
+                sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_fits.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example_fits.fits")      
                 sh("""#!/usr/bin/env bash
                       source $WORKSPACE/miniconda3/etc/profile.d/conda.sh
-                      export WEBBPSF_PATH="data/webbpsf-data"
-                      export PYSYN_CDBS="/grp/hst/cdbs"
-                      export GALSIM_CAT_PATH="data/galsim-data"
+                      export WEBBPSF_PATH="${WORKSPACE}/data/webbpsf-data"
+                      export GALSIM_CAT_PATH="${WORKSPACE}/data/galsim-data"
                       conda activate romanisim
                       pytest romanisim \
                         --bigdata --slow --basetemp=test_outputs \
