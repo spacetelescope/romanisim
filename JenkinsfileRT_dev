@@ -35,9 +35,10 @@ pipeline {
         stage('Test') {
             steps {
                 sh("mkdir ${WORKSPACE}/data")
+                sh("mkdir ${WORKSPACE}/data/webbpsf-data")
                 sh("curl https://stsci.box.com/shared/static/t90gqazqs82d8nh25249oq1obbjfstq8.gz -o ${WORKSPACE}/data/webbpsf-data-1.1.1.tar.gz")
-                sh("tar -xzvf ${WORKSPACE}/data/webbpsf-data-1.1.1.tar.gz -C ${WORKSPACE}/data/")
-                sh("mkdir data/galsim-data")
+                sh("tar -xzvf ${WORKSPACE}/data/webbpsf-data-1.1.1.tar.gz -C ${WORKSPACE}/data/webbpsf-data")
+                sh("mkdir ${WORKSPACE}/data/galsim-data")
                 sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example.fits")      
                 sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_selection.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example_selection.fits")      
                 sh("curl https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_fits.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example_fits.fits")      
