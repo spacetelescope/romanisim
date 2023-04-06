@@ -42,9 +42,9 @@ pipeline {
                 sh("curl -L https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_selection.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example_selection.fits")      
                 sh("curl -L https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example_fits.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example_fits.fits")      
                 sh("""#!/usr/bin/env bash
-                      source $WORKSPACE/miniconda3/etc/profile.d/conda.sh
+                      source ${WORKSPACE}/miniconda3/etc/profile.d/conda.sh
                       export WEBBPSF_PATH="${WORKSPACE}/data/webbpsf-data"
-                      export GALSIM_CAT_PATH="${WORKSPACE}/data/galsim-data"
+                      export GALSIM_CAT_PATH="${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example.fits"
                       conda activate romanisim
                       pytest romanisim \
                         --bigdata --slow --basetemp=test_outputs \
