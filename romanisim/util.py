@@ -202,8 +202,8 @@ def add_more_metadata(metadata):
         metadata['exposure'][f'{prefix}_time_tdb'] = (
             starttime + offset).tdb.mjd
     metadata['exposure']['ngroups'] = len(ma_table)
-    metadata['exposure'][f'nframes'] = ma_table[0][0]
-    metadata['exposure'][f'sca_number'] = (
+    metadata['exposure']['nframes'] = ma_table[0][0]
+    metadata['exposure']['sca_number'] = (
         int(metadata['instrument']['detector'][-2:]))
     metadata['exposure']['integration_time'] = openshuttertime
     metadata['exposure']['elapsed_exposure_time'] = openshuttertime

@@ -112,7 +112,6 @@ import galsim
 from scipy import ndimage
 from . import parameters
 from . import log
-from . import util
 from astropy import units as u
 from roman_datamodels import units as ru
 from . import cr

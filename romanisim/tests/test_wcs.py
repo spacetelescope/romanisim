@@ -12,6 +12,7 @@ from romanisim import wcs, util, parameters
 import galsim
 import pytest
 
+import roman_datamodels
 try:
     import roman_datamodels.maker_utils as maker_utils
 except ImportError:
@@ -109,15 +110,9 @@ def test_wcs_crds_match():
     # Set up parameters for simulation run
 
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    metadata['instrument']['detector'] = f'WFI07'
+    metadata['instrument']['detector'] = 'WFI07'
     metadata['instrument']['optical_element'] = 'F158'
     metadata['exposure']['ma_table_number'] = 1
-
-    import roman_datamodels
-    try:
-        import roman_datamodels.maker_utils as maker_utils
-    except ImportError:
-        import roman_datamodels.testing.utils as maker_utils
 
     # Create Image model to track validation
     meta = maker_utils.mk_common_meta()

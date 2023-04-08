@@ -522,7 +522,7 @@ def test_reference_file_crds_match(level):
     # Set up parameters for simulation run
     galsim.roman.n_pix = 4088
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    metadata['instrument']['detector'] = f'WFI07'
+    metadata['instrument']['detector'] = 'WFI07'
     metadata['instrument']['optical_element'] = 'F158'
     metadata['exposure']['ma_table_number'] = 1
 
