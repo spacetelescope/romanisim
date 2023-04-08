@@ -608,84 +608,44 @@ def simulate(metadata, objlist,
     # data in numpy arrays.
     # should query CRDS for any reference files not specified on the command
     # line.
-    print(f"XXX CRDS check!")
     if usecrds:
-        print(f"XXX USING CRDS!")
-
-        # reffiles = crds.getreferences(
-        #     image_mod, observatory='roman',
-        #     reftypes=['readnoise', 'dark', 'gain', 'linearity'])
-
         refnames_lst = ['readnoise', 'dark', 'gain', 'linearity']
         reffiles = {}
 
         for refname in refnames_lst:
             reffiles[refname] = crds_client.get_reference_file(
                 image_mod.get_crds_parameters(),
-                # reference_file_type,
-                # ['readnoise', 'dark', 'gain', 'linearity'],
-                # model.crds_observatory,
                 refname,
                 'roman',
             )
 
-        print(f"XXX In usecrds")
-        #read_noise = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise']).data.copy()
         read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise'])
-        print(f"read_noise_model = {read_noise_model}")
-        #dark = roman_datamodels.datamodels.DarkRefModel(reffiles['dark']).data
         dark_model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
-        print(f"dark_model = {dark_model}")
-        #gain = roman_datamodels.datamodels.GainRefModel(reffiles['gain']).data
         gain_model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
-        print(f"gain_model = {gain_model}")
-        #linearity = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity']).coeffs
         linearity_model = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity'])
-        print(f"linearity_model = {linearity_model}")
+
         try:
-            # reffiles = crds.getreferences(
-            #     image_mod, observatory='roman',
-            #     # all_metadata, observatory='roman',
-            #     reftypes=['flat'])
-            # flat = roman_datamodels.datamodels.FlatRefModel(reffiles['flat']).data
-            print("XXX flat 0")
             flatfile = crds_client.get_reference_file(
                 image_mod.get_crds_parameters(),
                 'flat', 'roman')
-            print("XXX flat 1")
+
             flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
             flat = flat_model.data
-            print("XXX flat 2")
+
         except crds.core.exceptions.CrdsLookupError:
             log.warning('Could not find flat; using 1')
             flat = 1
 
-        print(f"XXX convert 0. exptime_tau = {exptime_tau}")
-        print(f"reffiles['dark'] = {reffiles['dark']}")
-        # print(f"type(dark) = {type(dark)}")
-        # print(f"dark.shape = {dark.shape}")
-        # print(f"dark.value = {dark.value}")
-        # print(f"dark = {dark}")
-        # print(f"dark[0,0,0] = {dark[0,0,0]}")
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
-        #REAL
-        # darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
-        #darkrate = dark
-        print("XXX convert 10")
         nborder = parameters.nborder
         read_noise = read_noise_model.data[nborder:-nborder, nborder:-nborder]
-        #darkrate = darkrate[nborder:-nborder, nborder:-nborder]
         darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
-        print("XXX convert 50")
         dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
         gain = gain_model.data[nborder:-nborder, nborder:-nborder]
         linearity = linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder]
         linearity = nonlinearity.NL(linearity)
         darkrate *= gain
-        print("XXX convert 100")
-        # from pprint import pprint
-        # pprint(dict(image_mod.meta))
         image_mod.meta.ref_file.crds.sw_version = crds_client.get_svn_version()
         image_mod.meta.ref_file.crds.context_used = crds_client.get_context_used(
             image_mod.crds_observatory
@@ -728,7 +688,7 @@ def simulate(metadata, objlist,
 
 
 def make_test_catalog_and_images(
-        seed=12345, sca=7, filters=None, nobj=1000, return_variance=False,
+        seed=12345, sca=7, filters=None, nobj=1000, 
         usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')

@@ -399,7 +399,6 @@ def test_simulate(tmp_path):
     imdict = set_up_image_rendering_things()
     # simulate gray, chromatic, level0, level1, level2 images
     roman.n_pix = 100
-    meta = dict()
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
 
@@ -485,14 +484,8 @@ def test_make_test_catalog_and_images():
     ),
 )
 def test_reference_file_crds_match(level):
-    #wfi = webbpsf.WFI()
-
-    #im = galsim.Image(4088, 4088, scale=wfi.pixelscale, xmin=0, ymin=0)
-
-    galsim.roman.n_pix = 4088
-
-
     # Set up parameters for simulation run
+    galsim.roman.n_pix = 4088
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     metadata['instrument']['detector'] = f'WFI07'
     metadata['instrument']['optical_element'] = 'F158'
@@ -501,7 +494,6 @@ def test_reference_file_crds_match(level):
     twcs = wcs.get_wcs(metadata, usecrds=True)
     rd_sca = twcs.toWorld(galsim.PositionD(
         galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
-    print(f"XXX TEST galsim.roman.n_pix = {galsim.roman.n_pix}")
 
     cat = catalog.make_dummy_table_catalog(
         rd_sca, bandpasses=[metadata['instrument']['optical_element']], nobj=1000)
@@ -512,13 +504,7 @@ def test_reference_file_crds_match(level):
         webbpsf=True, level=level,
         rng=rng)
 
-
-    # print(f"XXX TEST type(im) = {type(im)}")
-    # print(f"XXX TEST im.meta = ")
-    # # from pprint import pprint
-    # # pprint(dict(im.meta))
-    # print(f"XXX TEST type(simcatobj) = {type(simcatobj)}")
-
+    # Confirm that CRDS keyword was updated
     assert im.meta.ref_file.crds.sw_version != '12.3.1'
 
     if (level==1):
