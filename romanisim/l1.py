@@ -178,8 +178,9 @@ def tij_to_pij(tij, remaining=False):
     return pij
 
 
-def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
-                                   rng=None, seed=None):
+def apportion_counts_to_resultants(
+        counts, tij, linearity=None, crparam=None, persistence=None,
+        tstart=None, rng=None, seed=None):
     """Apportion counts to resultants given read times.
 
     This finds a statistically appropriate assignment of counts to each
@@ -221,6 +222,11 @@ def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
     crparam : dict
         Dictionary of keywords sent to romanisim.cr.simulate_crs for simulating
         cosmic rays.  If None, no CRs are added
+    persistence : romanisim.persistence.Persistence or None
+        Persistence object describing persistence-affected photons, or None
+        if persistence should not be simulated.
+    tstart : astropy.time.Time
+        Time of exposure start.  Used only if persistence is not None.
     rng : galsim.BaseDeviate
         random number generator
     seed : int
@@ -245,7 +251,8 @@ def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
     rng_numpy_seed = rng.raw()
     rng_numpy = np.random.default_rng(rng_numpy_seed)
     rng_numpy_cr = np.random.default_rng(rng_numpy_seed + 1)
-    # two separate generators so that if you turn off CRs
+    rng_numpy_ps = np.random.default_rng(rng_numpy_seed + 2)
+    # two separate generators so that if you turn off CRs / persistence
     # you don't change the image
 
     pij = tij_to_pij(tij, remaining=True)
@@ -276,10 +283,13 @@ def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
     readnum = 0
     nlflag = np.zeros(counts.shape, dtype='bool')
 
-    if crparam is None:
-        cr_so_far = 0
-    else:
-        cr_so_far = np.zeros(counts.shape, dtype='i4')
+    instrumental_so_far = 0
+    if crparam is not None or persistence is not None:
+        instrumental_so_far = np.zeros(counts.shape, dtype='i4')
+    if persistence is not None and tstart is None:
+        raise ValueError('tstart must be set if persistence is set!')
+    if persistence is not None:
+        tstart = tstart.mjd
 
     for i, pi in enumerate(pij):
         resultant_counts[...] = 0
@@ -299,13 +309,24 @@ def apportion_counts_to_resultants(counts, tij, linearity=None, crparam=None,
                                       p * efficiency * ki)
             counts_so_far += read
             if crparam is not None:
-                cr.simulate_crs(cr_so_far, parameters.read_time, **crparam,
-                                rng=rng_numpy_cr)
-            resultant_counts += counts_so_far + cr_so_far
+                cr.simulate_crs(instrumental_so_far, parameters.read_time,
+                                **crparam, rng=rng_numpy_cr)
+            if persistence is not None:
+                tnow = tstart + tij[i][j] / (24 * 60 * 60)
+                persistence.add_to_read(
+                    instrumental_so_far, tnow, rng=rng_numpy_ps)
+            resultant_counts += counts_so_far + instrumental_so_far
             if linearity is not None:
                 ki_denominator += efficiency * pij_per_read[i][j]
             readnum += 1
         resultants[i, ...] = resultant_counts / len(pi)
+
+    if persistence is not None:
+        # should the electrons from persistence contribute to future
+        # persistence?  Here they do.  But hopefully this choice is second
+        # order enough that either decision would be fine.
+        persistence.update(counts_so_far + instrumental_so_far, tnow)
+
     nweirdpixfrac = np.sum(nlflag) / np.product(nlflag.shape)
     if nweirdpixfrac > 0:
         log.warning(f'{nweirdpixfrac:5.1e} fraction of pixels have '
@@ -361,7 +382,7 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     return resultants
 
 
-def make_asdf(resultants, filepath=None, metadata=None):
+def make_asdf(resultants, filepath=None, metadata=None, persistence=None):
     """Package and optionally write out an L1 frame.
 
     This routine packages an L1 data file with the appropriate Roman data
@@ -392,6 +413,8 @@ def make_asdf(resultants, filepath=None, metadata=None):
     if metadata is not None:
         out['meta'].update(metadata)
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
+    if persistence is not None:
+        out['meta']['persistence'] = persistence.to_dict()
     if filepath:
         af = asdf.AsdfFile()
         af.tree = {'roman': out}
@@ -455,7 +478,8 @@ def add_ipc(resultants, ipc_kernel=None):
 
 def make_l1(counts, ma_table_number,
             read_noise=None, rng=None, seed=None,
-            gain=None, linearity=None, crparam=None):
+            gain=None, linearity=None, crparam=None,
+            persistence=None, tstart=None):
     """Make an L1 image from a counts image.
 
     This apportions the total counts among the different resultants and adds
@@ -483,6 +507,10 @@ def make_l1(counts, ma_table_number,
     crparam : dict
         Keyword arguments to romanisim.cr.simulate_crs.  If None, no
         cosmic rays are simulated.
+    persistence : romanisim.persistence.Persistence
+        Persistence instance describing persistence-affected pixels
+    tstart : astropy.time.Time
+        time of exposure start
 
     Returns
     -------
@@ -494,6 +522,7 @@ def make_l1(counts, ma_table_number,
     log.info('Apportioning counts to resultants...')
     resultants = apportion_counts_to_resultants(
         counts.array, tij, linearity=linearity, crparam=crparam,
+        persistence=persistence, tstart=tstart,
         rng=rng, seed=seed)
 
     # roman.addReciprocityFailure(resultants_object)

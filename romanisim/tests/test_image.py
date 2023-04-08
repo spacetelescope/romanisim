@@ -18,7 +18,7 @@ import copy
 import numpy as np
 import galsim
 from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs
+from romanisim import image, parameters, catalog, psf, util, wcs, persistence
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -154,7 +154,7 @@ def central_stamp(im, sz):
 
 @pytest.mark.soctests
 def test_image_rendering():
-    """Tests for image rendering routines.  This is intended to cover:
+    """Tests for image rendering routines.  This is demonstrates:
     - RUSBREQ-830 / DMS214: point source generation.
     - RSUBREQ-874 / DMS215: analytic model source generation
     """
@@ -394,7 +394,8 @@ def test_simulate_counts():
 @pytest.mark.soctests
 def test_simulate(tmp_path):
     """Test convolved image generation and L2 simulation framework.
-    - RSUBREQ-841 / DMS216: convolved image generation - Level 2
+    Demonstrates DMS216: convolved image generation - Level 2
+    Demonstrates DMS224: persistence.
     """
     imdict = set_up_image_rendering_things()
     # simulate gray, chromatic, level0, level1, level2 images
@@ -429,6 +430,11 @@ def test_simulate(tmp_path):
         meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False)
     # seed = 0 is special and means "don't actually use a seed."  Any other
     # choice of seed gives deterministic behavior
+    # note that we have scaled down the size of the image to 100x100 pix
+    # in order to save time.  But the CR module fixes the area of the detector
+    # rather than the area of a pixel, so this means that all of the normal
+    # CRs are detected, except in a 100x100 region instead of a 4kx4k region;
+    # i.e., there are 1600x too many CRs.  Fine for unit tests?
     rng = galsim.BaseDeviate(1)
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
                         crparam=dict(), usecrds=False, rng=rng)
@@ -438,9 +444,38 @@ def test_simulate(tmp_path):
     assert np.all(l1[0].data >= l1_nocr[0].data)
     log.info('DMS221: Successfully added cosmic rays to an L1 image.')
     l2 = image.simulate(meta, graycat, webbpsf=True, level=2,
-                        usecrds=False)
+                        usecrds=False, crparam=dict())
+    # through in some CRs for fun
     l2c = image.simulate(meta, chromcat, webbpsf=False, level=2,
                          usecrds=False)
+    persist = persistence.Persistence()
+    fluence = 30000
+    persist.update(l0[0]['data'] * 0 + fluence, time.mjd - 100 / 60 / 60 / 24)
+    # zap the whole frame, 100 seconds ago.
+    rng = galsim.BaseDeviate(1)
+    l1p = image.simulate(meta, graycat, webbpsf=True, level=1, usecrds=False,
+                         persistence=persist, crparam=None, rng=rng)
+    # the random number gets instatiated from the same seed, but the order in
+    # which the numbers are generated is different so we can't guarantee, e.g.,
+    # that all of the new values are strictly greater than the old ones.
+    # But we've basically added a constant to the whole scene: we can at least
+    # verify it's positive.
+    diff = l1p[0]['data'][-1] * 1.0 - l1_nocr[0]['data'][-1] * 1.0
+    # L1 files are unsigned, so the difference gets wonky unless you convert
+    # to floats.
+    # do we have a very rough guess for what the persistence should be?
+    # note that getting this exactly right is hard unless we think about
+    # how the persistence decays over the exposure
+    roughguess = persistence.fermi(
+        fluence, 170, parameters.persistence['A'],
+        parameters.persistence['x0'], parameters.persistence['dx'],
+        parameters.persistence['alpha'], parameters.persistence['gamma'])
+    roughguess = roughguess * 140  # seconds of integration
+    assert np.abs(
+        np.log(np.mean(diff * parameters.gain).value / roughguess)) < 1
+    # within a factor of e
+    log.info('DMS224: added persistence to an image.')
+
     # what should we test here?  At least that the images validate?
     # I've already tested as many of the image generation things as I can
     # think of at earlier stages.

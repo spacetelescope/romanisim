@@ -30,11 +30,24 @@ Interpixel capacitance (IPC) is added following non-linearity and before read-ou
 
 This is slightly different than including IPC in the PSF kernel because including IPC in the PSF kernel leaves the Poisson noise uncorrelated.
 
-Cosmic rays
+Persistence
 -----------
-Cosmic rays are added to the simulation read-by-read.  The cosmic ray parameters follow Wu et al. (2023).  The locations of cosmic rays are chosen at random to sample the focal plane uniformly.  Lengths are chosen according to a power law distribution :math:`p(l) \\sim l^{-4.33}`, with lengths between 10 and 10,000 microns.  Charge deposition rates per micron are selected from a Moyal distribution located at 120 electrons per micron with a width of 50 electrons per micron.  An idealized charge is computed for each pixel in a read according to the product of the deposition rate per micron and the length of the cosmic ray's path within that pixel.  This idealized charge is Poisson sampled and added to the relevant pixels in a read.
+Persistence is implemented in the simulator following Sanchez+2023.  This follows
+the Fermi description of persistence implemented in GalSim, where the flux in electrons per second recorded in a pixel is parameterized in terms of the total number of counts recorded in an earlier frame.
 
+.. math:: P(t) = A \frac{1}{1+\exp\left(\frac{-(x-x_0)}{\delta x}\right)} \left(\frac{x}{x_0}\right)^\alpha \left(\frac{t}{1000 \mathrm{s}}\right)^\gamma \, .
+
+Here :math:`P(x, t)` is the rate in electrons per second that the pixel records :math:`t` seconds following receiving a total number of electrons :math:`x`.  The parameters :math:`A`, :math:`x_0`, :math:`\delta x`, :math:`\alpha`, :math:`\gamma` may vary from pixel to pixel, though are presently fixed to global constants.  This equation for the rate only applies to pixels which were illuminated more than to fill more than their half-well.  We follow GalSim and linearly increase the persistence from 0 to the half-well value for illuminations between 0 and half-well.
+
+This persistence rate is sampled with a Poisson distribution and added to each pixel read-by-read and incorporated into the resultants in the L1 images.
+
+Persistence-affected pixels are expected to be rare, and are tracked sparsely via a list of the indices of affected pixels, the amount of the illumination, and the times of their illumination.  Pixels are dropped from persistence tracking when their persistence rate is less than one electron per 100 seconds.  If the same pixel is receives large fluxes multiple times, these are treated as two independent events and the resulting persistence flux is handled by summing the persistence rates given above over each event.
+
+Cosmic rays 
+-----------
+Cosmic rays are added to the simulation read-by-read.  The cosmic ray parameters follow Wu et al. (2023).  The locations of cosmic rays are chosen at random to sample the focal plane uniformly.  Lengths are chosen according to a power law distribution :math:`p(l) \\sim l^{-4.33}`, with lengths between 10 and 10,000 microns.  Charge deposition rates per micron are selected from a Moyal distribution located at 120 electrons per micron with a width of 50 electrons per micron.  An idealized charge is computed for each pixel in a read according to the product of the deposition rate per micron and the length of the cosmic ray's path within that pixel.  This idealized charge is Poisson sampled and added to the relevant pixels in a read. 
 
 .. automodapi:: romanisim.l1
 .. automodapi:: romanisim.nonlinearity
-.. automodapi:: romanisim.cr
+.. automodapi:: romanisim.persistence
+.. automodapi:: romanisim.cr 

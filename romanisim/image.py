@@ -24,6 +24,7 @@ from . import nonlinearity
 import romanisim.l1
 import romanisim.bandpass
 import romanisim.psf
+import romanisim.persistence
 from romanisim import log
 import crds
 from stpipe import crds_client
@@ -540,7 +541,7 @@ def simulate_counts(metadata, objlist,
 
 def simulate(metadata, objlist,
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
-             seed=None, rng=None,
+             persistence=None, seed=None, rng=None,
              **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -565,6 +566,8 @@ def simulate(metadata, objlist,
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
         0 makes a special idealized 'counts' image
+    persistence : romanisim.persistence.Persistence
+        persistence object to use; None for no persistence
     crparam : dict
         Parameters for cosmic ray simulations.  None for no cosmic rays.
         Empty dictionary for default parameters.
@@ -665,6 +668,9 @@ def simulate(metadata, objlist,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
+    if persistence is None:
+        persistence = romanisim.persistence.Persistence()
+
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng,
@@ -675,14 +681,22 @@ def simulate(metadata, objlist,
     else:
         l1 = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-            linearity=linearity, crparam=crparam, **kwargs)
+            crparam=crparam,
+            linearity=linearity, tstart=astropy.time.Time(
+                all_metadata['roman.meta.exposure.start_time']),
+            persistence=persistence,
+            **kwargs)
     if level == 1:
-        im = romanisim.l1.make_asdf(l1, metadata=image_mod.meta)
+        im = romanisim.l1.make_asdf(l1, metadata=image_mod.meta,
+                                    persistence=persistence)
+
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
                             dark=dark)
-        im = make_asdf(*slopeinfo, metadata=image_mod.meta)
+
+        im = make_asdf(*slopeinfo, metadata=image_mod.meta,
+                       persistence=persistence)
     log.info('Simulation complete.')
     return im, simcatobj
 
@@ -713,7 +727,7 @@ def make_test_catalog_and_images(
 
 
 def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
-              filepath=None):
+              filepath=None, persistence=None):
     """Wrap a galsim simulated image with ASDF/roman_datamodel metadata.
 
     Eventually this needs to get enough info to reconstruct a refit WCS.
@@ -776,6 +790,8 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     out['var_rnoise'] = slopevar_rn
     out['var_flat'] = slopevar_rn * 0
     out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
+    if persistence is not None:
+        out['meta']['persistence'] = persistence.to_dict()
     if filepath:
         af = asdf.AsdfFile()
         af.tree = {'roman': out}
