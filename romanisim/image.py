@@ -682,8 +682,7 @@ def simulate(metadata, objlist,
         l1 = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
             crparam=crparam,
-            linearity=linearity, tstart=astropy.time.Time(
-                all_metadata['roman.meta.exposure.start_time']),
+            linearity=linearity, tstart=image_mod.meta.exposure.start_time,
             persistence=persistence,
             **kwargs)
     if level == 1:
