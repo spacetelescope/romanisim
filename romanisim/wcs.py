@@ -20,15 +20,26 @@ import warnings
 import numpy as np
 import astropy.coordinates
 from astropy import units as u
+from astropy.modeling.models import RotationSequence3D, Scale
 import astropy.time
-import crds
-import asdf
+
 import gwcs.geometry
 from gwcs import coordinate_frames as cf
 import gwcs.wcs
 import galsim.wcs
 from galsim import roman
 from . import util
+
+from stpipe import crds_client
+
+import roman_datamodels
+
+# Needed until RCAL release unfreezing link to RDM/RAD versions 0.14.1
+try:
+    import roman_datamodels.maker_utils as maker_utils
+except ImportError:
+    import roman_datamodels.testing.utils as maker_utils
+
 
 
 def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
@@ -38,7 +49,7 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
     ----------
     parameters : dict
         CRDS parameters dictionary
-        keys like roman.meta.pointing.* and roman.meta.wcsinfo.* may be modified
+        keys like pointing.* and wcsinfo.* may be modified
 
     coord : astropy.coordinates.SkyCoord or galsim.CelestialCoord
         world coordinates at V2 / V3 ref (boresight or center of WFI CCDs)
@@ -52,36 +63,43 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
     """
     coord = util.skycoord(coord)
 
-    parameters['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
-    parameters['roman.meta.wcsinfo.ra_ref'] = (
-        parameters['roman.meta.pointing.ra_v1'])
+    if 'pointing' not in parameters.keys():
+        parameters['pointing'] = {}
 
-    parameters['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
-    parameters['roman.meta.wcsinfo.dec_ref'] = (
-        parameters['roman.meta.pointing.dec_v1'])
+    parameters['pointing']['ra_v1'] = coord.ra.to(u.deg).value
 
-    parameters['roman.meta.wcsinfo.roll_ref'] = roll_ref
+    if 'wcsinfo' not in parameters.keys():
+        parameters['wcsinfo'] = {}
+
+    parameters['wcsinfo']['ra_ref'] = (
+        parameters['pointing']['ra_v1'])
+
+    parameters['pointing']['dec_v1'] = coord.dec.to(u.deg).value
+    parameters['wcsinfo']['dec_ref'] = (
+        parameters['pointing']['dec_v1'])
+
+    parameters['wcsinfo']['roll_ref'] = roll_ref
 
     if boresight:
-        parameters['roman.meta.wcsinfo.v2_ref'] = 0
-        parameters['roman.meta.wcsinfo.v3_ref'] = 0
+        parameters['wcsinfo']['v2_ref'] = 0
+        parameters['wcsinfo']['v3_ref'] = 0
     else:
         from .parameters import v2v3_wficen
         v2_ref = v2v3_wficen[0] / 3600
         v3_ref = v2v3_wficen[1] / 3600
-        parameters['roman.meta.wcsinfo.v2_ref'] = v2_ref
-        parameters['roman.meta.wcsinfo.v3_ref'] = v3_ref
-        parameters['roman.meta.wcsinfo.roll_ref'] = (
-            parameters.get('roman.meta.wcsinfo.roll_ref', 0) + 60)
+        parameters['wcsinfo']['v2_ref'] = v2_ref
+        parameters['wcsinfo']['v3_ref'] = v3_ref
+        parameters['wcsinfo']['roll_ref'] = (
+            parameters['wcsinfo'].get('roll_ref', 0) + 60)
 
-
-def get_wcs(metadata, usecrds=True, distortion=None):
+def get_wcs(image, usecrds=True, distortion=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
 
     Parameters
     ----------
-    metadata : dict
-        CRDS parameters dictionary specifying appropriate reference distortion
+    image : roman_datamodels.datamodels.ImageModel or dict
+        Image model or dictionary containing CRDS parameters
+        specifying appropriate reference distortion
         map to load.
     usecrds : bool
         If True, use crds reference distortions rather than galsim.roman
@@ -95,23 +113,40 @@ def get_wcs(metadata, usecrds=True, distortion=None):
     galsim.CelestialWCS for an SCA
     """
 
-    metadata = util.flatten_dictionary(metadata)
-    sca = int(metadata['roman.meta.instrument.detector'][3:])
-    date = astropy.time.Time(metadata['roman.meta.exposure.start_time'])
+    # If sent a dictionary, create a temporary model for CRDS interface
+    if(type(image) != roman_datamodels.datamodels.ImageModel):
+        image_node = maker_utils.mk_level2_image()
+        for key in image.keys():
+            if isinstance(image[key], dict):
+                image_node['meta'][key].update(image[key])
+            else:
+                image_node['meta'][key] = image[key]
+        image_mod = roman_datamodels.datamodels.ImageModel(image_node)
+    else:
+        image_mod = image
+
+    sca = int(image_mod.meta.instrument.detector[3:])
+    date = astropy.time.Time(image_mod.meta.exposure.start_time)
+
     world_pos = astropy.coordinates.SkyCoord(
-        metadata['roman.meta.wcsinfo.ra_ref'] * u.deg,
-        metadata['roman.meta.wcsinfo.dec_ref'] * u.deg)
+        image_mod.meta.wcsinfo.ra_ref * u.deg,
+        image_mod.meta.wcsinfo.dec_ref * u.deg)
 
     if (distortion is None) and usecrds:
-        fn = crds.getreferences(metadata, reftypes=['distortion'],
-                                observatory='roman')
-        distortion = asdf.open(fn['distortion'])
-        distortion = distortion['roman']['coordinate_distortion_transform']
+        dist_name = crds_client.get_reference_file(
+            image_mod.get_crds_parameters(),
+            'distortion',
+            'roman',
+        )
+
+        dist_model = roman_datamodels.datamodels.DistortionRefModel(dist_name)
+        distortion = dist_model.coordinate_distortion_transform
+
     if distortion is not None:
         wcs = make_wcs(util.skycoord(world_pos), distortion,
-                       v2_ref=metadata['roman.meta.wcsinfo.v2_ref'],
-                       v3_ref=metadata['roman.meta.wcsinfo.v3_ref'],
-                       roll_ref=metadata['roman.meta.wcsinfo.roll_ref'])
+                       v2_ref=image_mod.meta.wcsinfo.v2_ref,
+                       v3_ref=image_mod.meta.wcsinfo.v3_ref,
+                       roll_ref=image_mod.meta.wcsinfo.roll_ref)
         wcs = GWCS(wcs)
     else:
         # use galsim.roman
@@ -171,7 +206,6 @@ def make_wcs(targ_pos, distortion, roll_ref=0, v2_ref=0, v3_ref=0,
     # angles = np.array([v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref])
     # axes = "zyxyz"
     # rot = RotationSequence3D(angles, axes_order=axes)
-    from astropy.modeling.models import RotationSequence3D, Scale
     rot = RotationSequence3D(
         [v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref], 'zyxyz')
 

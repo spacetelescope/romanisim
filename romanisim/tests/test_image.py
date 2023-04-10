@@ -14,6 +14,7 @@ These routines exercise the following:
 """
 
 import os
+import copy
 import numpy as np
 import galsim
 from galsim import roman
@@ -28,6 +29,7 @@ from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
 from roman_datamodels import units as ru
+from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 
 
 def test_in_bounds():
@@ -365,15 +367,21 @@ def test_simulate_counts():
     # But at least they'll exercise some machinery if the ignore_distant_sources
     # argument is high enough!
     roman.n_pix = 100
-    metadata = {'roman.meta.exposure.start_time': '2020-01-01T00:00:00',
-                'roman.meta.instrument.detector': 'WFI01',
-                'roman.meta.instrument.optical_element': 'F158',
-                'roman.meta.exposure.ma_table_number': 1,
-                }
-    wcs.fill_in_parameters(metadata, coord)
-    im1 = image.simulate_counts(metadata, chromcat, usecrds=False,
+
+    meta = {
+        'exposure': {
+            'start_time': Time('2020-01-01T00:00:00'),
+            'ma_table_number' : 1,
+        },
+        'instrument': {
+            'detector': 'WFI01',
+            'optical_element': 'F158',
+        },
+    }
+    wcs.fill_in_parameters(meta, coord)
+    im1 = image.simulate_counts(meta, chromcat, usecrds=False,
                                 webbpsf=False, ignore_distant_sources=100)
-    im2 = image.simulate_counts(metadata, graycat,
+    im2 = image.simulate_counts(meta, graycat,
                                 usecrds=False, webbpsf=True,
                                 ignore_distant_sources=100)
     im1 = im1[0].array
@@ -392,15 +400,24 @@ def test_simulate(tmp_path):
     imdict = set_up_image_rendering_things()
     # simulate gray, chromatic, level0, level1, level2 images
     roman.n_pix = 100
-    meta = dict()
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
-    meta['roman.meta.exposure.start_time'] = time
-    meta['roman.meta.pointing.ra_v1'] = coord.ra.to(u.deg).value
-    meta['roman.meta.pointing.dec_v1'] = coord.dec.to(u.deg).value
-    meta['roman.meta.exposure.ma_table_number'] = 1
-    meta['roman.meta.instrument.optical_element'] = 'F158'
-    meta['roman.meta.instrument.detector'] = 'WFI01'
+
+    meta = {
+        'exposure' : {
+            'start_time' : time,
+            'ma_table_number' : 1,
+        },
+        'instrument' : {
+            'optical_element' : 'F158',
+            'detector' : 'WFI01'
+        },
+        'pointing' : {
+            'ra_v1' : coord.ra.to(u.deg).value,
+            'dec_v1' : coord.dec.to(u.deg).value,
+        },
+    }
+
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
     for o in chromcat:
@@ -488,3 +505,44 @@ def test_make_test_catalog_and_images():
     res = image.make_test_catalog_and_images(usecrds=False,
                                              galaxy_sample_file_name=fn)
     assert len(res) > 0
+
+@pytest.mark.parametrize(
+    "level",
+    [
+        1, 2,
+    ],
+)
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason=(
+        "Roman CRDS servers are not currently available outside the internal network"
+    ),
+)
+def test_reference_file_crds_match(level):
+    # Set up parameters for simulation run
+    galsim.roman.n_pix = 4088
+    metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    metadata['instrument']['detector'] = 'WFI07'
+    metadata['instrument']['optical_element'] = 'F158'
+    metadata['exposure']['ma_table_number'] = 1
+
+    twcs = wcs.get_wcs(metadata, usecrds=True)
+    rd_sca = twcs.toWorld(galsim.PositionD(
+        galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
+
+    cat = catalog.make_dummy_table_catalog(
+        rd_sca, bandpasses=[metadata['instrument']['optical_element']], nobj=1000)
+
+    rng = galsim.UniformDeviate(None)
+    im, simcatobj = image.simulate(
+        metadata, cat, usecrds=True,
+        webbpsf=True, level=level,
+        rng=rng)
+
+    # Confirm that CRDS keyword was updated
+    assert im.meta.ref_file.crds.sw_version != '12.3.1'
+
+    if (level==1):
+        assert (type(im) == WfiScienceRaw)
+    else: #level = 2
+        assert (type(im) == WfiImage)

@@ -5,6 +5,7 @@ Unit tests for utility functions.
 import pytest
 import numpy as np
 from astropy import units as u
+from astropy.time import Time
 import galsim
 from romanisim import util
 from astropy.coordinates import SkyCoord
@@ -85,12 +86,18 @@ def test_random_points_in_cap():
 
 
 def test_add_more_metadata():
-    metadata = {'roman.meta.exposure.start_time': '2026-01-01T00:00:00',
-                'roman.meta.instrument.detector': 'WFI01',
-                'roman.meta.exposure.ma_table_number': 1,
+    metadata = {'exposure' :
+                    {
+                        'start_time': Time('2026-01-01T00:00:00'),
+                        'ma_table_number': 1,
+                    },
+                'instrument' :
+                    {
+                        'detector': 'WFI01',
+                    },
                 }
     util.add_more_metadata(metadata)
-    assert len(metadata) > 3  # some metadata got added.
+    assert len(metadata['exposure']) > 2  # some metadata got added.
 
 
 def test_king_profile():

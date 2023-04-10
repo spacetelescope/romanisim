@@ -1,7 +1,8 @@
 """
 Unit tests for wcs module.
 """
-
+import os
+import copy
 import numpy as np
 from astropy.modeling import rotations, projections, models
 from astropy.coordinates import SkyCoord
@@ -9,7 +10,13 @@ from astropy import units as u
 from astropy.time import Time
 from romanisim import wcs, util, parameters
 import galsim
+import pytest
 
+import roman_datamodels
+try:
+    import roman_datamodels.maker_utils as maker_utils
+except ImportError:
+    import roman_datamodels.testing.utils as maker_utils
 
 def make_fake_distortion_function():
     """A very simple distortion function.
@@ -62,9 +69,14 @@ def test_wcs():
     xx2, yy2 = wcsgalsim._xy(rr, dd)
     assert np.allclose(xx, xx2)
     assert np.allclose(yy, yy2)
-    metadata = {'roman.meta.instrument.detector': 'WF101',
-                'roman.meta.exposure.start_time': Time('2026-01-01T00:00:00')
+
+    metadata = {'instrument' : {
+                    'detector': 'WFI01',
+                },
+                'exposure' : {
+                    'start_time': Time('2026-01-01T00:00:00'),
                 }
+    }
     wcs.fill_in_parameters(metadata, cc, boresight=True)
     wcswrap = wcs.get_wcs(metadata, distortion=distortion)
     cc2 = util.skycoord(wcswrap.toWorld(galsim.PositionD(0, 0)))
@@ -86,3 +98,34 @@ def test_wcs():
     # should be close to the reference v2 & v3 offset.
     assert np.abs(cc3.separation(cc4).to(u.arcsec).value
                   - np.hypot(*parameters.v2v3_wficen)) < 1
+
+
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason=(
+        "Roman CRDS servers are not currently available outside the internal network"
+    ),
+)
+def test_wcs_crds_match():
+    # Set up parameters for simulation run
+
+    metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    metadata['instrument']['detector'] = 'WFI07'
+    metadata['instrument']['optical_element'] = 'F158'
+    metadata['exposure']['ma_table_number'] = 1
+
+    # Create Image model to track validation
+    meta = maker_utils.mk_common_meta()
+    meta["photometry"] = maker_utils.mk_photometry()
+
+    for key in metadata.keys():
+        meta[key].update(metadata[key])
+
+    image_node = maker_utils.mk_level2_image()
+    image_node['meta'] = meta
+    image_mod = roman_datamodels.datamodels.ImageModel(image_node)
+
+    twcs = wcs.get_wcs(image_mod, usecrds=True)
+
+    # Expect a GWCS object as opposed to a dictionary
+    assert type(twcs) == wcs.GWCS

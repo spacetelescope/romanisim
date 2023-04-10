@@ -14,10 +14,8 @@ from astropy import table
 import asdf
 import galsim
 from galsim import roman
-try:
-    import roman_datamodels.testing.utils as maker_utils
-except ImportError:
-    import roman_datamodels.maker_utils as maker_utils
+
+
 from . import wcs
 from . import catalog
 from . import parameters
@@ -29,7 +27,16 @@ import romanisim.psf
 import romanisim.persistence
 from romanisim import log
 import crds
+from stpipe import crds_client
+
+
+import roman_datamodels
 from roman_datamodels import units as ru
+try:
+    import roman_datamodels.maker_utils as maker_utils
+except ImportError:
+    import roman_datamodels.testing.utils as maker_utils
+
 
 # galsim fluxes are in photons / cm^2 / s
 # we need to specify the area and exposure time in drawImage if
@@ -484,9 +491,11 @@ def simulate_counts(metadata, objlist,
     simcatobj : np.ndarray
         catalog of simulated objects in image
     """
+
     ma_table = parameters.ma_table[
-        metadata['roman.meta.exposure.ma_table_number']]
-    sca = int(metadata['roman.meta.instrument.detector'][3:])
+        metadata['exposure']['ma_table_number']]
+
+    sca = int(metadata['instrument']['detector'][3:])
     exptime = parameters.read_time * (ma_table[-1][0] + ma_table[-1][1] - 1)
     if rng is None and seed is None:
         seed = 43
@@ -495,9 +504,9 @@ def simulate_counts(metadata, objlist,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
-    filter_name = metadata['roman.meta.instrument.optical_element']
+    filter_name = metadata['instrument']['optical_element']
 
-    date = metadata['roman.meta.exposure.start_time']
+    date = metadata['exposure']['start_time']
     if not isinstance(date, astropy.time.Time):
         date = astropy.time.Time(date, format='isot')
 
@@ -574,14 +583,24 @@ def simulate(metadata, objlist,
     simcatobj : np.ndarray
         image positions and fluxes of simulated objects
     """
-    all_metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    flatmetadata = util.flatten_dictionary(metadata)
-    util.add_more_metadata(metadata)
-    flatmetadata = {'roman.meta' + k if k.find('roman.meta') != 0 else k: v
-                    for k, v in flatmetadata.items()}
-    all_metadata.update(**util.flatten_dictionary(metadata))
-    ma_table_number = all_metadata['roman.meta.exposure.ma_table_number']
-    filter_name = all_metadata['roman.meta.instrument.optical_element']
+    meta = maker_utils.mk_common_meta()
+    meta["photometry"] = maker_utils.mk_photometry()
+
+    for key in parameters.default_parameters_dictionary.keys():
+        meta[key].update(parameters.default_parameters_dictionary[key])
+
+    util.add_more_metadata(meta)
+
+    for key in metadata.keys():
+        meta[key].update(metadata[key])
+
+    # Create Image model to track validation
+    image_node = maker_utils.mk_level2_image()
+    image_node['meta'] = meta
+    image_mod = roman_datamodels.datamodels.ImageModel(image_node)
+
+    ma_table_number = image_mod.meta.exposure.ma_table_number
+    filter_name = image_mod.meta.instrument.optical_element
 
     ma_table = parameters.ma_table[ma_table_number]
     exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2))
@@ -593,33 +612,47 @@ def simulate(metadata, objlist,
     # should query CRDS for any reference files not specified on the command
     # line.
     if usecrds:
-        reffiles = crds.getreferences(
-            all_metadata, observatory='roman',
-            reftypes=['readnoise', 'dark', 'gain', 'linearity'])
-        read_noise = asdf.open(reffiles['readnoise'])['roman']['data']
-        dark = asdf.open(reffiles['dark'])['roman']['data']
-        gain = asdf.open(reffiles['gain'])['roman']['data']
-        linearity = asdf.open(reffiles['linearity'])['roman']['coeffs']
+        refnames_lst = ['readnoise', 'dark', 'gain', 'linearity']
+        reffiles = {}
+
+        for refname in refnames_lst:
+            reffiles[refname] = crds_client.get_reference_file(
+                image_mod.get_crds_parameters(),
+                refname,
+                'roman',
+            )
+
+        read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise'])
+        dark_model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
+        gain_model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
+        linearity_model = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity'])
+
         try:
-            reffiles = crds.getreferences(
-                all_metadata, observatory='roman',
-                reftypes=['flat'])
-            flat = asdf.open(reffiles['flat'])['roman']['data']
+            flatfile = crds_client.get_reference_file(
+                image_mod.get_crds_parameters(),
+                'flat', 'roman')
+
+            flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
+            flat = flat_model.data
+
         except crds.core.exceptions.CrdsLookupError:
             log.warning('Could not find flat; using 1')
             flat = 1
 
         # convert the last dark resultant into a dark rate by dividing by the
         # mean time in that resultant.
-        darkrate = dark[-1] / exptime_tau
         nborder = parameters.nborder
-        read_noise = read_noise[nborder:-nborder, nborder:-nborder]
-        darkrate = darkrate[nborder:-nborder, nborder:-nborder]
-        dark = dark[:, nborder:-nborder, nborder:-nborder]
-        gain = gain[nborder:-nborder, nborder:-nborder]
-        linearity = linearity[:, nborder:-nborder, nborder:-nborder]
+        read_noise = read_noise_model.data[nborder:-nborder, nborder:-nborder]
+        darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
+        dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
+        gain = gain_model.data[nborder:-nborder, nborder:-nborder]
+        linearity = linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder]
         linearity = nonlinearity.NL(linearity)
         darkrate *= gain
+        image_mod.meta.ref_file.crds.sw_version = crds_client.get_svn_version()
+        image_mod.meta.ref_file.crds.context_used = crds_client.get_context_used(
+            image_mod.crds_observatory
+        )
     else:
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
@@ -640,7 +673,7 @@ def simulate(metadata, objlist,
 
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
-        all_metadata, objlist, rng=rng,
+        image_mod.meta, objlist, rng=rng,
         usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat)
     if level == 0:
@@ -649,32 +682,33 @@ def simulate(metadata, objlist,
         l1 = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
             crparam=crparam,
-            linearity=linearity, tstart=astropy.time.Time(
-                all_metadata['roman.meta.exposure.start_time']),
+            linearity=linearity, tstart=image_mod.meta.exposure.start_time,
             persistence=persistence,
             **kwargs)
     if level == 1:
-        im = romanisim.l1.make_asdf(l1, metadata=all_metadata,
+        im = romanisim.l1.make_asdf(l1, metadata=image_mod.meta,
                                     persistence=persistence)
+
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
                             dark=dark)
-        im = make_asdf(*slopeinfo, metadata=all_metadata,
+
+        im = make_asdf(*slopeinfo, metadata=image_mod.meta,
                        persistence=persistence)
     log.info('Simulation complete.')
     return im, simcatobj
 
 
 def make_test_catalog_and_images(
-        seed=12345, sca=7, filters=None, nobj=1000, return_variance=False,
+        seed=12345, sca=7, filters=None, nobj=1000, 
         usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')
     if filters is None:
         filters = ['Y106', 'J129', 'H158']
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    metadata['roman.meta.instrument.detector'] = 'WFI%02d' % sca
+    metadata['instrument']['detector'] = 'WFI%02d' % sca
     imwcs = wcs.get_wcs(metadata, usecrds=usecrds)
     rd_sca = imwcs.toWorld(galsim.PositionD(
         roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
@@ -684,7 +718,7 @@ def make_test_catalog_and_images(
     rng = galsim.UniformDeviate(0)
     out = dict()
     for filter_name in filters:
-        metadata['roman.meta.instrument.optical_element'] = filter_name
+        metadata['instrument']['optical_element'] = 'F' + filter_name[1:]
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
                       webbpsf=webbpsf, **kwargs)
         out[filter_name] = im
@@ -747,12 +781,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     # var_rnoise: okay
     # var_flat: currently zero
     if metadata is not None:
-        # ugly mess of flattening & unflattening to make sure that deeply
-        # nested keywords all get propagated into the metadata structure.
-        tmpmeta = util.flatten_dictionary(out['meta'])
-        tmpmeta.update(util.flatten_dictionary(
-            util.unflatten_dictionary(metadata)['roman']['meta']))
-        out['meta'].update(util.unflatten_dictionary(tmpmeta))
+        out['meta'].update(metadata)
 
     out['data'] = slope
     out['dq'] = np.zeros(slope.shape, dtype='u4')

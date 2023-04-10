@@ -112,7 +112,6 @@ import galsim
 from scipy import ndimage
 from . import parameters
 from . import log
-from . import util
 from astropy import units as u
 from roman_datamodels import units as ru
 from . import cr
@@ -411,10 +410,7 @@ def make_asdf(resultants, filepath=None, metadata=None, persistence=None):
     out = maker_utils.mk_level1_science_raw(
         shape=(len(resultants), npix, npix))
     if metadata is not None:
-        tmpmeta = util.flatten_dictionary(out['meta'])
-        tmpmeta.update(util.flatten_dictionary(
-            util.unflatten_dictionary(metadata)['roman']['meta']))
-        out['meta'].update(util.unflatten_dictionary(tmpmeta))
+        out['meta'].update(metadata)
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if persistence is not None:
         out['meta']['persistence'] = persistence.to_dict()
