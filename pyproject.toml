@@ -24,7 +24,6 @@ dependencies = [
     'galsim >=2.3',
     'rad >=0.14.1',
     'roman_datamodels >=0.14.1',
-    'romancal >=0.10',
     'gwcs >=0.18.1',
     'jsonschema >=4.0.1',
     'webbpsf >=1.0.0',
