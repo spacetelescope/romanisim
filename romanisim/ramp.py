@@ -461,3 +461,84 @@ def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, ma_table=None):
     resultants += np.random.randn(len(ma_table), ntrial) * (
         readnoise / np.sqrt(nread)).reshape(len(ma_table), 1)
     return (ma_table, flux, readnoise, resultants)
+
+
+def fit_ramps_casertano(resultants, read_noise, ma_table):
+    nadd = len(resultants.shape) - 1
+    if np.ndim(read_noise) <= 1:
+        read_noise = np.array(read_noise).reshape((1,) * nadd)
+    smax = resultants[-1]
+    s = smax / np.sqrt(read_noise**2 + smax)  # Casertano+2022 Eq. 44
+    ptable = np.array([  # Casertano+2022, Table 2
+        [-np.inf, 0], [5, 0.4], [10, 1], [20, 3], [50, 6], [100, 10]])
+    pp = np.searchsorted(ptable[:, 0], s) - 1
+    nn = np.array([x[1] for x in ma_table])  # number of reads in each resultant
+    tbar = ma_table_to_tbar(ma_table)
+    tau = ma_table_to_tau(ma_table)
+    tbarmid = (tbar[0] + tbar[-1]) / 2
+    if nadd > 0:
+        newshape = ((-1,) + (1,) * nadd)
+        nn = nn.reshape(*newshape)
+        tbar = tbar.reshape(*newshape)
+        tau = tau.reshape(*newshape)
+        tbarmid = tbarmid.reshape(*newshape)
+    ww = (  # Casertano+22, Eq. 45
+        (1 + pp)[None, ...] * nn /
+        (1 + pp[None, ...] * nn) *
+        (tbar - tbarmid) ** pp[None, ...])
+    # shape: [n_resultant, ny, nx]
+    # not clear to me in Casertano+22 how to deal with CRs
+    # fit as two separate ramps, but what should we use for
+    # smax here, etc..
+
+    # Casertano+22 Eq. 35
+    f0 = np.sum(ww, axis=0)
+    f1 = np.sum(ww * tbar, axis=0)
+    f2 = np.sum(ww * tbar**2, axis=0)
+    # Casertano+22 Eq. 36
+    dd = f2*f0 - f1**2
+    bad = dd == 0
+    dd[bad] = 1
+    # Casertano+22 Eq. 37
+    kk = (f0[None, ...] * tbar - f1[None, ...]) * ww / (
+        dd[None, ...])
+    # shape: [n_resultant, ny, nx]
+    ff = np.sum(kk * resultants, axis=0) # Casertano+22 Eq. 38
+    # Casertano+22 Eq. 39
+    vr = np.sum(kk**2 / nn, axis=0) * read_noise**2
+    # Casertano+22 Eq. 40
+    vs1 = np.sum(kk**2 * tau, axis=0)
+    vs2inner = np.cumsum(kk * tbar, axis=0)
+    vs2inner = np.concatenate([0 * vs2inner[0][None, ...], vs2inner[:-1, ...]], axis=0)
+    # sum_{i=1}^{j-1} K_i \bar{t}_i
+    # this is the inner of the two sums in the 2nd term of Eq. 40
+    # Casertano+22 has some discussion of whether it's more efficient to do
+    # this as an explicit double sum or to construct the inner sum separately.
+    # We've made a lot of other quantities that are [nr, ny, nx] in size,
+    # so I don't feel bad about making another.  Clearly a memory optimized
+    # code would work a lot harder to reuse a lot of variables above!
+    vs = (vs1 + 2 * np.sum(vs2inner * kk, axis=0)) * ff
+    vs = np.clip(vs, 0, np.inf)
+    # we can estimate negative flux, but we really shouldn't add variance for
+    # that case!
+
+    # match return values from RampFitInterpolator.fit_ramps
+    # we haven't explicitly calculated here the pedestal, its
+    # uncertainty, or covariance terms.  We just fill
+    # with zeros.
+
+    par = np.zeros(ff.shape + (2,), dtype='f4')
+    var = np.zeros(ff.shape + (3, 2, 2), dtype='f4')
+    par[..., 1] = ff
+    var[..., 0, 1, 1] = vr
+    var[..., 1, 1, 1] = vs
+    var[..., 2, 1, 1] = vr + vs
+
+    return par, var
+
+
+    # bad pixels are flagged and weights set to zero
+    # CRs -> this isn't what we want?
+    # what kind of bad pixel are we envisioning?
+    # ignoring this for now.
+    
