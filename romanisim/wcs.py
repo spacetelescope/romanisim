@@ -20,7 +20,7 @@ import warnings
 import numpy as np
 import astropy.coordinates
 from astropy import units as u
-from astropy.modeling.models import RotationSequence3D, Scale
+from astropy.modeling import models
 import astropy.time
 import roman_datamodels
 import crds
@@ -204,12 +204,12 @@ def make_wcs(targ_pos, distortion, roll_ref=0, v2_ref=0, v3_ref=0,
     # angles = np.array([v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref])
     # axes = "zyxyz"
     # rot = RotationSequence3D(angles, axes_order=axes)
-    rot = RotationSequence3D(
+    rot = models.RotationSequence3D(
         [v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref], 'zyxyz')
 
     # distortion takes pixels to V2V3
     # V2V3 are in arcseconds, while SphericalToCartesian expects degrees.
-    model = (distortion | (Scale(1 / 3600) & Scale(1 / 3600))
+    model = (distortion | (models.Scale(1 / 3600) & models.Scale(1 / 3600))
              | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
              | rot
              | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
