@@ -27,8 +27,6 @@ import romanisim.psf
 import romanisim.persistence
 from romanisim import log
 import crds
-from stpipe import crds_client
-
 
 import roman_datamodels
 from roman_datamodels import units as ru
@@ -613,14 +611,9 @@ def simulate(metadata, objlist,
     # line.
     if usecrds:
         refnames_lst = ['readnoise', 'dark', 'gain', 'linearity']
-        reffiles = {}
-
-        for refname in refnames_lst:
-            reffiles[refname] = crds_client.get_reference_file(
-                image_mod.get_crds_parameters(),
-                refname,
-                'roman',
-            )
+        reffiles = crds.getreferences(
+            image_mod.get_crds_parameters(), reftypes=refnames_lst,
+            observatory='roman')
 
         read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise'])
         dark_model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
@@ -628,9 +621,9 @@ def simulate(metadata, objlist,
         linearity_model = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity'])
 
         try:
-            flatfile = crds_client.get_reference_file(
+            flatfile = crds.getreferences(
                 image_mod.get_crds_parameters(),
-                'flat', 'roman')
+                reftypes=['flat'], observatory='roman')['flat']
 
             flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
             flat = flat_model.data
@@ -649,9 +642,9 @@ def simulate(metadata, objlist,
         linearity = linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder]
         linearity = nonlinearity.NL(linearity)
         darkrate *= gain
-        image_mod.meta.ref_file.crds.sw_version = crds_client.get_svn_version()
-        image_mod.meta.ref_file.crds.context_used = crds_client.get_context_used(
-            image_mod.crds_observatory
+        image_mod.meta.ref_file.crds.sw_version = crds.__version__
+        image_mod.meta.ref_file.crds.context_used = crds.get_context_name(
+            observatory=image_mod.crds_observatory
         )
     else:
         read_noise = galsim.roman.read_noise

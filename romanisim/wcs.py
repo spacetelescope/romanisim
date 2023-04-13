@@ -22,7 +22,8 @@ import astropy.coordinates
 from astropy import units as u
 from astropy.modeling.models import RotationSequence3D, Scale
 import astropy.time
-
+import roman_datamodels
+import crds
 import gwcs.geometry
 from gwcs import coordinate_frames as cf
 import gwcs.wcs
@@ -30,9 +31,6 @@ import galsim.wcs
 from galsim import roman
 from . import util
 
-from stpipe import crds_client
-
-import roman_datamodels
 
 # Needed until RCAL release unfreezing link to RDM/RAD versions 0.14.1
 try:
@@ -133,11 +131,11 @@ def get_wcs(image, usecrds=True, distortion=None):
         image_mod.meta.wcsinfo.dec_ref * u.deg)
 
     if (distortion is None) and usecrds:
-        dist_name = crds_client.get_reference_file(
+        dist_name = crds.getreferences(
             image_mod.get_crds_parameters(),
-            'distortion',
-            'roman',
-        )
+            reftypes=['distortion'],
+            observatory='roman',
+        )['distortion']
 
         dist_model = roman_datamodels.datamodels.DistortionRefModel(dist_name)
         distortion = dist_model.coordinate_distortion_transform
