@@ -12,10 +12,10 @@ def test_traverse():
     i2, j2 = np.random.random((2, 100)) * 100
     for i in range(len(i1)):
         ii, jj, lengths = cr.traverse((i1[i], j1[i]), (i2[i], j2[i]), 100, 100)
+        totlen = np.hypot(i1[i] - i2[i], j1[i] - j2[i])
         assert len(set(zip(ii, jj))) == len(ii)
         assert np.all(lengths > 0)
-        assert np.all(lengths < np.hypot(i1[i] - i2[i], j1[i] - j2[i]))
-
+        assert np.all((lengths < totlen) | np.isclose(lengths, totlen))
 
 def test_create_sampler():
     xx = np.linspace(0, 1, 1000)

@@ -1,5 +1,4 @@
 git+https://github.com/asdf-format/asdf
 git+https://github.com/spacetelescope/roman_datamodels
 git+https://github.com/spacetelescope/rad
-git+https://github.com/spacetelescope/romancal
 astropy>=0.0.dev0
