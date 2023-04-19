@@ -98,12 +98,17 @@ def fit_ramps(np.ndarray[float, ndim=2] resultants,
     cdef np.ndarray[float] tbarmid = (tbar[resstart] + tbar[resend]) / 2
 
     # Casertano+22, Eq. 45
+    # It's easy to use up a lot of dynamic range on something like
+    # (tbar - tbarmid) ** 10.  Rescale these.
+    cdef float tscale = (np.max(tbar) - np.min(tbar)) / 2
+    if tscale == 0:
+        tscale = 1
     cdef np.ndarray[float, ndim=2] ww = np.zeros(
         (resultants.shape[0], resultants.shape[1]), dtype='f4')
     for i in range(nramp):
         for j in range(resstart[i], resend[i] + 1):
             ww[j, pix[i]] = (((1 + pp[i]) * nn[j]) / (1 + pp[i] * nn[j])
-	                     * abs(tbar[j] - tbarmid[i]) ** pp[i])
+	                     * abs((tbar[j] - tbarmid[i])/tscale) ** pp[i])
 
     cdef np.ndarray[float] f0 = np.zeros(nramp, dtype='f4')
     cdef np.ndarray[float] f1 = np.zeros(nramp, dtype='f4')
