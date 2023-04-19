@@ -94,9 +94,18 @@ def test_ramp(test_table=None):
     pedestals = np.array([-10, 0, 10, -1, 0, 1, 2])
     resultants = (fluxes.reshape(1, -1) * tbar.reshape(-1, 1)
                   + pedestals.reshape(1, -1))
-    par, var = fitter.fit_ramps(resultants, read_noise)
-    assert np.allclose(par[:, 1], fluxes, atol=1e-6)
-    assert np.allclose(par[:, 0], pedestals, atol=1e-2)
+    from functools import partial
+    rampfitters = [
+        fitter.fit_ramps,
+        partial(ramp.fit_ramps_casertano_no_dq, ma_table=test_table),
+        partial(ramp.fit_ramps_casertano, ma_table=test_table,
+                dq=resultants * 0)
+    ]
+    for fitfun in rampfitters:
+        par, var = fitfun(resultants=resultants, read_noise=read_noise)
+        assert np.allclose(par[:, 1], fluxes, atol=1e-6)
+        if not np.all(par[:, 0]) == 0:
+            assert np.allclose(par[:, 0], pedestals, atol=1e-2)
 
 
 def test_hard_ramps():

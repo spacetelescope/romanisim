@@ -1,7 +1,21 @@
 from pathlib import Path
 
-from setuptools import setup
+from setuptools import setup, Extension
+from Cython.Build import cythonize
+from Cython.Compiler import Options
+import numpy as np
 
-scripts = [str(s) for s in Path('scripts/').iterdir() if s.is_file() and s.name != '__pycache__']
+Options.docstrings = True
+Options.annotate = False
 
-setup(scripts=scripts)
+extensions = [Extension('romanisim.ramp_fit_casertano',
+                        ['romanisim/ramp_fit_casertano.pyx'],
+                        include_dirs=[np.get_include()])]
+
+
+scripts = [str(s) for s in Path('scripts/').iterdir()
+           if s.is_file() and s.name != '__pycache__']
+
+directives = dict(language_level=3, profile=False)
+setup(scripts=scripts,
+      ext_modules=cythonize(extensions, compiler_directives=directives))
