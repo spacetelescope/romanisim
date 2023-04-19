@@ -12,10 +12,9 @@ extensions = [Extension('romanisim.ramp_fit_casertano',
                         ['romanisim/ramp_fit_casertano.pyx'],
                         include_dirs=[np.get_include()])]
 
-
 scripts = [str(s) for s in Path('scripts/').iterdir()
            if s.is_file() and s.name != '__pycache__']
 
-directives = dict(language_level=3, profile=False)
 setup(scripts=scripts,
-      ext_modules=cythonize(extensions, compiler_directives=directives))
+      ext_modules=cythonize(extensions),
+)
