@@ -26,6 +26,7 @@ dependencies = [
     'jsonschema >=4.0.1',
     'webbpsf >=1.0.0',
     'roman_datamodels >=0.14.1',
+    'Cython >=0.29',
 ]
 dynamic = ['version']
 
