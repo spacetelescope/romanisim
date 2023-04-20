@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from setuptools import setup, Extension
-from Cython.Build import cythonize
+from Cython.Build import cythonize, build_ext
 from Cython.Compiler import Options
 import numpy as np
 
@@ -17,4 +17,5 @@ scripts = [str(s) for s in Path('scripts/').iterdir()
 
 setup(scripts=scripts,
       ext_modules=cythonize(extensions),
+      cmdclass={'build_ext': build_ext},
 )
