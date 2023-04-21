@@ -107,6 +107,14 @@ def test_ramp(test_table=None):
         if not np.all(par[:, 0]) == 0:
             assert np.allclose(par[:, 0], pedestals, atol=1e-2)
 
+    # compare single ramp and multi-ramp versions
+    p1, v1 = ramp.fit_ramps_casertano(resultants, resultants * 0, read_noise,
+                                      test_table)
+    p2, v2 = ramp.fit_ramps_casertano(resultants[:, 0], resultants[:, 0] * 0,
+                                      read_noise, test_table)
+    assert np.all(np.isclose(p1[0], p2))
+    assert np.all(np.isclose(v1[0], v2))
+
 
 def test_hard_ramps():
     ma_tables = list()
@@ -131,11 +139,11 @@ def test_simulated_ramps():
     for p, v in [[par, var], [par2, var2]]:
         chi2dof_slope = np.sum((p[:, 1] - flux)**2 / v[:, 2, 1, 1]) / ntrial
         chi2dof_pedestal = np.sum((p[:, 0] - 0)**2 / v[:, 2, 0, 0]) / ntrial
-    assert np.abs(chi2dof_slope - 1) < 0.03
-    assert np.abs(chi2dof_pedestal - 1) < 0.03
+        assert np.abs(chi2dof_slope - 1) < 0.03
+        assert np.abs(chi2dof_pedestal - 1) < 0.03
     # It's not clear what level of precision to demand here.  This should
     # not actually give a value consistent with a normal chi^2 distribution
-    # because the Poisson noise is Poisson distribution, but we are treating
+    # because the Poisson noise is Poisson distributed, but we are treating
     # it as Gaussian distributed in the ramp fitting.  So we kind of just want
     # good rather than perfect.  The above requires that the sigmas be right
     # at the 5% level, which isn't terrible.  Presumably the accuracy
@@ -147,6 +155,25 @@ def test_simulated_ramps():
     # This test depends on random numbers and may eventually fail, but
     # the 0.03 margin is enough that it should very (_very_) rarely fail
     # absent code changes.
+
+    par, var = ramp.fit_ramps_casertano(
+        resultants, resultants * 0, read_noise, ma_table)
+    chi2dof_slope = np.sum((par[:, 1] - flux)**2 / var[:, 2, 1, 1]) / ntrial
+    assert np.abs(chi2dof_slope - 1) < 0.03
+
+    # now let's mark a bunch of the ramps as compromised.
+    bad = np.random.uniform(size=resultants.shape) > 0.7
+    dq = resultants * 0 + bad
+    par, var = ramp.fit_ramps_casertano(
+        resultants, dq, read_noise, ma_table)
+    # only use okay ramps
+    # ramps passing the below criterion have at least two adjacent valid reads
+    # i.e., we can make a measurement from them.
+    m = np.sum((dq[1:, :] == 0) & (dq[:-1, :] == 0), axis=0) != 0
+    chi2dof_slope = np.sum((par[m, 1] - flux)**2 / var[m, 2, 1, 1]) / np.sum(m)
+    assert np.abs(chi2dof_slope - 1) < 0.03
+    assert np.all(par[~m, 1] == 0)
+    assert np.all(var[~m, 1] == 0)
 
 
 def test_resultants_to_differences():

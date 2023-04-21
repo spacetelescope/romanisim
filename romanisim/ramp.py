@@ -526,17 +526,23 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
     totval = np.bincount(rampfitdict['pix'],
                          weights=weight * rampfitdict['slope'],
                          minlength=npix)
-    par.reshape(npix, 2)[:, 1] = totval / totweight  # fill in the averaged slopes
+    # fill in the averaged slopes
+    par.reshape(npix, 2)[:, 1] = (
+        totval / (totweight + (totweight == 0)))
+
     # read noise variances
     totval = np.bincount(
         rampfitdict['pix'], weights=weight ** 2 * rampfitdict['slopereadvar'],
         minlength=npix)
-    var.reshape(npix, 3, 2, 2)[:, 0, 1, 1] = totval / totweight ** 2
+    var.reshape(npix, 3, 2, 2)[:, 0, 1, 1] = (
+        totval / (totweight ** 2 + (totweight == 0)))
     # poisson noise variances
     totval = np.bincount(
-        rampfitdict['pix'], weights=weight**2 * rampfitdict['slopepoissonvar'],
-        minlength=npix)
-    var.reshape(npix, 3, 2, 2)[..., 1, 1, 1] = totval / totweight ** 2
+        rampfitdict['pix'],
+        weights=weight ** 2 * rampfitdict['slopepoissonvar'], minlength=npix)
+    var.reshape(npix, 3, 2, 2)[..., 1, 1, 1] = (
+        totval / (totweight ** 2 + (totweight == 0)))
+
     var[..., 1, 1, 1] *= par[..., 1]  # multiply Poisson term by flux
     var[..., 2, 1, 1] = var[..., 0, 1, 1] + var[..., 1, 1, 1]
 

@@ -17,4 +17,4 @@ scripts = [str(s) for s in Path('scripts/').iterdir()
 
 setup(scripts=scripts,
       ext_modules=cythonize(extensions),
-)
+      )
