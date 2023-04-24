@@ -115,6 +115,9 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     rampfitter = ramp.RampFitInterpolator(ma_table)
     ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
                                             read_noise * gain)
+    log.warning('The ramp fitter is unaware of noise from dark current because '
+                'it runs on dark-subtracted images.  We could consider adding '
+                'a separate dark rate term to fit ramps.')
     # could iterate if we wanted to improve the flux estimates
 
     # The ramp fitter is not presently unit-aware; fix up the units by hand.

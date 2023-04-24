@@ -28,6 +28,7 @@ dependencies = [
     'jsonschema >=4.0.1',
     'webbpsf >=1.0.0',
     'roman_datamodels >=0.14.1',
+    'Cython >=0.29',
 ]
 dynamic = ['version']
 
@@ -62,6 +63,8 @@ requires = [
     'setuptools >=61',
     'setuptools_scm[toml] >=3.4',
     'wheel',
+    'Cython >=0.29',
+    'numpy >=1.18',
 ]
 build-backend = 'setuptools.build_meta'
 
