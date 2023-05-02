@@ -66,7 +66,7 @@ except ImportError:
 
 
 def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
-            linearity=None, dark=None):
+            linearity=None, dark=None, dq=None):
     """
     Simulate an image in a filter given resultants.
 
@@ -86,6 +86,8 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
         non-linearity correction to use.
     dark : np.ndarray[nresultants, nx, ny] (float)
         dark image to subtract from ramps (DN)
+    dq : np.ndarray[nresultants, nx, ny] (int)
+        DQ image corresponding to resultants
 
     Returns
     -------
@@ -112,9 +114,14 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     from . import ramp
     log.info('Fitting ramps.')
-    rampfitter = ramp.RampFitInterpolator(ma_table)
-    ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
-                                            read_noise * gain)
+    # rampfitter = ramp.RampFitInterpolator(ma_table)
+    # ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
+    #                                         read_noise * gain)
+    if dq is None:
+        dq = np.zeros(resultants.shape, dtype='i4')
+    ramppar, rampvar = ramp.fit_ramps_casertano(resultants * gain, dq,
+                                                read_noise, ma_table)
+
     log.warning('The ramp fitter is unaware of noise from dark current because '
                 'it runs on dark-subtracted images.  We could consider adding '
                 'a separate dark rate term to fit ramps.')
@@ -613,15 +620,21 @@ def simulate(metadata, objlist,
     # should query CRDS for any reference files not specified on the command
     # line.
     if usecrds:
-        refnames_lst = ['readnoise', 'dark', 'gain', 'linearity']
+        refnames_lst = ['readnoise', 'dark', 'gain', 'linearity', 'saturation']
         reffiles = crds.getreferences(
             image_mod.get_crds_parameters(), reftypes=refnames_lst,
             observatory='roman')
 
-        read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(reffiles['readnoise'])
-        dark_model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
-        gain_model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
-        linearity_model = roman_datamodels.datamodels.LinearityRefModel(reffiles['linearity'])
+        read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(
+            reffiles['readnoise'])
+        dark_model = roman_datamodels.datamodels.DarkRefModel(
+            reffiles['dark'])
+        gain_model = roman_datamodels.datamodels.GainRefModel(
+            reffiles['gain'])
+        linearity_model = roman_datamodels.datamodels.LinearityRefModel(
+            reffiles['linearity'])
+        saturation_model = roman_datamodels.datamodels.SaturationRefModel(
+            reffiles['saturation'])
 
         try:
             flatfile = crds.getreferences(
@@ -642,13 +655,14 @@ def simulate(metadata, objlist,
         darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
         dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
         gain = gain_model.data[nborder:-nborder, nborder:-nborder]
-        linearity = linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder]
-        linearity = nonlinearity.NL(linearity)
+        linearity = nonlinearity.NL(
+            linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder])
         darkrate *= gain
         image_mod.meta.ref_file.crds.sw_version = crds.__version__
         image_mod.meta.ref_file.crds.context_used = crds.get_context_name(
             observatory=image_mod.crds_observatory
         )
+        saturation = saturation_model.data[nborder:-nborder, nborder:-nborder]
     else:
         read_noise = galsim.roman.read_noise
         darkrate = galsim.roman.dark_current
@@ -656,6 +670,7 @@ def simulate(metadata, objlist,
         gain = None
         flat = 1
         linearity = None
+        saturation = None
 
     if rng is None and seed is None:
         seed = 43
@@ -669,29 +684,28 @@ def simulate(metadata, objlist,
 
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
-        image_mod.meta, objlist, rng=rng,
-        usecrds=usecrds, darkrate=darkrate,
+        image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat)
     if level == 0:
         im = dict(data=counts.array)
     else:
-        l1 = romanisim.l1.make_l1(
+        l1, l1dq = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
             crparam=crparam,
             linearity=linearity, tstart=image_mod.meta.exposure.start_time,
-            persistence=persistence,
+            persistence=persistence, saturation=saturation,
             **kwargs)
     if level == 1:
-        im = romanisim.l1.make_asdf(l1, metadata=image_mod.meta,
+        im = romanisim.l1.make_asdf(l1, dq=l1dq, metadata=image_mod.meta,
                                     persistence=persistence)
 
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
-                            dark=dark)
-
+                            dark=dark, dq=l1dq)
+        l2dq = np.bitwise_or.reduce(l1dq, axis=0)
         im = make_asdf(*slopeinfo, metadata=image_mod.meta,
-                       persistence=persistence)
+                       persistence=persistence, dq=l2dq)
     log.info('Simulation complete.')
     return im, simcatobj
 
@@ -722,7 +736,7 @@ def make_test_catalog_and_images(
 
 
 def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
-              filepath=None, persistence=None):
+              filepath=None, persistence=None, dq=None):
     """Wrap a galsim simulated image with ASDF/roman_datamodel metadata.
 
     Eventually this needs to get enough info to reconstruct a refit WCS.
@@ -781,6 +795,8 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
 
     out['data'] = slope
     out['dq'] = np.zeros(slope.shape, dtype='u4')
+    if dq is not None:
+        out['dq'][:, :] = dq
     out['var_poisson'] = slopevar_poisson
     out['var_rnoise'] = slopevar_rn
     out['var_flat'] = slopevar_rn * 0

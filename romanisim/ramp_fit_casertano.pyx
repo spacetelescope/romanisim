@@ -5,6 +5,7 @@ import romanisim.ramp
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+@cython.cdivision(True)
 def fit_ramps(np.ndarray[float, ndim=2] resultants,
               np.ndarray[int, ndim=2] dq,
               np.ndarray[float, ndim=1] read_noise, ma_table):
@@ -65,7 +66,7 @@ def fit_ramps(np.ndarray[float, ndim=2] resultants,
     cdef np.ndarray[int] resstart = np.zeros(nramp, dtype='i4') - 1
     cdef np.ndarray[int] resend = np.zeros(nramp, dtype='i4') - 1
     cdef np.ndarray[int] pix = np.zeros(nramp, dtype='i4') - 1
-    cdef int i, j
+    cdef int i, j, m
     cdef int inramp = -1
     cdef int rampnum = 0
     for i in range(npixel):

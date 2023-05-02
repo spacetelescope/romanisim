@@ -233,8 +233,11 @@ def apportion_counts_to_resultants(
 
     Returns
     -------
-    np.ndarray[n_resultant, nx, ny]
+    resultants, dq
+    resultants : np.ndarray[n_resultant, nx, ny]
         array of n_resultant images giving each resultant
+    dq : np.ndarray[n_resultant, nx, ny]
+        dq array marking CR hits in resultants
     """
     if not np.all(counts == np.round(counts)):
         raise ValueError('apportion_counts_to_resultants expects the counts '
@@ -258,6 +261,7 @@ def apportion_counts_to_resultants(
     resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
     counts_so_far = np.zeros(counts.shape, dtype='f4')
     resultant_counts = np.zeros(counts.shape, dtype='f4')
+    dq = np.zeros(resultants.shape, dtype='i4')
 
     efficiency = 1
     if linearity is not None:
@@ -308,8 +312,11 @@ def apportion_counts_to_resultants(
                                       p * efficiency * ki)
             counts_so_far += read
             if crparam is not None:
+                old_instrumental_so_far = instrumental_so_far.copy()
                 cr.simulate_crs(instrumental_so_far, parameters.read_time,
                                 **crparam, rng=rng_numpy_cr)
+                crhits = instrumental_so_far != old_instrumental_so_far
+                dq[i, crhits] |= parameters.dqbits['jump_det']
             if persistence is not None:
                 tnow = tstart + tij[i][j] / (24 * 60 * 60)
                 persistence.add_to_read(
@@ -332,7 +339,7 @@ def apportion_counts_to_resultants(
                     'observed(corrected) nonlinearity slopes of >1 or <0.  '
                     'The CRDS reference values are likely problematic for '
                     'these pixels.')
-    return resultants
+    return resultants, dq
 
 
 def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
@@ -381,7 +388,7 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     return resultants
 
 
-def make_asdf(resultants, filepath=None, metadata=None, persistence=None):
+def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=None):
     """Package and optionally write out an L1 frame.
 
     This routine packages an L1 data file with the appropriate Roman data
@@ -394,6 +401,8 @@ def make_asdf(resultants, filepath=None, metadata=None, persistence=None):
         resultants array, giving each of n_resultant resultant images
     filepath : str
         if not None, path of asdf file to L1 image into
+    dq : np.ndarray[n_resultant, nx, ny] (int)
+        dq array flagging saturated / CR hit pixels
 
     Returns
     -------
@@ -412,6 +421,9 @@ def make_asdf(resultants, filepath=None, metadata=None, persistence=None):
     if metadata is not None:
         out['meta'].update(metadata)
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
+    if dq is not None:
+        out['dq'] = np.zeros(out['data'].shape, dtype='i4')
+        out['dq'][:, nborder:-nborder, nborder:-nborder] = dq
     if persistence is not None:
         out['meta']['persistence'] = persistence.to_dict()
     if filepath:
@@ -478,7 +490,7 @@ def add_ipc(resultants, ipc_kernel=None):
 def make_l1(counts, ma_table_number,
             read_noise=None, rng=None, seed=None,
             gain=None, linearity=None, crparam=None,
-            persistence=None, tstart=None):
+            persistence=None, tstart=None, saturation=None):
     """Make an L1 image from a counts image.
 
     This apportions the total counts among the different resultants and adds
@@ -513,13 +525,16 @@ def make_l1(counts, ma_table_number,
 
     Returns
     -------
-    np.ndarray[n_resultant, nx, ny]
+    l1, l1dq
+    l1: np.ndarray[n_resultant, nx, ny]
         resultants image array including systematic effects
+    dq: np.ndarray[n_resultant, nx, ny]
+        DQ array marking saturated pixels and cosmic rays
     """
 
     tij = ma_table_to_tij(ma_table_number)
     log.info('Apportioning counts to resultants...')
-    resultants = apportion_counts_to_resultants(
+    resultants, dq = apportion_counts_to_resultants(
         counts.array, tij, linearity=linearity, crparam=crparam,
         persistence=persistence, tstart=tstart,
         rng=rng, seed=seed)
@@ -553,7 +568,17 @@ def make_l1(counts, ma_table_number,
     # quantize
     resultants = np.round(resultants)
 
-    # garbage "saturation" implementation
-    resultants = np.clip(resultants, 0 * ru.DN, (2**16 - 1) * ru.DN)
+    # add pedestal
+    resultants += parameters.pedestal
 
-    return resultants
+    if saturation is None:
+        saturation = parameters.saturation
+
+    # this maybe should be better applied at read time?
+    # it's not actually clear to me what the right thing to do
+    # is in detail.
+    resultants = np.clip(resultants, 0 * ru.DN, saturation)
+    m = resultants >= saturation
+    dq[m] |= parameters.dqbits['saturated']
+
+    return resultants, dq

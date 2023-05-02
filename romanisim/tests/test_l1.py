@@ -12,7 +12,7 @@ Routines tested:
 
 import pytest
 import numpy as np
-from romanisim import l1, log
+from romanisim import l1, log, parameters
 import galsim
 import galsim.roman
 import asdf
@@ -65,7 +65,7 @@ def test_apportion_counts_to_resultants():
     counts = np.random.poisson(100, size=(100, 100))
     read_noise = 10
     for tij in tijlist:
-        resultants = l1.apportion_counts_to_resultants(counts, tij)
+        resultants, dq = l1.apportion_counts_to_resultants(counts, tij)
         assert np.all(np.diff(resultants, axis=0) >= 0)
         assert np.all(resultants >= 0)
         assert np.all(resultants <= counts[None, :, :])
@@ -77,7 +77,7 @@ def test_apportion_counts_to_resultants():
         assert np.all(res3 != resultants)
         for restij, plane_index in zip(tij, np.arange(res3.shape[0])):
             sdev = np.std(res3[plane_index] - resultants[plane_index])
-            assert (sdev - read_noise / np.sqrt(len(restij))
+            assert (np.abs(sdev - read_noise / np.sqrt(len(restij)))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
         log.info('DMS220: successfully added read noise to resultants.')
 
@@ -92,7 +92,8 @@ def test_inject_source_into_ramp():
     flux = 10000
     sourcecounts[49, 49] = flux  # delta function source with 100 counts.
     tij = np.arange(1, 6 * 3 + 1).reshape(6, 3)
-    newramp = ramp + l1.apportion_counts_to_resultants(sourcecounts, tij)
+    resultants, dq = l1.apportion_counts_to_resultants(sourcecounts, tij)
+    newramp = ramp + resultants
     assert np.all(newramp >= ramp)
     # only added photons
     assert np.sum(newramp == ramp) == (100 * 100 - 1) * 6
@@ -141,8 +142,8 @@ def test_make_l1_and_asdf(tmp_path):
     counts = np.random.poisson(100, size=(100, 100))
     galsim.roman.n_pix = 100
     for ma_table in ma_table_list:
-        resultants = l1.make_l1(galsim.Image(counts), ma_table,
-                                gain=1 * ru.electron / ru.DN)
+        resultants, dq = l1.make_l1(galsim.Image(counts), ma_table,
+                                    gain=1 * ru.electron / ru.DN)
         assert resultants.shape[0] == len(ma_table)
         assert resultants.shape[1] == counts.shape[0]
         assert resultants.shape[2] == counts.shape[1]
@@ -151,10 +152,11 @@ def test_make_l1_and_asdf(tmp_path):
         assert np.all(resultants == resultants.astype('i4'))
         # we could look for non-zero correlations from the IPC to
         # check that that is working?  But that is slightly annoying.
-        resultants = l1.make_l1(galsim.Image(counts), ma_table,
-                                read_noise=0 * ru.DN,
-                                gain=1 * ru.electron / ru.DN)
-        assert np.all(resultants <= np.max(counts[None, ...] * ru.DN))
+        resultants, dq = l1.make_l1(galsim.Image(counts), ma_table,
+                                    read_noise=0 * ru.DN,
+                                    gain=1 * ru.electron / ru.DN)
+        assert np.all(resultants - parameters.pedestal
+                      <= np.max(counts[None, ...] * ru.DN))
         # because of IPC, one can't require that each pixel is smaller
         # than the number of counts
         assert np.all(resultants >= 0 * ru.DN)
@@ -163,4 +165,13 @@ def test_make_l1_and_asdf(tmp_path):
         af = asdf.AsdfFile()
         af.tree = {'roman': res_forasdf}
         af.validate()
+        resultants, dq = l1.make_l1(galsim.Image(np.full((100, 100), 10**7)),
+                                    ma_table, gain=1 * ru.electron / ru.DN,
+                                    saturation=10**6 * ru.DN)
+        assert np.all((dq[-1] & parameters.dqbits['saturated']) != 0)
+        resultants, dq = l1.make_l1(galsim.Image(np.zeros((100, 100))),
+                                    ma_table, gain=1 * ru.electron / ru.DN,
+                                    read_noise=0 * ru.DN, crparam=dict())
+        assert np.all((resultants[0] - parameters.pedestal == 0)
+                      | ((dq[0] & parameters.dqbits['jump_det']) != 0))
     log.info('DMS227: successfully made an L1 file that validates.')

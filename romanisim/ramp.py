@@ -35,6 +35,7 @@ from . import parameters
 import romanisim.ramp_fit_casertano
 from scipy import interpolate
 from astropy import units as u
+from roman_datamodels import units as ru
 
 
 def ma_table_to_tbar(ma_table):
@@ -460,7 +461,7 @@ def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, ma_table=None):
     nread = np.array([x[1] for x in ma_table])
     tij = l1.ma_table_to_tij(ma_table)
     totcounts = np.random.poisson(flux * np.max(np.concatenate(tij)), ntrial)
-    resultants = l1.apportion_counts_to_resultants(totcounts, tij)
+    resultants, dq = l1.apportion_counts_to_resultants(totcounts, tij)
     resultants += np.random.randn(len(ma_table), ntrial) * (
         readnoise / np.sqrt(nread)).reshape(len(ma_table), 1)
     return (ma_table, flux, readnoise, resultants)
@@ -494,7 +495,12 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
         the read noise, Poisson source noise, and total noise.
     """
 
+    resultants_unit = getattr(resultants, 'unit', None)
+    if resultants_unit is not None:
+        resultants = resultants.to(ru.electron).value
+
     resultants = np.array(resultants).astype('f4')
+
     dq = np.array(dq).astype('i4')
 
     if np.ndim(read_noise) <= 1:
@@ -511,7 +517,7 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
     rampfitdict = romanisim.ramp_fit_casertano.fit_ramps(
         resultants.reshape(resultants.shape[0], -1),
         dq.reshape(resultants.shape[0], -1),
-        read_noise,
+        read_noise.reshape(-1),
         ma_table)
 
     par = np.zeros(resultants.shape[1:] + (2,), dtype='f4')
@@ -549,6 +555,9 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
     if resultants.shape != origshape:
         par = par[0]
         var = var[0]
+
+    if resultants_unit is not None:
+        par = par * resultants_unit
 
     return par, var
 

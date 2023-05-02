@@ -75,9 +75,10 @@ def test_make_l2():
     assert np.allclose(slopes, 0)
     resultants[:, :, :] = np.arange(4)[:, None, None]
     resultants *= ru.DN
+    gain = 1 * ru.electron / ru.DN
     slopes, readvar, poissonvar = image.make_l2(
         resultants, ma_table,
-        gain=1 * ru.electron / ru.DN, flat=1, dark=0)
+        gain=gain, flat=1, dark=0)
     assert np.allclose(slopes, 1 / parameters.read_time / 4 * u.electron / u.s)
     assert np.all(np.array(slopes.shape) == np.array(readvar.shape))
     assert np.all(np.array(slopes.shape) == np.array(poissonvar.shape))
@@ -98,7 +99,7 @@ def test_make_l2():
     assert np.allclose(readvar2, readvar1 / 0.5**2)
     assert np.allclose(poissonvar2, poissonvar1 / 0.5**2)
     slopes, readvar, poissonvar = image.make_l2(
-        resultants, ma_table, read_noise=1, gain=1, flat=1,
+        resultants, ma_table, read_noise=1, gain=gain, flat=1,
         dark=resultants)
     assert np.allclose(slopes, 0)
 
@@ -445,7 +446,7 @@ def test_simulate(tmp_path):
     log.info('DMS221: Successfully added cosmic rays to an L1 image.')
     l2 = image.simulate(meta, graycat, webbpsf=True, level=2,
                         usecrds=False, crparam=dict())
-    # through in some CRs for fun
+    # throw in some CRs for fun
     l2c = image.simulate(meta, chromcat, webbpsf=False, level=2,
                          usecrds=False)
     persist = persistence.Persistence()
