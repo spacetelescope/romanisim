@@ -114,13 +114,17 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     from . import ramp
     log.info('Fitting ramps.')
+
+    # commented out code below is inverse-covariance ramp fitting
+    # which doesn't presently support DQ information
     # rampfitter = ramp.RampFitInterpolator(ma_table)
     # ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
     #                                         read_noise * gain)
+
     if dq is None:
         dq = np.zeros(resultants.shape, dtype='i4')
     ramppar, rampvar = ramp.fit_ramps_casertano(resultants * gain, dq,
-                                                read_noise, ma_table)
+                                                read_noise * gain, ma_table)
 
     log.warning('The ramp fitter is unaware of noise from dark current because '
                 'it runs on dark-subtracted images.  We could consider adding '

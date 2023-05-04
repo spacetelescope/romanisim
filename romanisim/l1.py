@@ -525,7 +525,7 @@ def make_l1(counts, ma_table_number,
 
     Returns
     -------
-    l1, l1dq
+    l1, dq
     l1: np.ndarray[n_resultant, nx, ny]
         resultants image array including systematic effects
     dq: np.ndarray[n_resultant, nx, ny]

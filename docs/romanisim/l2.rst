@@ -11,8 +11,10 @@ This approach does not handle cosmic rays or saturated pixels well, though for m
 
 The second approach follows `Casertano+2022 <https://webbpsf.readthedocs.io/en/latest/installation.html#installing-the-required-data-files>`_.  In this approach, a diagonal set of weights is used in place of the full covariance matrix.  The choice of weights depend on the particular pattern of reads assigned to each resultant and the amount of flux in the ramp, allowing them to interpolate from simply differencing the first and last resultants when the flux is very large to weighting the resultants by the number of reads when the flux is zero.  This approach more efficiently handles dealing with ramps that have been split by cosmic rays, and obtaining uncertainties within a few percent of the "optimal" weighting approach.  For these cases, we report final ramp slopes and variances derived from the inverse variance weighted subramp slopes and variances, using the read-noise derived variances.
 
-This is a fairly faithful representation of how level two image construction works, so there are not many additional effects to add here.
+This is a fairly faithful representation of how level two image construction works, so there are not many additional effects to add here.  But mentioning some limitations:
 
-* We are ignoring saturation both here and at the L1 stage.
+* We have a simplistic saturation treatment, just clipping resultants that exceed
+  the saturation level to the saturation level and throwing a flag.
+* We do not include dark counts as part of the Poisson noise term in the ramp fitting.
 
 .. automodapi:: romanisim.ramp
