@@ -2,7 +2,7 @@
 name = 'romanisim'
 description = 'Nancy Grace Roman Space Telescope WFI Simulator'
 readme = 'README.md'
-requires-python = '>=3.8'
+requires-python = '>=3.9'
 license = { file = 'LICENSE' }
 authors = [{ name = 'STScI', email = 'help@stsci.edu' }]
 classifiers = [
