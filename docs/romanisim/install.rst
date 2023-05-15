@@ -32,3 +32,30 @@ Using CRDS requires specifying the ``CRDS_PATH`` and
 ``CRDS_SERVER_URL`` variables.  CRDS is not used unless the
 ``--usecrds`` argument is specified; do not include this argument
 unless you have access to the Roman CRDS.
+
+That said, the basic install process looks like this::
+
+    pip install romanisim
+    # to get a specific version, use instead
+    # pip install romanisim==0.1
+    # to be able to run the tests for a specific version, use instead
+    # pip install romanisim[test]==0.1
+
+    # get webbpsf data and untar it
+    mkdir -p $HOME/data/webbpsf-data
+    cd $HOME/data/webbpsf-data
+    wget https://stsci.box.com/shared/static/t90gqazqs82d8nh25249oq1obbjfstq8.gz -O webbpsf-data.tar.gz
+    tar -xzf webbpsf-data.tar.gz
+    export WEBBPSF_PATH=$PWD/webbpsf-data
+
+    # get galsim galaxy catalogs
+    # Note: ~5 GB each, takes a little while to download.
+    # Both are needed for tests.  Neither are needed if you are
+    # exclusively using analytic model galaxies.
+    galsim_download_cosmos -s 23.5
+    galsim_download_cosmos -s 25.2
+
+You may wish to, for example, set up a new python virtual environment
+before running the above, or choose a different directory for
+WebbPSF's data files.
+

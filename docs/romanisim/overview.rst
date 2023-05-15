@@ -4,8 +4,8 @@ Overview
 romanisim simulates Roman Wide-Field Imager images of astronomical scenes
 described by catalogs of sources.  The simulation includes:
 
-* convolution of the sources by the appropriate PSF for each detector
-* realistic world coordinate system
+* convolution of the sources by the Roman point spread function
+* optical distortion
 * sky background
 * level 1 image support (3D image stack of up-the-ramp samples)
 * level 2 image support (2D image after calibration & ramp fitting)
@@ -15,15 +15,26 @@ described by catalogs of sources.  The simulation includes:
 * read noise
 * inter-pixel capacitance
 * non-linearity
-* reciprocity failure
+* saturation
+* ramp fitting
+* source injection
 
 The simulator is based on galsim and most of these features directly invoke the
 equivalents in the galsim.roman package.  The chief additions of this package
-on top of the galsim.roman implementation are using "official" PSF, WCS, and
-reference files from the Roman CRDS (not yet public!) and webbpsf.  This
+on top of the galsim.roman implementation are using "official" webbpsf
+PSF, and distortion and reference files from the Roman CRDS (not yet
+public!).  This
 package also implements WFI up-the-ramp sampled and averaged images like those
 that will be downlinked from the telescope, and the official Roman WFI file
 format (asdf).
+
+Future expected features include:
+
+* frame zero effects
+* L3 image simulations
+* "image-based" simulation inputs (i.e., provide an input image based
+  on a galaxy hydro sim; romanisim applies the Roman PSF &
+  instrumental effects on top to produce a detailed instrumental simulation)
 
 The best way to interact with romanisim is to make an image.  Running ::
 
