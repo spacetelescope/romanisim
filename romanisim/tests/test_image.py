@@ -28,7 +28,6 @@ import webbpsf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
-from roman_datamodels import units as ru
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 
 
@@ -74,8 +73,8 @@ def test_make_l2():
         resultants, ma_table, gain=1, flat=1, dark=0)
     assert np.allclose(slopes, 0)
     resultants[:, :, :] = np.arange(4)[:, None, None]
-    resultants *= ru.DN
-    gain = 1 * ru.electron / ru.DN
+    resultants *= u.DN
+    gain = 1 * u.electron / u.DN
     slopes, readvar, poissonvar = image.make_l2(
         resultants, ma_table,
         gain=gain, flat=1, dark=0)

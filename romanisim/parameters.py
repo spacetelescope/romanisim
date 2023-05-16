@@ -2,8 +2,8 @@
 """
 
 import numpy as np
-from roman_datamodels import units as ru
 from astropy.time import Time
+from astropy import units as u
 
 
 default_parameters_dictionary = {
@@ -28,9 +28,9 @@ default_parameters_dictionary = {
 
 
 # default read noise
-read_noise = 5.0 * ru.DN
+read_noise = 5.0 * u.DN
 
-gain = 1 * ru.electron / ru.DN
+gain = 1 * u.electron / u.DN
 
 nborder = 4  # number of border pixels used for reference pixels.
 
@@ -59,9 +59,9 @@ persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
                    half_well=50000, ignorerate=0.01)
 
 # default saturation level in DN absent reference file information
-saturation = 55000 * ru.DN
+saturation = 55000 * u.DN
 
 # arbitrary constant to add to initial L1 image so that pixels aren't clipped at zero.
-pedestal = 100 * ru.DN
+pedestal = 100 * u.DN
 
 dqbits = dict(saturated=2, jump_det=4)
