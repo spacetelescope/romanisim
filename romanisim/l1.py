@@ -113,7 +113,6 @@ from scipy import ndimage
 from . import parameters
 from . import log
 from astropy import units as u
-from roman_datamodels import units as ru
 from . import cr
 
 
@@ -544,18 +543,18 @@ def make_l1(counts, ma_table_number,
     add_ipc(resultants)
 
     if not isinstance(resultants, u.Quantity):
-        resultants *= ru.electron
+        resultants *= u.electron
 
     if gain is None:
         gain = parameters.gain
     if gain is not None and not isinstance(gain, u.Quantity):
-        gain = gain * ru.electron / ru.DN
+        gain = gain * u.electron / u.DN
         log.warning('Making up units for gain.')
 
     resultants /= gain
 
     if read_noise is not None and not isinstance(read_noise, u.Quantity):
-        read_noise = read_noise * ru.DN
+        read_noise = read_noise * u.DN
         log.warning('Making up units for read noise.')
 
     # resultants are now in counts.
@@ -577,7 +576,7 @@ def make_l1(counts, ma_table_number,
     # this maybe should be better applied at read time?
     # it's not actually clear to me what the right thing to do
     # is in detail.
-    resultants = np.clip(resultants, 0 * ru.DN, saturation)
+    resultants = np.clip(resultants, 0 * u.DN, saturation)
     m = resultants >= saturation
     dq[m] |= parameters.dqbits['saturated']
 

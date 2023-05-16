@@ -35,7 +35,6 @@ from . import parameters
 import romanisim.ramp_fit_casertano
 from scipy import interpolate
 from astropy import units as u
-from roman_datamodels import units as ru
 
 
 def ma_table_to_tbar(ma_table):
@@ -497,7 +496,7 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
 
     resultants_unit = getattr(resultants, 'unit', None)
     if resultants_unit is not None:
-        resultants = resultants.to(ru.electron).value
+        resultants = resultants.to(u.electron).value
 
     resultants = np.array(resultants).astype('f4')
 

@@ -29,7 +29,6 @@ from romanisim import log
 import crds
 
 import roman_datamodels
-from roman_datamodels import units as ru
 try:
     import roman_datamodels.maker_utils as maker_utils
 except ImportError:
@@ -139,8 +138,8 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     # special handling.  And we use read_time without units a lot throughout
     # the code base.
     slopes = ramppar[..., 1] / u.s
-    readvar = rampvar[..., 0, 1, 1] * (ru.electron / u.s)**2
-    poissonvar = rampvar[..., 1, 1, 1] * (ru.electron / u.s)**2
+    readvar = rampvar[..., 0, 1, 1] * (u.electron / u.s)**2
+    poissonvar = rampvar[..., 1, 1, 1] * (u.electron / u.s)**2
 
     if flat is not None:
         flat = np.clip(flat, 1e-9, np.inf)

@@ -54,8 +54,6 @@ jobs:
       cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
         - macos: test-xdist
-          python-version: 3.8
-        - macos: test-xdist
           python-version: 3.9
         - macos: test-xdist
           python-version: 3.10
