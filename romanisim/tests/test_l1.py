@@ -79,7 +79,7 @@ def test_apportion_counts_to_resultants():
             sdev = np.std(res3[plane_index] - resultants[plane_index])
             assert (np.abs(sdev - read_noise / np.sqrt(len(restij)))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
-        log.info('DMS220: successfully added read noise to resultants.')
+    log.info('DMS220: successfully added read noise to resultants.')
 
 
 @pytest.mark.soctests
