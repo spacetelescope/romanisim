@@ -525,8 +525,9 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
     npix = resultants.reshape(resultants.shape[0], -1).shape[1]
     # we need to do some averaging to merge the results in each ramp.
     # inverse variance weights based on slopereadvar
-    weight = ((rampfitdict['slopereadvar'] != 0) / (
+    weight = ((rampfitdict['slopepoissonvar'] != 0) / (
         rampfitdict['slopereadvar'] + (rampfitdict['slopereadvar'] == 0)))
+    weight = np.clip(weight, 0, 10**10)  # gracefully? handle read noise = 0 case.
     totweight = np.bincount(rampfitdict['pix'], weights=weight, minlength=npix)
     totval = np.bincount(rampfitdict['pix'],
                          weights=weight * rampfitdict['slope'],
