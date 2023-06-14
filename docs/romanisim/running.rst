@@ -80,3 +80,83 @@ modeling.
 		location of the center of the WFI array or the
 		telescope boresight, when the ``--boresight`` argument
 		is specified.
+
+
+Example
+=======
+
+Let's put the pieces together. Below, we create a synthetic catalog of bright
+stars centered on the center of M13, observed with SCA 1 in the F087 filter.
+Though we create 10,000 stars, only 86 will ultimately fall on SCA 1.
+In this Python example, we synthesize images of those stars with ``romanisim`` via
+the `~romanisim.image.simulate` function, and plot the results
+with ``matplotlib``.
+
+.. code-block:: python
+
+    from copy import deepcopy
+
+    import asdf
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from astropy.coordinates import SkyCoord
+    from astropy.visualization import simple_norm
+    from galsim import UniformDeviate
+
+    from romanisim import persistence, wcs
+    from romanisim.catalog import make_stars
+    from romanisim.image import simulate
+    from romanisim.parameters import default_parameters_dictionary
+
+    # use the coordinate of M13 as the center of the detector:
+    coord = SkyCoord.from_name("M13")
+
+    # choose an SCA to simulate:
+    sca = 1
+    filt = 'F087'
+    seed = 0
+
+    # save the star catalog here:
+    catalog_path = 'small-synthetic-catalog.ecsv'
+
+    # write out the result to ASDF:
+    output_path = 'small-synthetic-image.asdf'
+
+    # generate a stellar catalog:
+    cat = make_stars(
+        coord=coord,
+        n=10_000,
+        radius=0.7,
+        bandpasses=[filt],
+        faintmag=18,
+        rng=UniformDeviate(seed=seed)
+    )
+    cat.write(catalog_path, overwrite=True)
+
+    # prepare inputs for the `romanisim.image.simulate` method:
+    metadata = deepcopy(default_parameters_dictionary)
+    metadata['instrument']['detector'] = f'WFI{sca:02d}'
+    metadata['instrument']['optical_element'] = filt
+    metadata['exposure']['ma_table_number'] = 1
+    wcs.fill_in_parameters(
+        metadata, coord, boresight=False
+    )
+
+    # run the simulation:
+    simulate(
+        metadata, cat, webbpsf=True, level=2,
+        persistence=persistence.Persistence(),
+        rng=UniformDeviate(seed), usecrds=False
+    )
+
+    # plot a portion of the resulting rate image:
+    fig, ax = plt.subplots()
+    with asdf.open(output_path) as asdf_file:
+        image = np.array(asdf_file.tree['roman']['data'])
+        norm = simple_norm(image, 'asinh', asinh_a=1e-4)
+        ax.imshow(image, norm=norm)
+
+    ax.set(
+        xlim=[2900, 3150],
+        ylim=[3300, 3550]
+    )
