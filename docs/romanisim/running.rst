@@ -143,20 +143,24 @@ with ``matplotlib``.
     )
 
     # run the simulation:
-    simulate(
+    im, simcatobj = simulate(
         metadata, cat, webbpsf=True, level=2,
         persistence=persistence.Persistence(),
         rng=UniformDeviate(seed), usecrds=False
     )
 
+    asdf_file = asdf.AsdfFile()
+    romanisimdict = {'simcatobj': simcatobj}
+    asdf_file.tree = {'roman': im, 'romanisim': romanisimdict}
+
     # plot a portion of the resulting rate image:
     fig, ax = plt.subplots()
-    with asdf.open(output_path) as asdf_file:
-        image = np.array(asdf_file.tree['roman']['data'])
-        norm = simple_norm(image, 'asinh', asinh_a=1e-4)
-        ax.imshow(image, norm=norm)
+    image = np.array(asdf_file.tree['roman']['data'])
+    norm = simple_norm(image, 'asinh', asinh_a=1e-4)
+    ax.imshow(image, norm=norm)
 
     ax.set(
         xlim=[2900, 3150],
         ylim=[3300, 3550]
     )
+
