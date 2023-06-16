@@ -407,6 +407,9 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     -------
     roman_datamodels.datamodels.ScienceRawModel
         L1 image
+    extras : dict
+        dictionary of additionally tabulated quantities, potentially
+        including DQ images and persistence information.
     """
 
     try:
@@ -419,17 +422,18 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
         shape=(len(resultants), npix, npix))
     if metadata is not None:
         out['meta'].update(metadata)
+    extras = dict()
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if dq is not None:
-        out['dq'] = np.zeros(out['data'].shape, dtype='i4')
-        out['dq'][:, nborder:-nborder, nborder:-nborder] = dq
+        extras['dq'] = np.zeros(out['data'].shape, dtype='i4')
+        extras['dq'][:, nborder:-nborder, nborder:-nborder] = dq
     if persistence is not None:
-        out['meta']['persistence'] = persistence.to_dict()
+        extras['persistence'] = persistence.to_dict()
     if filepath:
         af = asdf.AsdfFile()
-        af.tree = {'roman': out}
+        af.tree = {'roman': out, 'romanisim': extras}
         af.write_to(filepath)
-    return out
+    return out, extras
 
 
 def ma_table_to_tij(ma_table_number):

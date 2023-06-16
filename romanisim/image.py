@@ -591,8 +591,10 @@ def simulate(metadata, objlist,
     -------
     image : roman_datamodels model
         simulated image
-    simcatobj : np.ndarray
-        image positions and fluxes of simulated objects
+    extras : dict
+        Dictionary of additionally valuable quantities.  Includes at least
+        simcatobj, the image positions and fluxes of simulated objects.  It may
+        also include information on persistence and cosmic ray hits.
     """
     meta = maker_utils.mk_common_meta()
     meta["photometry"] = maker_utils.mk_photometry()
@@ -699,18 +701,21 @@ def simulate(metadata, objlist,
             persistence=persistence, saturation=saturation,
             **kwargs)
     if level == 1:
-        im = romanisim.l1.make_asdf(l1, dq=l1dq, metadata=image_mod.meta,
-                                    persistence=persistence)
-
+        im, extras = romanisim.l1.make_asdf(
+            l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)
     elif level == 2:
         slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
                             dark=dark, dq=l1dq)
         l2dq = np.bitwise_or.reduce(l1dq, axis=0)
-        im = make_asdf(*slopeinfo, metadata=image_mod.meta,
-                       persistence=persistence, dq=l2dq)
+        im, extras = make_asdf(
+            *slopeinfo, metadata=image_mod.meta, persistence=persistence,
+            dq=l2dq)
+    else:
+        extras = dict()
+    extras['simcatobj'] = simcatobj
     log.info('Simulation complete.')
-    return im, simcatobj
+    return im, extras
 
 
 def make_test_catalog_and_images(
@@ -804,10 +809,11 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     out['var_rnoise'] = slopevar_rn
     out['var_flat'] = slopevar_rn * 0
     out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
+    extras = dict()
     if persistence is not None:
-        out['meta']['persistence'] = persistence.to_dict()
+        extras['persistence'] = persistence.to_dict()
     if filepath:
         af = asdf.AsdfFile()
-        af.tree = {'roman': out}
+        af.tree = {'roman': out, 'romanisim': extras}
         af.write_to(filepath)
-    return out
+    return out, extras

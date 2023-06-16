@@ -182,7 +182,7 @@ class Persistence:
         Persistence object stored in filename.
         """
         af = asdf.open(filename)
-        persistdict = af['roman']['meta']['persistence']
+        persistdict = af['romanisim']['persistence']
         return Persistence.from_dict(persistdict)
 
     def write(self, filename):
@@ -194,7 +194,7 @@ class Persistence:
             The file name to read
         """
         af = asdf.AsdfFile()
-        af.tree = dict(roman=dict(meta=dict(persistence=self.to_dict())))
+        af.tree = dict(romanisim=dict(persistence=self.to_dict()))
         af.write_to(filename)
 
 
