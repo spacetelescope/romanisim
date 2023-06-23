@@ -11,6 +11,7 @@ from astropy import coordinates
 from astropy import table
 from astropy import units as u
 from . import util
+import romanisim.bandpass
 
 
 @dataclasses.dataclass
@@ -168,6 +169,8 @@ def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
     """
     if bandpasses is None:
         bandpasses = roman.getBandpasses().keys()
+        bandpasses = [romanisim.bandpass.galsim2roman_bandpass[b]
+                      for b in bandpasses]
     locs = util.random_points_in_cap(coord, radius, n, rng=rng)
     if index is None:
         index = 3 / 5
@@ -245,6 +248,8 @@ def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
     """
     if bandpasses is None:
         bandpasses = roman.getBandpasses().keys()
+        bandpasses = [romanisim.bandpass.galsim2roman_bandpass[b]
+                      for b in bandpasses]
     if truncation_radius is None:
         locs = util.random_points_in_cap(coord, radius, n, rng=rng)
     else:

@@ -161,7 +161,8 @@ def test_make_l1_and_asdf(tmp_path):
         # than the number of counts
         assert np.all(resultants >= 0 * u.DN)
         assert np.all(np.diff(resultants, axis=0) >= 0 * u.DN)
-        res_forasdf = l1.make_asdf(resultants, filepath=tmp_path / 'tmp.asdf')
+        res_forasdf, extras = l1.make_asdf(
+            resultants, filepath=tmp_path / 'tmp.asdf')
         af = asdf.AsdfFile()
         af.tree = {'roman': res_forasdf}
         af.validate()

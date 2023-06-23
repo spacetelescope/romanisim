@@ -23,7 +23,6 @@ from astropy import units as u
 from astropy.modeling import models
 import astropy.time
 import roman_datamodels
-import crds
 import gwcs.geometry
 from gwcs import coordinate_frames as cf
 import gwcs.wcs
@@ -90,6 +89,7 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
         parameters['wcsinfo']['roll_ref'] = (
             parameters['wcsinfo'].get('roll_ref', 0) + 60)
 
+
 def get_wcs(image, usecrds=True, distortion=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
 
@@ -131,6 +131,7 @@ def get_wcs(image, usecrds=True, distortion=None):
         image_mod.meta.wcsinfo.dec_ref * u.deg)
 
     if (distortion is None) and usecrds:
+        import crds
         dist_name = crds.getreferences(
             image_mod.get_crds_parameters(),
             reftypes=['distortion'],
@@ -303,3 +304,78 @@ class GWCS(galsim.wcs.CelestialWCS):
         # tag = 'wcs=%r'%self.wcs
         tag = 'wcs=gWCS'  # gWCS repr strings can be very long.
         return "romanisim.wcs.GWCS(%s, origin=%r)" % (tag, self.origin)
+
+
+def wcs_from_fits_header(header):
+    """Convert a FITS WCS to a GWCS.
+
+    This function reads SIP coefficients from a FITS WCS and implements
+    the corresponding gWCS WCS.
+    It was copied from gwcs.tests.utils._gwcs_from_hst_fits_wcs.
+
+    Parameters
+    ----------
+    header : astropy.io.fits.header.Header
+        FITS header
+
+    Returns
+    -------
+    wcs : gwcs.wcs.WCS
+        gwcs WCS corresponding to header
+    """
+
+    from astropy.modeling.models import (
+        Shift, Polynomial2D, Pix2Sky_TAN, RotateNative2Celestial, Mapping)
+    from astropy import wcs as fits_wcs
+
+    # NOTE: this function ignores table distortions
+    def coeffs_to_poly(mat, degree):
+        pol = Polynomial2D(degree=degree)
+        for i in range(mat.shape[0]):
+            for j in range(mat.shape[1]):
+                if 0 < i + j <= degree:
+                    setattr(pol, f'c{i}_{j}', mat[i, j])
+        return pol
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', fits_wcs.FITSFixedWarning)
+        w = fits_wcs.WCS(header)
+    ny, nx = 4089, 4089
+    x0, y0 = w.wcs.crpix
+    # original code has w.wcs.crpix - 1 here, but to match the _radec(...)
+    # convention in the galsim CelestialWCS object, we delete that here.
+    # Success is defined by
+    # (GWCS._radec(x, y) ==
+    #  wcs_from_fits_header(GWCS.header.header).pixel_to_world(x, y))
+
+    cd = w.wcs.piximg_matrix
+
+    cfx, cfy = np.dot(cd, [w.sip.a.ravel(), w.sip.b.ravel()])
+    a = np.reshape(cfx, w.sip.a.shape)
+    b = np.reshape(cfy, w.sip.b.shape)
+    a[1, 0] = cd[0, 0]
+    a[0, 1] = cd[0, 1]
+    b[1, 0] = cd[1, 0]
+    b[0, 1] = cd[1, 1]
+
+    polx = coeffs_to_poly(a, w.sip.a_order)
+    poly = coeffs_to_poly(b, w.sip.b_order)
+
+    # construct GWCS:
+    det2sky = (
+        (Shift(-x0) & Shift(-y0)) | Mapping((0, 1, 0, 1)) | (polx & poly) |
+        Pix2Sky_TAN() | RotateNative2Celestial(*w.wcs.crval, 180)
+    )
+
+    detector_frame = cf.Frame2D(name="detector", axes_names=("x", "y"),
+                                unit=(u.pix, u.pix))
+    sky_frame = cf.CelestialFrame(
+        reference_frame=getattr(astropy.coordinates, w.wcs.radesys).__call__(),
+        name=w.wcs.radesys,
+        unit=(u.deg, u.deg)
+    )
+    pipeline = [(detector_frame, det2sky), (sky_frame, None)]
+    gw = gwcs.WCS(pipeline)
+    gw.bounding_box = ((-0.5, nx - 0.5), (-0.5, ny - 0.5))
+
+    return gw
