@@ -4,10 +4,17 @@ on:
   schedule:
     # Weekly Monday 6AM build
     - cron: "0 0 * * 1"
+  pull_request:
+    # We also want this workflow triggered if the `Weekly CI` label is
+    # added or present when PR is updated
+    types:
+      - synchronize
+      - labeled
   workflow_dispatch:
 
 jobs:
   data:
+    if: (github.repository == 'spacetelescope/romancal' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Weekly CI')))
     name: Download data
     runs-on: ubuntu-latest
     outputs:
