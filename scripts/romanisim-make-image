@@ -94,13 +94,13 @@ if __name__ == '__main__':
         persist = persistence.Persistence()
 
     rng = galsim.UniformDeviate(args.seed)
-    im, simcatobj = image.simulate(
+    im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
         webbpsf=args.webbpsf, level=args.level, persistence=persist,
         rng=rng)
 
     romanisimdict = vars(args)
-    romanisimdict['simcatobj'] = simcatobj
+    romanisimdict.update(**extras)
 
     af = asdf.AsdfFile()
     af.tree = {'roman': im, 'romanisim': romanisimdict}

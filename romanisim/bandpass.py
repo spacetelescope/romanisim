@@ -26,6 +26,9 @@ from astropy import units as u
 galsim_bandpasses = ['Z087', 'Y106', 'J129', 'H158', 'F184', 'W149']
 galsim2roman_bandpass = {x: 'F' + x[1:] for x in galsim_bandpasses}
 roman2galsim_bandpass = {v: k for k, v in galsim2roman_bandpass.items()}
+# we should add some support for F213 (K) and F062.  That would require getting
+# zodiacal light estimates and maybe making a bandpass.
+# W149 is probably the same as F146 but we should compare.
 
 # provide some no-ops if we are given a key in the right bandpass
 galsim2roman_bandpass.update(**{k: k for k in roman2galsim_bandpass})
