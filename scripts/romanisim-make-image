@@ -38,6 +38,8 @@ if __name__ == '__main__':
     parser.add_argument('--level', type=int, default=2,
                         help='1 or 2, for L1 or L2 output')
     parser.add_argument('--ma_table_number', type=int, default=1)
+    parser.add_argument('--roll', type=float, default=0,
+                        help='Roll angle for the instrument.')
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--nobj', type=int, default=1000)
     parser.add_argument('--boresight', action='store_true', default=False,
@@ -62,11 +64,11 @@ if __name__ == '__main__':
     if args.radec is not None:
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
                          frame='icrs')
-        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight)
+        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, roll_ref=args.roll)
 
     if args.date is not None:
-        metadata['exposure']['start_time'] = Time(
-            datetime.datetime(*args.date)).isot
+        metadata['exposure']['start_time'] = Time(Time(
+            datetime.datetime(*args.date)).isot, format="isot", scale="utc")
 
     date = Time(metadata['exposure']['start_time'], format='isot')
 
