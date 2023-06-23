@@ -485,13 +485,15 @@ def test_simulate(tmp_path):
         af = asdf.AsdfFile()
         af.tree = {'roman': ll[0]}
         af.validate()
-    l2, cat = l2
-    res = image.make_asdf(l2['data'], l2['var_rnoise'], l2['var_poisson'],
-                          filepath=tmp_path / 'l2.asdf')
-    af.tree = {'roman': res}
+    l2, extras = l2
+    af.tree = {'roman': l2}
     # DMS216
     af.validate()
     log.info('DMS216: successfully made a L2 file.')
+
+    imwcs = l2['meta'].get('wcs', None)
+    assert imwcs is not None
+    # nice if L2 images include the WCS.
 
 
 def test_make_test_catalog_and_images():

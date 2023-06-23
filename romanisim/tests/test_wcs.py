@@ -18,6 +18,7 @@ try:
 except ImportError:
     import roman_datamodels.testing.utils as maker_utils
 
+
 def make_fake_distortion_function():
     """A very simple distortion function.
 
@@ -98,6 +99,21 @@ def test_wcs():
     # should be close to the reference v2 & v3 offset.
     assert np.abs(cc3.separation(cc4).to(u.arcsec).value
                   - np.hypot(*parameters.v2v3_wficen)) < 1
+
+
+def test_wcs_from_fits_header():
+    wcs1 = wcs.get_wcs(parameters.default_parameters_dictionary,
+                       usecrds=False)
+    wcs2 = wcs.wcs_from_fits_header(wcs1.header.header)
+    xg, yg = np.meshgrid(np.linspace(0, 4088, 100), np.linspace(0, 4088, 100))
+    rd1 = np.degrees(wcs1._radec(xg.copy(), yg.copy()))
+    rd2 = wcs2.pixel_to_world(xg.copy(), yg.copy())
+    rd1 = SkyCoord(ra=rd1[0] * u.deg, dec=rd1[1] * u.deg, frame=rd2.frame)
+    sep = rd1.separation(rd2).to(u.arcsec).value
+
+    # really end up with 10^-10 arcsec in my tests, but let's say that 10^-5
+    # is fine.
+    assert np.max(sep) < 1e-5
 
 
 @pytest.mark.skipif(
