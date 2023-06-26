@@ -105,7 +105,7 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
 
 
 def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
-                             bandpasses=None):
+                             bandpasses=None, seed=None):
     """Make a dummy table catalog.
 
     Fluxes are assigned to bands at random.  Locations are random within the
@@ -140,7 +140,8 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
 
 
 def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
-                  hlr_at_faintmag=0.6, bandpasses=None, rng=None):
+                  hlr_at_faintmag=0.6, bandpasses=None, rng=None,
+                  seed=50):
     """Make a simple parametric catalog of galaxies.
 
     Parameters
@@ -161,6 +162,8 @@ def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
         list of names of bandpasses for which to generate fluxes.
     rng : galsim.BaseDeviate
         random number generator to use
+    seed : int
+        seed to use for random numbers, only used if rng is None
 
     Returns
     -------
@@ -171,28 +174,34 @@ def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
         bandpasses = roman.getBandpasses().keys()
         bandpasses = [romanisim.bandpass.galsim2roman_bandpass[b]
                       for b in bandpasses]
+    if rng is None:
+        rng = galsim.UniformDeviate(seed)
+
     locs = util.random_points_in_cap(coord, radius, n, rng=rng)
+    rng_numpy_seed = rng.raw()
+    rng_numpy = np.random.default_rng(rng_numpy_seed)
+
     if index is None:
         index = 3 / 5
     distance_index = 5 * index - 1
     # i.e., for a dlog10n / dm = 3/5 (uniform), corresponds to a
     # distance index of 2, which is the normal volume element
     # dn ~ rho * r^2 dr
-    distance = np.random.power(distance_index + 1, size=n)
+    distance = rng_numpy.power(distance_index + 1, size=n)
     mag = faintmag + 5 * np.log10(distance)
-    sersic_index = np.random.uniform(low=1, high=4.0, size=n)
+    sersic_index = rng_numpy.uniform(low=1, high=4.0, size=n)
     types = np.zeros(n, dtype='U3')
     types[:] = 'SER'
-    pa = np.random.uniform(size=n, low=0, high=360)
+    pa = rng_numpy.uniform(size=n, low=0, high=360)
     # no clue what a realistic distribution of b/a is, but this at least goes to zero
     # for little tiny needles and peaks around circular objects, which isn't nuts.
-    ba = np.random.beta(3, 1, size=n)
+    ba = rng_numpy.beta(3, 1, size=n)
     ba = np.clip(ba, 0.2, 1)
     # Half light radii should correlate with magnitude, with some scatter.
     hlr = 10**((faintmag - mag) / 5) * hlr_at_faintmag
     # hlr is hlr_at_faintmag for faintmag sources
     # and let's put some log normal distribution on top of this
-    hlr *= np.clip(np.exp(np.random.randn(n) * 0.5), 0.1, 10)
+    hlr *= np.clip(np.exp(rng_numpy.normal(size=n) * 0.5), 0.1, 10)
     # let's not make anything too too small.
     hlr[hlr < 0.01] = 0.01
 
@@ -205,7 +214,7 @@ def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
     out['pa'] = pa
     out['ba'] = ba
     for bandpass in bandpasses:
-        mag_thisband = mag + np.random.randn(n)
+        mag_thisband = mag + rng_numpy.normal(size=n)
         # sigma of one mag isn't nuts.  But this will be totally uncorrelated
         # in different bands, so we'll get some weird colored objects
         out[bandpass] = 10.**(-mag_thisband / 2.5)
@@ -213,7 +222,8 @@ def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
 
 
 def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
-               truncation_radius=None, bandpasses=None, rng=None):
+               truncation_radius=None, bandpasses=None, rng=None,
+               seed=51):
     """Make a simple parametric catalog of stars.
 
     If truncation radius is None, this makes a uniform distribution.  If the
@@ -240,6 +250,8 @@ def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
         list of names of bandpasses for which to generate fluxes.
     rng : galsim.BaseDeviate
         random number generator to use
+    seed : int
+        seed for random number generator to use, only used if rng is None
 
     Returns
     -------
@@ -250,6 +262,11 @@ def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
         bandpasses = roman.getBandpasses().keys()
         bandpasses = [romanisim.bandpass.galsim2roman_bandpass[b]
                       for b in bandpasses]
+    if rng is None:
+        rng = galsim.UniformDeviate(seed)
+    rng_numpy_seed = rng.raw()
+    rng_numpy = np.random.default_rng(rng_numpy_seed)
+
     if truncation_radius is None:
         locs = util.random_points_in_cap(coord, radius, n, rng=rng)
     else:
@@ -261,7 +278,7 @@ def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
     # i.e., for a dlog10n / dm = 3/5 (uniform), corresponds to a
     # distance index of 2, which is the normal volume element
     # dn ~ rho * r^2 dr
-    distance = np.random.power(distance_index + 1, size=n)
+    distance = rng_numpy.power(distance_index + 1, size=n)
     mag = faintmag + 5 * np.log10(distance)
     types = np.zeros(n, dtype='U3')
     types[:] = 'PSF'
@@ -279,7 +296,7 @@ def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
     out['pa'] = pa
     out['ba'] = ba
     for bandpass in bandpasses:
-        mag_thisband = mag + np.random.randn(n)
+        mag_thisband = mag + rng_numpy.normal(size=n)
         # sigma of one mag isn't nuts.  But this will be totally uncorrelated
         # in different bands, so we'll get some weird colored objects
         out[bandpass] = 10.**(-mag_thisband / 2.5)
