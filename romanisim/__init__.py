@@ -15,11 +15,8 @@ from pkg_resources import get_distribution, DistributionNotFound
 import logging
 
 log = logging.getLogger(__name__)
-# I think we do want to change the format here, but stpipe is messing
-# with the logging somehow and the below leads to log messages being
-# printed three times.
-# logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-#                     datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
 log.setLevel(logging.INFO)
 
 try:
