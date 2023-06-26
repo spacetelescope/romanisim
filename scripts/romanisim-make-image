@@ -76,12 +76,13 @@ if __name__ == '__main__':
     metadata['instrument']['optical_element'] = args.bandpass
     metadata['exposure']['ma_table_number'] = args.ma_table_number
 
+    rng = galsim.UniformDeviate(args.seed)
     if args.catalog is None:
         twcs = wcs.get_wcs(metadata, usecrds=args.usecrds)
         rd_sca = twcs.toWorld(galsim.PositionD(
             galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
         cat = catalog.make_dummy_table_catalog(
-            rd_sca, bandpasses=[args.bandpass], nobj=args.nobj)
+            rd_sca, bandpasses=[args.bandpass], nobj=args.nobj, rng=rng)
     else:
         log.warning('Catalog input will probably not work unless the catalog '
                     'covers a lot of area or you have thought carefully about '
@@ -93,7 +94,6 @@ if __name__ == '__main__':
     else:
         persist = persistence.Persistence()
 
-    rng = galsim.UniformDeviate(args.seed)
     im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
         webbpsf=args.webbpsf, level=args.level, persistence=persist,
