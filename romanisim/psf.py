@@ -77,6 +77,9 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     wfi.filter = filter_name
     wfi.detector_position = pix
     oversample = kw.get('oversample', 4)
+    wfi.options['jitter'] = None
+    wfi.options['jitter_sigma'] = 0
+
     # webbpsf doesn't do distortion
     psf = wfi.calc_psf(oversample=oversample)
     gimg = galsim.Image(
