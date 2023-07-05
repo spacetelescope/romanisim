@@ -2,7 +2,6 @@ import numpy as np
 cimport numpy as np
 cimport cython
 import romanisim.ramp
-from cpython cimport array
 from libc.math cimport sqrt, fabs
 
 # Casertano+2022, Table 2
