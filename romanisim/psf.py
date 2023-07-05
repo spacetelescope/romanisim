@@ -27,7 +27,7 @@ from romanisim import log
 
 
 def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
-             chromatic=False, **kw):
+             chromatic=False, jitter_model='gaussian', jitter_sigma=0.012, **kw):
     """Make a PSF profile for Roman.
 
     Can construct both PSFs using galsim's built-in galsim.roman.roman_psfs
@@ -44,6 +44,11 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
         scale of image for webbpsf PSFs
     pix : tuple (float, float)
         pixel location of PSF on focal plane
+    jitter_model : str
+        telescope pointing jitter model used by WebbPSF. Default is "gaussian"
+    jitter_sigma : float
+        standard deviation of the telescope pointing jitter [arcsec].
+        Default is 0.012 arcsec.
     **kw : dict
         Additional keywords passed to galsim.roman.getPSF
 
@@ -77,8 +82,8 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     wfi.filter = filter_name
     wfi.detector_position = pix
     oversample = kw.get('oversample', 4)
-    wfi.options['jitter'] = None
-    wfi.options['jitter_sigma'] = 0
+    wfi.options['jitter'] = jitter_model
+    wfi.options['jitter_sigma'] = jitter_sigma
 
     # webbpsf doesn't do distortion
     psf = wfi.calc_psf(oversample=oversample)
