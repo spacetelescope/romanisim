@@ -549,7 +549,8 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
     var.reshape(npix, 3, 2, 2)[..., 1, 1, 1] = (
         totval / (totweight ** 2 + (totweight == 0)))
 
-    var[..., 1, 1, 1] *= par[..., 1]  # multiply Poisson term by flux
+    # multiply Poisson term by flux.  Clip at zero; no negative Poisson variances.
+    var[..., 1, 1, 1] *= np.clip(par[..., 1], 0, np.inf)
     var[..., 2, 1, 1] = var[..., 0, 1, 1] + var[..., 1, 1, 1]
 
     if resultants.shape != origshape:
