@@ -2,14 +2,115 @@ import numpy as np
 cimport numpy as np
 cimport cython
 import romanisim.ramp
+from libc.math cimport sqrt, fabs
+
+# Casertano+2022, Table 2
+cdef float[2][6] PTABLE = [
+    [-np.inf, 5, 10, 20, 50, 100],
+    [0,     0.4,  1,  3,  6,  10]]
+cdef int PTABLE_LENGTH = 6
+
+
+cdef inline float get_weight_power(float s):
+    cdef int ise
+    for i in range(PTABLE_LENGTH):
+        if s < PTABLE[0][i]:
+            return PTABLE[1][i - 1]
+    return PTABLE[1][i]
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
+cdef inline (float, float, float) fit_one_ramp(
+        float [:] resultants, int start, int end, float read_noise,
+        float [:] tbar, float [:] tau, int [:] nn):
+    """Fit a portion of single ramp using the Casertano+22 algorithm.
+
+    Parameters
+    ----------
+    resultants : float [:]
+        array of resultants for single pixel
+    start : int
+        starting point of portion to fit within this pixel
+    end : int
+        ending point of portion to fit within this pixel
+    read_noise : float
+        read noise for this pixel
+    tbar : float [:]
+        mean times of resultants
+    tau : float [:]
+        variance weighted mean times of resultants
+    nn : int [:]
+        number of reads contributing to reach resultant
+
+    Returns
+    -------
+    slope : float
+        fit slope
+    slopereadvar : float
+        read noise induced variance in slope
+    slopepoissonvar : float
+        coefficient of Poisson-noise induced variance in slope
+        multiply by true flux to get actual Poisson variance.
+    """
+    cdef int i = 0, j = 0
+    cdef int nres = end - start + 1
+    cdef float ww[2048]
+    cdef float kk[2048]
+    cdef float slope = 0, slopereadvar = 0, slopepoissonvar = 0
+    cdef float tbarmid = (tbar[start] + tbar[end]) / 2
+
+    # Casertano+2022 Eq. 44
+    # Note we've departed from Casertano+22 slightly;
+    # there s is just resultants[end].  But that doesn't seem good if, e.g.,
+    # a CR in the first resultant has boosted the whole ramp high but there
+    # is no actual signal.
+    cdef float s = max(resultants[end] - resultants[start], 0)
+    s = s / sqrt(read_noise**2 + s)
+    cdef float weight_power = get_weight_power(s)
+
+    # It's easy to use up a lot of dynamic range on something like
+    # (tbar - tbarmid) ** 10.  Rescale these.
+    cdef float tscale = (tbar[end] - tbar[start]) / 2
+    if tscale == 0:
+        tscale = 1
+    cdef float f0 = 0, f1 = 0, f2 = 0
+    for i in range(nres):
+        # Casertano+22, Eq. 45
+        ww[i] = ((((1 + weight_power) * nn[start + i]) /
+            (1 + weight_power * nn[start + i])) *
+            fabs((tbar[start + i] - tbarmid) / tscale) ** weight_power)
+        # Casertano+22 Eq. 35
+        f0 += ww[i]
+        f1 += ww[i] * tbar[start + i]
+        f2 += ww[i] * tbar[start + i]**2
+    # Casertano+22 Eq. 36
+    cdef float dd = f2 * f0 - f1 ** 2
+    if dd == 0:
+        return (0.0, 0.0, 0.0)
+    for i in range(nres):
+        # Casertano+22 Eq. 37
+        kk[i] = (f0 * tbar[start + i] - f1) * ww[i] / dd
+    for i in range(nres):
+        # Casertano+22 Eq. 38
+        slope += kk[i] * resultants[start + i]
+        # Casertano+22 Eq. 39
+        slopereadvar += kk[i] ** 2 * read_noise ** 2 / nn[start + i]
+        # Casertano+22 Eq 40
+        slopepoissonvar += kk[i] ** 2 * tau[start + i]
+        for j in range(i + 1, nres):
+            slopepoissonvar += 2 * kk[i] * kk[j] * tbar[start + i]
+
+    return (slope, slopereadvar, slopepoissonvar)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def fit_ramps(np.ndarray[float, ndim=2] resultants,
-              np.ndarray[int, ndim=2] dq,
-              np.ndarray[float, ndim=1] read_noise, ma_table):
-    """Fit ramps using the Casertano+ algorithm.
+                np.ndarray[int, ndim=2] dq,
+                np.ndarray[float, ndim=1] read_noise, ma_table):
+    """Fit ramps using the Casertano+22 algorithm.
 
     This implementation fits all ramp segments between bad pixels
     marked in the dq image with values not equal to zero.  So the
@@ -47,10 +148,6 @@ def fit_ramps(np.ndarray[float, ndim=2] resultants,
         The last resultant in this ramp.
     """
     cdef int nresultant = len(ma_table)
-    # Casertano+2022, Table 2
-    cdef np.ndarray[float, ndim=2] ptable = np.array([
-        [-np.inf, 0], [5, 0.4], [10, 1], [20, 3], [50, 6], [100, 10]]
-	).astype('f4')
     cdef np.ndarray[int] nn = np.array([x[1] for x in ma_table]).astype('i4')
     # number of reads in each resultant
     cdef np.ndarray[float] tbar = romanisim.ramp.ma_table_to_tbar(
@@ -66,7 +163,7 @@ def fit_ramps(np.ndarray[float, ndim=2] resultants,
     cdef np.ndarray[int] resstart = np.zeros(nramp, dtype='i4') - 1
     cdef np.ndarray[int] resend = np.zeros(nramp, dtype='i4') - 1
     cdef np.ndarray[int] pix = np.zeros(nramp, dtype='i4') - 1
-    cdef int i, j, m
+    cdef int i, j
     cdef int inramp = -1
     cdef int rampnum = 0
     for i in range(npixel):
@@ -92,62 +189,20 @@ def fit_ramps(np.ndarray[float, ndim=2] resultants,
     # we should have just filled out the starting and stopping locations
     # of each ramp.
 
-    cdef np.ndarray[float] smax = resultants[resend, pix]
-    # Casertano+2022 Eq. 44
-    cdef np.ndarray[float] s = smax / np.sqrt(read_noise[pix]**2 + smax)
-    cdef np.ndarray[float] pp = ptable[np.searchsorted(ptable[:, 0], s) - 1, 1]
-    cdef np.ndarray[float] tbarmid = (tbar[resstart] + tbar[resend]) / 2
-
-    # Casertano+22, Eq. 45
-    # It's easy to use up a lot of dynamic range on something like
-    # (tbar - tbarmid) ** 10.  Rescale these.
-    cdef float tscale = (np.max(tbar) - np.min(tbar)) / 2
-    if tscale == 0:
-        tscale = 1
-    cdef np.ndarray[float, ndim=2] ww = np.zeros(
-        (resultants.shape[0], resultants.shape[1]), dtype='f4')
+    cdef float slope0, slopereadvar0, slopepoissonvar0
+    cdef float [:, :] resview = resultants
+    cdef float [:] rnview = read_noise
+    cdef float [:] tbarview = tbar
+    cdef float [:] tauview = tau
+    cdef int [:] nnview = nn
     for i in range(nramp):
-        for j in range(resstart[i], resend[i] + 1):
-            ww[j, pix[i]] = (((1 + pp[i]) * nn[j]) / (1 + pp[i] * nn[j])
-	                     * abs((tbar[j] - tbarmid[i])/tscale) ** pp[i])
+        slope0, slopereadvar0, slopepoissonvar0 = fit_one_ramp(
+            resview[:, pix[i]], resstart[i], resend[i], rnview[pix[i]],
+            tbarview, tauview, nnview)
+        slope[i] = slope0
+        slopereadvar[i] = slopereadvar0
+        slopepoissonvar[i] = slopepoissonvar0
 
-    cdef np.ndarray[float] f0 = np.zeros(nramp, dtype='f4')
-    cdef np.ndarray[float] f1 = np.zeros(nramp, dtype='f4')
-    cdef np.ndarray[float] f2 = np.zeros(nramp, dtype='f4')
-    for i in range(nramp):
-        for j in range(resstart[i], resend[i] + 1):
-            # Casertano+22 Eq. 35
-            f0[i] += ww[j, pix[i]]
-            f1[i] += ww[j, pix[i]] * tbar[j]
-            f2[i] += ww[j, pix[i]] * tbar[j]**2
-    # Casertano+22 Eq. 36
-    cdef np.ndarray[float] dd = f2 * f0 - f1**2
-
-    cdef int bad = 0
-    for i in range(nramp):
-        for j in range(resstart[i], resend[i] + 1):
-            # Casertano+22 Eq. 37
-            # Note that we are replacing ww with kk to save memory; we don't
-            # need ww again.
-            bad = dd[i] == 0
-            ww[j, pix[i]] = ((f0[i] * tbar[j] - f1[i]) * ww[j, pix[i]] /
-                             (dd[i] + bad))
-            ww[j, pix[i]] *= (bad == 0)  # zero weights for bad ramps.
-
-    for i in range(nramp):
-        for j in range(resstart[i], resend[i] + 1):
-            # Casertano+22 Eq. 38
-            slope[i] += ww[j, pix[i]] * resultants[j, pix[i]]
-            # Casertano+22 Eq. 39
-            slopereadvar[i] += ww[j, pix[i]]**2 * read_noise[pix[i]]**2 / nn[j]
-            # Casertano+22 Eq 40
-            slopepoissonvar[i] += ww[j, pix[i]]**2 * tau[j]
-            for m in range(j + 1, resend[i] + 1):
-                slopepoissonvar[i] += (2 * ww[j, pix[i]]
-		                       * ww[m, pix[i]] * tbar[j])
-
-    # let's just return the bare minimum from the cython code and let the caller
-    # clean up.
     return dict(slope=slope, slopereadvar=slopereadvar,
                 slopepoissonvar=slopepoissonvar,
                 pix=pix, resstart=resstart, resend=resend)
