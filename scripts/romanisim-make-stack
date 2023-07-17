@@ -1,24 +1,21 @@
 #!/usr/bin/env python
 
-import sys
 import argparse
-import datetime
-import logging
-import csv
 from copy import deepcopy
-import asdf
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.table import Table
-from astropy.io import fits
 from astropy.time import Time
 import galsim
-from romanisim import catalog, image, wcs, persistence
+from romanisim import wcs, persistence
 from romanisim.parameters import default_parameters_dictionary
 from romanisim import log
 from romanisim import parameters
+import ris_make_utils as ris
 
-NUMBER_OF_DETECTORS = 18
+# Radial distance from WFI_CEN to extend object generation in order to cover FOV (degrees)
+WFS_FOV = 0.6
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -30,14 +27,13 @@ def main():
     parser.add_argument('input_file_name',
                         type=str,
                         metavar='mosaic_list.csv',
-                        # nargs=1,
-                        help=f'Input (csv) file containing lists of observation parameters:'
-                             f'ra, dec, roll_angle, optical_element, date, overhead_time, ms_table_number')
+                        help='Input (csv) file containing lists of observation parameters: '
+                             'ra, dec, roll_angle, optical_element, date, overhead_time, '
+                             'ms_table_number')
 
     # Boresight
     parser.add_argument('-b', '--boresight',
                         action='store_true',
-                        default=False,
                         help=('RA & Dec specifies location of boresight, not center of WFI.'))
 
     # WCS Object Catalog
@@ -48,9 +44,20 @@ def main():
                         help='Object catalog file for wcs matching (csv)')
 
     # Debug argument
-    parser.add_argument('-d', "--debug",
+    parser.add_argument("--debug",
                         action='store_true',
                         help='Display verbose debug output')
+
+    # Date & Time argument
+    parser.add_argument('-d', '--date',
+                        type=str,
+                        default='2026-01-01T00:00:00',
+                        help=('UTC Date and Time of observation to simulate in ISOT format.'))
+
+    # Flux factor argument
+    parser.add_argument('-f', '--flux_factor',
+                        type=float,
+                        help='An optional flux factor for generated objects to make them brighter.')
 
     # Level argument
     parser.add_argument('-l', '--level',
@@ -60,8 +67,12 @@ def main():
 
     # Create script making argument
     parser.add_argument('-m', "--make_script",
-                        action='store_true',
-                        help='Create list of romanisim calls from csv file (e.g. for cluster usage).')
+                        type=str,
+                        metavar='sims',
+                        default=None,
+                        help='Filename to output catalog (sims.cat) and list of romanisim calls '
+                             '(sims.script) instead of making simulation files (e.g. for cluster '
+                             'usage).')
 
     # Number of objects to simulate
     parser.add_argument('-n', '--nobj',
@@ -69,13 +80,18 @@ def main():
                         default=1000,
                         help='Specify number of objects to simulate.')
 
+    # Create script making argument
+    parser.add_argument('-x', "--prefix",
+                        type=str,
+                        metavar='roman_simulated',
+                        default='roman_simulated',
+                        help='Filename prefix for simulated files.')
+
     # Persistence
     parser.add_argument('-p', '--previous',
-                        type=str,
-                        metavar='previous.asdf',
-                        nargs=1,
+                        action='store_true',
                         help=(
-                            'Previous simulated file in chronological order used for persistence modeling.'))
+                            'Enable persistence modeling of previous files for exposures after the first in each SCA.'))
 
     # Random number seed
     parser.add_argument('-r', '--rng_seed',
@@ -84,7 +100,7 @@ def main():
                         help='Random number seed (int)')
 
     # SCA detector identifier number
-    parser.add_argument('-s','--sca',
+    parser.add_argument('-s', '--sca',
                         type=int,
                         default=0,
                         help='SCA to simulate')
@@ -99,9 +115,6 @@ def main():
                         action='store_true',
                         help='Use webbpsf for PSFs.')
 
-
-
-
     args = parser.parse_args()
 
     log.info('Starting simulation...')
@@ -115,151 +128,173 @@ def main():
     # Set up metadata
     metadata = deepcopy(default_parameters_dictionary)
 
-    # If creating a script, create the script file
+    # Obtain pointing information from input file
+    pointings = Table.read(args.input_file_name, comment="#", delimiter=" ")
+
+    # Obtain RA & Dec pointing extremes from the catalog
+    max_ra = max(pointings["RA"])
+    min_ra = min(pointings["RA"])
+    ra_center = (max_ra + min_ra) / 2
+    metadata['wcsinfo']['ra_ref'] = ra_center
+    max_dec = max(pointings["DEC"])
+    min_dec = min(pointings["DEC"])
+    dec_center = (max_dec + min_dec) / 2
+    metadata['wcsinfo']['dec_ref'] = dec_center
+    ra_diff = max_ra - min_ra
+    dec_diff = max_dec - min_dec
+
+    if args.debug:
+        print(f"max_ra = {max_ra}")
+        print(f"min_ra = {min_ra}")
+        print(f"ra_diff = {ra_diff}")
+        print(f"max_dec = {max_dec}")
+        print(f"min_dec = {min_dec}")
+        print(f"dec_diff = {dec_diff}")
+
+    # Create random number distribution
+    rng = galsim.UniformDeviate(args.rng_seed)
+
+    # Calculate radius to span the entire FOV (degrees)
+    radius = max([ra_diff, dec_diff]) + WFS_FOV
+
+    if args.debug:
+        print(f"radius = {radius}")
+
+    # Create catalog
+    cat = ris.create_catalog(metadata=metadata, catalog_name=args.catalog,
+                             bandpasses=pointings['BANDPASS'], rng=rng, nobj=args.nobj,
+                             usecrds=args.usecrds, x=(ra_center * galsim.degrees),
+                             y=(dec_center * galsim.degrees), radius=radius)
+
+    if args.debug:
+        print(f"cat_max_ra = {max(cat['ra'])}")
+        print(f"cat_min_ra = {min(cat['ra'])}")
+        print(f"cat_ra_diff = {max(cat['ra']) - min(cat['ra'])}")
+        print(f"cat_max_dec = {max(cat['dec'])}")
+        print(f"cat_min_dec = {min(cat['dec'])}")
+        print(f"cat_dec_diff = {max(cat['dec']) - min(cat['dec'])}")
+
+    # Adjust brightness of generated objects before writing catalog
+    if args.flux_factor:
+        cat[cat.keys()[-1]] *= args.flux_factor
+
+    # If creating a script, create the catalog and script files
     if args.make_script:
-        spcript_file = open("romansim_stack.script", "w")
+        # Write catalog file
+        if not args.catalog:
+            cat.write(args.make_script + "_cat.csv", format='ascii.ecsv', overwrite=True)
+
+        # Create script file
+        script_file = open(args.make_script + ".script", "w")
 
         # Acquire cleaned options to pass to script call
         options_dct = {}
         for option, value in vars(args).items():
             if args.debug:
                 print(f'option, value = {option, value}')
-            if option not in ('input_file_name','debug','make_script') and value is not None:
+            if option not in ('input_file_name', 'debug', 'make_script', 'flux_factor') and \
+                    value is not None:
                 options_dct[option] = value
 
+    # Initialize time offset
+    time_offset = 0.0 * u.s
 
+    # Set file name suffix
+    suffix = "uncal" if (args.level == 1) else "cal"
 
-    with open(args.input_file_name, newline='') as infile:
-        reader = csv.DictReader(infile, delimiter=',', skipinitialspace=True)
-        for entry in reader:
-            # Debug: print keys
+    # If selected, reset persistence dictionary
+    if args.previous:
+        previous_file_name = {}
+
+    # Loop over pointings
+    for entry_idx, entry in enumerate(pointings):
+
+        # Debug: print keys
+        if args.debug:
+            print(f'entry.keys = {entry.keys()}')
+
+        # Set initial (possibly only) SCA
+        sca = args.sca if (args.sca > 0) else 1
+
+        # If SCA value is within 1-18, only run once
+        # otherwise loop over all detectors
+        while (sca <= parameters.NUMBER_OF_DETECTORS):
+            # Create output file name
+            output_file_name = f"{args.prefix}_{entry_idx}_{entry['BANDPASS']}_WFI{sca:02}_{suffix}.asdf"
+
             if args.debug:
-                print(f'entry.keys = {entry.keys()}')
+                print(f"output_file_name = {output_file_name}")
 
-            # Reset time offset
-            time_offset = 0 * u.s
+            # If making a script, write the line and proceed
+            # otherwise create simulation file
+            if args.make_script:
+                line = f"romanisim-make-image {output_file_name}"
 
-            # RA & Dec
-            coord = SkyCoord(ra=float(entry['ra']) * u.deg, dec=float(entry['dec']) * u.deg,
-                             frame='icrs')
-            wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, roll_ref=float(entry['roll_angle']))
+                for option, value in options_dct.items():
+                    if (type(value) != bool) and (option != 'sca') and (option != 'prefix') and (option != 'previous'):
+                        line += f" --{option} {value}"
+                    elif (option == 'previous') and (sca in previous_file_name.keys()):
+                        line += f" --{option} {previous_file_name[sca]}"
+                    elif (option == 'sca'):
+                        line += f" --{option} {sca}"
+                    elif (value is True) and (option != 'previous'):
+                        line += f" --{option}"
 
-            # Observational metadata
-            metadata['instrument']['optical_element'] = entry['optical_element']
-            metadata['exposure']['ma_table_number'] = int(entry['ma_table_number'])
-            ma_table = parameters.ma_table[ metadata['exposure']['ma_table_number']]
+                line += f" --bandpass {entry['BANDPASS']}"
+                line += f" --radec {entry['RA']} {entry['DEC']}"
+                line += f" --roll {entry['PA']}"
+                line += f" --ma_table_number {entry['MA_TABLE_NUMBER']}"
+                line += f" --catalog {args.make_script}_cat.csv"
 
+                # Debug print line
+                if args.debug:
+                    print(f'line = {line}')
 
+                # add line to script
+                script_file.write(line + '\n')
 
+            else:
+                # RA & Dec
+                if args.debug:
+                    print(f"float(entry['PA']) = {float(entry['PA'])}")
+                coord = SkyCoord(ra=float(entry['RA']) * u.deg, dec=float(entry['DEC']) * u.deg,
+                                 frame='icrs')
+                wcs.fill_in_parameters(metadata, coord, boresight=args.boresight,
+                                       roll_ref=float(entry['PA']))
 
-            # Loop over number of exposures
-            for entry_idx in range(int(entry['exposures'])):
-                # Set initial (possibly only) SCA
-                sca = args.sca if (args.sca > 0) else 1
+                # Set metadata
+                metadata = ris.set_metadata(meta=metadata,
+                                            date=Time(args.date, format='isot') + time_offset,
+                                            bandpass=entry['BANDPASS'], sca=sca,
+                                            ma_table_number=int(entry['MA_TABLE_NUMBER']))
 
-                # Date
-                date = Time(entry['date'], format='isot') + time_offset
-                metadata['exposure']['start_time'] = date
+                # If selected, apply persistence
+                if args.previous and entry_idx > 0:
+                    # Use previously created file for persistence for each exposure
+                    # after the first
+                    persist = persistence.Persistence.read(previous_file_name[sca])
 
-                # If SCA value is within 1-18, only run once
-                # otherwise loop over all detectors
-                while (sca <= NUMBER_OF_DETECTORS):
-                    # Detector
-                    metadata['instrument']['detector'] = f'WFI{sca:02d}'
+                else:
+                    persist = persistence.Persistence()
 
-                    # Create output file name
-                    output_file_name = f"roman_simulated_{entry['ra']}_{entry['dec']}_{date}_{entry['optical_element']}_{entry_idx + 1}_{sca}.asdf"
+                ris.simulate_image_file(args, metadata, cat, rng, persist, output=output_file_name)
 
-                    if args.debug:
-                        print(f"output_file_name = {output_file_name}")
+            # Update persistence file if applicable
+            if args.previous:
+                previous_file_name[sca] = output_file_name
 
-                    # If making a script, write the line and proceed
-                    # otherwise create simulation file
-                    if args.make_script:
-                        line = f"romanisim-make-image {output_file_name}"
+            # Break the loop if only one detector specified
+            if args.sca > 0:
+                break
+            else:
+                sca += 1
 
-                        for option, value in options_dct.items():
-                            if (type(value) != bool) and (option != 'sca'):
-                                line += f" --{option} {value}"
-                            elif (option == 'sca'):
-                                line += f" --{option} {sca}"
-                            elif (value == True):
-                                line += f" --{option}"
-
-                        line += f" --bandpass {entry['optical_element']}"
-                        line += f" --radec {entry['ra']} {entry['dec']}"
-                        line += f" --ma_table_number {entry['ma_table_number']}"
-                        line += f" --date "
-                        for s in date.strftime('%Y %m %d %H %M %S %f').split(' '):
-                            line += f"{int(s)} "
-
-                        # print line
-                        if args.debug:
-                            print(f'line = {line}')
-
-                        # add line to script
-                        spcript_file.write(line+'\n')
-
-                    else:
-                        # Obtain WCS catalog
-                        if args.catalog is None:
-                            twcs = wcs.get_wcs(metadata, usecrds=args.usecrds)
-                            rd_sca = twcs.toWorld(galsim.PositionD(
-                                galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
-                            cat = catalog.make_dummy_table_catalog(
-                                rd_sca, bandpasses=[entry['optical_element']], nobj=args.nobj)
-                        else:
-                            log.warning('Catalog input will probably not work unless the catalog '
-                                        'covers a lot of area or you have thought carefully about '
-                                        'the relation between the boresight and the SCA locations.')
-                            cat = Table.read(args.catalog)
-
-                        # If selected, apply persistence
-                        if args.previous:
-                            # Use provided Persistence file for first SCA (for each entry) only
-                            # after that, use previously created file
-                            if args.sca > 0 and sca > 1:
-                                persist = persistence.Persistence.read(previous_file_name)
-                            else:
-                                persist = persistence.Persistence.read(args.previous)
-
-                            previous_file_name = output_file_name
-                        else:
-                            persist = persistence.Persistence()
-
-                        rng = galsim.UniformDeviate(args.rng_seed)
-
-                        im, simcatobj = image.simulate(
-                            metadata, cat, usecrds=args.usecrds,
-                            webbpsf=args.webbpsf, level=args.level, persistence=persist,
-                            rng=rng)
-
-                        # Populate romanisim parameters and simulated object catalog
-                        romanisimdict = vars(args)
-                        romanisimdict['simcatobj'] = simcatobj
-
-                        # Write output asdf file with simulated data
-                        af = asdf.AsdfFile()
-                        af.tree = {'roman': im, 'romanisim': romanisimdict}
-                        af.write_to(output_file_name)
-
-
-                    # Break the loop if only one detector specified
-                    if args.sca > 0:
-                        break
-                    else:
-                        sca += 1
-
-                # Calculate time offset for the next exposure
-                openshuttertime = parameters.read_time * (
-                        ma_table[-1][0] + ma_table[-1][1] - 1)
-                time_offset += (openshuttertime + (float(entry['overhead_time']))) * u.s
-
+        # Add time offset for the next exposure group
+        time_offset += (float(entry['DURATION'])) * u.s
 
     # Close script file if appropriate
     if args.make_script:
-        # add line to script
-        spcript_file.close()
+        script_file.close()
 
 
 # Call main if run (as opposed to imported as a module)
