@@ -69,3 +69,6 @@ pedestal = 100 * u.DN
 dqbits = dict(saturated=2, jump_det=4)
 
 NUMBER_OF_DETECTORS = 18
+
+# Radial distance from WFI_CEN to extend object generation in order to cover FOV (degrees)
+WFS_FOV = 0.6

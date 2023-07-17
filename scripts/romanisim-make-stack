@@ -13,9 +13,6 @@ from romanisim import log
 from romanisim import parameters
 import ris_make_utils as ris
 
-# Radial distance from WFI_CEN to extend object generation in order to cover FOV (degrees)
-WFS_FOV = 0.6
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -155,7 +152,7 @@ def main():
     rng = galsim.UniformDeviate(args.rng_seed)
 
     # Calculate radius to span the entire FOV (degrees)
-    radius = max([ra_diff, dec_diff]) + WFS_FOV
+    radius = max([ra_diff, dec_diff]) + parameters.WFS_FOV
 
     if args.debug:
         print(f"radius = {radius}")
