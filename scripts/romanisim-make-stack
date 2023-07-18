@@ -7,10 +7,8 @@ from astropy import units as u
 from astropy.table import Table
 from astropy.time import Time
 import galsim
-from romanisim import wcs, persistence
+from romanisim import wcs, persistence, log, parameters
 from romanisim.parameters import default_parameters_dictionary
-from romanisim import log
-from romanisim import parameters
 import ris_make_utils as ris
 
 
@@ -40,21 +38,11 @@ def main():
                         default=None,
                         help='Object catalog file for wcs matching (csv)')
 
-    # Debug argument
-    parser.add_argument("--debug",
-                        action='store_true',
-                        help='Display verbose debug output')
-
     # Date & Time argument
     parser.add_argument('-d', '--date',
                         type=str,
                         default='2026-01-01T00:00:00',
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
-
-    # Flux factor argument
-    parser.add_argument('-f', '--flux_factor',
-                        type=float,
-                        help='An optional flux factor for generated objects to make them brighter.')
 
     # Level argument
     parser.add_argument('-l', '--level',
@@ -85,7 +73,7 @@ def main():
                         help='Filename prefix for simulated files.')
 
     # Persistence
-    parser.add_argument('-p', '--previous',
+    parser.add_argument('-p', '--persistence',
                         action='store_true',
                         help=(
                             'Enable persistence modeling of previous files for exposures after the first in each SCA.'))
@@ -140,13 +128,12 @@ def main():
     ra_diff = max_ra - min_ra
     dec_diff = max_dec - min_dec
 
-    if args.debug:
-        print(f"max_ra = {max_ra}")
-        print(f"min_ra = {min_ra}")
-        print(f"ra_diff = {ra_diff}")
-        print(f"max_dec = {max_dec}")
-        print(f"min_dec = {min_dec}")
-        print(f"dec_diff = {dec_diff}")
+    log.debug(f"max_ra = {max_ra}"
+              f"min_ra = {min_ra}"
+              f"ra_diff = {ra_diff}"
+              f"max_dec = {max_dec}"
+              f"min_dec = {min_dec}"
+              f"dec_diff = {dec_diff}")
 
     # Create random number distribution
     rng = galsim.UniformDeviate(args.rng_seed)
@@ -154,26 +141,13 @@ def main():
     # Calculate radius to span the entire FOV (degrees)
     radius = max([ra_diff, dec_diff]) + parameters.WFS_FOV
 
-    if args.debug:
-        print(f"radius = {radius}")
+    log.debug(f"radius = {radius}")
 
     # Create catalog
     cat = ris.create_catalog(metadata=metadata, catalog_name=args.catalog,
                              bandpasses=pointings['BANDPASS'], rng=rng, nobj=args.nobj,
                              usecrds=args.usecrds, x=(ra_center * galsim.degrees),
                              y=(dec_center * galsim.degrees), radius=radius)
-
-    if args.debug:
-        print(f"cat_max_ra = {max(cat['ra'])}")
-        print(f"cat_min_ra = {min(cat['ra'])}")
-        print(f"cat_ra_diff = {max(cat['ra']) - min(cat['ra'])}")
-        print(f"cat_max_dec = {max(cat['dec'])}")
-        print(f"cat_min_dec = {min(cat['dec'])}")
-        print(f"cat_dec_diff = {max(cat['dec']) - min(cat['dec'])}")
-
-    # Adjust brightness of generated objects before writing catalog
-    if args.flux_factor:
-        cat[cat.keys()[-1]] *= args.flux_factor
 
     # If creating a script, create the catalog and script files
     if args.make_script:
@@ -187,9 +161,8 @@ def main():
         # Acquire cleaned options to pass to script call
         options_dct = {}
         for option, value in vars(args).items():
-            if args.debug:
-                print(f'option, value = {option, value}')
-            if option not in ('input_file_name', 'debug', 'make_script', 'flux_factor') and \
+            log.debug(f'option, value = {option, value}')
+            if option not in ('input_file_name', 'debug', 'make_script') and \
                     value is not None:
                 options_dct[option] = value
 
@@ -200,15 +173,14 @@ def main():
     suffix = "uncal" if (args.level == 1) else "cal"
 
     # If selected, reset persistence dictionary
-    if args.previous:
+    if args.persistence:
         previous_file_name = {}
 
     # Loop over pointings
     for entry_idx, entry in enumerate(pointings):
 
         # Debug: print keys
-        if args.debug:
-            print(f'entry.keys = {entry.keys()}')
+        log.debug(f'entry.keys = {entry.keys()}')
 
         # Set initial (possibly only) SCA
         sca = args.sca if (args.sca > 0) else 1
@@ -219,8 +191,7 @@ def main():
             # Create output file name
             output_file_name = f"{args.prefix}_{entry_idx}_{entry['BANDPASS']}_WFI{sca:02}_{suffix}.asdf"
 
-            if args.debug:
-                print(f"output_file_name = {output_file_name}")
+            log.debug(f"output_file_name = {output_file_name}")
 
             # If making a script, write the line and proceed
             # otherwise create simulation file
@@ -228,13 +199,13 @@ def main():
                 line = f"romanisim-make-image {output_file_name}"
 
                 for option, value in options_dct.items():
-                    if (type(value) != bool) and (option != 'sca') and (option != 'prefix') and (option != 'previous'):
+                    if (type(value) != bool) and (option != 'sca') and (option != 'prefix') and (option != 'persistence'):
                         line += f" --{option} {value}"
-                    elif (option == 'previous') and (sca in previous_file_name.keys()):
+                    elif (option == 'persistence') and (sca in previous_file_name.keys()):
                         line += f" --{option} {previous_file_name[sca]}"
                     elif (option == 'sca'):
                         line += f" --{option} {sca}"
-                    elif (value is True) and (option != 'previous'):
+                    elif (value is True) and (option != 'persistence'):
                         line += f" --{option}"
 
                 line += f" --bandpass {entry['BANDPASS']}"
@@ -244,16 +215,14 @@ def main():
                 line += f" --catalog {args.make_script}_cat.csv"
 
                 # Debug print line
-                if args.debug:
-                    print(f'line = {line}')
+                log.debug(f'line = {line}')
 
                 # add line to script
                 script_file.write(line + '\n')
 
             else:
                 # RA & Dec
-                if args.debug:
-                    print(f"float(entry['PA']) = {float(entry['PA'])}")
+                log.debug(f"float(entry['PA']) = {float(entry['PA'])}")
                 coord = SkyCoord(ra=float(entry['RA']) * u.deg, dec=float(entry['DEC']) * u.deg,
                                  frame='icrs')
                 wcs.fill_in_parameters(metadata, coord, boresight=args.boresight,
@@ -266,7 +235,7 @@ def main():
                                             ma_table_number=int(entry['MA_TABLE_NUMBER']))
 
                 # If selected, apply persistence
-                if args.previous and entry_idx > 0:
+                if args.persistence and entry_idx > 0:
                     # Use previously created file for persistence for each exposure
                     # after the first
                     persist = persistence.Persistence.read(previous_file_name[sca])
@@ -277,7 +246,7 @@ def main():
                 ris.simulate_image_file(args, metadata, cat, rng, persist, output=output_file_name)
 
             # Update persistence file if applicable
-            if args.previous:
+            if args.persistence:
                 previous_file_name[sca] = output_file_name
 
             # Break the loop if only one detector specified
