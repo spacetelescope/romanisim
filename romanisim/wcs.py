@@ -102,9 +102,6 @@ def get_wcs(image, usecrds=True, distortion=None):
     usecrds : bool
         If True, use crds reference distortions rather than galsim.roman
         distortion model.
-    boresight : bool
-        If True, world_pos specifies the location of the telescope boresight;
-        otherwise the location of the science aperture.
 
     Returns
     -------

@@ -66,9 +66,7 @@ if __name__ == '__main__':
 
     if args.date is not None:
         metadata['exposure']['start_time'] = Time(
-            datetime.datetime(*args.date)).isot
-
-    date = Time(metadata['exposure']['start_time'], format='isot')
+            datetime.datetime(*args.date))
 
     metadata['instrument']['detector'] = f'WFI{args.sca:02d}'
     metadata['instrument']['optical_element'] = args.bandpass
