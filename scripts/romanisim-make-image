@@ -1,19 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
-import datetime
-import logging
-from copy import deepcopy
-import asdf
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-from astropy.table import Table
-from astropy.io import fits
-from astropy.time import Time
 import galsim
-from romanisim import catalog, image, wcs, persistence
-from romanisim.parameters import default_parameters_dictionary
-from romanisim import log
+from romanisim import log, wcs, persistence
+import ris_make_utils as ris
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -21,31 +13,32 @@ if __name__ == '__main__':
         epilog='EXAMPLE: %(prog)s output_image.fits',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('filename', type=str, help='output image (fits)')
-    parser.add_argument('--catalog', type=str, help='input catalog (csv)',
-                        default=None)
-    parser.add_argument('--radec', type=float, nargs=2,
-                        help='ra and dec (deg)', default=None)
     parser.add_argument('--bandpass', type=str, help='bandpass to simulate',
                         default='F087')
+    parser.add_argument('--boresight', action='store_true', default=False,
+                        help=('radec specifies location of boresight, not '
+                              'center of WFI.'))
+    parser.add_argument('--catalog', type=str, help='input catalog (csv)',
+                        default=None)
+    parser.add_argument('--date', type=str, default=None,
+                        help=('UTC Date and Time of observation to simulate in ISOT format.'))
+    parser.add_argument('--level', type=int, default=2,
+                        help='1 or 2, for L1 or L2 output')
+    parser.add_argument('--ma_table_number', type=int, default=1)
+    parser.add_argument('--nobj', type=int, default=1000)
+    parser.add_argument('--previous', default=None, type=str,
+                        help=('previous simulated file in chronological order '
+                              'used for persistence modeling.'))
+    parser.add_argument('--radec', type=float, nargs=2,
+                        help='ra and dec (deg)', default=None)
+    parser.add_argument('--rng_seed', type=int, default=None)
+    parser.add_argument('--roll', type=float, default=0,
+                        help='Roll angle for the instrument.')
     parser.add_argument('--sca', type=int, default=7, help='SCA to simulate')
     parser.add_argument('--usecrds', action='store_true',
                         help='Use CRDS for distortion map')
     parser.add_argument('--webbpsf', action='store_true',
                         help='Use webbpsf for PSF')
-    parser.add_argument('--date', type=int, nargs='+', default=None,
-                        help=('Date of observation to simulate: '
-                              'year month day hour minute second microsecond'))
-    parser.add_argument('--level', type=int, default=2,
-                        help='1 or 2, for L1 or L2 output')
-    parser.add_argument('--ma_table_number', type=int, default=1)
-    parser.add_argument('--seed', type=int, default=None)
-    parser.add_argument('--nobj', type=int, default=1000)
-    parser.add_argument('--boresight', action='store_true', default=False,
-                        help=('radec specifies location of boresight, not '
-                              'center of WFI.'))
-    parser.add_argument('--previous', default=None, type=str,
-                        help=('previous simulated file in chronological order '
-                              'used for persistence modeling.'))
 
     args = parser.parse_args()
 
@@ -57,47 +50,23 @@ if __name__ == '__main__':
                 "packages like galsim's roman package or STIPS may better "
                 "serve such purposes.")
 
-    metadata = deepcopy(default_parameters_dictionary)
+    metadata = ris.set_metadata(date=args.date, bandpass=args.bandpass, sca=args.sca, ma_table_number=args.ma_table_number)
 
     if args.radec is not None:
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
                          frame='icrs')
-        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight)
+        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, roll_ref=args.roll)
 
-    if args.date is not None:
-        metadata['exposure']['start_time'] = Time(
-            datetime.datetime(*args.date))
+    rng = galsim.UniformDeviate(args.rng_seed)
 
-    metadata['instrument']['detector'] = f'WFI{args.sca:02d}'
-    metadata['instrument']['optical_element'] = args.bandpass
-    metadata['exposure']['ma_table_number'] = args.ma_table_number
+    # Create catalog
+    cat = ris.create_catalog(catalog_name=args.catalog, bandpasses=[args.bandpass], rng=rng, nobj=args.nobj, usecrds=args.usecrds)
 
-    rng = galsim.UniformDeviate(args.seed)
-    if args.catalog is None:
-        twcs = wcs.get_wcs(metadata, usecrds=args.usecrds)
-        rd_sca = twcs.toWorld(galsim.PositionD(
-            galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
-        cat = catalog.make_dummy_table_catalog(
-            rd_sca, bandpasses=[args.bandpass], nobj=args.nobj, rng=rng)
-    else:
-        log.warning('Catalog input will probably not work unless the catalog '
-                    'covers a lot of area or you have thought carefully about '
-                    'the relation between the boresight and the SCA locations.')
-        cat = Table.read(args.catalog)
-
+    # Create persistence object
     if args.previous is not None:
         persist = persistence.Persistence.read(args.previous)
     else:
         persist = persistence.Persistence()
 
-    im, extras = image.simulate(
-        metadata, cat, usecrds=args.usecrds,
-        webbpsf=args.webbpsf, level=args.level, persistence=persist,
-        rng=rng)
-
-    romanisimdict = vars(args)
-    romanisimdict.update(**extras)
-
-    af = asdf.AsdfFile()
-    af.tree = {'roman': im, 'romanisim': romanisimdict}
-    af.write_to(args.filename)
+    # Simulate image and write to file
+    ris.simulate_image_file(args, metadata, cat, rng, persist)

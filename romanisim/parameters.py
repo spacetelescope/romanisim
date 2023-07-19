@@ -34,7 +34,9 @@ gain = 1 * u.electron / u.DN
 
 nborder = 4  # number of border pixels used for reference pixels.
 
-ma_table = {1: [[1, 8], [9, 8], [17, 8], [25, 8], [33, 8], [41, 8]]}
+ma_table = {1: [[1, 8], [9, 8], [17, 8], [25, 8], [33, 8], [41, 8]],
+            2: [[1, 5], [6, 8], [14, 1], [15, 9], [24, 25]],
+            3: [[1, 25], [26, 8], [34, 1], [35, 14]],}
 
 read_time = 3.04
 
@@ -65,3 +67,8 @@ saturation = 55000 * u.DN
 pedestal = 100 * u.DN
 
 dqbits = dict(saturated=2, jump_det=4)
+
+NUMBER_OF_DETECTORS = 18
+
+# Radial distance from WFI_CEN to extend object generation in order to cover FOV (degrees)
+WFS_FOV = 0.6

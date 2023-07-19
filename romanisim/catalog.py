@@ -33,7 +33,7 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
     Parameters
     ----------
     coord : galsim.CelestialCoordinate
-        radius around which to generate sources
+        center around which to generate sources
     radius : float
         radius (deg) within which to generate sources
     rng : Galsim.BaseDeviate
