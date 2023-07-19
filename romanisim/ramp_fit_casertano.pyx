@@ -12,7 +12,7 @@ cdef int PTABLE_LENGTH = 6
 
 
 cdef inline float get_weight_power(float s):
-    cdef int ise
+    cdef int i
     for i in range(PTABLE_LENGTH):
         if s < PTABLE[0][i]:
             return PTABLE[1][i - 1]
@@ -22,6 +22,7 @@ cdef inline float get_weight_power(float s):
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
+@cython.cpow(True)
 cdef inline (float, float, float) fit_one_ramp(
         float [:] resultants, int start, int end, float read_noise,
         float [:] tbar, float [:] tau, int [:] nn):
@@ -60,6 +61,10 @@ cdef inline (float, float, float) fit_one_ramp(
     cdef float kk[2048]
     cdef float slope = 0, slopereadvar = 0, slopepoissonvar = 0
     cdef float tbarmid = (tbar[start] + tbar[end]) / 2
+
+    # Doesn't make sense to fit a ramp with 1 or fewer resultant.  Fail early.
+    if nres <= 1:
+        return (0.0, 0.0, 0.0)
 
     # Casertano+2022 Eq. 44
     # Note we've departed from Casertano+22 slightly;

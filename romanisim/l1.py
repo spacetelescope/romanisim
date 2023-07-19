@@ -332,7 +332,7 @@ def apportion_counts_to_resultants(
         # order enough that either decision would be fine.
         persistence.update(counts_so_far + instrumental_so_far, tnow)
 
-    nweirdpixfrac = np.sum(nlflag) / np.product(nlflag.shape)
+    nweirdpixfrac = np.sum(nlflag) / np.prod(nlflag.shape)
     if nweirdpixfrac > 0:
         log.warning(f'{nweirdpixfrac:5.1e} fraction of pixels have '
                     'observed(corrected) nonlinearity slopes of >1 or <0.  '
