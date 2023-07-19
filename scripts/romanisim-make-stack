@@ -161,7 +161,6 @@ def main():
 
                 # Preserve relevant stack options for image lines
                 for option, value in options_dct.items():
-                    print(f"option, value = {option}, {value}")
                     if (type(value) != bool) and (option != 'sca') and (option != 'prefix') \
                             and (option != 'cat_file_name'):
                         line += f" --{option} {value}"
@@ -199,6 +198,7 @@ def main():
                                             date=Time(args.date, format='isot') + time_offset,
                                             bandpass=entry['BANDPASS'], sca=sca,
                                             ma_table_number=int(entry['MA_TABLE_NUMBER']))
+
 
                 # If selected, apply persistence
                 if args.persistence and entry_idx > 0:

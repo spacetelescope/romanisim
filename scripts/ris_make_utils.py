@@ -140,12 +140,13 @@ def simulate_image_file(args, metadata, cat, rng, persist, output=None):
         rng=rng)
 
     # Create metadata for simulation parameter
-    romanisimdict = vars(args)
+    romanisimdict = deepcopy(vars(args))
     romanisimdict.update(**extras)
 
     # Write file
     af = asdf.AsdfFile()
     af.tree = {'roman': im, 'romanisim': romanisimdict}
+
     if output is None:
         af.write_to(args.filename)
     else:
