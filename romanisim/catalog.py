@@ -210,14 +210,14 @@ def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
     out['dec'] = locs.dec.to(u.deg).value
     out['type'] = types
     out['n'] = sersic_index
-    out['half_light_radius'] = hlr
-    out['pa'] = pa
-    out['ba'] = ba
+    out['half_light_radius'] = hlr.astype('f4')
+    out['pa'] = pa.astype('f4')
+    out['ba'] = ba.astype('f4')
     for bandpass in bandpasses:
         mag_thisband = mag + rng_numpy.normal(size=n)
         # sigma of one mag isn't nuts.  But this will be totally uncorrelated
         # in different bands, so we'll get some weird colored objects
-        out[bandpass] = 10.**(-mag_thisband / 2.5)
+        out[bandpass] = (10.**(-mag_thisband / 2.5)).astype('f4')
     return out
 
 
@@ -291,15 +291,15 @@ def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
     out['ra'] = locs.ra.to(u.deg).value
     out['dec'] = locs.dec.to(u.deg).value
     out['type'] = types
-    out['n'] = sersic_index
-    out['half_light_radius'] = hlr
-    out['pa'] = pa
-    out['ba'] = ba
+    out['n'] = sersic_index.astype('f4')
+    out['half_light_radius'] = hlr.astype('f4')
+    out['pa'] = pa.astype('f4')
+    out['ba'] = ba.astype('f4')
     for bandpass in bandpasses:
         mag_thisband = mag + rng_numpy.normal(size=n)
         # sigma of one mag isn't nuts.  But this will be totally uncorrelated
         # in different bands, so we'll get some weird colored objects
-        out[bandpass] = 10.**(-mag_thisband / 2.5)
+        out[bandpass] = (10.**(-mag_thisband / 2.5)).astype('f4')
     return out
 
 

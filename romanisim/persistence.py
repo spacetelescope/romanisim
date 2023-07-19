@@ -110,6 +110,9 @@ class Persistence:
         -------
         Current in electron / s in pixels due to past persistence events.
         """
+        if np.ndim(self.t) > 0 and len(self.t) > 0 and (tnow < np.min(self.t)):
+            raise ValueError(
+                'persistence current requested before persistence event?!')
         return fermi(self.x, (tnow - self.t) * 60 * 60 * 24,
                      self.A, self.x0, self.dx, self.alpha, self.gamma)
 

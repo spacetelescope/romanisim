@@ -15,8 +15,8 @@ from pkg_resources import get_distribution, DistributionNotFound
 import logging
 
 log = logging.getLogger(__name__)
-logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
+# logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+#                     datefmt='%Y-%m-%d %H:%M:%S')
 log.setLevel(logging.INFO)
 
 try:
