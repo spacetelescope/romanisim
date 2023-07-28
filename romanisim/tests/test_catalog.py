@@ -128,5 +128,5 @@ def test_table_catalog(tmp_path):
             > np.median(tgal1['half_light_radius']))
     assert (np.median(tgal1[bands[0]])
             > np.median(tgal2[bands[0]]))
-    log.info('DMS217: Generated parametric distributions of sources with '
-             'different magnitudes and sizes.')
+    log.info('DMS217: successfully generated parametric distributions of '
+             'sources with different magnitudes and sizes.')

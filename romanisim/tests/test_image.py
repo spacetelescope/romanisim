@@ -29,6 +29,7 @@ from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
+import romanisim.bandpass
 
 
 def test_in_bounds():
@@ -111,17 +112,18 @@ def set_up_image_rendering_things():
     bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
     fluxdict = {filter_name: counts}
+    from copy import deepcopy
     graycatalog = [
-        catalog.CatalogObject(None, galsim.DeltaFunction(), fluxdict),
-        catalog.CatalogObject(None, galsim.Sersic(4, half_light_radius=1),
-                              fluxdict)
+        catalog.CatalogObject(None, galsim.DeltaFunction(), deepcopy(fluxdict)),
+        catalog.CatalogObject(None, galsim.Sersic(1, half_light_radius=0.2),
+                              deepcopy(fluxdict))
     ]
     vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
     vega_sed = vega_sed.withFlux(counts, bandpass)
     chromcatalog = [
         catalog.CatalogObject(None, galsim.DeltaFunction() * vega_sed, None),
         catalog.CatalogObject(
-            None, galsim.Sersic(4, half_light_radius=1) * vega_sed, None)
+            None, galsim.Sersic(1, half_light_radius=0.2) * vega_sed, None)
     ]
     tabcat = table.Table()
     tabcat['ra'] = [270.0]
@@ -268,6 +270,9 @@ def test_image_rendering():
 
 
 def test_add_objects():
+    """Test adding objects to images.
+    Demonstrates profile sensitivity to distortion component of DMS218.
+    """
     imdict = set_up_image_rendering_things()
     im, impsfgray = imdict['im'], imdict['impsfgray']
     impsfchromatic = imdict['impsfchromatic']
@@ -282,7 +287,9 @@ def test_add_objects():
     image.add_objects_to_image(im, chromcatalog, [60, 60], [30, 30],
                                impsfchromatic, flux_to_counts_factor=1,
                                bandpass=bandpass)
-    assert (np.abs(np.sum(im.array) - 2 * counts) < 20 * np.sqrt(counts))
+    assert (np.abs(np.sum(im.array) - 2 * counts)
+            < np.hypot(5 * np.sqrt(counts), 0.03 * counts))
+    # 3% margin due to PSF outside of aperture concerns
     peaklocs = np.where(im.array == np.max(im.array))
     peakloc = peaklocs[1][0] + im.bounds.xmin, peaklocs[0][0] + im.bounds.ymin
     assert (peakloc[0] == 60) & (peakloc[1] == 30)
@@ -290,13 +297,27 @@ def test_add_objects():
     image.add_objects_to_image(im, chromcatalog, [60, 60], [30, 30],
                                impsfchromatic, flux_to_counts_factor=2,
                                bandpass=bandpass)
-    assert (np.abs(np.sum(im.array) - 2 * counts * 2) < 40 * np.sqrt(counts))
+    assert (np.abs(np.sum(im.array) - 2 * counts * 2)
+            < np.hypot(5 * np.sqrt(counts), 0.03 * 2 * counts))
+
+    im2 = galsim.Image(100, 100, scale=0.01, xmin=0, ymin=0)
+    image.add_objects_to_image(im2, chromcatalog, [60, 60], [30, 30],
+                               impsfchromatic, flux_to_counts_factor=2,
+                               bandpass=bandpass)
+    assert np.max(im2.array) < np.max(im.array) / 10
+    log.info('DMS218: successfully included distortion in rendering PSF')
+    # had we rendered a flat source, we would expect the flux to go down
+    # by a factor of 100 due to the 100x smaller pixel area.  But the peak
+    # is from a point source so that's not what we expect.  10x clearly
+    # shows that we're at least including the term; in my testing,
+    # the actual ratio was 42.
 
 
 def test_simulate_counts_generic():
     imdict = set_up_image_rendering_things()
     im = imdict['im']
     im.array[:] = 0
+    npix = np.prod(im.array.shape)
     exptime = 100
     zpflux = 10
     image.simulate_counts_generic(
@@ -312,13 +333,23 @@ def test_simulate_counts_generic():
     # verify adding the sky increases the counts
     assert np.all(im2.array >= im.array)
     # verify that the count rate is about right.
-    assert (np.mean(im2.array) - zpflux * exptime
-            < 20 * np.sqrt(skycountspersecond * zpflux * exptime))
+    poisson_rate = skycountspersecond * exptime
+    assert (np.abs(np.mean(im2.array) - poisson_rate)
+            < 20 * np.sqrt(poisson_rate / npix))
+    # verify that Poisson noise is included
+    # pearson chi2 test is probably best here, but it's finicky to get
+    # right---one needs to choose the right bins so that the convergence
+    # to the chi^2 distribution is close enough.
+    # let's just check that the variance isn't far from the
+    # mean.
+    assert (np.abs(np.mean(im2.array) - np.var(im2.array))
+            < 20 * np.sqrt(poisson_rate / npix))
+    log.info('DMS230: successfully include Poisson noise in image.')
     im3 = im.copy()
     image.simulate_counts_generic(im3, exptime, dark=sky, zpflux=zpflux)
     # verify that the dark counts don't see the zero point conversion
-    assert (np.mean(im3.array) - exptime
-            < 20 * np.sqrt(skycountspersecond * exptime))
+    assert (np.abs(np.mean(im3.array) - exptime)
+            < 20 * np.sqrt(skycountspersecond * exptime / npix))
     im4 = im.copy()
     image.simulate_counts_generic(im4, exptime, dark=sky, flat=0.5,
                                   zpflux=zpflux)
@@ -329,8 +360,9 @@ def test_simulate_counts_generic():
     image.simulate_counts_generic(im5, exptime, sky=sky, flat=0.5,
                                   zpflux=zpflux)
     # verify that sky photons are hit by the flat
-    assert (np.mean(im5.array) - skycountspersecond * zpflux * exptime * 0.5
-            < 20 * np.sqrt(skycountspersecond * zpflux * exptime * 0.5))
+    poisson_rate = skycountspersecond * exptime * 0.5
+    assert (np.abs(np.mean(im5.array) - poisson_rate)
+            < 20 * np.sqrt(poisson_rate / npix))
     # there are a few WCS bits where we use the positions in the catalog
     # to figure out where to render objects.  That would require setting
     # up a real PSF and is annoying.  Skipping that.
@@ -395,6 +427,7 @@ def test_simulate_counts():
 def test_simulate(tmp_path):
     """Test convolved image generation and L2 simulation framework.
     Demonstrates DMS216: convolved image generation - Level 2
+    Demonstrates DMS218: WCS & distortions
     Demonstrates DMS224: persistence.
     """
     imdict = set_up_image_rendering_things()
@@ -402,6 +435,7 @@ def test_simulate(tmp_path):
     roman.n_pix = 100
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
+    filter_name = 'F158'
 
     meta = {
         'exposure' : {
@@ -409,21 +443,33 @@ def test_simulate(tmp_path):
             'ma_table_number' : 1,
         },
         'instrument' : {
-            'optical_element' : 'F158',
+            'optical_element' : filter_name,
             'detector' : 'WFI01'
         },
-        'pointing' : {
-            'ra_v1' : coord.ra.to(u.deg).value,
-            'dec_v1' : coord.dec.to(u.deg).value,
+        'wcsinfo' : {
+            'ra_ref' : coord.ra.to(u.deg).value,
+            'dec_ref' : coord.dec.to(u.deg).value,
+            'v2_ref' : 0,
+            'v3_ref' : 0,
+            'roll_ref' : 0,
         },
     }
 
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
+    imwcs = wcs.get_wcs(meta, usecrds=False)
+    sourcecen = (50, 50)
+    center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
+    abfluxdict = romanisim.bandpass.compute_abflux()
     for o in chromcat:
-        o.sky_pos = coord
+        o.sky_pos = center
     for o in graycat:
-        o.sky_pos = coord
+        o.sky_pos = center
+        o.flux[filter_name] /= abfluxdict[filter_name]
+    imdict['tabcatalog']['ra'] = center.ra.to(u.deg).value
+    imdict['tabcatalog']['dec'] = center.dec.to(u.deg).value
+    imdict['tabcatalog'][filter_name] = (
+        imdict['tabcatalog'][filter_name] / abfluxdict[filter_name])
     l0 = image.simulate(meta, graycat, webbpsf=True, level=0,
                         usecrds=False)
     l0tab = image.simulate(
@@ -438,6 +484,10 @@ def test_simulate(tmp_path):
     rng = galsim.BaseDeviate(1)
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
                         crparam=dict(), usecrds=False, rng=rng)
+    peakloc = np.nonzero(l0[0]['data'] == np.max(l0[0]['data']))
+    assert (peakloc[0][0] == sourcecen[0]) and (peakloc[1][0] == sourcecen[1])
+    log.info('DMS218: successfully used WCS / focal plane geometry to render '
+            'sources at correct locations with distortions.')
     rng = galsim.BaseDeviate(1)
     l1_nocr = image.simulate(meta, graycat, webbpsf=True, level=1,
                              usecrds=False, crparam=None, rng=rng)
