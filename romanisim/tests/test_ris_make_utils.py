@@ -39,8 +39,6 @@ def test_simulate_image_file(tmp_path):
     args = types.SimpleNamespace()
     meta = ris_make_utils.set_metadata()
     cat = ris_make_utils.create_catalog(meta, nobj=1)
-    rng = None
-    persist = None
     args.filename = tmp_path / 'im.asdf'
     args.usecrds = False
     args.webbpsf = False
