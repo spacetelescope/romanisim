@@ -344,7 +344,7 @@ def test_simulate_counts_generic():
     # mean.
     assert (np.abs(np.mean(im2.array) - np.var(im2.array))
             < 20 * np.sqrt(poisson_rate / npix))
-    log.info('DMS230: successfully include Poisson noise in image.')
+    log.info('DMS230: successfully included Poisson noise in image.')
     im3 = im.copy()
     image.simulate_counts_generic(im3, exptime, dark=sky, zpflux=zpflux)
     # verify that the dark counts don't see the zero point conversion
@@ -424,7 +424,7 @@ def test_simulate_counts():
 
 
 @pytest.mark.soctests
-def test_simulate(tmp_path):
+def test_simulate():
     """Test convolved image generation and L2 simulation framework.
     Demonstrates DMS216: convolved image generation - Level 2
     Demonstrates DMS218: WCS & distortions
