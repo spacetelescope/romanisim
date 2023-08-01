@@ -28,17 +28,17 @@ def test_create_catalog(tmp_path):
     tabpath = tmp_path / 'table.ecsv'
     tab = Table(np.zeros(1, dtype=[('ra', 'f4')]))
     tab.write(tabpath)
-    cat = ris_make_utils.create_catalog(catalog_name=tabpath)
+    cat = ris_make_utils.create_catalog(catalog_name=tabpath, usecrds=False)
     assert len(cat) == 1
     cat = ris_make_utils.create_catalog(metadata=ris_make_utils.set_metadata(),
-                                        nobj=1000)
+                                        nobj=1000, usecrds=False)
     assert len(cat) == 1000
 
 
 def test_simulate_image_file(tmp_path):
     args = types.SimpleNamespace()
     meta = ris_make_utils.set_metadata()
-    cat = ris_make_utils.create_catalog(meta, nobj=1)
+    cat = ris_make_utils.create_catalog(meta, nobj=1, usecrds=False)
     args.filename = tmp_path / 'im.asdf'
     args.usecrds = False
     args.webbpsf = False
