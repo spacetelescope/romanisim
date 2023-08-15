@@ -50,7 +50,11 @@ import numpy as np
 from astropy import units as u
 
 
-def repair_coefficients(coeffs):
+
+
+
+
+def repair_coefficients(coeffs, inverse=False):
     """Fix cases of zeros and NaNs in non-linearity coefficients.
 
     This function replaces suspicious-looking non-linearity coefficients with
@@ -74,76 +78,20 @@ def repair_coefficients(coeffs):
         linear values with slopes of unity.
     """
     res = coeffs.copy()
+
+    if inverse:
+        pass
+    else:
+        pass
+
     nocorrection = np.zeros(coeffs.shape[0], dtype=coeffs.dtype)
     nocorrection[1] = 1.  # "no correction" is just normal linearity.
     m = np.any(~np.isfinite(coeffs), axis=0) | np.all(coeffs == 0, axis=0)
     res[:, m] = nocorrection[:, None]
+
     return res
 
-
-def derivative(coeffs):
-    """Compute the coefficients of the derivative of non-linearity corrections.
-
-    The non-linearity corrections are a polynomial; their derivatives are also
-    a polynomial.  This computes those coefficients.
-
-    Parameters
-    ----------
-    coeffs : np.ndarray[ncoeff, nx, ny] (float)
-        Nonlinearity coefficients, starting with the constant term and
-        increasing in power.
-
-    Returns
-    -------
-    derivcoeffs : np.ndarray[ncoeff, nx, ny] (float)
-        coefficients of the polynomial that is the derivative of the
-        non-linearity correction polynomial
-    """
-    if np.any(~np.isfinite(coeffs)):
-        raise ValueError('NaNs in nonlinearity coefficients.')
-    if np.any(np.all(coeffs == 0, axis=0)):
-        raise ValueError('All zero nonlinearity coefficients.')
-
-    coeffs = np.array(coeffs)
-    derivcoeffs = coeffs * np.arange(0, coeffs.shape[0]).reshape(
-        coeffs.shape[0:1] + (1,) * (len(coeffs.shape) - 1))
-    return derivcoeffs[1:, ...]
-
-
-def efficiency(counts, derivcoeffs, reversed=False):
-    """Convert the (in)efficiency of counting photons due to nonlinearity.
-
-    As photons arrive, they make it harder for the device to count future
-    photons due to classical non-linearity.  The "efficiency" here is the
-    fraction of photons we should count.  It is the reciprocal of the
-    derivative of the correction polynomial.
-
-    Parameters
-    ----------
-    counts : np.ndarray[nx, ny] (float)
-        Number of counts already in pixel
-    derivcoeffs : np.ndarray[ncoeff, nx, ny] (float)
-        Coefficients of the derivative of the non-linearity correction
-        polynomial (e.g., from romanisim.nonlinearity.derivative).
-    reversed : bool
-        If True, the coefficients are in reversed order, which is the
-        order that np.polyval wants them.  One can maybe save a little
-        time reversing them once ahead of time.
-
-    Returns
-    -------
-    efficiencies : np.ndarray[nx, ny] (float)
-        The (instantaneous) fraction of arriving photons that will be counted.
-    """
-    if reversed:
-        cc = derivcoeffs
-    else:
-        cc = derivcoeffs[::-1, ...]
-    dfdo = np.polyval(cc, counts)
-    return 1 / dfdo
-
-
-def correct(counts, coeffs, reversed=False):
+def evaluate_nl_polynomial(counts, coeffs, reversed=False):
     """Correct the observed counts for non-linearity.
 
     As photons arrive, they make it harder for the device to count
@@ -172,6 +120,7 @@ def correct(counts, coeffs, reversed=False):
         cc = coeffs
     else:
         cc = coeffs[::-1, ...]
+
     if isinstance(counts, u.Quantity):
         unit = counts.unit
         counts = counts.value
@@ -199,7 +148,7 @@ class NL:
     tightly coupled to the apportionment mechanism and so I haven't
     explored that adequately.
     """
-    def __init__(self, coeffs):
+    def __init__(self, coeffs, gain=1.0, inverse=False):
         """Construct an NL class handling non-linearity correction.
 
         Parameters
@@ -207,27 +156,11 @@ class NL:
         coeffs : np.ndarray[ncoeff, nx, ny] (float)
             Non-linearity coefficients from reference files.
         """
+        self.inverse = inverse
         self.coeffs = repair_coefficients(coeffs)
-        self.derivcoeffs = derivative(self.coeffs)
-        self.coeffs = self.coeffs[::-1, ...].copy()
-        self.derivcoeffs = self.derivcoeffs[::-1, ...].copy()
+        self.gain = gain
 
-    def efficiency(self, counts):
-        """Compute the efficiency of photon counting given a count level.
-
-        Parameters
-        ----------
-        counts : np.ndarray[nx, ny] (float)
-            The counts in each pixel
-
-        Returns
-        -------
-        efficiency : np.ndarray[nx, ny] (float)
-            The efficiency of each pixel at the current count level.
-        """
-        return efficiency(counts, self.derivcoeffs, reversed=True)
-
-    def correct(self, counts):
+    def apply(self, counts, electrons=False, reversed=False):
         """Compute the correction of observed to true counts
 
         Parameters
@@ -240,4 +173,8 @@ class NL:
         corrected : np.ndarray[nx, ny] (float)
             The corrected counts.
         """
-        return correct(counts, self.coeffs, reversed=True)
+        if electrons:
+            # return self.gain * self.apply(counts / self.gain)
+            return self.gain * evaluate_nl_polynomial(counts / self.gain, self.coeffs, reversed)
+
+        return evaluate_nl_polynomial(counts, self.coeffs, reversed)

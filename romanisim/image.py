@@ -104,7 +104,7 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
         gain = parameters.gain
 
     if linearity is not None:
-        resultants = linearity.correct(resultants)
+        resultants = linearity.apply(resultants)
         # no error propagation
 
     if dark is not None:
@@ -624,7 +624,7 @@ def simulate(metadata, objlist,
     # should query CRDS for any reference files not specified on the command
     # line.
     if usecrds:
-        refnames_lst = ['readnoise', 'dark', 'gain', 'linearity', 'saturation']
+        refnames_lst = ['readnoise', 'dark', 'gain', 'inverselinearity', 'linearity', 'saturation']
         import crds
         reffiles = crds.getreferences(
             image_mod.get_crds_parameters(), reftypes=refnames_lst,
@@ -636,6 +636,8 @@ def simulate(metadata, objlist,
             reffiles['dark'])
         gain_model = roman_datamodels.datamodels.GainRefModel(
             reffiles['gain'])
+        inverse_linearity_model = roman_datamodels.datamodels.InverselinearityRefModel(
+            reffiles['inverselinearity'])
         linearity_model = roman_datamodels.datamodels.LinearityRefModel(
             reffiles['linearity'])
         saturation_model = roman_datamodels.datamodels.SaturationRefModel(
@@ -660,6 +662,8 @@ def simulate(metadata, objlist,
         darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
         dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
         gain = gain_model.data[nborder:-nborder, nborder:-nborder]
+        inverse_linearity = nonlinearity.NL(
+            inverse_linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder], inverse=True)
         linearity = nonlinearity.NL(
             linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder])
         darkrate *= gain
@@ -674,6 +678,7 @@ def simulate(metadata, objlist,
         dark = None
         gain = None
         flat = 1
+        inverse_linearity = None
         linearity = None
         saturation = None
 
@@ -696,8 +701,7 @@ def simulate(metadata, objlist,
     else:
         l1, l1dq = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-            crparam=crparam,
-            linearity=linearity, tstart=image_mod.meta.exposure.start_time,
+            crparam=crparam, linearity=inverse_linearity, tstart=image_mod.meta.exposure.start_time,
             persistence=persistence, saturation=saturation,
             **kwargs)
     if level == 1:

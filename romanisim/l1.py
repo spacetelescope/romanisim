@@ -242,6 +242,7 @@ def apportion_counts_to_resultants(
         raise ValueError('apportion_counts_to_resultants expects the counts '
                          'to be integers!')
 
+    # Set rng for creating cosmic rays, persistence, and readnoise
     if rng is None and seed is None:
         seed = 46
         log.warning(
@@ -256,17 +257,22 @@ def apportion_counts_to_resultants(
     # two separate generators so that if you turn off CRs / persistence
     # you don't change the image
 
+    # Convert readout times for each read entering a resultant to probabilities,
+    # corresponding to the chance that a photon not yet assigned to a read so far
+    # should be assigned to this read.
     pij = tij_to_pij(tij, remaining=True)
+
+    # Create arrays to store various photon or electron counts and dq
     resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
     counts_so_far = np.zeros(counts.shape, dtype='f4')
     resultant_counts = np.zeros(counts.shape, dtype='f4')
     dq = np.zeros(resultants.shape, dtype='i4')
 
-    efficiency = 1
-    if linearity is not None:
-        pij_per_read = tij_to_pij(tij)
-        ki_numerator = np.cumsum(pij_per_read)
-        ki_denominator = np.zeros(counts_so_far.shape, dtype='f4')
+    # efficiency = 1
+    # if linearity is not None:
+    #     pij_per_read = tij_to_pij(tij)
+    #     ki_numerator = np.cumsum(pij_per_read)
+    #     ki_denominator = np.zeros(counts_so_far.shape, dtype='f4')
 
     # The implementation of non-linearity below is subtle.  The efficiency
     # quantity is the fraction of the photons that would enter this read
@@ -282,48 +288,72 @@ def apportion_counts_to_resultants(
     # The denominator depends on the realized efficiency of each pixel
     # and so must be built up during the read.
 
-    readnum = 0
-    nlflag = np.zeros(counts.shape, dtype='bool')
+    # readnum = 0
+    # nlflag = np.zeros(counts.shape, dtype='bool')
 
+    # Set initial instrument counts
     instrumental_so_far = 0
+
+    # Maybe this can be un-iffed and set above?
     if crparam is not None or persistence is not None:
         instrumental_so_far = np.zeros(counts.shape, dtype='i4')
+
     if persistence is not None and tstart is None:
         raise ValueError('tstart must be set if persistence is set!')
+
     if persistence is not None:
         tstart = tstart.mjd
 
+    # Loop over read probabilities
     for i, pi in enumerate(pij):
+        # Reset resultant counts
         resultant_counts[...] = 0
+
+        # Loop over resultant probabilities
         for j, p in enumerate(pi):
-            if linearity is None or ((i == 0) and (j == 0)):
-                ki = 1
-                efficiency = 1
-            else:
-                ki = (1 - ki_numerator[readnum - 1]) / (1 - ki_denominator)
-                efficiency = linearity.efficiency(
-                    counts_so_far
-                    + counts * (efficiency * pij_per_read[i][j] / 2))
-                m = (efficiency < 0) | (efficiency > 1)
-                nlflag[m] = True
-                efficiency = np.clip(efficiency, 0, 1)
-            read = rng_numpy.binomial((counts - counts_so_far).astype('i4'),
-                                      p * efficiency * ki)
+            # if linearity is None or ((i == 0) and (j == 0)):
+            #     ki = 1
+            #     efficiency = 1
+            # else:
+            #     ki = (1 - ki_numerator[readnum - 1]) / (1 - ki_denominator)
+            #     efficiency = linearity.efficiency(
+            #         counts_so_far
+            #         + counts * (efficiency * pij_per_read[i][j] / 2))
+            #     m = (efficiency < 0) | (efficiency > 1)
+            #     nlflag[m] = True
+            #     efficiency = np.clip(efficiency, 0, 1)
+            # read = rng_numpy.binomial((counts - counts_so_far).astype('i4'),
+            #                           p * efficiency * ki)
+
+            # Set read counts
+            read = rng_numpy.binomial((counts - counts_so_far).astype('i4'), p)
             counts_so_far += read
+
+            # Apply cosmic rays
             if crparam is not None:
                 old_instrumental_so_far = instrumental_so_far.copy()
                 cr.simulate_crs(instrumental_so_far, parameters.read_time,
                                 **crparam, rng=rng_numpy_cr)
                 crhits = instrumental_so_far != old_instrumental_so_far
                 dq[i, crhits] |= parameters.dqbits['jump_det']
+
+            # Apply persistence
             if persistence is not None:
                 tnow = tstart + tij[i][j] / (24 * 60 * 60)
                 persistence.add_to_read(
                     instrumental_so_far, tnow, rng=rng_numpy_ps)
+
+            # Update counts for the resultant
             resultant_counts += counts_so_far + instrumental_so_far
+            # if linearity is not None:
+            #     ki_denominator += efficiency * pij_per_read[i][j]
+            # readnum += 1
+
+            # Apply linearity
             if linearity is not None:
-                ki_denominator += efficiency * pij_per_read[i][j]
-            readnum += 1
+                resultant_counts += linearity.apply(counts_so_far + instrumental_so_far, electrons=True)
+
+        # set the read count to the average of the resultant count
         resultants[i, ...] = resultant_counts / len(pi)
 
     if persistence is not None:
@@ -332,12 +362,12 @@ def apportion_counts_to_resultants(
         # order enough that either decision would be fine.
         persistence.update(counts_so_far + instrumental_so_far, tnow)
 
-    nweirdpixfrac = np.sum(nlflag) / np.prod(nlflag.shape)
-    if nweirdpixfrac > 0:
-        log.warning(f'{nweirdpixfrac:5.1e} fraction of pixels have '
-                    'observed(corrected) nonlinearity slopes of >1 or <0.  '
-                    'The CRDS reference values are likely problematic for '
-                    'these pixels.')
+    # nweirdpixfrac = np.sum(nlflag) / np.prod(nlflag.shape)
+    # if nweirdpixfrac > 0:
+    #     log.warning(f'{nweirdpixfrac:5.1e} fraction of pixels have '
+    #                 'observed(corrected) nonlinearity slopes of >1 or <0.  '
+    #                 'The CRDS reference values are likely problematic for '
+    #                 'these pixels.')
     return resultants, dq
 
 
