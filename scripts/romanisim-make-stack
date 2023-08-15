@@ -9,7 +9,7 @@ from astropy.time import Time
 import galsim
 from romanisim import wcs, persistence, log, parameters
 from romanisim.parameters import default_parameters_dictionary
-import ris_make_utils as ris
+from romanisim import ris_make_utils as ris
 
 
 def main():
@@ -209,7 +209,8 @@ def main():
                 else:
                     persist = persistence.Persistence()
 
-                ris.simulate_image_file(args, metadata, cat, rng, persist, output=output_file_name)
+                args.filename = output_file_name
+                ris.simulate_image_file(args, metadata, cat, rng, persist)
 
             # Update persistence file if applicable
             if args.persistence:

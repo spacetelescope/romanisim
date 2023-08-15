@@ -59,6 +59,7 @@ def test_tij_to_pij():
 def test_apportion_counts_to_resultants():
     """Test that we can apportion counts to resultants and appropriately add
     read noise to those resultants, fulfilling DMS220.
+    Demonstrates DMS220, 229.
     """
     # we'll skip the linearity tests until new linearity files with
     # inverse coefficients are available in CRDS.
@@ -80,6 +81,7 @@ def test_apportion_counts_to_resultants():
             assert (np.abs(sdev - read_noise / np.sqrt(len(restij)))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
     log.info('DMS220: successfully added read noise to resultants.')
+    log.info('DMS229: successfully generated ramp from counts.')
 
 
 def test_linearized_counts_to_resultants():

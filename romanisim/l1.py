@@ -407,7 +407,7 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     else:
         rng = galsim.GaussianDeviate(rng)
 
-    noise = np.empty(resultants.shape, dtype='f4')
+    noise = np.zeros(resultants.shape, dtype='f4')
     rng.generate(noise)
     if read_noise is None:
         read_noise = parameters.read_noise
