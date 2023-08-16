@@ -59,7 +59,10 @@ jobs:
           path: ${{ steps.data.outputs.path }}
           key: data-${{ steps.data_hash.outputs.hash }}
       - id: webbpsf_path
-        run: echo "path=${{ steps.data.outputs.path }}/webbpsf-data" >> $GITHUB_OUTPUT
+        run: |
+	  echo "path=${{ steps.data.outputs.path }}/webbpsf-data" >> $GITHUB_OUTPUT
+	  echo "WebbPSF version:"
+	  cat ${{ steps.data.outputs.path }}/webbpsf-data/version.txt
       - id: galsim_cat_path
         run: echo "path=${{ steps.data.outputs.path }}/galsim-data/real_galaxy_catalog_23.5_example.fits" >> $GITHUB_OUTPUT
   test:
