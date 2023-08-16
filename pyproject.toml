@@ -32,7 +32,7 @@ dynamic = ['version']
 
 [project.optional-dependencies]
 docs = [
-    'sphinx',
+    'sphinx <7',
     'sphinx-automodapi',
     'sphinx-rtd-theme',
     'stsci-rtd-theme',
