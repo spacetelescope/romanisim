@@ -83,5 +83,6 @@ jobs:
         - macos: test-xdist
           python-version: 3.11
         - linux: test-pyargs-xdist
-        - linux: test-xdist-cov
+        - linux: test-cov-xdist
           coverage: codecov
+          python-version: 3.11
