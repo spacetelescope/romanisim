@@ -32,29 +32,13 @@ always means that the number of photons recorded is smaller than the number
 of photons entering the read.  Such cases are likely to cause problems when
 we try to sample more photons from the ramp than were present in the ramp.
 
-The implementation of nonlinearity makes an important simplification:
-that the efficiency is constant within a read.  This isn't quite true.  The
-original implementation in `l1.py` also assumed that the efficiency was equal
-to its value at the start of the read.  Since the efficiency is usually
-dropping as the pixel fills up this leads to the simulation leaving in somewhat
-more photons than expected.  For a particular simulated pixel that I inspected,
-this was a 1% effect at counts = 0 to a 2% effect at counts = 100k, with most
-of the range having a <0.5% effect.  To mitigate this effect, `l1.py` now
-evaluates the efficiency at what it expects the efficiency to be at the middle
-of the read, based on the previous efficiency and the length of the read.  This
-adjustment reduces the bias to <5e-4 across the full range.  The next step would
-be to take this another iteration further, but that feels like overkill.
 """
 
 import numpy as np
 from astropy import units as u
+from romanisim import parameters
 
-
-
-
-
-
-def repair_coefficients(coeffs, inverse=False):
+def repair_coefficients(coeffs, dq=None):
     """Fix cases of zeros and NaNs in non-linearity coefficients.
 
     This function replaces suspicious-looking non-linearity coefficients with
@@ -71,25 +55,33 @@ def repair_coefficients(coeffs, inverse=False):
         Nonlinearity coefficients, starting with the constant term and
         increasing in power.
 
+    dq : np.ndarray[n_resultant, nx, ny]
+        Data Quality array
+
     Returns
     -------
     coeffs : np.ndarray[ncoeff, nx, ny] (float)
         "repaired" coefficients with NaNs and weird coefficients replaced with
         linear values with slopes of unity.
+
+    dq : np.ndarray[n_resultant, nx, ny]
+        DQ array marking pixels with improper non-linearity coefficients
     """
     res = coeffs.copy()
-
-    if inverse:
-        pass
-    else:
-        pass
 
     nocorrection = np.zeros(coeffs.shape[0], dtype=coeffs.dtype)
     nocorrection[1] = 1.  # "no correction" is just normal linearity.
     m = np.any(~np.isfinite(coeffs), axis=0) | np.all(coeffs == 0, axis=0)
     res[:, m] = nocorrection[:, None]
 
-    return res
+    if dq is not None:
+        lin_dq_array = np.zeros(coeffs.shape[1:], dtype=np.uint32)
+        lin_dq_array[m] = parameters.dqbits['nonlinear']
+        dq = np.bitwise_or(dq, lin_dq_array)
+        return res, dq
+    else:
+        return res
+
 
 def evaluate_nl_polynomial(counts, coeffs, reversed=False):
     """Correct the observed counts for non-linearity.
@@ -136,29 +128,30 @@ def evaluate_nl_polynomial(counts, coeffs, reversed=False):
 
 
 class NL:
-    """Keep track of non-linearity coefficients.
+    """Keep track of non-linearity and inverse non-linearity coefficients.
 
-    This is a wrapper class to help other classes need to know less
-    about non-linearity, but it doesn't presently do much more than
-    cache the non-linearity derivative coefficients so that they may be
-    used multiple times in the up-the-ramp sampling.
-
-    It would be nice to encapsulate more information about the loss of
-    photons up the read that is presently in `l1.py`, but that's pretty
-    tightly coupled to the apportionment mechanism and so I haven't
-    explored that adequately.
     """
-    def __init__(self, coeffs, gain=1.0, inverse=False):
+    def __init__(self, coeffs, gain=1.0, dq=None):
         """Construct an NL class handling non-linearity correction.
 
         Parameters
         ----------
         coeffs : np.ndarray[ncoeff, nx, ny] (float)
             Non-linearity coefficients from reference files.
+
+        gain : float or np.ndarray[float]
+            Gain (electrons / count) for converting counts to electrons
+
+        dq : np.ndarray[n_resultant, nx, ny]
+            Data Quality array
         """
-        self.inverse = inverse
-        self.coeffs = repair_coefficients(coeffs)
+        # self.coeffs = repair_coefficients(coeffs)
         self.gain = gain
+        if dq is not None:
+            self.coeffs, self.dq = repair_coefficients(coeffs, dq)
+        else:
+            self.coeffs = repair_coefficients(coeffs)
+            self.dq = None
 
     def apply(self, counts, electrons=False, reversed=False):
         """Compute the correction of observed to true counts
@@ -167,6 +160,16 @@ class NL:
         ----------
         counts : np.ndarray[nx, ny] (float)
             The observed counts
+
+        electrons : bool
+            Set to True for 'counts' being in electrons, with coefficients
+            designed for DN. Accrdingly, the gain needs to be removed and
+            reapplied.
+
+        reversed : bool
+            If True, the coefficients are in reversed order, which is the
+            order that np.polyval wants them.  One can maybe save a little
+            time reversing them once ahead of time.
 
         Returns
         -------

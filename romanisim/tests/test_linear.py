@@ -1,26 +1,18 @@
 """Unit tests for linear module.
 
 Routines tested:
-- validate_times
-- tij_to_pij
-- apportion_counts_to_resultants
-- add_read_noise_to_resultants
-- make_asdf
-- ma_table_to_tij
-- make_l1
+- repair_coefficients
+- evaluate_nl_polynomial
+- apply
 """
 import os
 import pytest
 import numpy as np
-import galsim
-import copy
 from astropy import units as u
 import crds
 
 import roman_datamodels
-import roman_datamodels.maker_utils as maker_utils
-from romanisim import nonlinearity, parameters, wcs, catalog, image, util
-
+from romanisim import nonlinearity, parameters
 
 
 tijlist = [
@@ -34,9 +26,6 @@ ma_table_list = [
     [[1, 1]],
     [[1, 1], [10, 1]],
 ]
-
-INVERSE = [True, False]
-
 
 def test_linear_apply():
     counts = np.random.poisson(100, size=(100, 100))
@@ -55,23 +44,33 @@ def test_linear_apply():
     assert res2[0, 0] == 2 * res2[99, 99]
 
 
-@pytest.mark.parametrize("inverse", INVERSE)
-def test_repair_coeffs(inverse):
+def test_repair_coeffs():
     counts = np.random.poisson(100, size=(100, 100))
+    dq = np.zeros((100, 100), dtype=np.uint32)
+
     coeffs = np.asfarray([1.0, 0.7, 3.0e-6, 5.0e-12])
     lin_coeffs = np.tile(coeffs[:, np.newaxis, np.newaxis], (1, 100, 100))
     lin_coeffs[:, 0:50, :] *= 2.0
+
+    # Assign invalid coefficients to be repaired (no correction applied to pixels).
     lin_coeffs[:, 1, 1] *= 0
     lin_coeffs[2, 22, 22] = np.nan
+
     gain = 4.0 * u.electron / u.DN
 
-    linearity = nonlinearity.NL(lin_coeffs, gain, inverse)
+    linearity = nonlinearity.NL(lin_coeffs, gain, dq)
+
+    assert linearity.dq[1, 1] == parameters.dqbits['nonlinear']
+    assert linearity.dq[22, 22] == parameters.dqbits['nonlinear']
+    # All other entries should be zero
+    assert np.count_nonzero(linearity.dq) == 2
 
     res = linearity.apply(counts)
 
     assert res[1, 1] == counts[1, 1]
     assert res[22, 22] == counts[22, 22]
-    assert np.all(res[23:,23:] != counts[23:,23:])
+    # All other entries should be the same
+    assert np.sum(res != counts) == np.prod(counts.shape) - 2
 
 def test_electrons():
     counts = np.random.poisson(100, size=(100, 100))
@@ -117,41 +116,11 @@ def test_inverse_then_linearity():
     # Test that applying inverse linearity and then linearity returns the results to
     # the original value
 
-    # Set up parameters for simulation run
-    galsim.roman.n_pix = 4088
-    metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    metadata['instrument']['detector'] = 'WFI07'
-    metadata['instrument']['optical_element'] = 'F158'
-    metadata['exposure']['ma_table_number'] = 1
-
-    twcs = wcs.get_wcs(metadata, usecrds=True)
-    rd_sca = twcs.toWorld(galsim.PositionD(
-        galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
-
-    cat = catalog.make_dummy_table_catalog(
-        rd_sca, bandpasses=[metadata['instrument']['optical_element']], nobj=1000)
-
-    rng = galsim.UniformDeviate(None)
-
-    meta = maker_utils.mk_common_meta()
-    meta["photometry"] = maker_utils.mk_photometry()
-
-    for key in parameters.default_parameters_dictionary.keys():
-        meta[key].update(parameters.default_parameters_dictionary[key])
-
-    util.add_more_metadata(meta)
-
-    for key in metadata.keys():
-        meta[key].update(metadata[key])
-
-    image_node = maker_utils.mk_level2_image()
-    image_node['meta'] = meta
-    image_mod = roman_datamodels.datamodels.ImageModel(image_node)
-
-    refnames_lst = ['inverselinearity', 'linearity']
-
     reffiles = crds.getreferences(
-        image_mod.get_crds_parameters(), reftypes=refnames_lst,
+        {'roman.meta.instrument.name': 'WFI',
+         'roman.meta.instrument.detector':'WFI01',
+         'roman.meta.exposure.start_time': '2026-01-01T00:00:00'},
+        reftypes=['inverselinearity', 'linearity'],
         observatory='roman')
 
     inverse_linearity_model = roman_datamodels.datamodels.InverselinearityRefModel(
@@ -159,27 +128,16 @@ def test_inverse_then_linearity():
     linearity_model = roman_datamodels.datamodels.LinearityRefModel(
         reffiles['linearity'])
 
-    gain = 1.0
-
     inverse_linearity = nonlinearity.NL(
-        inverse_linearity_model.coeffs[:,0:4088,0:4088], gain=gain)
+        inverse_linearity_model.coeffs[:,4:-4,4:-4], gain=1.0)
     linearity = nonlinearity.NL(
-        linearity_model.coeffs[:,0:4088,0:4088], gain=gain)
+        linearity_model.coeffs[:,4:-4,4:-4], gain=1.0)
 
-
-
-    level_0, simcatobj = image.simulate(
-        metadata, cat, usecrds=True,
-        webbpsf=True, level=0,
-        rng=rng)
-
-    level_0_inv = inverse_linearity.apply(level_0['data'])
-
+    counts = np.random.poisson(16000, size=(4088, 4088))
+    level_0_inv = inverse_linearity.apply(counts)
     level_0_lin = linearity.apply(level_0_inv)
 
     # Divide initial counts before and after inverse & NL application
-    div = level_0['data'][np.isfinite(level_0['data'])] / level_0_lin[np.isfinite(level_0_lin)]
+    div = (counts[np.isfinite(counts)] / level_0_lin[np.isfinite(level_0_lin)]).flatten()
 
     assert np.isclose(np.average(div), 1.0, atol=0.1)
-
-    pass

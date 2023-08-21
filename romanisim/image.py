@@ -636,7 +636,7 @@ def simulate(metadata, objlist,
             reffiles['dark'])
         gain_model = roman_datamodels.datamodels.GainRefModel(
             reffiles['gain'])
-        inverse_linearity_model = roman_datamodels.datamodels.InverselinearityRefModel(
+        inv_linearity_model = roman_datamodels.datamodels.InverselinearityRefModel(
             reffiles['inverselinearity'])
         linearity_model = roman_datamodels.datamodels.LinearityRefModel(
             reffiles['linearity'])
@@ -662,8 +662,8 @@ def simulate(metadata, objlist,
         darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
         dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
         gain = gain_model.data[nborder:-nborder, nborder:-nborder]
-        inverse_linearity = nonlinearity.NL(
-            inverse_linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder], inverse=True)
+        inv_linearity = nonlinearity.NL(
+            inv_linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder])
         linearity = nonlinearity.NL(
             linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder])
         darkrate *= gain
@@ -678,7 +678,7 @@ def simulate(metadata, objlist,
         dark = None
         gain = None
         flat = 1
-        inverse_linearity = None
+        inv_linearity = None
         linearity = None
         saturation = None
 
@@ -701,7 +701,7 @@ def simulate(metadata, objlist,
     else:
         l1, l1dq = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-            crparam=crparam, linearity=inverse_linearity, tstart=image_mod.meta.exposure.start_time,
+            crparam=crparam, inv_linearity=inv_linearity, tstart=image_mod.meta.exposure.start_time,
             persistence=persistence, saturation=saturation,
             **kwargs)
     if level == 1:

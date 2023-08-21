@@ -87,33 +87,27 @@ def test_apportion_counts_to_resultants():
 def test_linearized_counts_to_resultants():
     """Test that we can apportion linearized counts to resultants.
     """
-    counts = np.random.poisson(100, size=(100, 100))
-    coeffs = np.asfarray([1.0, 0.7, 3.0e-6, 5.0e-12])
-    lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 100, 100))
-    lin_coeffs[:, 0:50, :] *= 2.0
-    gain = 4.0
-    counts[0,0] = counts[0,99] = counts[99,0] = counts[99,99] = 11.0
+    size = (4,4)
+    counts = np.random.poisson(8, size=size)
 
-    linearity = nonlinearity.NL(lin_coeffs, gain)
+    coeffs = np.asfarray([0, 0.5, 0, 0, 0,0,0,0,0,0])
+    lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 4,4))
+
+    rng = galsim.UniformDeviate(42)
+
+    inv_linearity = nonlinearity.NL(lin_coeffs)
 
     for tij in tijlist:
-        resultants, dq = l1.apportion_counts_to_resultants(counts.copy(), tij.copy())
-        assert np.all(np.diff(resultants, axis=0) >= 0)
-        assert np.all(resultants >= 0)
-        assert np.all(resultants <= counts[None, :, :])
+        resultants, dq = l1.apportion_counts_to_resultants(counts.copy(), tij.copy(), rng=rng)
 
-        res2, dq2 = l1.apportion_counts_to_resultants(counts.copy(), tij.copy(), linearity=linearity)
+        res2, dq2 = l1.apportion_counts_to_resultants(counts.copy(), tij.copy(), rng=rng,
+                                                      inv_linearity=inv_linearity)
 
+        # Ensure that the linear coefficients were actually applied
         assert np.all(res2 >= 0)
+        assert np.any(res2.sum(axis=0) < resultants.sum(axis=0))
+        assert np.all(res2.sum(axis=0) <= resultants.sum(axis=0))
 
-        assert np.all(res2 != resultants)
-
-        assert np.all(res2[-1:1, 0, 0] != res2[-1:1, 0, 99])
-        assert np.all(res2[:, 0, 0] != res2[:, 99, 0])
-        assert np.all(res2[:, 0, 0] != res2[:, 99, 99])
-        assert np.all(res2[:, 0, 99] != res2[:, 99, 0])
-        assert np.all(res2[:, 0, 99] != res2[:, 99, 99])
-        assert np.all(res2[:-1, 99, 0] != res2[:-1, 99, 99])
 
 
 
