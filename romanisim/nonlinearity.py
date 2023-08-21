@@ -38,6 +38,7 @@ import numpy as np
 from astropy import units as u
 from romanisim import parameters
 
+
 def repair_coefficients(coeffs, dq=None):
     """Fix cases of zeros and NaNs in non-linearity coefficients.
 
@@ -177,7 +178,6 @@ class NL:
             The corrected counts.
         """
         if electrons:
-            # return self.gain * self.apply(counts / self.gain)
             return self.gain * evaluate_nl_polynomial(counts / self.gain, self.coeffs, reversed)
 
         return evaluate_nl_polynomial(counts, self.coeffs, reversed)

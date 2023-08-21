@@ -90,8 +90,8 @@ def test_linearized_counts_to_resultants():
     size = (4,4)
     counts = np.random.poisson(8, size=size)
 
-    coeffs = np.asfarray([0, 0.5, 0, 0, 0,0,0,0,0,0])
-    lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 4,4))
+    coeffs = np.asfarray([0, 0.5, 0, 0])
+    lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 4, 4))
 
     rng = galsim.UniformDeviate(42)
 

@@ -313,7 +313,6 @@ def apportion_counts_to_resultants(
             else:
                 resultant_counts += counts_so_far + instrumental_so_far
 
-
         # set the read count to the average of the resultant count
         resultants[i, ...] = resultant_counts / len(pi)
 

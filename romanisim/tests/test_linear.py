@@ -27,6 +27,7 @@ ma_table_list = [
     [[1, 1], [10, 1]],
 ]
 
+
 def test_linear_apply():
     counts = np.random.poisson(100, size=(100, 100))
     coeffs = np.asfarray([1.0, 0.7, 3.0e-6, 5.0e-12])
