@@ -44,7 +44,7 @@ That said, the basic install process looks like this::
     # get webbpsf data and untar it
     mkdir -p $HOME/data/webbpsf-data
     cd $HOME/data/webbpsf-data
-    wget https://stsci.box.com/shared/static/t90gqazqs82d8nh25249oq1obbjfstq8.gz -O webbpsf-data.tar.gz
+    wget https://stsci.box.com/shared/static/qxpiaxsjwo15ml6m4pkhtk36c9jgj70k.gz -O webbpsf-data.tar.gz
     tar -xzf webbpsf-data.tar.gz
     export WEBBPSF_PATH=$PWD/webbpsf-data
 
