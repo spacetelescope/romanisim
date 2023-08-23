@@ -24,7 +24,7 @@ dependencies = [
     'rad >=0.17.1',
     'roman_datamodels >=0.17.1',
     'gwcs >=0.18.1',
-    'jsonschema >=4.0.1',
+    'jsonschema >=4.8',
     'webbpsf >=1.0.0',
     'Cython >=0.29.21',
 ]
