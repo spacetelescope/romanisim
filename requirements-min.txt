@@ -1,0 +1,12 @@
+asdf==2.15.1
+astropy==5.3
+crds==10.3.1
+defusedxml==0.5.0
+galsim==2.3.5
+rad==0.17.1
+roman-datamodels==0.17.1
+gwcs==0.18.1
+jsonschema==4.8.0
+numpy==1.22
+webbpsf==1.0.0
+Cython==0.29.21
