@@ -50,7 +50,7 @@ def test_linear_apply():
 def test_repair_coeffs():
     counts = np.random.poisson(100, size=(100, 100))
 
-    coeffs = np.asfarray([1.0, 0.7, 3.0e-6, 5.0e-12])
+    coeffs = np.asfarray([0, 0.994, 3.0e-5, 5.0e-10, 7.0e-15])
     lin_coeffs = np.tile(coeffs[:, np.newaxis, np.newaxis], (1, 100, 100))
     lin_coeffs[:, 0:50, :] *= 2.0
 
