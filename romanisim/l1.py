@@ -47,11 +47,11 @@ whenever i > k or whenever i = k and j > l.
 Things this doesn't allow neatly:
 
 * jitter in telescope pointing: the rate image is the same for each read/resultant
-* non-linearity?
 * weird non-linear systematics in darks?
 
-Possibly some systematics need to be applied to the individual reads, rather than to
-the final image.  e.g., clearly nonlinearity?  I need to think about when in the chain
+Some systematics need to be applied to the individual reads, rather than to
+the final image.  Currently linearity, persistenc, and CRs are implemented at
+individual read time.  I need to think about when in the chain
 things like IPC, etc., come in.  But it still seems correct to first generate the total
 number of counts that an ideal detector would measure from sources, and then apply
 these effects read-by-read as we build up the resultants---i.e., I expect the current
@@ -484,9 +484,7 @@ def make_l1(counts, ma_table_number,
     """Make an L1 image from a counts image.
 
     This apportions the total counts among the different resultants and adds
-    some instrumental effects.  The current instrumental effects aren't quite
-    right: nonlinearity and reciprocity failure are applied to the resultants
-    rather than to the reads (which aren't really available to this function).
+    some instrumental effects (linearity, IPC, CRs, persistence, ...).
 
     Parameters
     ----------
