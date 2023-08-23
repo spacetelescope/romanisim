@@ -16,7 +16,7 @@ classifiers = [
     'Programming Language :: Python :: 3.9',
 ]
 dependencies = [
-    'asdf >=2.15.0',
+    'asdf >=2.15.1',
     'astropy >=5.2',
     'crds >=10.3.1',
     'defusedxml >=0.5',
@@ -24,7 +24,7 @@ dependencies = [
     'rad >=0.17.1',
     'roman_datamodels >=0.17.1',
     'gwcs >=0.18.1',
-    'jsonschema >=4.0.1',
+    'jsonschema >=4.8',
     'webbpsf >=1.0.0',
     'Cython >=0.29.21',
 ]
