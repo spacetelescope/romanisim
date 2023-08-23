@@ -318,16 +318,13 @@ def apportion_counts_to_resultants(
 
     if inv_linearity is not None:
         # Update data quality array for inverse linearty coefficients
-        dq = np.bitwise_or(dq, inv_linearity.dq)
+        dq |= inv_linearity.dq
 
     if persistence is not None:
         # should the electrons from persistence contribute to future
         # persistence?  Here they do.  But hopefully this choice is second
         # order enough that either decision would be fine.
         persistence.update(counts_so_far + instrumental_so_far, tnow)
-
-    if inv_linearity is not None:
-        dq |= inv_linearity.dq
 
     return resultants, dq
 
