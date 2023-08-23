@@ -47,7 +47,6 @@ def test_linear_apply():
 
 def test_repair_coeffs():
     counts = np.random.poisson(100, size=(100, 100))
-    dq = np.zeros((100, 100), dtype=np.uint32)
 
     coeffs = np.asfarray([1.0, 0.7, 3.0e-6, 5.0e-12])
     lin_coeffs = np.tile(coeffs[:, np.newaxis, np.newaxis], (1, 100, 100))
@@ -59,7 +58,7 @@ def test_repair_coeffs():
 
     gain = 4.0 * u.electron / u.DN
 
-    linearity = nonlinearity.NL(lin_coeffs, gain, dq)
+    linearity = nonlinearity.NL(lin_coeffs, gain)
 
     assert linearity.dq[1, 1] == parameters.dqbits['nonlinear']
     assert linearity.dq[22, 22] == parameters.dqbits['nonlinear']
@@ -129,16 +128,27 @@ def test_inverse_then_linearity():
     linearity_model = roman_datamodels.datamodels.LinearityRefModel(
         reffiles['linearity'])
 
+
     inverse_linearity = nonlinearity.NL(
         inverse_linearity_model.coeffs[:,4:-4,4:-4], gain=1.0)
     linearity = nonlinearity.NL(
         linearity_model.coeffs[:,4:-4,4:-4], gain=1.0)
 
+    ildq = inverse_linearity.dq
+    ldq = linearity.dq
+
     counts = np.random.poisson(16000, size=(4088, 4088))
     level_0_inv = inverse_linearity.apply(counts)
     level_0_lin = linearity.apply(level_0_inv)
 
+    dq_mask = np.logical_or(ildq, ldq)
+
+    counts[dq_mask] = 1
+    level_0_lin[dq_mask] = 1
+
+    mask = np.logical_and(np.isfinite(counts), np.isfinite(level_0_lin))
+
     # Divide initial counts before and after inverse & NL application
-    div = (counts[np.isfinite(counts)] / level_0_lin[np.isfinite(level_0_lin)]).flatten()
+    div = counts[mask] / level_0_lin[mask]
 
     assert np.isclose(np.average(div), 1.0, atol=0.1)

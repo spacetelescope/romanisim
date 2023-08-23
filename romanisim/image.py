@@ -105,7 +105,8 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
-        # no error propagation
+
+    # no error propagation
 
     if dark is not None:
         resultants = resultants - dark
@@ -121,6 +122,11 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     if dq is None:
         dq = np.zeros(resultants.shape, dtype='i4')
+
+    if linearity is not None:
+        # Update data quality array for linearty coefficients
+        dq = np.bitwise_or(dq, linearity.dq)
+
     ramppar, rampvar = ramp.fit_ramps_casertano(resultants * gain, dq,
                                                 read_noise * gain, ma_table)
 
@@ -723,7 +729,7 @@ def simulate(metadata, objlist,
 
 
 def make_test_catalog_and_images(
-        seed=12345, sca=7, filters=None, nobj=1000, 
+        seed=12345, sca=7, filters=None, nobj=1000,
         usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')

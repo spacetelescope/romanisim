@@ -84,14 +84,14 @@ def test_apportion_counts_to_resultants():
     log.info('DMS229: successfully generated ramp from counts.')
 
 
+@pytest.mark.soctests
 def test_linearized_counts_to_resultants():
     """Test that we can apportion linearized counts to resultants.
     """
-    size = (4,4)
-    counts = np.random.poisson(8, size=size)
+    counts = np.random.poisson(100, size=(100,100))
 
-    coeffs = np.asfarray([0, 0.5, 0, 0])
-    lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 4, 4))
+    coeffs = np.asfarray([0, 0.5, 0, 0, 0])
+    lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 100, 100))
 
     rng = galsim.UniformDeviate(42)
 
@@ -107,8 +107,10 @@ def test_linearized_counts_to_resultants():
         assert np.all(res2 >= 0)
         assert np.any(res2.sum(axis=0) < resultants.sum(axis=0))
         assert np.all(res2.sum(axis=0) <= resultants.sum(axis=0))
-
-
+        # Test that the median difference between applying the linear coefficients
+        # and not is roughly 2
+        assert np.isclose(np.median(resultants[res2 != 0] / res2[res2 != 0]), 2.0, atol=1e-6)
+    log.info('DMS222: successfully added corrected resultants for nonlinearity.')
 
 
 @pytest.mark.soctests

@@ -266,12 +266,11 @@ def apportion_counts_to_resultants(
     resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
     counts_so_far = np.zeros(counts.shape, dtype='f4')
     resultant_counts = np.zeros(counts.shape, dtype='f4')
-    dq = np.zeros(resultants.shape, dtype='i4')
+    dq = np.zeros(resultants.shape, dtype=np.uint32)
 
     # Set initial instrument counts
     instrumental_so_far = 0
 
-    # Maybe this can be un-iffed and set above?
     if crparam is not None or persistence is not None:
         instrumental_so_far = np.zeros(counts.shape, dtype='i4')
 
@@ -315,6 +314,10 @@ def apportion_counts_to_resultants(
 
         # set the read count to the average of the resultant count
         resultants[i, ...] = resultant_counts / len(pi)
+
+    if inv_linearity is not None:
+        # Update data quality array for inverse linearty coefficients
+        dq = np.bitwise_or(dq, inv_linearity.dq)
 
     if persistence is not None:
         # should the electrons from persistence contribute to future

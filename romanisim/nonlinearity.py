@@ -132,7 +132,7 @@ class NL:
     """Keep track of non-linearity and inverse non-linearity coefficients.
 
     """
-    def __init__(self, coeffs, gain=1.0, dq=None):
+    def __init__(self, coeffs, gain=1.0):
         """Construct an NL class handling non-linearity correction.
 
         Parameters
@@ -146,13 +146,9 @@ class NL:
         dq : np.ndarray[n_resultant, nx, ny]
             Data Quality array
         """
-        # self.coeffs = repair_coefficients(coeffs)
         self.gain = gain
-        if dq is not None:
-            self.coeffs, self.dq = repair_coefficients(coeffs, dq)
-        else:
-            self.coeffs = repair_coefficients(coeffs)
-            self.dq = None
+        self.coeffs, self.dq = repair_coefficients(coeffs, dq=np.zeros(coeffs.shape[1:], dtype=np.uint32))
+
 
     def apply(self, counts, electrons=False, reversed=False):
         """Compute the correction of observed to true counts
