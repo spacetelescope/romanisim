@@ -60,7 +60,7 @@ def test_repair_coeffs():
 
     gain = 4.0 * u.electron / u.DN
 
-    linearity = nonlinearity.NL(lin_coeffs, dq, gain=gain)
+    linearity = nonlinearity.NL(lin_coeffs, gain=gain)
 
     assert linearity.dq[1, 1] == parameters.dqbits['nonlinear']
     assert linearity.dq[22, 22] == parameters.dqbits['nonlinear']

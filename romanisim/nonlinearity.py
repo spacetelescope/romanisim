@@ -49,7 +49,9 @@ def repair_coefficients(coeffs, dq):
 
     nocorrection = np.zeros(coeffs.shape[0], dtype=coeffs.dtype)
     nocorrection[1] = 1.  # "no correction" is just normal linearity.
-    m = np.any(~np.isfinite(coeffs), axis=0) | np.all(coeffs == 0, axis=0)
+    # For NaN, all zero, or flagged pixels, reset to no linearity correction.
+    m = (np.any(~np.isfinite(coeffs), axis=0) | np.all(coeffs == 0, axis=0)
+         | (dq != 0))
     res[:, m] = nocorrection[:, None]
 
     lin_dq_array = np.zeros(coeffs.shape[1:], dtype=np.uint32)
@@ -121,10 +123,11 @@ class NL:
             Gain (electrons / count) for converting counts to electrons
         """
         if dq is None:
-            dq = np.zeros(coeffs.shape[1:], dtype='i4')
+            dq = np.zeros(coeffs.shape[1:], dtype='uint32')
         if gain is None:
-            gain = parameters.gain.to(u.electron / u.s).value
+            gain = parameters.gain.to(u.electron / u.DN).value
         self.coeffs, self.dq = repair_coefficients(coeffs, dq)
+        self.gain = gain
 
     def apply(self, counts, electrons=False, reversed=False):
         """Compute the correction of observed to true counts
