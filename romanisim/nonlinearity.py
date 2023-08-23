@@ -1,37 +1,14 @@
 """Routines to handle non-linearity in simulating ramps.
 
-As we sample up a ramp, we become decreasingly sensitive to light; given a
-certain number of photons that we would have detected absent nonlinearity,
-we instead detect a smaller number.  In simulations, we want the fraction
-of the number of photons we detect relative to the number we would detect
-absent nonlinearity.  Non-linearity is typically described instead by some
-polynomial that takes the observed number of photons to the corrected number
-of photons.
-
-.. math:: C = f(O) \\, ,
-
-where :math:`f` is a polynomial depending on some coefficients that are
-different for each pixel, :math:`C` is the corrected number of photons, and
-:math:`O` is the observed number of photons.
-
-We want instead the current fraction of photons that would be detected in the
-next read.  That's
-
-.. math:: dO/dC = (df/dO)^{-1}
-
-In the context of the up-the-ramp samples performed in the L1 simulations,
-we need to reduce the fraction of photons selected from the binomial
-distribution by this fraction in each read, and then adjust the fraction
-of photons read in in future samples down further to reflect that the
-photons lost to non-linearity will not be read out later down the ramp.
-
-We do some simple sanity checks on the non-linearity coefficients, but we
-do not yet check to make sure that :math:`dO/dC \\leq 1`.  i.e., we don't yet
-check that the non-linearity correction function corresponds to a curve that
-always means that the number of photons recorded is smaller than the number
-of photons entering the read.  Such cases are likely to cause problems when
-we try to sample more photons from the ramp than were present in the ramp.
-
+The approach taken here is straightforward.  The detector is accumulating
+photons, but the capacitance of the pixel varies with flux level and so
+the mapping between accumulated photons and read-out digital numbers
+changes with flux level.  The CRDS linearity and inverse-linearity reference
+files describe the mapping between linear DN and observed DN.  This module
+implements that mapping.  When simulating an image, the photons entering
+each pixel are simulated, and then before being "read out" into a buffer,
+are transformed with this mapping into observed counts.  These are then
+averaged and emitted as resultants.
 """
 
 import numpy as np
@@ -175,7 +152,7 @@ class NL:
         Returns
         -------
         corrected : np.ndarray[nx, ny] (float)
-            The corrected counts.
+¯            The corrected counts.
         """
         if electrons:
             return self.gain * evaluate_nl_polynomial(counts / self.gain, self.coeffs, reversed)
