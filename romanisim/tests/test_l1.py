@@ -96,6 +96,9 @@ def test_linearized_counts_to_resultants():
     rng1 = galsim.UniformDeviate(42)
     rng2 = galsim.UniformDeviate(42)
 
+    # Create one bad coefficient
+    lin_coeffs[1,-1,-1] = 0
+
     inv_linearity = nonlinearity.NL(lin_coeffs)
 
     for tij in tijlist:
@@ -113,6 +116,8 @@ def test_linearized_counts_to_resultants():
         # and not is roughly 2
         medratio = np.median(resultants[res2 != 0] / res2[res2 != 0])
         assert np.isclose(medratio, 2.0, atol=1e-6)
+        assert np.all(dq[:,:-1,:-1] == dq2[:,:-1,:-1])
+        assert np.all(dq2[:,-1,-1] == np.bitwise_or(dq[:,-1,-1], parameters.dqbits['nonlinear']))
     log.info('DMS222: successfully applied nonlinearity to resultants.')
 
 
