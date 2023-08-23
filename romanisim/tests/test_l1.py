@@ -12,7 +12,7 @@ Routines tested:
 
 import pytest
 import numpy as np
-from romanisim import l1, log, parameters
+from romanisim import l1, log, parameters, nonlinearity
 import galsim
 import galsim.roman
 import asdf
@@ -82,6 +82,43 @@ def test_apportion_counts_to_resultants():
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
     log.info('DMS220: successfully added read noise to resultants.')
     log.info('DMS229: successfully generated ramp from counts.')
+
+
+@pytest.mark.soctests
+def test_linearized_counts_to_resultants():
+    """Test that we can apportion linearized counts to resultants.
+    """
+    counts = np.random.poisson(100, size=(100,100))
+
+    coeffs = np.asfarray([0, 0.5, 0, 0, 0])
+    lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 100, 100))
+
+    rng1 = galsim.UniformDeviate(42)
+    rng2 = galsim.UniformDeviate(42)
+
+    # Create one bad coefficient
+    lin_coeffs[1,-1,-1] = 0
+
+    inv_linearity = nonlinearity.NL(lin_coeffs)
+
+    for tij in tijlist:
+        resultants, dq = l1.apportion_counts_to_resultants(
+            counts, tij, rng=rng1)
+
+        res2, dq2 = l1.apportion_counts_to_resultants(
+            counts, tij, rng=rng2, inv_linearity=inv_linearity)
+
+        # Ensure that the linear coefficients were actually applied
+        assert np.all(res2 >= 0)
+        assert np.any(res2 < resultants)
+        assert np.all(res2 <= resultants)
+        # Test that the median difference between applying the linear coefficients
+        # and not is roughly 2
+        medratio = np.median(resultants[res2 != 0] / res2[res2 != 0])
+        assert np.isclose(medratio, 2.0, atol=1e-6)
+        assert np.all(dq[:,:-1,:-1] == dq2[:,:-1,:-1])
+        assert np.all(dq2[:,-1,-1] == np.bitwise_or(dq[:,-1,-1], parameters.dqbits['nonlinear']))
+    log.info('DMS222: successfully applied nonlinearity to resultants.')
 
 
 @pytest.mark.soctests
