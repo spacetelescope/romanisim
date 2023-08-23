@@ -9,10 +9,12 @@ import os
 import pytest
 import numpy as np
 from astropy import units as u
+from astropy import stats
 import crds
 
 import roman_datamodels
 from romanisim import nonlinearity, parameters
+from romanisim import log
 
 
 tijlist = [
@@ -134,11 +136,19 @@ def test_inverse_then_linearity():
     linearity = nonlinearity.NL(
         linearity_model.coeffs[:,4:-4,4:-4], gain=1.0)
 
+    # identify problematic linearity fits
+    m = ((linearity_model.dq[4:-4, 4:-4] != 0)
+         | (inverse_linearity_model.dq[4:-4, 4:-4] != 0))
+    m |= np.all(linearity_model.coeffs[:, 4:-4, 4:-4] == 0, axis=0)
+
     counts = np.random.poisson(16000, size=(4088, 4088))
     level_0_inv = inverse_linearity.apply(counts)
     level_0_lin = linearity.apply(level_0_inv)
 
-    # Divide initial counts before and after inverse & NL application
-    div = (counts[np.isfinite(counts)] / level_0_lin[np.isfinite(level_0_lin)]).flatten()
+    badfrac = np.sum(m) / np.prod(m.shape)
+    if badfrac > 0.1:
+        log.info(f'{badfrac:5.1%} pixels have problematic linearity coeffs.')
 
-    assert np.isclose(np.average(div), 1.0, atol=0.1)
+    rms = stats.mad_std(counts[~m] / level_0_lin[~m] - 1)
+
+    assert rms < 1e-5
