@@ -93,24 +93,27 @@ def test_linearized_counts_to_resultants():
     coeffs = np.asfarray([0, 0.5, 0, 0, 0])
     lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 100, 100))
 
-    rng = galsim.UniformDeviate(42)
+    rng1 = galsim.UniformDeviate(42)
+    rng2 = galsim.UniformDeviate(42)
 
     inv_linearity = nonlinearity.NL(lin_coeffs)
 
     for tij in tijlist:
-        resultants, dq = l1.apportion_counts_to_resultants(counts.copy(), tij.copy(), rng=rng)
+        resultants, dq = l1.apportion_counts_to_resultants(
+            counts, tij, rng=rng1)
 
-        res2, dq2 = l1.apportion_counts_to_resultants(counts.copy(), tij.copy(), rng=rng,
-                                                      inv_linearity=inv_linearity)
+        res2, dq2 = l1.apportion_counts_to_resultants(
+            counts, tij, rng=rng2, inv_linearity=inv_linearity)
 
         # Ensure that the linear coefficients were actually applied
         assert np.all(res2 >= 0)
-        assert np.any(res2.sum(axis=0) < resultants.sum(axis=0))
-        assert np.all(res2.sum(axis=0) <= resultants.sum(axis=0))
+        assert np.any(res2 < resultants)
+        assert np.all(res2 <= resultants)
         # Test that the median difference between applying the linear coefficients
         # and not is roughly 2
-        assert np.isclose(np.median(resultants[res2 != 0] / res2[res2 != 0]), 2.0, atol=1e-6)
-    log.info('DMS222: successfully added corrected resultants for nonlinearity.')
+        medratio = np.median(resultants[res2 != 0] / res2[res2 != 0])
+        assert np.isclose(medratio, 2.0, atol=1e-6)
+    log.info('DMS222: successfully applied nonlinearity to resultants.')
 
 
 @pytest.mark.soctests

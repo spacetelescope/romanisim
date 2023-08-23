@@ -16,7 +16,7 @@ from astropy import units as u
 from romanisim import parameters
 
 
-def repair_coefficients(coeffs, dq=None):
+def repair_coefficients(coeffs, dq):
     """Fix cases of zeros and NaNs in non-linearity coefficients.
 
     This function replaces suspicious-looking non-linearity coefficients with
@@ -52,13 +52,10 @@ def repair_coefficients(coeffs, dq=None):
     m = np.any(~np.isfinite(coeffs), axis=0) | np.all(coeffs == 0, axis=0)
     res[:, m] = nocorrection[:, None]
 
-    if dq is not None:
-        lin_dq_array = np.zeros(coeffs.shape[1:], dtype=np.uint32)
-        lin_dq_array[m] = parameters.dqbits['nonlinear']
-        dq = np.bitwise_or(dq, lin_dq_array)
-        return res, dq
-    else:
-        return res
+    lin_dq_array = np.zeros(coeffs.shape[1:], dtype=np.uint32)
+    lin_dq_array[m] = parameters.dqbits['nonlinear']
+    dq = np.bitwise_or(dq, lin_dq_array)
+    return res, dq
 
 
 def evaluate_nl_polynomial(counts, coeffs, reversed=False):
@@ -109,7 +106,7 @@ class NL:
     """Keep track of non-linearity and inverse non-linearity coefficients.
 
     """
-    def __init__(self, coeffs, gain=1.0):
+    def __init__(self, coeffs, dq=None, gain=None):
         """Construct an NL class handling non-linearity correction.
 
         Parameters
@@ -117,15 +114,17 @@ class NL:
         coeffs : np.ndarray[ncoeff, nx, ny] (float)
             Non-linearity coefficients from reference files.
 
-        gain : float or np.ndarray[float]
-            Gain (electrons / count) for converting counts to electrons
-
         dq : np.ndarray[n_resultant, nx, ny]
             Data Quality array
-        """
-        self.gain = gain
-        self.coeffs, self.dq = repair_coefficients(coeffs, dq=np.zeros(coeffs.shape[1:], dtype=np.uint32))
 
+        gain : float or np.ndarray[float]
+            Gain (electrons / count) for converting counts to electrons
+        """
+        if dq is None:
+            dq = np.zeros(coeffs.shape[1:], dtype='i4')
+        if gain is None:
+            gain = parameters.gain.to(u.electron / u.s).value
+        self.coeffs, self.dq = repair_coefficients(coeffs, dq)
 
     def apply(self, counts, electrons=False, reversed=False):
         """Compute the correction of observed to true counts

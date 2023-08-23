@@ -38,7 +38,7 @@ def test_linear_apply():
     gain = 4.0 * u.electron / u.DN
     counts[0, 0] = counts[0, 99] = counts[99, 0] = counts[99, 99] = 11.0
 
-    linearity = nonlinearity.NL(lin_coeffs, gain)
+    linearity = nonlinearity.NL(lin_coeffs, gain=gain)
 
     res2 = linearity.apply(counts, electrons=True)
 
@@ -60,7 +60,7 @@ def test_repair_coeffs():
 
     gain = 4.0 * u.electron / u.DN
 
-    linearity = nonlinearity.NL(lin_coeffs, gain)
+    linearity = nonlinearity.NL(lin_coeffs, dq, gain=gain)
 
     assert linearity.dq[1, 1] == parameters.dqbits['nonlinear']
     assert linearity.dq[22, 22] == parameters.dqbits['nonlinear']
@@ -81,7 +81,7 @@ def test_electrons():
     lin_coeffs[:, 0:50, :] *= 2.0
     gain = 4.0 * u.electron / u.DN
 
-    linearity = nonlinearity.NL(lin_coeffs, gain)
+    linearity = nonlinearity.NL(lin_coeffs, gain=gain)
 
     res = linearity.apply(counts)
 
@@ -100,8 +100,8 @@ def test_reverse():
     rev_lin_coeffs = lin_coeffs[::-1, ...]
     gain = 4.0 * u.electron / u.DN
 
-    linearity = nonlinearity.NL(lin_coeffs, gain)
-    rev_linearity = nonlinearity.NL(rev_lin_coeffs, gain)
+    linearity = nonlinearity.NL(lin_coeffs, gain=gain)
+    rev_linearity = nonlinearity.NL(rev_lin_coeffs, gain=gain)
 
     res = linearity.apply(counts)
     res_rev = rev_linearity.apply(counts, reversed=True)

@@ -308,7 +308,8 @@ def apportion_counts_to_resultants(
             # Update counts for the resultant
             if inv_linearity is not None:
                 # Apply inverse linearity
-                resultant_counts += inv_linearity.apply(counts_so_far + instrumental_so_far, electrons=True)
+                resultant_counts += inv_linearity.apply(
+                    counts_so_far + instrumental_so_far, electrons=True)
             else:
                 resultant_counts += counts_so_far + instrumental_so_far
 
@@ -324,6 +325,9 @@ def apportion_counts_to_resultants(
         # persistence?  Here they do.  But hopefully this choice is second
         # order enough that either decision would be fine.
         persistence.update(counts_so_far + instrumental_so_far, tnow)
+
+    if inv_linearity is not None:
+        dq |= inv_linearity.dq
 
     return resultants, dq
 

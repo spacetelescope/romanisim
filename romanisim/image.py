@@ -669,9 +669,13 @@ def simulate(metadata, objlist,
         dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
         gain = gain_model.data[nborder:-nborder, nborder:-nborder]
         inv_linearity = nonlinearity.NL(
-            inv_linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder])
+            inv_linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder],
+            inv_linearity_model.dq[nborder:-nborder, nborder:-nborder],
+            gain=gain)
         linearity = nonlinearity.NL(
-            linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder])
+            linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder],
+            linearity_model.dq[nborder:-nborder, nborder:-nborder],
+            gain=gain)
         darkrate *= gain
         image_mod.meta.ref_file.crds.sw_version = crds.__version__
         image_mod.meta.ref_file.crds.context_used = crds.get_context_name(
