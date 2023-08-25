@@ -340,11 +340,21 @@ def test_simulate_counts_generic():
     # pearson chi2 test is probably best here, but it's finicky to get
     # right---one needs to choose the right bins so that the convergence
     # to the chi^2 distribution is close enough.
-    # let's just check that the variance isn't far from the
-    # mean.
+    # For a Poisson distribution, the variance is equal to the mean rate;
+    # let's verify that in fact the variance matches expectations within
+    # some tolerance.
     assert (np.abs(np.mean(im2.array) - np.var(im2.array))
             < 20 * np.sqrt(poisson_rate / npix))
     log.info('DMS230: successfully included Poisson noise in image.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'image': im2.array,
+                   'poisson_rate': poisson_rate
+                  }
+        af.write_to(os.path.join(artifactdir, 'dms230.asdf'))
+
     im3 = im.copy()
     image.simulate_counts_generic(im3, exptime, dark=sky, zpflux=zpflux)
     # verify that the dark counts don't see the zero point conversion
@@ -485,9 +495,21 @@ def test_simulate():
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
                         crparam=dict(), usecrds=False, rng=rng)
     peakloc = np.nonzero(l0[0]['data'] == np.max(l0[0]['data']))
+
+    # check that the location with the most flux is the location where the
+    # source was simulated to be, using a real WCS with distortion.
     assert (peakloc[0][0] == sourcecen[0]) and (peakloc[1][0] == sourcecen[1])
     log.info('DMS218: successfully used WCS / focal plane geometry to render '
             'sources at correct locations with distortions.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'image': l0[0]['data'],
+                   'imloc': peakloc,
+                   'trueloc': sourcecen}
+        af.write_to(os.path.join(artifactdir, 'dms218.asdf'))
+
     rng = galsim.BaseDeviate(1)
     l1_nocr = image.simulate(meta, graycat, webbpsf=True, level=1,
                              usecrds=False, crparam=None, rng=rng)

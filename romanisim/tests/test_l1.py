@@ -17,6 +17,7 @@ import galsim
 import galsim.roman
 import asdf
 from astropy import units as u
+import os
 
 
 tijlist = [
@@ -65,6 +66,7 @@ def test_apportion_counts_to_resultants():
     # inverse coefficients are available in CRDS.
     counts = np.random.poisson(100, size=(100, 100))
     read_noise = 10
+    imsout = []
     for tij in tijlist:
         resultants, dq = l1.apportion_counts_to_resultants(counts, tij)
         assert np.all(np.diff(resultants, axis=0) >= 0)
@@ -76,12 +78,20 @@ def test_apportion_counts_to_resultants():
                                                read_noise=read_noise)
         assert np.all(res2 != resultants)
         assert np.all(res3 != resultants)
+        imsout.append(res3)
         for restij, plane_index in zip(tij, np.arange(res3.shape[0])):
             sdev = np.std(res3[plane_index] - resultants[plane_index])
             assert (np.abs(sdev - read_noise / np.sqrt(len(restij)))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
     log.info('DMS220: successfully added read noise to resultants.')
     log.info('DMS229: successfully generated ramp from counts.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'noreadnoiseimage': resultants,
+                   'rampimages': imsout}
+        af.write_to(os.path.join(artifactdir, 'dms229.asdf'))
 
 
 @pytest.mark.soctests
@@ -112,13 +122,27 @@ def test_linearized_counts_to_resultants():
         assert np.all(res2 >= 0)
         assert np.any(res2 < resultants)
         assert np.all(res2 <= resultants)
-        # Test that the median difference between applying the linear coefficients
-        # and not is roughly 2
+        # Test that the median difference between the original data and the
+        # data after applying the nonlinearity is two; i.e., the value we
+        # put into the nonlinearity correction polynomial.
         medratio = np.median(resultants[res2 != 0] / res2[res2 != 0])
         assert np.isclose(medratio, 2.0, atol=1e-6)
+        # also test that correctly propagate the nonlinearity DQ bits.
         assert np.all(dq[:,:-1,:-1] == dq2[:,:-1,:-1])
         assert np.all(dq2[:,-1,-1] == np.bitwise_or(dq[:,-1,-1], parameters.dqbits['nonlinear']))
     log.info('DMS222: successfully applied nonlinearity to resultants.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'resultants': resultants,
+                   'dq': dq,
+                   'resultants-with-nonlinearity': res2,
+                   'dq-with-nonlinearity': dq2,
+                   'coeffs': coeffs}
+        af.write_to(os.path.join(artifactdir, 'dms222.asdf'))
+
+
 
 
 @pytest.mark.soctests
@@ -141,7 +165,20 @@ def test_inject_source_into_ramp():
     assert (np.abs(injectedsource[-1] - flux * np.mean(tij[-1]) / tij[-1][-1])
             < 10 * np.sqrt(flux))
     # added correct number of photons
+    # checked that: we only added photons; we didn't touch anywhere where we
+    # didn't inject photons; the flux in the ramp to which we injected
+    # a source matches the injected flux to within 10 sigma.
     log.info('DMS225: successfully injected a source into a ramp.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'originalramp': ramp,
+                   'newramp': newramp,
+                   'flux': flux,
+                   'tij': tij}
+        af.write_to(os.path.join(artifactdir, 'dms225.asdf'))
+
 
 
 @pytest.mark.soctests

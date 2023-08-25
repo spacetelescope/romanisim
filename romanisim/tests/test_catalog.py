@@ -9,6 +9,7 @@ from romanisim import catalog
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from romanisim import log
+import asdf
 
 
 def test_make_dummy_catalog():
@@ -107,6 +108,11 @@ def test_table_catalog(tmp_path):
     assert maxsep4 < 2
     assert maxsep4 > maxsep3
 
+    # make three galaxy distributions with different parameterizations
+    # distribution 1: 1" half light radius at faintmag
+    # distribution 2: very steep distribution (many faint sources)
+    # distribution 3: 100" half light radius at faint mag; bigger
+    # galaxies than distribution 1.
     tgal1 = catalog.make_galaxies(
         cen, n=n, radius=1, index=1, faintmag=faintmag,
         bandpasses=bands, hlr_at_faintmag=1)
@@ -124,9 +130,20 @@ def test_table_catalog(tmp_path):
     # not insane Sersic indices
     assert np.all((tgal1['half_light_radius'] > 0)
                   & (tgal1['half_light_radius'] < 3600))
+    # check that distribution 3 has bigger galaxies than distribution 1
     assert (np.median(tgal3['half_light_radius'])
             > np.median(tgal1['half_light_radius']))
+    # check that distribution 1 has brighter sources than distribution 2
     assert (np.median(tgal1[bands[0]])
             > np.median(tgal2[bands[0]]))
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'galsourcedist1': tgal1,
+                   'galsourcedist2': tgal2,
+                   'galsourcedist3': tgal3}
+        af.write_to(os.path.join(artifactdir, 'dms217.asdf'))
+
     log.info('DMS217: successfully generated parametric distributions of '
              'sources with different magnitudes and sizes.')
