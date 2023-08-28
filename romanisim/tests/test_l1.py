@@ -64,9 +64,12 @@ def test_apportion_counts_to_resultants():
     """
     # we'll skip the linearity tests until new linearity files with
     # inverse coefficients are available in CRDS.
-    counts = np.random.poisson(100, size=(100, 100))
+    counts_no_poisson_noise = 100
+    counts = np.random.poisson(counts_no_poisson_noise, size=(100, 100))
     read_noise = 10
-    imsout = []
+    res1out = []
+    res2out = []
+    res3out = []
     for tij in tijlist:
         resultants, dq = l1.apportion_counts_to_resultants(counts, tij)
         assert np.all(np.diff(resultants, axis=0) >= 0)
@@ -78,8 +81,15 @@ def test_apportion_counts_to_resultants():
                                                read_noise=read_noise)
         assert np.all(res2 != resultants)
         assert np.all(res3 != resultants)
-        imsout.append(res3)
+        res1out.append(resultants)
+        res1out.append(res2)
+        res1out.append(res3)
         for restij, plane_index in zip(tij, np.arange(res3.shape[0])):
+            predcounts = (np.mean(restij) * counts_no_poisson_noise
+                          / tij[-1][-1])
+            assert np.all((predcounts - resultants[plane_index])
+                          < 10 * np.sqrt(predcounts))
+            # agree with expected counts at 10 sigma.
             sdev = np.std(res3[plane_index] - resultants[plane_index])
             assert (np.abs(sdev - read_noise / np.sqrt(len(restij)))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
@@ -89,8 +99,10 @@ def test_apportion_counts_to_resultants():
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
     if artifactdir is not None:
         af = asdf.AsdfFile()
-        af.tree = {'noreadnoiseimage': resultants,
-                   'rampimages': imsout}
+        af.tree = {'resultants': res1out,
+                   'counts': counts,
+                   'counts_no_poisson_noise': 100,
+                   'tijlist': tijlist}
         af.write_to(os.path.join(artifactdir, 'dms229.asdf'))
 
 
@@ -168,6 +180,10 @@ def test_inject_source_into_ramp():
     # checked that: we only added photons; we didn't touch anywhere where we
     # didn't inject photons; the flux in the ramp to which we injected
     # a source matches the injected flux to within 10 sigma.
+    # factor of mean(tij[-1] / tij[-1][-1]) accounts for the fact that the
+    # total number of counts in the last read is larger than the
+    # number recorded in the last resultant, since the last resultant averages
+    # over several reads.
     log.info('DMS225: successfully injected a source into a ramp.')
 
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)

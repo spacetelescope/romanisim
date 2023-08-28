@@ -335,7 +335,7 @@ def test_simulate_counts_generic():
     # verify that the count rate is about right.
     poisson_rate = skycountspersecond * exptime
     assert (np.abs(np.mean(im2.array) - poisson_rate)
-            < 20 * np.sqrt(poisson_rate / npix))
+            < 10 * np.sqrt(poisson_rate / npix))
     # verify that Poisson noise is included
     # pearson chi2 test is probably best here, but it's finicky to get
     # right---one needs to choose the right bins so that the convergence
@@ -343,15 +343,19 @@ def test_simulate_counts_generic():
     # For a Poisson distribution, the variance is equal to the mean rate;
     # let's verify that in fact the variance matches expectations within
     # some tolerance.
-    assert (np.abs(np.mean(im2.array) - np.var(im2.array))
-            < 20 * np.sqrt(poisson_rate / npix))
+    # the variance on the sample variance for a Gaussian is 2*sigma^4/(N-1)
+    # this isn't a Gaussian but should be close with 100 counts?
+    var_of_var = 2 * (poisson_rate ** 2) / (npix - 1)
+    assert (np.abs(poisson_rate - np.var(im2.array))
+            < 10 * np.sqrt(var_of_var))
     log.info('DMS230: successfully included Poisson noise in image.')
 
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
     if artifactdir is not None:
         af = asdf.AsdfFile()
         af.tree = {'image': im2.array,
-                   'poisson_rate': poisson_rate
+                   'poisson_rate': poisson_rate,
+                   'variance_of_variance': var_of_var,
                   }
         af.write_to(os.path.join(artifactdir, 'dms230.asdf'))
 
