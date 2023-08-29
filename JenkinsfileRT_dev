@@ -48,7 +48,7 @@ pipeline {
                       conda activate romanisim
                       pytest romanisim \
                         --bigdata --slow --basetemp=test_outputs \
-                        -n auto
+                        -n 0  # -n 8 causes problems with CRDS runs?
                    """
                 )
             }
