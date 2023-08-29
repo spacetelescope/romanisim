@@ -68,6 +68,8 @@ def test_apportion_counts_to_resultants():
     counts = np.random.poisson(counts_no_poisson_noise, size=(100, 100))
     read_noise = 10
     res1out = []
+    res2out = []
+    res3out = []
     for tij in tijlist:
         resultants, dq = l1.apportion_counts_to_resultants(counts, tij)
         assert np.all(np.diff(resultants, axis=0) >= 0)
@@ -80,8 +82,8 @@ def test_apportion_counts_to_resultants():
         assert np.all(res2 != resultants)
         assert np.all(res3 != resultants)
         res1out.append(resultants)
-        res1out.append(res2)
-        res1out.append(res3)
+        res2out.append(res2)
+        res3out.append(res3)
         for restij, plane_index in zip(tij, np.arange(res3.shape[0])):
             predcounts = (np.mean(restij) * counts_no_poisson_noise
                           / tij[-1][-1])
