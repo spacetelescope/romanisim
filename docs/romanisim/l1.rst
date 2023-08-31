@@ -14,14 +14,10 @@ After apportioning counts to resultants, systematic effects are added to the res
 Nonlinearity
 ------------
 
-Non-linearity is considered when L1 images are constructed and a non-linearity model is provided (e.g., from CRDS).  Non-linearity is implemented by including an additional "efficiency" parameter that is the linearity-affected count rate divided by the idealized count rate absent nonlinearity; this is the reciprocal of the derivative of the non-linearity correction function.  Two complications arise:
+Non-linearity is considered when L1 images are constructed and a non-linearity model is provided (e.g., from CRDS).  We treat non-linearity as a difference between the electrons captured in the detector and the amount of signal read out.  This function is modeled as a high order polynomial, and the coefficients of this polynomial and its inverse are stored in CRDS (linearity, inverselinearity reference files for each detector).  When assigning counts to each read, these are transformed through the inverselinearity polynomial for each pixel and then added to the resultant buffer to account for this effect.  The linearity polynomial then corrects for this effects as part of calibrating an L1 file and eventually producing an L2 file.
 
-1. We need to keep track of the number of counts lost due to non-linearity, so we don't apportion them to future reads.
-2. The efficiency varies over each read; ignoring this effect and using only the efficiency at the start of each reach can lead to 1-2% biases depending on how quickly the efficiency changes with flux.
+The linearity polynomials are occasionally poorly determined or cannot be computed.  When marked as problematic in the reference file, we use trivial polynomials (i.e., the identity), and mark the affected pixels with a DQ bit indicating a problematic linearity correction.
 
-To address (1), we adjust the probability of the number of counts we draw from the binomial distribution to effectively remove the lost photons from the count.  To mitigate (2), we compute the efficiency for each read based on a guess for what the efficiency will be at the midpoint of the read, after half the charges have been accumulated, based on the idealized count rate for the pixel and the efficiency of the last read.  One could imagine a higher order scheme to do better here, but this reduced the errors to <0.5 mmag.
-
-Note that this picture of nonlinearity is that the pixels are not recording all of the photons in the presence of nonlinearity.  Another picture is that the effective gain changes---i.e., the relationship between recorded counts and photons---but that the Poisson statistics on the number of photons should be consistent with having counted all of the photons.  That's not what the code is doing at the moment, though it's straightforward.
 
 Interpixel Capacitance
 ----------------------
