@@ -1,6 +1,14 @@
+# ASDF upstream packages
 git+https://github.com/asdf-format/asdf
+
+# Use weekly astropy dev build
+--extra-index-url https://pypi.anaconda.org/astropy/simple astropy --pre
+
+# Use Bi-weekly numpy/scipy dev builds
+--extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
+numpy>=0.0.dev0
+
+# Roman upstream packages
 git+https://github.com/spacetelescope/roman_datamodels
 git+https://github.com/spacetelescope/rad
-git+https://github.com/astropy/astropy
-numpy>=0.0.dev0
 
