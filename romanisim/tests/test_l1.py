@@ -112,7 +112,7 @@ def test_linearized_counts_to_resultants():
     """
     counts = np.random.poisson(100, size=(100,100))
 
-    coeffs = np.asfarray([0, 0.5, 0, 0, 0])
+    coeffs = np.array([0, 0.5, 0, 0, 0], dtype='f4')
     lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 100, 100))
 
     rng1 = galsim.UniformDeviate(42)

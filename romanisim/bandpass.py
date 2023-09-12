@@ -94,7 +94,7 @@ def compute_abflux(effarea=None):
         # integrate.simpson looks like it loses units.  So convert to something
         # we know about.
         integrand = integrand.to(1 / (u.s * u.micron)).value
-        zpflux = integrate.simpson(integrand, effarea['Wave'])
+        zpflux = integrate.simpson(integrand, x=effarea['Wave'])
         # effarea['Wave'] is in microns, so we're left with a number of counts
         # per second
         out[bandpass] = zpflux
