@@ -7,6 +7,7 @@ git+https://github.com/asdf-format/asdf
 # Use Bi-weekly numpy/scipy dev builds
 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
 numpy>=0.0.dev0
+scipy>=0.0.dev0
 
 # Roman upstream packages
 git+https://github.com/spacetelescope/roman_datamodels
