@@ -493,7 +493,8 @@ def add_ipc(resultants, ipc_kernel=None):
 def make_l1(counts, ma_table_number,
             read_noise=None, rng=None, seed=None,
             gain=None, linearity=None, crparam=None,
-            persistence=None, tstart=None, saturation=None):
+            persistence=None, tstart=None, saturation=None,
+            ):
     """Make an L1 image from a counts image.
 
     This apportions the total counts among the different resultants and adds

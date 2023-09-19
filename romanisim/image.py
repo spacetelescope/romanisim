@@ -552,7 +552,7 @@ def simulate_counts(metadata, objlist,
 def simulate(metadata, objlist,
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
              persistence=None, seed=None, rng=None,
-             **kwargs):
+            ):
     """Simulate a sequence of observations on a field in different bandpasses.
 
     Parameters
@@ -595,6 +595,7 @@ def simulate(metadata, objlist,
         simcatobj, the image positions and fluxes of simulated objects.  It may
         also include information on persistence and cosmic ray hits.
     """
+
     meta = maker_utils.mk_common_meta()
     meta["photometry"] = maker_utils.mk_photometry()
 
@@ -698,8 +699,7 @@ def simulate(metadata, objlist,
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
             crparam=crparam,
             linearity=linearity, tstart=image_mod.meta.exposure.start_time,
-            persistence=persistence, saturation=saturation,
-            **kwargs)
+            persistence=persistence, saturation=saturation)
     if level == 1:
         im, extras = romanisim.l1.make_asdf(
             l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)
@@ -720,7 +720,7 @@ def simulate(metadata, objlist,
 
 def make_test_catalog_and_images(
         seed=12345, sca=7, filters=None, nobj=1000, 
-        usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
+        usecrds=True, webbpsf=True, galaxy_sample_file_name=None):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')
     if filters is None:
@@ -738,7 +738,7 @@ def make_test_catalog_and_images(
     for filter_name in filters:
         metadata['instrument']['optical_element'] = 'F' + filter_name[1:]
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
-                      webbpsf=webbpsf, **kwargs)
+                      webbpsf=webbpsf)
         out[filter_name] = im
     return out
 

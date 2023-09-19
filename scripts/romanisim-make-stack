@@ -2,6 +2,7 @@
 
 import argparse
 from copy import deepcopy
+import yaml
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.table import Table
@@ -56,6 +57,12 @@ def main():
                         default=None,
                         help='Filename to output list of romanisim calls (sims.script) instead of '
                              'making simulation files (e.g. for cluster usage).')
+    
+    # Use config file to override metadata or values in default parameters file
+    parser.add_argument('--override', 
+                        type=str, 
+                        help='input parameter override file (json)',
+                        default=None)
 
     # Create script making argument
     parser.add_argument('-x', "--prefix",
@@ -101,6 +108,14 @@ def main():
                 "preparation of ROSES proposals is not advised.  Other "
                 "packages like galsim's roman package or STIPS may better "
                 "serve such purposes.")
+    
+    if args.override is not None:
+        # Open and parse overrides file
+        with open(args.override, "r") as override_file:
+            overrides = yaml.safe_load(override_file)
+            combo_dict = parameters.__dict__ 
+            ris.merge_nested_dicts(combo_dict, overrides)
+            parameters.__dict__.update(combo_dict)
 
     # Set up metadata
     metadata = deepcopy(default_parameters_dictionary)

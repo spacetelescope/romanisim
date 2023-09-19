@@ -57,8 +57,8 @@ v2v3_wficen = (1546.3846181707652, -892.7916365721071)
 # persistence parameter dictionary
 # delete persistence records fainter than 0.01 electron / s
 # e.g., MA table 1 has ~144 s, so this is ~1 electron over the whole exposure.
-persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
-                   half_well=50000, ignorerate=0.01)
+# persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
+#                    half_well=50000, ignorerate=0.01)
 
 # default saturation level in DN absent reference file information
 saturation = 55000 * u.DN
@@ -72,3 +72,54 @@ NUMBER_OF_DETECTORS = 18
 
 # Radial distance from WFI_CEN to extend object generation in order to cover FOV (degrees)
 WFS_FOV = 0.6
+
+# Cosmic Ray defaults
+cr = {
+    # sample_cr_params
+    "min_dEdx" : 10,
+    "max_dEdx" : 10000,
+    "min_cr_len" : 10,
+    "max_cr_len" : 2000,
+    "grid_size" : 10000,
+    # simulate_crs
+    "flux" : 8,
+    "area" : 16.8,
+    "conversion_factor" : 0.5,
+    "pixel_size" : 10,
+    "pixel_depth" : 5,
+}
+
+# Persistence defaults
+# delete persistence records fainter than 0.01 electron / s
+# e.g., MA table 1 has ~144 s, so this is ~1 electron over the whole exposure.
+persistence = {
+    # init
+    "A" : 0.017, 
+    "x0" : 6.0e4, 
+    "dx" : 5.0e4, 
+    "alpha" : 0.045, 
+    "gamma" : 1,                   
+    "half_well" : 50000, 
+    "ignorerate" : 0.01
+}
+
+# Catalog defaults
+catalog = {
+    "radius" : 0.1,
+    "nobj" : 1000,
+    "faintmag" : 26,
+    "hlr_at_faintmag" : 0.6,
+    "truncation_radius" : None,
+    "bandpasses" : None,
+    "index" : None,
+}
+
+# WCS defaults
+wcs = {
+    # make_wcs
+    "roll_ref" : 0,
+    "v2_ref" : 0,
+    "v3_ref" : 0,
+    "wrap_v2_at" : 180,
+    "wrap_lon_at" : 360
+}

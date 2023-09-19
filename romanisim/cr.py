@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.interpolate as interpolate
 
+from . import parameters
+
 
 def create_sampler(pdf, x):
     """A function for performing inverse transform sampling.
@@ -77,11 +79,11 @@ def sample_cr_params(
     N_samples,
     N_i=4096,
     N_j=4096,
-    min_dEdx=10,
-    max_dEdx=10000,
-    min_cr_len=10,
-    max_cr_len=2000,
-    grid_size=10000,
+    min_dEdx=parameters.cr["min_dEdx"],
+    max_dEdx=parameters.cr["max_dEdx"],
+    min_cr_len=parameters.cr["min_cr_len"],
+    max_cr_len=parameters.cr["max_cr_len"],
+    grid_size=parameters.cr["grid_size"],
     rng=None,
     seed=48,
 ):
@@ -262,13 +264,13 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
 def simulate_crs(
     image,
     time,
-    flux=8,
-    area=16.8,
-    conversion_factor=0.5,
-    pixel_size=10,
-    pixel_depth=5,
+    flux=parameters.cr["flux"],
+    area=parameters.cr["area"],
+    conversion_factor=parameters.cr["conversion_factor"],
+    pixel_size=parameters.cr["pixel_size"],
+    pixel_depth=parameters.cr["pixel_depth"],
     rng=None,
-    seed=47
+    seed=47,
 ):
     """Adds CRs to an existing image.
 

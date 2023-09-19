@@ -28,7 +28,7 @@ from gwcs import coordinate_frames as cf
 import gwcs.wcs
 import galsim.wcs
 from galsim import roman
-from . import util
+from . import util, parameters
 
 
 # Needed until RCAL release unfreezing link to RDM/RAD versions 0.14.1
@@ -156,8 +156,14 @@ def get_wcs(image, usecrds=True, distortion=None):
     return wcs
 
 
-def make_wcs(targ_pos, distortion, roll_ref=0, v2_ref=0, v3_ref=0,
-             wrap_v2_at=180, wrap_lon_at=360):
+def make_wcs(targ_pos, 
+             distortion, 
+             roll_ref=parameters.wcs["roll_ref"], 
+             v2_ref=parameters.wcs["v2_ref"], 
+             v3_ref=parameters.wcs["v3_ref"],
+             wrap_v2_at=parameters.wcs["wrap_v2_at"], 
+             wrap_lon_at=parameters.wcs["wrap_lon_at"],
+             ):
     """Create a gWCS from a target position, a roll, and a distortion map.
 
     Parameters
