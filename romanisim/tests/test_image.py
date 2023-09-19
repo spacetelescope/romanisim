@@ -335,16 +335,30 @@ def test_simulate_counts_generic():
     # verify that the count rate is about right.
     poisson_rate = skycountspersecond * exptime
     assert (np.abs(np.mean(im2.array) - poisson_rate)
-            < 20 * np.sqrt(poisson_rate / npix))
+            < 10 * np.sqrt(poisson_rate / npix))
     # verify that Poisson noise is included
     # pearson chi2 test is probably best here, but it's finicky to get
     # right---one needs to choose the right bins so that the convergence
     # to the chi^2 distribution is close enough.
-    # let's just check that the variance isn't far from the
-    # mean.
-    assert (np.abs(np.mean(im2.array) - np.var(im2.array))
-            < 20 * np.sqrt(poisson_rate / npix))
+    # For a Poisson distribution, the variance is equal to the mean rate;
+    # let's verify that in fact the variance matches expectations within
+    # some tolerance.
+    # the variance on the sample variance for a Gaussian is 2*sigma^4/(N-1)
+    # this isn't a Gaussian but should be close with 100 counts?
+    var_of_var = 2 * (poisson_rate ** 2) / (npix - 1)
+    assert (np.abs(poisson_rate - np.var(im2.array))
+            < 10 * np.sqrt(var_of_var))
     log.info('DMS230: successfully included Poisson noise in image.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'image': im2.array,
+                   'poisson_rate': poisson_rate,
+                   'variance_of_variance': var_of_var,
+                  }
+        af.write_to(os.path.join(artifactdir, 'dms230.asdf'))
+
     im3 = im.copy()
     image.simulate_counts_generic(im3, exptime, dark=sky, zpflux=zpflux)
     # verify that the dark counts don't see the zero point conversion
@@ -485,9 +499,21 @@ def test_simulate():
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
                         crparam=dict(), usecrds=False, rng=rng)
     peakloc = np.nonzero(l0[0]['data'] == np.max(l0[0]['data']))
+
+    # check that the location with the most flux is the location where the
+    # source was simulated to be, using a real WCS with distortion.
     assert (peakloc[0][0] == sourcecen[0]) and (peakloc[1][0] == sourcecen[1])
     log.info('DMS218: successfully used WCS / focal plane geometry to render '
             'sources at correct locations with distortions.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'image': l0[0]['data'],
+                   'imloc': peakloc,
+                   'trueloc': sourcecen}
+        af.write_to(os.path.join(artifactdir, 'dms218.asdf'))
+
     rng = galsim.BaseDeviate(1)
     l1_nocr = image.simulate(meta, graycat, webbpsf=True, level=1,
                              usecrds=False, crparam=None, rng=rng)

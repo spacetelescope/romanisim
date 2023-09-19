@@ -104,8 +104,9 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
         gain = parameters.gain
 
     if linearity is not None:
-        resultants = linearity.correct(resultants)
-        # no error propagation
+        resultants = linearity.apply(resultants)
+
+    # no error propagation
 
     if dark is not None:
         resultants = resultants - dark
@@ -121,6 +122,11 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     if dq is None:
         dq = np.zeros(resultants.shape, dtype='i4')
+
+    if linearity is not None:
+        # Update data quality array for linearty coefficients
+        dq = np.bitwise_or(dq, linearity.dq)
+
     ramppar, rampvar = ramp.fit_ramps_casertano(resultants * gain, dq,
                                                 read_noise * gain, ma_table)
 
@@ -625,7 +631,7 @@ def simulate(metadata, objlist,
     # should query CRDS for any reference files not specified on the command
     # line.
     if usecrds:
-        refnames_lst = ['readnoise', 'dark', 'gain', 'linearity', 'saturation']
+        refnames_lst = ['readnoise', 'dark', 'gain', 'inverselinearity', 'linearity', 'saturation']
         import crds
         reffiles = crds.getreferences(
             image_mod.get_crds_parameters(), reftypes=refnames_lst,
@@ -637,6 +643,8 @@ def simulate(metadata, objlist,
             reffiles['dark'])
         gain_model = roman_datamodels.datamodels.GainRefModel(
             reffiles['gain'])
+        inv_linearity_model = roman_datamodels.datamodels.InverselinearityRefModel(
+            reffiles['inverselinearity'])
         linearity_model = roman_datamodels.datamodels.LinearityRefModel(
             reffiles['linearity'])
         saturation_model = roman_datamodels.datamodels.SaturationRefModel(
@@ -661,8 +669,14 @@ def simulate(metadata, objlist,
         darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
         dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
         gain = gain_model.data[nborder:-nborder, nborder:-nborder]
+        inv_linearity = nonlinearity.NL(
+            inv_linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder],
+            inv_linearity_model.dq[nborder:-nborder, nborder:-nborder],
+            gain=gain)
         linearity = nonlinearity.NL(
-            linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder])
+            linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder],
+            linearity_model.dq[nborder:-nborder, nborder:-nborder],
+            gain=gain)
         darkrate *= gain
         image_mod.meta.ref_file.crds.sw_version = crds.__version__
         image_mod.meta.ref_file.crds.context_used = crds.get_context_name(
@@ -675,6 +689,7 @@ def simulate(metadata, objlist,
         dark = None
         gain = None
         flat = 1
+        inv_linearity = None
         linearity = None
         saturation = None
 
@@ -698,8 +713,11 @@ def simulate(metadata, objlist,
         l1, l1dq = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
             crparam=crparam,
-            linearity=linearity, tstart=image_mod.meta.exposure.start_time,
-            persistence=persistence, saturation=saturation)
+            inv_linearity=inv_linearity, 
+            tstart=image_mod.meta.exposure.start_time,
+            persistence=persistence, 
+            saturation=saturation,
+            **kwargs)
     if level == 1:
         im, extras = romanisim.l1.make_asdf(
             l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)

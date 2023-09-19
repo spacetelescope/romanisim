@@ -14,7 +14,7 @@ on:
 
 jobs:
   data:
-    if: (github.repository == 'spacetelescope/romancal' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Weekly CI')))
+    if: (github.repository == 'spacetelescope/romanisim' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Weekly CI')))
     name: Download data
     runs-on: ubuntu-latest
     outputs:
@@ -60,8 +60,6 @@ jobs:
       cache-path: ${{ needs.data.outputs.path }}
       cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
-        - macos: test-xdist
-          python-version: 3.9
-        - macos: test-xdist
-          python-version: 3.10
-        - linux: test-devdeps-xdist
+        - macos: py39-xdist
+        - macos: py310-xdist
+        - linux: py3-devdeps-xdist

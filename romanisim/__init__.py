@@ -11,7 +11,7 @@ rate images that are analagous to typical astronomical images.
 """
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-from pkg_resources import get_distribution, DistributionNotFound
+from importlib.metadata import version
 import logging
 
 log = logging.getLogger(__name__)
@@ -19,9 +19,4 @@ log = logging.getLogger(__name__)
 #                     datefmt='%Y-%m-%d %H:%M:%S')
 log.setLevel(logging.INFO)
 
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    # package is not installed
-    __version__ = 'dev'
-    pass  # pragma: no cover
+__version__ = version(__name__)

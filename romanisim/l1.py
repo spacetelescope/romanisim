@@ -47,11 +47,11 @@ whenever i > k or whenever i = k and j > l.
 Things this doesn't allow neatly:
 
 * jitter in telescope pointing: the rate image is the same for each read/resultant
-* non-linearity?
 * weird non-linear systematics in darks?
 
-Possibly some systematics need to be applied to the individual reads, rather than to
-the final image.  e.g., clearly nonlinearity?  I need to think about when in the chain
+Some systematics need to be applied to the individual reads, rather than to
+the final image.  Currently linearity, persistenc, and CRs are implemented at
+individual read time.  I need to think about when in the chain
 things like IPC, etc., come in.  But it still seems correct to first generate the total
 number of counts that an ideal detector would measure from sources, and then apply
 these effects read-by-read as we build up the resultants---i.e., I expect the current
@@ -177,7 +177,7 @@ def tij_to_pij(tij, remaining=False):
 
 
 def apportion_counts_to_resultants(
-        counts, tij, linearity=None, crparam=None, persistence=None,
+        counts, tij, inv_linearity=None, crparam=None, persistence=None,
         tstart=None, rng=None, seed=None):
     """Apportion counts to resultants given read times.
 
@@ -195,7 +195,7 @@ def apportion_counts_to_resultants(
     to the probability that a photon lands in that particular read.  This
     is just np.random.binomial(number of counts left, p/p_left)
 
-    We then average the reads together to get a resulant.
+    We then average the reads together to get a resultant.
 
     We accumulate:
 
@@ -215,8 +215,8 @@ def apportion_counts_to_resultants(
         included beyond PSF & distortion.
     tij : list[list[float]]
         list of list of readout times for each read entering a resultant
-    linearity : romanisim.nonlinearity.NL or None
-        Object implementing non-linearity correction
+    inv_linearity : romanisim.nonlinearity.NL or None
+        Object implementing inverse non-linearity correction
     crparam : dict
         Dictionary of keywords sent to romanisim.cr.simulate_crs for simulating
         cosmic rays.  If None, no CRs are added
@@ -242,6 +242,7 @@ def apportion_counts_to_resultants(
         raise ValueError('apportion_counts_to_resultants expects the counts '
                          'to be integers!')
 
+    # Set rng for creating cosmic rays, persistence, and readnoise
     if rng is None and seed is None:
         seed = 46
         log.warning(
@@ -256,75 +257,68 @@ def apportion_counts_to_resultants(
     # two separate generators so that if you turn off CRs / persistence
     # you don't change the image
 
+    # Convert readout times for each read entering a resultant to probabilities,
+    # corresponding to the chance that a photon not yet assigned to a read so far
+    # should be assigned to this read.
     pij = tij_to_pij(tij, remaining=True)
+
+    # Create arrays to store various photon or electron counts and dq
     resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
     counts_so_far = np.zeros(counts.shape, dtype='f4')
     resultant_counts = np.zeros(counts.shape, dtype='f4')
-    dq = np.zeros(resultants.shape, dtype='i4')
+    dq = np.zeros(resultants.shape, dtype=np.uint32)
 
-    efficiency = 1
-    if linearity is not None:
-        pij_per_read = tij_to_pij(tij)
-        ki_numerator = np.cumsum(pij_per_read)
-        ki_denominator = np.zeros(counts_so_far.shape, dtype='f4')
-
-    # The implementation of non-linearity below is subtle.  The efficiency
-    # quantity is the fraction of the photons that would enter this read
-    # absent non-linearity that actually are detected in this read.  That
-    # just comes into the probability of a given photon being detected and
-    # is relatively straightforward.
-    # The ki factor bears some explanation.
-    # We need to adjust the number drawn by the fraction of the total counts
-    # that would be remaining absent nonlinearity (1 - ki_numerator)
-    # over the counts that are actually remaining with nonlinearity
-    # (1 - ki_denominator).  The numerator is known ahead of time from the
-    # ma table and is just 1 - delta T / T_exp, modulo skipped reads.
-    # The denominator depends on the realized efficiency of each pixel
-    # and so must be built up during the read.
-
-    readnum = 0
-    nlflag = np.zeros(counts.shape, dtype='bool')
-
+    # Set initial instrument counts
     instrumental_so_far = 0
+
     if crparam is not None or persistence is not None:
         instrumental_so_far = np.zeros(counts.shape, dtype='i4')
+
     if persistence is not None and tstart is None:
         raise ValueError('tstart must be set if persistence is set!')
+
     if persistence is not None:
         tstart = tstart.mjd
 
+    # Loop over read probabilities
     for i, pi in enumerate(pij):
+        # Reset resultant counts
         resultant_counts[...] = 0
+
+        # Loop over resultant probabilities
         for j, p in enumerate(pi):
-            if linearity is None or ((i == 0) and (j == 0)):
-                ki = 1
-                efficiency = 1
-            else:
-                ki = (1 - ki_numerator[readnum - 1]) / (1 - ki_denominator)
-                efficiency = linearity.efficiency(
-                    counts_so_far
-                    + counts * (efficiency * pij_per_read[i][j] / 2))
-                m = (efficiency < 0) | (efficiency > 1)
-                nlflag[m] = True
-                efficiency = np.clip(efficiency, 0, 1)
-            read = rng_numpy.binomial((counts - counts_so_far).astype('i4'),
-                                      p * efficiency * ki)
+            # Set read counts
+            read = rng_numpy.binomial((counts - counts_so_far).astype('i4'), p)
             counts_so_far += read
+
+            # Apply cosmic rays
             if crparam is not None:
                 old_instrumental_so_far = instrumental_so_far.copy()
                 cr.simulate_crs(instrumental_so_far, parameters.read_time,
                                 **crparam, rng=rng_numpy_cr)
                 crhits = instrumental_so_far != old_instrumental_so_far
                 dq[i, crhits] |= parameters.dqbits['jump_det']
+
+            # Apply persistence
             if persistence is not None:
                 tnow = tstart + tij[i][j] / (24 * 60 * 60)
                 persistence.add_to_read(
                     instrumental_so_far, tnow, rng=rng_numpy_ps)
-            resultant_counts += counts_so_far + instrumental_so_far
-            if linearity is not None:
-                ki_denominator += efficiency * pij_per_read[i][j]
-            readnum += 1
+
+            # Update counts for the resultant
+            if inv_linearity is not None:
+                # Apply inverse linearity
+                resultant_counts += inv_linearity.apply(
+                    counts_so_far + instrumental_so_far, electrons=True)
+            else:
+                resultant_counts += counts_so_far + instrumental_so_far
+
+        # set the read count to the average of the resultant count
         resultants[i, ...] = resultant_counts / len(pi)
+
+    if inv_linearity is not None:
+        # Update data quality array for inverse linearty coefficients
+        dq |= inv_linearity.dq
 
     if persistence is not None:
         # should the electrons from persistence contribute to future
@@ -332,12 +326,6 @@ def apportion_counts_to_resultants(
         # order enough that either decision would be fine.
         persistence.update(counts_so_far + instrumental_so_far, tnow)
 
-    nweirdpixfrac = np.sum(nlflag) / np.prod(nlflag.shape)
-    if nweirdpixfrac > 0:
-        log.warning(f'{nweirdpixfrac:5.1e} fraction of pixels have '
-                    'observed(corrected) nonlinearity slopes of >1 or <0.  '
-                    'The CRDS reference values are likely problematic for '
-                    'these pixels.')
     return resultants, dq
 
 
@@ -492,15 +480,12 @@ def add_ipc(resultants, ipc_kernel=None):
 
 def make_l1(counts, ma_table_number,
             read_noise=None, rng=None, seed=None,
-            gain=None, linearity=None, crparam=None,
-            persistence=None, tstart=None, saturation=None,
-            ):
+            gain=None, inv_linearity=None, crparam=None,
+            persistence=None, tstart=None, saturation=None):
     """Make an L1 image from a counts image.
 
     This apportions the total counts among the different resultants and adds
-    some instrumental effects.  The current instrumental effects aren't quite
-    right: nonlinearity and reciprocity failure are applied to the resultants
-    rather than to the reads (which aren't really available to this function).
+    some instrumental effects (linearity, IPC, CRs, persistence, ...).
 
     Parameters
     ----------
@@ -517,8 +502,8 @@ def make_l1(counts, ma_table_number,
         Seed for populating RNG.  Only used if rng is None.
     gain : float or np.ndarray[float]
         Gain (electrons / count) for converting counts to electrons
-    linearity : romanisim.nonlinearity.NL or None
-        Object describing the non-linearity corrections.
+    inv_linearity : romanisim.nonlinearity.NL or None
+        Object describing the inverse non-linearity corrections.
     crparam : dict
         Keyword arguments to romanisim.cr.simulate_crs.  If None, no
         cosmic rays are simulated.
@@ -539,7 +524,7 @@ def make_l1(counts, ma_table_number,
     tij = ma_table_to_tij(ma_table_number)
     log.info('Apportioning counts to resultants...')
     resultants, dq = apportion_counts_to_resultants(
-        counts.array, tij, linearity=linearity, crparam=crparam,
+        counts.array, tij, inv_linearity=inv_linearity, crparam=crparam,
         persistence=persistence, tstart=tstart,
         rng=rng, seed=seed)
 

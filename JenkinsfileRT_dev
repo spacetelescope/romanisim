@@ -35,7 +35,7 @@ pipeline {
         stage('Test') {
             steps {
                 sh("mkdir ${WORKSPACE}/data")
-                sh("curl -L https://stsci.box.com/shared/static/t90gqazqs82d8nh25249oq1obbjfstq8.gz -o ${WORKSPACE}/data/webbpsf-data.tar.gz")
+                sh("curl -L https://stsci.box.com/shared/static/0ojjfg3cieqdpd18vl1bjnpe63r82dx8.gz -o ${WORKSPACE}/data/webbpsf-data.tar.gz")
                 sh("tar -xzvf ${WORKSPACE}/data/webbpsf-data.tar.gz -C ${WORKSPACE}/data")
                 sh("mkdir ${WORKSPACE}/data/galsim-data")
                 sh("curl -L https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/real_galaxy_catalog_23.5_example.fits -o ${WORKSPACE}/data/galsim-data/real_galaxy_catalog_23.5_example.fits")      
@@ -48,7 +48,7 @@ pipeline {
                       conda activate romanisim
                       pytest romanisim \
                         --bigdata --slow --basetemp=test_outputs \
-                        -n auto
+                        -n 0  # -n 8 causes problems with CRDS runs?
                    """
                 )
             }
