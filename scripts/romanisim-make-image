@@ -22,14 +22,14 @@ if __name__ == '__main__':
                               'center of WFI.'))
     parser.add_argument('--catalog', type=str, help='input catalog (csv)',
                         default=None)
+    parser.add_argument('--config', type=str, help='input parameter override file (yaml)',
+                        default=None)
     parser.add_argument('--date', type=str, default=None,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
     parser.add_argument('--level', type=int, default=2,
                         help='1 or 2, for L1 or L2 output')
     parser.add_argument('--ma_table_number', type=int, default=1)
     parser.add_argument('--nobj', type=int, default=1000)
-    parser.add_argument('--override', type=str, help='input parameter override file (json)',
-                        default=None)
     parser.add_argument('--previous', default=None, type=str,
                         help=('previous simulated file in chronological order '
                               'used for persistence modeling.'))
@@ -54,12 +54,12 @@ if __name__ == '__main__':
                 "packages like galsim's roman package or STIPS may better "
                 "serve such purposes.")
 
-    if args.override is not None:
+    if args.config is not None:
         # Open and parse overrides file
-        with open(args.override, "r") as override_file:
-            overrides = yaml.safe_load(override_file)
+        with open(args.config, "r") as config_file:
+            config = yaml.safe_load(config_file)
             combo_dict = parameters.__dict__ 
-            ris.merge_nested_dicts(combo_dict, overrides)
+            ris.merge_nested_dicts(combo_dict, config)
             parameters.__dict__.update(combo_dict)
 
     metadata = ris.set_metadata(date=args.date, bandpass=args.bandpass,

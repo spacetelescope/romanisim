@@ -558,7 +558,7 @@ def simulate_counts(metadata, objlist,
 def simulate(metadata, objlist,
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
              persistence=None, seed=None, rng=None, **kwargs
-            ):
+             ):
     """Simulate a sequence of observations on a field in different bandpasses.
 
     Parameters
@@ -713,9 +713,9 @@ def simulate(metadata, objlist,
         l1, l1dq = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
             crparam=crparam,
-            inv_linearity=inv_linearity, 
+            inv_linearity=inv_linearity,
             tstart=image_mod.meta.exposure.start_time,
-            persistence=persistence, 
+            persistence=persistence,
             saturation=saturation,
             **kwargs)
     if level == 1:
@@ -737,7 +737,7 @@ def simulate(metadata, objlist,
 
 
 def make_test_catalog_and_images(
-        seed=12345, sca=7, filters=None, nobj=1000, 
+        seed=12345, sca=7, filters=None, nobj=1000,
         usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')

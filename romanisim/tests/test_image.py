@@ -356,7 +356,7 @@ def test_simulate_counts_generic():
         af.tree = {'image': im2.array,
                    'poisson_rate': poisson_rate,
                    'variance_of_variance': var_of_var,
-                  }
+                   }
         af.write_to(os.path.join(artifactdir, 'dms230.asdf'))
 
     im3 = im.copy()
@@ -417,7 +417,7 @@ def test_simulate_counts():
     meta = {
         'exposure': {
             'start_time': Time('2020-01-01T00:00:00'),
-            'ma_table_number' : 1,
+            'ma_table_number': 1,
         },
         'instrument': {
             'detector': 'WFI01',
@@ -452,20 +452,20 @@ def test_simulate():
     filter_name = 'F158'
 
     meta = {
-        'exposure' : {
-            'start_time' : time,
-            'ma_table_number' : 1,
+        'exposure': {
+            'start_time': time,
+            'ma_table_number': 1,
         },
-        'instrument' : {
-            'optical_element' : filter_name,
-            'detector' : 'WFI01'
+        'instrument': {
+            'optical_element': filter_name,
+            'detector': 'WFI01'
         },
-        'wcsinfo' : {
-            'ra_ref' : coord.ra.to(u.deg).value,
-            'dec_ref' : coord.dec.to(u.deg).value,
-            'v2_ref' : 0,
-            'v3_ref' : 0,
-            'roll_ref' : 0,
+        'wcsinfo': {
+            'ra_ref': coord.ra.to(u.deg).value,
+            'dec_ref': coord.dec.to(u.deg).value,
+            'v2_ref': 0,
+            'v3_ref': 0,
+            'roll_ref': 0,
         },
     }
 
@@ -504,7 +504,7 @@ def test_simulate():
     # source was simulated to be, using a real WCS with distortion.
     assert (peakloc[0][0] == sourcecen[0]) and (peakloc[1][0] == sourcecen[1])
     log.info('DMS218: successfully used WCS / focal plane geometry to render '
-            'sources at correct locations with distortions.')
+             'sources at correct locations with distortions.')
 
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
     if artifactdir is not None:
@@ -584,6 +584,7 @@ def test_make_test_catalog_and_images():
                                              galaxy_sample_file_name=fn)
     assert len(res) > 0
 
+
 @pytest.mark.parametrize(
     "level",
     [
@@ -620,7 +621,8 @@ def test_reference_file_crds_match(level):
     # Confirm that CRDS keyword was updated
     assert im.meta.ref_file.crds.sw_version != '12.3.1'
 
-    if (level==1):
-        assert (type(im) == WfiScienceRaw)
-    else: #level = 2
-        assert (type(im) == WfiImage)
+    if (level == 1):
+        assert (type(im) is WfiScienceRaw)
+    else:
+        # level = 2
+        assert (type(im) is WfiImage)

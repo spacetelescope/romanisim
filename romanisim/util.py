@@ -170,6 +170,7 @@ def random_points_at_radii(coord, radii, rng=None):
     c1 = c1.directional_offset_by(ang * u.rad, radii)
     return c1
 
+
 def add_more_metadata(metadata):
     """Fill out the metadata dictionary, modifying it in place.
 

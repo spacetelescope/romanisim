@@ -110,16 +110,16 @@ def test_apportion_counts_to_resultants():
 def test_linearized_counts_to_resultants():
     """Test that we can apportion linearized counts to resultants.
     """
-    counts = np.random.poisson(100, size=(100,100))
+    counts = np.random.poisson(100, size=(100, 100))
 
     coeffs = np.array([0, 0.5, 0, 0, 0], dtype='f4')
-    lin_coeffs = np.tile(coeffs[:,np.newaxis,np.newaxis], (1, 100, 100))
+    lin_coeffs = np.tile(coeffs[:, np.newaxis, np.newaxis], (1, 100, 100))
 
     rng1 = galsim.UniformDeviate(42)
     rng2 = galsim.UniformDeviate(42)
 
     # Create one bad coefficient
-    lin_coeffs[1,-1,-1] = 0
+    lin_coeffs[1, -1, -1] = 0
 
     inv_linearity = nonlinearity.NL(lin_coeffs)
 
@@ -140,8 +140,8 @@ def test_linearized_counts_to_resultants():
         medratio = np.median(resultants[res2 != 0] / res2[res2 != 0])
         assert np.isclose(medratio, 2.0, atol=1e-6)
         # also test that correctly propagate the nonlinearity DQ bits.
-        assert np.all(dq[:,:-1,:-1] == dq2[:,:-1,:-1])
-        assert np.all(dq2[:,-1,-1] == np.bitwise_or(dq[:,-1,-1], parameters.dqbits['nonlinear']))
+        assert np.all(dq[:, :-1, :-1] == dq2[:, :-1, :-1])
+        assert np.all(dq2[:, -1, -1] == np.bitwise_or(dq[:, -1, -1], parameters.dqbits['nonlinear']))
     log.info('DMS222: successfully applied nonlinearity to resultants.')
 
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
@@ -153,8 +153,6 @@ def test_linearized_counts_to_resultants():
                    'dq-with-nonlinearity': dq2,
                    'coeffs': coeffs}
         af.write_to(os.path.join(artifactdir, 'dms222.asdf'))
-
-
 
 
 @pytest.mark.soctests
@@ -194,7 +192,6 @@ def test_inject_source_into_ramp():
                    'flux': flux,
                    'tij': tij}
         af.write_to(os.path.join(artifactdir, 'dms225.asdf'))
-
 
 
 @pytest.mark.soctests

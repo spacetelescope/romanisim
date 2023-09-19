@@ -79,11 +79,11 @@ def sample_cr_params(
     N_samples,
     N_i=4096,
     N_j=4096,
-    min_dEdx=parameters.cr["min_dEdx"],
-    max_dEdx=parameters.cr["max_dEdx"],
-    min_cr_len=parameters.cr["min_cr_len"],
-    max_cr_len=parameters.cr["max_cr_len"],
-    grid_size=parameters.cr["grid_size"],
+    min_dEdx=None,
+    max_dEdx=None,
+    min_cr_len=None,
+    max_cr_len=None,
+    grid_size=None,
     rng=None,
     seed=48,
 ):
@@ -127,6 +127,17 @@ def sample_cr_params(
     cr_dEdx : float
         Cosmic ray energy loss, units of eV / micron.
     """
+
+    if min_dEdx is None:
+        min_dEdx = parameters.cr["min_dEdx"]
+    if max_dEdx is None:
+        max_dEdx = parameters.cr["max_dEdx"]
+    if min_cr_len is None:
+        min_cr_len = parameters.cr["min_cr_len"]
+    if max_cr_len is None:
+        max_cr_len = parameters.cr["max_cr_len"]
+    if grid_size is None:
+        grid_size = parameters.cr["grid_size"]
 
     if rng is None:
         rng = np.random.default_rng(seed)
@@ -264,11 +275,11 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
 def simulate_crs(
     image,
     time,
-    flux=parameters.cr["flux"],
-    area=parameters.cr["area"],
-    conversion_factor=parameters.cr["conversion_factor"],
-    pixel_size=parameters.cr["pixel_size"],
-    pixel_depth=parameters.cr["pixel_depth"],
+    flux=None,
+    area=None,
+    conversion_factor=None,
+    pixel_size=None,
+    pixel_depth=None,
     rng=None,
     seed=47,
 ):
@@ -303,6 +314,17 @@ def simulate_crs(
         The detector image, in units of electrons, updated to include
         all of the generated cosmic ray hits.
     """
+
+    if flux is None:
+        flux = parameters.cr["flux"]
+    if area is None:
+        area = parameters.cr["area"]
+    if conversion_factor is None:
+        conversion_factor = parameters.cr["conversion_factor"]
+    if pixel_size is None:
+        pixel_size = parameters.cr["pixel_size"]
+    if pixel_depth is None:
+        pixel_depth = parameters.cr["pixel_depth"]
 
     if rng is None:
         rng = np.random.default_rng(seed)

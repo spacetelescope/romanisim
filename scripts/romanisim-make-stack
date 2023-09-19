@@ -37,6 +37,12 @@ def main():
     parser.add_argument('-b', '--boresight',
                         action='store_true',
                         help=('RA & Dec specifies location of boresight, not center of WFI.'))
+    
+    # Use config file to override metadata or values in default parameters file
+    parser.add_argument('-c', '--config', 
+                        type=str, 
+                        help='Input parameter override file (yaml)',
+                        default=None)
 
     # Date & Time argument
     parser.add_argument('-d', '--date',
@@ -58,11 +64,6 @@ def main():
                         help='Filename to output list of romanisim calls (sims.script) instead of '
                              'making simulation files (e.g. for cluster usage).')
     
-    # Use config file to override metadata or values in default parameters file
-    parser.add_argument('--override', 
-                        type=str, 
-                        help='input parameter override file (json)',
-                        default=None)
 
     # Create script making argument
     parser.add_argument('-x', "--prefix",
@@ -109,12 +110,12 @@ def main():
                 "packages like galsim's roman package or STIPS may better "
                 "serve such purposes.")
     
-    if args.override is not None:
+    if args.config is not None:
         # Open and parse overrides file
-        with open(args.override, "r") as override_file:
-            overrides = yaml.safe_load(override_file)
+        with open(args.config, "r") as config_file:
+            config = yaml.safe_load(config_file)
             combo_dict = parameters.__dict__ 
-            ris.merge_nested_dicts(combo_dict, overrides)
+            ris.merge_nested_dicts(combo_dict, config)
             parameters.__dict__.update(combo_dict)
 
     # Set up metadata

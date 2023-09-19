@@ -28,7 +28,7 @@ from gwcs import coordinate_frames as cf
 import gwcs.wcs
 import galsim.wcs
 from galsim import roman
-from . import util, parameters
+from . import util
 
 
 # Needed until RCAL release unfreezing link to RDM/RAD versions 0.14.1
@@ -36,7 +36,6 @@ try:
     import roman_datamodels.maker_utils as maker_utils
 except ImportError:
     import roman_datamodels.testing.utils as maker_utils
-
 
 
 def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
@@ -109,7 +108,7 @@ def get_wcs(image, usecrds=True, distortion=None):
     """
 
     # If sent a dictionary, create a temporary model for CRDS interface
-    if(type(image) != roman_datamodels.datamodels.ImageModel):
+    if (type(image) is not roman_datamodels.datamodels.ImageModel):
         image_node = maker_utils.mk_level2_image()
         for key in image.keys():
             if isinstance(image[key], dict):
@@ -156,13 +155,13 @@ def get_wcs(image, usecrds=True, distortion=None):
     return wcs
 
 
-def make_wcs(targ_pos, 
-             distortion, 
-             roll_ref=parameters.wcs["roll_ref"], 
-             v2_ref=parameters.wcs["v2_ref"], 
-             v3_ref=parameters.wcs["v3_ref"],
-             wrap_v2_at=parameters.wcs["wrap_v2_at"], 
-             wrap_lon_at=parameters.wcs["wrap_lon_at"],
+def make_wcs(targ_pos,
+             distortion,
+             roll_ref=0,
+             v2_ref=0,
+             v3_ref=0,
+             wrap_v2_at=180,
+             wrap_lon_at=360,
              ):
     """Create a gWCS from a target position, a roll, and a distortion map.
 
@@ -366,8 +365,8 @@ def wcs_from_fits_header(header):
 
     # construct GWCS:
     det2sky = (
-        (Shift(-x0) & Shift(-y0)) | Mapping((0, 1, 0, 1)) | (polx & poly) |
-        Pix2Sky_TAN() | RotateNative2Celestial(*w.wcs.crval, 180)
+        (Shift(-x0) & Shift(-y0)) | Mapping((0, 1, 0, 1)) | (polx & poly)
+        | Pix2Sky_TAN() | RotateNative2Celestial(*w.wcs.crval, 180)
     )
 
     detector_frame = cf.Frame2D(name="detector", axes_names=("x", "y"),

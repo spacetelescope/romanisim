@@ -12,6 +12,7 @@ from romanisim import catalog, image, wcs
 from romanisim import parameters
 from romanisim import log
 
+
 def merge_nested_dicts(dict1, dict2):
     """
     Merge two nested dictionaries.
@@ -35,7 +36,6 @@ def merge_nested_dicts(dict1, dict2):
             merge_nested_dicts(dict1[key], value)
         else:
             dict1[key] = value
-
 
 
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7, ma_table_number=1):
