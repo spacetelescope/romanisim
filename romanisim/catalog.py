@@ -27,10 +27,10 @@ class CatalogObject:
 
 
 def make_dummy_catalog(coord, 
-                       radius=parameters.catalog["radius"], 
+                       radius=0.1, 
                        rng=None, 
                        seed=42, 
-                       nobj=parameters.catalog["nobj"],
+                       nobj=1000,
                        chromatic=True, 
                        galaxy_sample_file_name=None,
                        ):
@@ -111,10 +111,10 @@ def make_dummy_catalog(coord,
 
 
 def make_dummy_table_catalog(coord, 
-                             radius=parameters.catalog["radius"], 
+                             radius=0.1, 
                              rng=None, 
-                             nobj=parameters.catalog["nobj"],
-                             bandpasses=parameters.catalog["bandpasses"], 
+                             nobj=1000,
+                             bandpasses=None, 
                              seed=None, 
                              ):
     """Make a dummy table catalog.
@@ -152,11 +152,11 @@ def make_dummy_table_catalog(coord,
 
 def make_galaxies(coord, 
                   n, 
-                  radius=parameters.catalog["radius"], 
-                  index=parameters.catalog["index"], 
-                  faintmag=parameters.catalog["faintmag"],
-                  hlr_at_faintmag=parameters.catalog["hlr_at_faintmag"], 
-                  bandpasses=parameters.catalog["bandpasses"], 
+                  radius=0.1, 
+                  index=None, 
+                  faintmag=26,
+                  hlr_at_faintmag=0.6, 
+                  bandpasses=None, 
                   rng=None,
                   seed=50,
                   ):
@@ -241,11 +241,11 @@ def make_galaxies(coord,
 
 def make_stars(coord, 
                n, 
-               radius=parameters.catalog["radius"], 
-               index=parameters.catalog["index"], 
-               faintmag=parameters.catalog["faintmag"],
-               truncation_radius=parameters.catalog["truncation_radius"], 
-               bandpasses=parameters.catalog["bandpasses"], 
+               radius=0.1, 
+               index=None, 
+               faintmag=26,
+               truncation_radius=None, 
+               bandpasses=None, 
                rng=None,
                seed=51,
                ):
