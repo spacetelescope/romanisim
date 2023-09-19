@@ -557,7 +557,7 @@ def simulate_counts(metadata, objlist,
 
 def simulate(metadata, objlist,
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
-             persistence=None, seed=None, rng=None,
+             persistence=None, seed=None, rng=None, **kwargs
             ):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -738,7 +738,7 @@ def simulate(metadata, objlist,
 
 def make_test_catalog_and_images(
         seed=12345, sca=7, filters=None, nobj=1000, 
-        usecrds=True, webbpsf=True, galaxy_sample_file_name=None):
+        usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
     """This routine kicks the tires on everything in this module."""
     log.info('Making catalog...')
     if filters is None:
@@ -756,7 +756,7 @@ def make_test_catalog_and_images(
     for filter_name in filters:
         metadata['instrument']['optical_element'] = 'F' + filter_name[1:]
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
-                      webbpsf=webbpsf)
+                      webbpsf=webbpsf, **kwargs)
         out[filter_name] = im
     return out
 
