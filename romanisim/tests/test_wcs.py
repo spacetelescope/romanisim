@@ -71,13 +71,15 @@ def test_wcs():
     assert np.allclose(xx, xx2)
     assert np.allclose(yy, yy2)
 
-    metadata = {'instrument' : {
+    metadata = {'instrument':
+                {
                     'detector': 'WFI01',
                 },
-                'exposure' : {
+                'exposure':
+                {
                     'start_time': Time('2026-01-01T00:00:00'),
                 }
-    }
+                }
     wcs.fill_in_parameters(metadata, cc, boresight=True)
     wcswrap = wcs.get_wcs(metadata, distortion=distortion)
     cc2 = util.skycoord(wcswrap.toWorld(galsim.PositionD(0, 0)))
@@ -144,4 +146,4 @@ def test_wcs_crds_match():
     twcs = wcs.get_wcs(image_mod, usecrds=True)
 
     # Expect a GWCS object as opposed to a dictionary
-    assert type(twcs) == wcs.GWCS
+    assert type(twcs) is wcs.GWCS

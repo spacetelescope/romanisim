@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 import argparse
+import yaml
+
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 import galsim
-from romanisim import log, wcs, persistence
+from romanisim import log, wcs, persistence, parameters
 from romanisim import ris_make_utils as ris
 
 if __name__ == '__main__':
@@ -19,6 +21,8 @@ if __name__ == '__main__':
                         help=('radec specifies location of boresight, not '
                               'center of WFI.'))
     parser.add_argument('--catalog', type=str, help='input catalog (csv)',
+                        default=None)
+    parser.add_argument('--config', type=str, help='input parameter override file (yaml)',
                         default=None)
     parser.add_argument('--date', type=str, default=None,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
@@ -50,10 +54,18 @@ if __name__ == '__main__':
                 "packages like galsim's roman package or STIPS may better "
                 "serve such purposes.")
 
-    metadata = ris.set_metadata(date=args.date, bandpass=args.bandpass,
-                                sca=args.sca,
-                                ma_table_number=args.ma_table_number)
+    if args.config is not None:
+        # Open and parse overrides file
+        with open(args.config, "r") as config_file:
+            config = yaml.safe_load(config_file)
+            combo_dict = parameters.__dict__ 
+            ris.merge_nested_dicts(combo_dict, config)
+            parameters.__dict__.update(combo_dict)
 
+    metadata = ris.set_metadata(date=args.date, bandpass=args.bandpass,
+                            sca=args.sca,
+                            ma_table_number=args.ma_table_number)
+    
     if args.radec is not None:
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
                          frame='icrs')

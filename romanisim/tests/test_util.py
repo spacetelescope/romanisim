@@ -86,15 +86,15 @@ def test_random_points_in_cap():
 
 
 def test_add_more_metadata():
-    metadata = {'exposure' :
-                    {
-                        'start_time': Time('2026-01-01T00:00:00'),
-                        'ma_table_number': 1,
-                    },
-                'instrument' :
-                    {
-                        'detector': 'WFI01',
-                    },
+    metadata = {'exposure':
+                {
+                    'start_time': Time('2026-01-01T00:00:00'),
+                    'ma_table_number': 1,
+                },
+                'instrument':
+                {
+                    'detector': 'WFI01',
+                },
                 }
     util.add_more_metadata(metadata)
     assert len(metadata['exposure']) > 2  # some metadata got added.

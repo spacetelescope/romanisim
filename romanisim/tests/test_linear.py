@@ -42,7 +42,7 @@ def test_linear_apply():
 
     res2 = linearity.apply(counts, electrons=True)
 
-    assert res2[0,0] == res2[0,99]
+    assert res2[0, 0] == res2[0, 99]
     assert res2[99, 0] == res2[99, 99]
     assert res2[0, 0] == 2 * res2[99, 99]
 
@@ -74,6 +74,7 @@ def test_repair_coeffs():
     # All other entries should be the same
     assert np.sum(res != counts) == np.prod(counts.shape) - 2
 
+
 def test_electrons():
     counts = np.random.poisson(100, size=(100, 100))
     coeffs = np.array([0, 0.994, 3.0e-5, 5.0e-10, 7.0e-15], dtype='f4')
@@ -90,6 +91,7 @@ def test_electrons():
     assert np.all(res_elec[:] == gain * res[:])
     assert res_elec.unit == u.electron / u.DN
     assert not hasattr(res, "unit")
+
 
 def test_reverse():
     counts = np.random.poisson(100, size=(100, 100))
@@ -108,6 +110,7 @@ def test_reverse():
 
     assert np.all(res_rev[:] == res[:])
 
+
 @pytest.mark.skipif(
     os.environ.get("CI") == "true",
     reason=(
@@ -120,7 +123,7 @@ def test_inverse_then_linearity():
 
     reffiles = crds.getreferences(
         {'roman.meta.instrument.name': 'WFI',
-         'roman.meta.instrument.detector':'WFI01',
+         'roman.meta.instrument.detector': 'WFI01',
          'roman.meta.exposure.start_time': '2026-01-01T00:00:00'},
         reftypes=['inverselinearity', 'linearity'],
         observatory='roman')
@@ -130,11 +133,10 @@ def test_inverse_then_linearity():
     linearity_model = roman_datamodels.datamodels.LinearityRefModel(
         reffiles['linearity'])
 
-
     inverse_linearity = nonlinearity.NL(
-        inverse_linearity_model.coeffs[:,4:-4,4:-4], gain=1.0)
+        inverse_linearity_model.coeffs[:, 4:-4, 4:-4], gain=1.0)
     linearity = nonlinearity.NL(
-        linearity_model.coeffs[:,4:-4,4:-4], gain=1.0)
+        linearity_model.coeffs[:, 4:-4, 4:-4], gain=1.0)
 
     # identify problematic linearity fits
     m = ((linearity_model.dq[4:-4, 4:-4] != 0)

@@ -13,6 +13,31 @@ from romanisim import parameters
 from romanisim import log
 
 
+def merge_nested_dicts(dict1, dict2):
+    """
+    Merge two nested dictionaries.
+
+    Parameters
+    ----------
+    dict1 : dict
+        The first dictionary to be merged. This dict receives the merged dictionary.
+
+    dict2 : dict
+        Second dictionary to be merged.
+
+    Returns
+    -------
+    None
+        dict 1 is updated with the merge output.
+
+    """
+    for key, value in dict2.items():
+        if key in dict1 and isinstance(dict1[key], dict) and isinstance(value, dict):
+            merge_nested_dicts(dict1[key], value)
+        else:
+            dict1[key] = value
+
+
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7, ma_table_number=1):
     """
     Set / Update metadata parameters
