@@ -17,6 +17,7 @@ def test_traverse():
         assert np.all(lengths > 0)
         assert np.all((lengths < totlen) | np.isclose(lengths, totlen))
 
+
 def test_create_sampler():
     xx = np.linspace(0, 1, 1000)
     sampler = cr.create_sampler(lambda x: np.ones_like(x), xx)

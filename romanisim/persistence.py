@@ -22,8 +22,16 @@ class Persistence:
     device doing the imaging.  The second category changes in each exposure as
     new bright stars are observed.
     """
-    def __init__(self, x=None, t=None, index=None, A=None, x0=None, dx=None,
-                 alpha=None, gamma=None):
+    def __init__(self,
+                 x=None,
+                 t=None,
+                 index=None,
+                 A=None,
+                 x0=None,
+                 dx=None,
+                 alpha=None,
+                 gamma=None
+                 ):
         """Construct a new Persistence instance.
 
         Parameters
@@ -61,9 +69,11 @@ class Persistence:
             alpha = parameters.persistence['alpha']
         if gamma is None:
             gamma = parameters.persistence['gamma']
+
         if ((np.array(x).shape != np.array(t).shape)
                 or (np.array(x).shape != np.array(index).shape)):
             raise ValueError('x, t, index must have identical shapes!')
+
         self.x = x
         self.t = t
         self.index = index

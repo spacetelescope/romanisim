@@ -38,7 +38,6 @@ except ImportError:
     import roman_datamodels.testing.utils as maker_utils
 
 
-
 def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
     """Add WCS info to parameters dictionary.
 
@@ -109,7 +108,7 @@ def get_wcs(image, usecrds=True, distortion=None):
     """
 
     # If sent a dictionary, create a temporary model for CRDS interface
-    if(type(image) != roman_datamodels.datamodels.ImageModel):
+    if (type(image) is not roman_datamodels.datamodels.ImageModel):
         image_node = maker_utils.mk_level2_image()
         for key in image.keys():
             if isinstance(image[key], dict):
@@ -156,8 +155,14 @@ def get_wcs(image, usecrds=True, distortion=None):
     return wcs
 
 
-def make_wcs(targ_pos, distortion, roll_ref=0, v2_ref=0, v3_ref=0,
-             wrap_v2_at=180, wrap_lon_at=360):
+def make_wcs(targ_pos,
+             distortion,
+             roll_ref=0,
+             v2_ref=0,
+             v3_ref=0,
+             wrap_v2_at=180,
+             wrap_lon_at=360,
+             ):
     """Create a gWCS from a target position, a roll, and a distortion map.
 
     Parameters
@@ -360,8 +365,8 @@ def wcs_from_fits_header(header):
 
     # construct GWCS:
     det2sky = (
-        (Shift(-x0) & Shift(-y0)) | Mapping((0, 1, 0, 1)) | (polx & poly) |
-        Pix2Sky_TAN() | RotateNative2Celestial(*w.wcs.crval, 180)
+        (Shift(-x0) & Shift(-y0)) | Mapping((0, 1, 0, 1)) | (polx & poly)
+        | Pix2Sky_TAN() | RotateNative2Celestial(*w.wcs.crval, 180)
     )
 
     detector_frame = cf.Frame2D(name="detector", axes_names=("x", "y"),

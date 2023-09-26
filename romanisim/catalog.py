@@ -26,8 +26,14 @@ class CatalogObject:
     flux: dict
 
 
-def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
-                       chromatic=True, galaxy_sample_file_name=None):
+def make_dummy_catalog(coord,
+                       radius=0.1,
+                       rng=None,
+                       seed=42,
+                       nobj=1000,
+                       chromatic=True,
+                       galaxy_sample_file_name=None,
+                       ):
     """Make a dummy catalog for testing purposes.
 
     Parameters
@@ -104,8 +110,13 @@ def make_dummy_catalog(coord, radius=0.1, rng=None, seed=42, nobj=1000,
     return objlist
 
 
-def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
-                             bandpasses=None, seed=None):
+def make_dummy_table_catalog(coord,
+                             radius=0.1,
+                             rng=None,
+                             nobj=1000,
+                             bandpasses=None,
+                             seed=None,
+                             ):
     """Make a dummy table catalog.
 
     Fluxes are assigned to bands at random.  Locations are random within the
@@ -139,9 +150,16 @@ def make_dummy_table_catalog(coord, radius=0.1, rng=None, nobj=1000,
     return table.vstack([t1, t2, t3])
 
 
-def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
-                  hlr_at_faintmag=0.6, bandpasses=None, rng=None,
-                  seed=50):
+def make_galaxies(coord,
+                  n,
+                  radius=0.1,
+                  index=None,
+                  faintmag=26,
+                  hlr_at_faintmag=0.6,
+                  bandpasses=None,
+                  rng=None,
+                  seed=50,
+                  ):
     """Make a simple parametric catalog of galaxies.
 
     Parameters
@@ -221,9 +239,16 @@ def make_galaxies(coord, n, radius=0.1, index=None, faintmag=26,
     return out
 
 
-def make_stars(coord, n, radius=0.1, index=None, faintmag=26,
-               truncation_radius=None, bandpasses=None, rng=None,
-               seed=51):
+def make_stars(coord,
+               n,
+               radius=0.1,
+               index=None,
+               faintmag=26,
+               truncation_radius=None,
+               bandpasses=None,
+               rng=None,
+               seed=51,
+               ):
     """Make a simple parametric catalog of stars.
 
     If truncation radius is None, this makes a uniform distribution.  If the

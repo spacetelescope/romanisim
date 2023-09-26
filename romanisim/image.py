@@ -557,8 +557,8 @@ def simulate_counts(metadata, objlist,
 
 def simulate(metadata, objlist,
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
-             persistence=None, seed=None, rng=None,
-             **kwargs):
+             persistence=None, seed=None, rng=None, **kwargs
+             ):
     """Simulate a sequence of observations on a field in different bandpasses.
 
     Parameters
@@ -601,6 +601,7 @@ def simulate(metadata, objlist,
         simcatobj, the image positions and fluxes of simulated objects.  It may
         also include information on persistence and cosmic ray hits.
     """
+
     meta = maker_utils.mk_common_meta()
     meta["photometry"] = maker_utils.mk_photometry()
 
@@ -721,8 +722,11 @@ def simulate(metadata, objlist,
     else:
         l1, l1dq = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
-            crparam=crparam, inv_linearity=inv_linearity, tstart=image_mod.meta.exposure.start_time,
-            persistence=persistence, saturation=saturation,
+            crparam=crparam,
+            inv_linearity=inv_linearity,
+            tstart=image_mod.meta.exposure.start_time,
+            persistence=persistence,
+            saturation=saturation,
             **kwargs)
     if level == 1:
         im, extras = romanisim.l1.make_asdf(
