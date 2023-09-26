@@ -628,13 +628,20 @@ def simulate(metadata, objlist,
     # and keywords and returns a dictionary with all of the relevant reference
     # data in numpy arrays.
     # should query CRDS for any reference files not specified on the command
-    # line.
+    # line.  
     if usecrds:
+        reffiles = []
         refnames_lst = ['readnoise', 'dark', 'gain', 'inverselinearity', 'linearity', 'saturation']
-        import crds
-        reffiles = crds.getreferences(
-            image_mod.get_crds_parameters(), reftypes=refnames_lst,
-            observatory='roman')
+
+        for key, value in parameters.reference_file_names.items():
+            if value is not None:
+                reffiles[key] = value
+                refnames_lst.remove(refnames_lst)
+        if refnames_lst:
+            import crds
+            reffiles = crds.getreferences(
+                image_mod.get_crds_parameters(), reftypes=refnames_lst,
+                observatory='roman')
 
         read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(
             reffiles['readnoise'])
@@ -683,14 +690,17 @@ def simulate(metadata, objlist,
         )
         saturation = saturation_model.data[nborder:-nborder, nborder:-nborder]
     else:
-        read_noise = galsim.roman.read_noise
-        darkrate = galsim.roman.dark_current
-        dark = None
-        gain = None
-        flat = 1
+        read_noise = parameters.reference_file_names["readnoise"] \
+            if parameters.reference_file_names["readnoise"] is not None else galsim.roman.read_noise
+        darkrate = (parameters.reference_file_names["dark"] / exptime_tau) \
+            if parameters.reference_file_names["dark"] is not None else galsim.roman.dark_current
+        dark = parameters.reference_file_names["dark"]
+        gain = parameters.reference_file_names["gain"]
+        flat = parameters.reference_file_names["flat"] \
+            if parameters.reference_file_names["flat"] is not None else 1
         inv_linearity = None
-        linearity = None
-        saturation = None
+        linearity = parameters.reference_file_names["linearity"]
+        saturation = parameters.reference_file_names["saturation"]
 
     if rng is None and seed is None:
         seed = 43

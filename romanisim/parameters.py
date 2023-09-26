@@ -26,6 +26,16 @@ default_parameters_dictionary = {
                   },
 }
 
+reference_file_names = {
+    "dark": None,
+    "distortion": None,
+    "flat": None,
+    "gain": None,
+    "inverselinearity": None,
+    "linearity": None,
+    "readnoise": None,
+    "saturation": None
+}
 
 # default read noise
 read_noise = 5.0 * u.DN
