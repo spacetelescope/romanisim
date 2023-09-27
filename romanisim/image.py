@@ -630,19 +630,20 @@ def simulate(metadata, objlist,
     # data in numpy arrays.
     # should query CRDS for any reference files not specified on the command
     # line.  
+    reffiles = {}
     if usecrds:
-        reffiles = []
+        import crds
         refnames_lst = ['readnoise', 'dark', 'gain', 'inverselinearity', 'linearity', 'saturation']
 
         for key, value in parameters.reference_file_names.items():
-            if value is not None:
+            if (key in refnames_lst) and (value is not None):
                 reffiles[key] = value
-                refnames_lst.remove(refnames_lst)
+                refnames_lst.remove(key)
+
         if refnames_lst:
-            import crds
-            reffiles = crds.getreferences(
+            reffiles.update(crds.getreferences(
                 image_mod.get_crds_parameters(), reftypes=refnames_lst,
-                observatory='roman')
+                observatory='roman'))
 
         read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(
             reffiles['readnoise'])
@@ -741,6 +742,12 @@ def simulate(metadata, objlist,
             dq=l2dq, imwcs=counts.wcs)
     else:
         extras = dict()
+
+    if reffiles:
+        extras["simulate_reffiles"] = {}
+        for key, value in reffiles.items():
+            extras["simulate_reffiles"][key] = value
+
     extras['simcatobj'] = simcatobj
     log.info('Simulation complete.')
     return im, extras
