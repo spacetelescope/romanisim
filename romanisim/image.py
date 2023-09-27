@@ -635,7 +635,7 @@ def simulate(metadata, objlist,
         import crds
         refnames_lst = ['readnoise', 'dark', 'gain', 'inverselinearity', 'linearity', 'saturation']
 
-        for key, value in parameters.reference_file_names.items():
+        for key, value in parameters.reference_data.items():
             if (key in refnames_lst) and (value is not None):
                 reffiles[key] = value
                 refnames_lst.remove(key)
@@ -692,17 +692,17 @@ def simulate(metadata, objlist,
         )
         saturation = saturation_model.data[nborder:-nborder, nborder:-nborder]
     else:
-        read_noise = parameters.reference_file_names["readnoise"] \
-            if parameters.reference_file_names["readnoise"] is not None else galsim.roman.read_noise
-        darkrate = (parameters.reference_file_names["dark"] / exptime_tau) \
-            if parameters.reference_file_names["dark"] is not None else galsim.roman.dark_current
-        dark = parameters.reference_file_names["dark"]
-        gain = parameters.reference_file_names["gain"]
-        flat = parameters.reference_file_names["flat"] \
-            if parameters.reference_file_names["flat"] is not None else 1
-        inv_linearity = parameters.reference_file_names["inverselinearity"]
-        linearity = parameters.reference_file_names["linearity"]
-        saturation = parameters.reference_file_names["saturation"]
+        read_noise = parameters.reference_data["readnoise"] \
+            if parameters.reference_data["readnoise"] is not None else galsim.roman.read_noise
+        darkrate = parameters.reference_data["darkcurrent"] \
+            if parameters.reference_data["darkcurrent"] is not None else galsim.roman.dark_current
+        dark = parameters.reference_data["dark"]
+        gain = parameters.reference_data["gain"]
+        flat = parameters.reference_data["flat"] \
+            if parameters.reference_data["flat"] is not None else 1
+        inv_linearity = parameters.reference_data["inverselinearity"]
+        linearity = parameters.reference_data["linearity"]
+        saturation = parameters.reference_data["saturation"]
 
     if rng is None and seed is None:
         seed = 43

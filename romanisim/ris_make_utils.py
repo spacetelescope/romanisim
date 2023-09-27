@@ -124,7 +124,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
     if catalog_name is None:
         # Create a catalog from scratch
         # Create wcs object
-        distortion_file = parameters.reference_file_names["distortion"]
+        distortion_file = parameters.reference_data["distortion"]
         if distortion_file is not None:
             dist_model = roman_datamodels.datamodels.DistortionRefModel(distortion_file)
             distortion = dist_model.coordinate_distortion_transform

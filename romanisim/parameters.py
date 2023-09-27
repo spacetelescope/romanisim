@@ -26,8 +26,9 @@ default_parameters_dictionary = {
                 },
 }
 
-reference_file_names = {
+reference_data = {
     "dark": None,
+    "darkcurrent": None,
     "distortion": None,
     "flat": None,
     "gain": None,
@@ -63,6 +64,12 @@ ipc_kernel /= np.sum(ipc_kernel)
 
 # V2/V3 coordinates of "center" of WFI array (convention)
 v2v3_wficen = (1546.3846181707652, -892.7916365721071)
+
+# persistence parameter dictionary
+# delete persistence records fainter than 0.01 electron / s
+# e.g., MA table 1 has ~144 s, so this is ~1 electron over the whole exposure.
+persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
+                   half_well=50000, ignorerate=0.01)
 
 # default saturation level in DN absent reference file information
 saturation = 55000 * u.DN

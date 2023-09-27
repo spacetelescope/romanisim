@@ -101,6 +101,8 @@ def get_wcs(image, usecrds=True, distortion=None):
     usecrds : bool
         If True, use crds reference distortions rather than galsim.roman
         distortion model.
+    distortion : astropy.modeling.core.CompoundModel
+        Coordinate distortion transformation parameters
 
     Returns
     -------
