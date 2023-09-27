@@ -629,7 +629,7 @@ def simulate(metadata, objlist,
     # and keywords and returns a dictionary with all of the relevant reference
     # data in numpy arrays.
     # should query CRDS for any reference files not specified on the command
-    # line.  
+    # line.
     reffiles = {}
     if usecrds:
         import crds
@@ -700,7 +700,7 @@ def simulate(metadata, objlist,
         gain = parameters.reference_file_names["gain"]
         flat = parameters.reference_file_names["flat"] \
             if parameters.reference_file_names["flat"] is not None else 1
-        inv_linearity = None
+        inv_linearity = parameters.reference_file_names["inverselinearity"]
         linearity = parameters.reference_file_names["linearity"]
         saturation = parameters.reference_file_names["saturation"]
 
