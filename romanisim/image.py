@@ -630,12 +630,20 @@ def simulate(metadata, objlist,
     # data in numpy arrays.
     # should query CRDS for any reference files not specified on the command
     # line.
+    reffiles = {}
     if usecrds:
-        refnames_lst = ['readnoise', 'dark', 'gain', 'inverselinearity', 'linearity', 'saturation']
         import crds
-        reffiles = crds.getreferences(
-            image_mod.get_crds_parameters(), reftypes=refnames_lst,
-            observatory='roman')
+        refnames_lst = ['readnoise', 'dark', 'gain', 'inverselinearity', 'linearity', 'saturation']
+
+        for key, value in parameters.reference_data.items():
+            if (key in refnames_lst) and (value is not None):
+                reffiles[key] = value
+                refnames_lst.remove(key)
+
+        if refnames_lst:
+            reffiles.update(crds.getreferences(
+                image_mod.get_crds_parameters(), reftypes=refnames_lst,
+                observatory='roman'))
 
         read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(
             reffiles['readnoise'])
@@ -684,14 +692,17 @@ def simulate(metadata, objlist,
         )
         saturation = saturation_model.data[nborder:-nborder, nborder:-nborder]
     else:
-        read_noise = galsim.roman.read_noise
-        darkrate = galsim.roman.dark_current
-        dark = None
-        gain = None
-        flat = 1
-        inv_linearity = None
-        linearity = None
-        saturation = None
+        read_noise = parameters.reference_data["readnoise"] \
+            if parameters.reference_data["readnoise"] is not None else galsim.roman.read_noise
+        darkrate = parameters.reference_data["darkcurrent"] \
+            if parameters.reference_data["darkcurrent"] is not None else galsim.roman.dark_current
+        dark = parameters.reference_data["dark"]
+        gain = parameters.reference_data["gain"]
+        flat = parameters.reference_data["flat"] \
+            if parameters.reference_data["flat"] is not None else 1
+        inv_linearity = parameters.reference_data["inverselinearity"]
+        linearity = parameters.reference_data["linearity"]
+        saturation = parameters.reference_data["saturation"]
 
     if rng is None and seed is None:
         seed = 43
@@ -731,6 +742,12 @@ def simulate(metadata, objlist,
             dq=l2dq, imwcs=counts.wcs)
     else:
         extras = dict()
+
+    if reffiles:
+        extras["simulate_reffiles"] = {}
+        for key, value in reffiles.items():
+            extras["simulate_reffiles"][key] = value
+
     extras['simcatobj'] = simcatobj
     log.info('Simulation complete.')
     return im, extras
