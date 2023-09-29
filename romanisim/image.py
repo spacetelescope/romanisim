@@ -125,10 +125,11 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     if linearity is not None:
         # Update data quality array for linearty coefficients
-        dq = np.bitwise_or(dq, linearity.dq)
+        dq |= linearity.dq
 
-    ramppar, rampvar = ramp.fit_ramps_casertano(resultants * gain, dq,
-                                                read_noise * gain, ma_table)
+    ramppar, rampvar = ramp.fit_ramps_casertano(
+        resultants * gain, dq & parameters.dq_do_not_use,
+        read_noise * gain, ma_table)
 
     log.warning('The ramp fitter is unaware of noise from dark current because '
                 'it runs on dark-subtracted images.  We could consider adding '

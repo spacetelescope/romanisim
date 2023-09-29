@@ -77,7 +77,8 @@ saturation = 55000 * u.DN
 # arbitrary constant to add to initial L1 image so that pixels aren't clipped at zero.
 pedestal = 100 * u.DN
 
-dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16)
+dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
+dq_do_not_use = dqbits['saturated'] | dqbits['jump_det']
 
 NUMBER_OF_DETECTORS = 18
 
