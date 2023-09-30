@@ -11,6 +11,7 @@ Routines tested:
 """
 
 import pytest
+from metrics_logger.decorators import metrics_logger
 import numpy as np
 from romanisim import l1, log, parameters, nonlinearity
 import galsim
@@ -56,6 +57,7 @@ def test_tij_to_pij():
             pij, np.diff(np.concatenate(tij), prepend=0) / tij[-1][-1])
 
 
+@metrics_logger("DMS220", "DMS229")
 @pytest.mark.soctests
 def test_apportion_counts_to_resultants():
     """Test that we can apportion counts to resultants and appropriately add
@@ -106,9 +108,11 @@ def test_apportion_counts_to_resultants():
         af.write_to(os.path.join(artifactdir, 'dms229.asdf'))
 
 
+@metrics_logger("DMS222")
 @pytest.mark.soctests
 def test_linearized_counts_to_resultants():
     """Test that we can apportion linearized counts to resultants.
+    Demonstrates DMS222: nonlinearity
     """
     counts = np.random.poisson(100, size=(100, 100))
 
@@ -155,6 +159,7 @@ def test_linearized_counts_to_resultants():
         af.write_to(os.path.join(artifactdir, 'dms222.asdf'))
 
 
+@metrics_logger("DMS225")
 @pytest.mark.soctests
 def test_inject_source_into_ramp():
     """Inject a source into a ramp.
@@ -194,6 +199,7 @@ def test_inject_source_into_ramp():
         af.write_to(os.path.join(artifactdir, 'dms225.asdf'))
 
 
+@metrics_logger("DMS226")
 @pytest.mark.soctests
 def test_ipc():
     """Convolve an image with an IPC kernel.
@@ -221,6 +227,7 @@ def test_ma_table_to_tij():
         assert l1.validate_times(tij)
 
 
+@metrics_logger("DMS227")
 @pytest.mark.soctests
 def test_make_l1_and_asdf(tmp_path):
     """Make an L1 file and save it appropriately.

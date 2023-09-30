@@ -50,6 +50,7 @@ test = [
     'pytest-doctestplus >=0.10.0',
     'pytest-cov >=2.9.0',
     'flake8 >=3.6.0',
+    'metrics_logger >= 0.1.0',
 ]
 
 [project.urls]
