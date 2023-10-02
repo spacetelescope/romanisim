@@ -4,6 +4,7 @@ Unit tests for catalog functions.
 
 import os
 import numpy as np
+from metrics_logger.decorators import metrics_logger
 import galsim
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
@@ -35,7 +36,11 @@ def test_make_dummy_catalog():
     assert not cat[0].profile.spectral
 
 
+@metrics_logger("DMS217")
 def test_table_catalog(tmp_path):
+    """Test generation of sources with different magnitudes and sizes
+    Demonstrates DMS217: generate parametric distributions
+    """
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.2
     nobj = 200

@@ -27,6 +27,7 @@ import asdf
 import webbpsf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
+from metrics_logger.decorators import metrics_logger
 from romanisim import log
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 import romanisim.bandpass
@@ -154,6 +155,7 @@ def central_stamp(im, sz):
               center - szo2: center + szo2 + 1]
 
 
+@metrics_logger("DMS214", "DMS215")
 @pytest.mark.soctests
 def test_image_rendering():
     """Tests for image rendering routines.  This is demonstrates:
@@ -269,6 +271,7 @@ def test_image_rendering():
     # Poisson errors and containing 100k counts.
 
 
+@metrics_logger("DMS218")
 def test_add_objects():
     """Test adding objects to images.
     Demonstrates profile sensitivity to distortion component of DMS218.
@@ -313,7 +316,11 @@ def test_add_objects():
     # the actual ratio was 42.
 
 
+@metrics_logger("DMS230")
 def test_simulate_counts_generic():
+    """Test adding poisson noise to images.
+    Demonstrates DMS230: poisson noise
+    """
     imdict = set_up_image_rendering_things()
     im = imdict['im']
     im.array[:] = 0
@@ -437,11 +444,13 @@ def test_simulate_counts():
     assert np.all(m)
 
 
+@metrics_logger("DMS216", "DMS218", "DMS221", "DMS224")
 @pytest.mark.soctests
 def test_simulate():
     """Test convolved image generation and L2 simulation framework.
     Demonstrates DMS216: convolved image generation - Level 2
     Demonstrates DMS218: WCS & distortions
+    Demonstrates DMS221: cosmic rays
     Demonstrates DMS224: persistence.
     """
     imdict = set_up_image_rendering_things()
