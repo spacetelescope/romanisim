@@ -29,9 +29,9 @@ def test_gaia():
         # first source doesn't move it first catalog since it's observed at its
         # epoch and has zero parallax
         assert cats[0][field][0] == fakegaiacat[field][0]
-    # max separation when pm = 0 should be roughly parallax / 2
+    # max separation when pm = 0 should be roughly parallax
     pm0 = (fakegaiacat['pmra'] == 0) & (fakegaiacat['pmdec'] == 0)
-    assert np.all(np.abs(maxsep[pm0] - fakegaiacat['parallax'][pm0] / 2)
+    assert np.all(np.abs(maxsep[pm0] - fakegaiacat['parallax'][pm0])
                   <= fakegaiacat['parallax'][pm0] * 0.01)
     # sources with zero pmra and plx never move
     assert np.all(sep[:, -1] == 0 * u.deg)
