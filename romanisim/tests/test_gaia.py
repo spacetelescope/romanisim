@@ -32,7 +32,10 @@ def test_gaia():
     # max separation when pm = 0 should be roughly parallax
     pm0 = (fakegaiacat['pmra'] == 0) & (fakegaiacat['pmdec'] == 0)
     assert np.all(np.abs(maxsep[pm0] - fakegaiacat['parallax'][pm0])
-                  <= fakegaiacat['parallax'][pm0] * 0.01)
+                  <= fakegaiacat['parallax'][pm0] * 0.02)
+    # Earth's eccentricity is 1.016 and 1 AU is roughly the
+    # average of the apohelion and perihelion, so we expect differences
+    # here of scale ~0.016; 0.02 gives us some margin.
     # sources with zero pmra and plx never move
     assert np.all(sep[:, -1] == 0 * u.deg)
     # sources with zero parallax have increasing separation
