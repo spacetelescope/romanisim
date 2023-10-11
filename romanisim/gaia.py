@@ -53,10 +53,9 @@ def gaia2romanisimcat(gaiacat, date, refepoch=2016.0, boost_parallax=1,
     newxyz = (
         xyz + rahat * dt * radpermas * pmra + dechat * dt * radpermas * pmdec)
     plx = gaiacat['parallax'].to(u.mas).value * boost_parallax
-    newxyz -= (rahat * earthcoord.dot(rahat) * plx / 2 * radpermas
-               + dechat * earthcoord.dot(dechat) * plx / 2 * radpermas)
+    newxyz -= (rahat * earthcoord.dot(rahat) * plx * radpermas
+               + dechat * earthcoord.dot(dechat) * plx * radpermas)
     # stars move in the opposite direction of the earth -> minus sign
-    # divide by two: parallax is the diameter rather than radius of the circle
     newunitspherical = coordinates.UnitSphericalRepresentation.from_cartesian(
         coordinates.CartesianRepresentation(newxyz))
     newra = newunitspherical.lon

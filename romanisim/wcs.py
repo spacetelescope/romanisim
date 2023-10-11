@@ -81,10 +81,8 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
         parameters['wcsinfo']['v3_ref'] = 0
     else:
         from .parameters import v2v3_wficen
-        v2_ref = v2v3_wficen[0] / 3600
-        v3_ref = v2v3_wficen[1] / 3600
-        parameters['wcsinfo']['v2_ref'] = v2_ref
-        parameters['wcsinfo']['v3_ref'] = v3_ref
+        parameters['wcsinfo']['v2_ref'] = v2v3_wficen[0]
+        parameters['wcsinfo']['v3_ref'] = v2v3_wficen[1]
         parameters['wcsinfo']['roll_ref'] = (
             parameters['wcsinfo'].get('roll_ref', 0) + 60)
 
@@ -205,12 +203,9 @@ def make_wcs(targ_pos,
     ra_ref = targ_pos.ra.to(u.deg).value
     dec_ref = targ_pos.dec.to(u.deg).value
 
-    # full transformation from romancal.assign_wcs.pointing
-    # angles = np.array([v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref])
-    # axes = "zyxyz"
-    # rot = RotationSequence3D(angles, axes_order=axes)
+    # v2_ref, v3_ref are in arcsec, but RotationSequence3D wants degrees.
     rot = models.RotationSequence3D(
-        [v2_ref, -v3_ref, roll_ref, dec_ref, -ra_ref], 'zyxyz')
+        [v2_ref / 3600, -v3_ref / 3600, roll_ref, dec_ref, -ra_ref], 'zyxyz')
 
     # distortion takes pixels to V2V3
     # V2V3 are in arcseconds, while SphericalToCartesian expects degrees.

@@ -63,7 +63,7 @@ ipc_kernel = np.array(
 ipc_kernel /= np.sum(ipc_kernel)
 
 # V2/V3 coordinates of "center" of WFI array (convention)
-v2v3_wficen = (1546.3846181707652, -892.7916365721071)
+v2v3_wficen = (1546.3846181707652, -892.7916365721071)  # arcsec
 
 # persistence parameter dictionary
 # delete persistence records fainter than 0.01 electron / s
