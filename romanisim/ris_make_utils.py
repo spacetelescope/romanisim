@@ -11,7 +11,6 @@ from galsim import roman
 import roman_datamodels
 from romanisim import catalog, image, wcs
 from romanisim import parameters
-from romanisim import log
 
 
 def merge_nested_dicts(dict1, dict2):
@@ -138,9 +137,6 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         cat = catalog.make_dummy_table_catalog(
             coord, bandpasses=bandpasses, nobj=nobj, rng=rng)
     else:
-        log.warning('Catalog input will probably not work unless the catalog '
-                    'covers a lot of area or you have thought carefully about '
-                    'the relation between the boresight and the SCA locations.')
         cat = table.Table.read(catalog_name, comment="#", delimiter=" ")
 
     return cat
