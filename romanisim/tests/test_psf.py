@@ -16,6 +16,9 @@ class FakeWCS():
         return galsim.CelestialCoord(pos.x * 0.1 * galsim.arcsec,
                                      pos.y * 0.1 * galsim.arcsec)
 
+    def local(self, *args, **kwargs):
+        return galsim.JacobianWCS(0.1, 0, 0, 0.1)
+
 
 def test_make_psf():
     psfs = []

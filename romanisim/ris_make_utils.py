@@ -11,7 +11,6 @@ from galsim import roman
 import roman_datamodels
 from romanisim import catalog, image, wcs
 from romanisim import parameters
-from romanisim import log
 
 
 def merge_nested_dicts(dict1, dict2):
