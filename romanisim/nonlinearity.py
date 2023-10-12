@@ -55,7 +55,7 @@ def repair_coefficients(coeffs, dq):
     res[:, m] = nocorrection[:, None]
 
     lin_dq_array = np.zeros(coeffs.shape[1:], dtype=np.uint32)
-    lin_dq_array[m] = parameters.dqbits['nonlinear']
+    lin_dq_array[m] = parameters.dqbits['no_lin_corr']
     dq = np.bitwise_or(dq, lin_dq_array)
     return res, dq
 
