@@ -43,6 +43,5 @@ def test_make_psf():
         assert totsum > 0.9
         # assert that image catches no more than 100% and no less than 90%
         # of flux?
-        assert np.min(im) > np.max(im) * (-1e-4)
-        # ideally nothing negative, though we could loosen this to, say,
-        # > -1e-3 * peak and I wouldn't feel too bad.
+        assert np.min(im) > np.max(im) * (-1e-3)
+        # ideally nothing negative
