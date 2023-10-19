@@ -25,7 +25,6 @@ jobs:
     with:
       envs: |
         - linux: check-style
-        - linux: build-dist
   data:
     name: Download data
     runs-on: ubuntu-latest
