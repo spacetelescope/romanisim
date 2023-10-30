@@ -424,7 +424,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     return out, extras
 
 
-def ma_table_to_tij(ma_table_number):
+def ma_table_to_tij(ma_table_number, read_time=None):
     """Get the times of each read going into resultants for a MA table.
 
     Currently only ma_table_number = 1 is supported, corresponding to a simple
@@ -439,17 +439,21 @@ def ma_table_to_tij(ma_table_number):
     ma_table_number : int or list[list]
         if int, id of multiaccum table to use
         otherwise a list of (first_read, n_reads) tuples going into resultants.
+    read_time : number
+        Frame read time to use.  If None, use romanisim.parameters.read_time.
 
     Returns
     -------
     list[list[float]]
         list of list of readout times for each read entering a resultant
     """
+    if read_time is None:
+        read_time = parameters.read_time
     if isinstance(ma_table_number, int):
         tab = parameters.ma_table[ma_table_number]
     else:
         tab = ma_table_number
-    tij = [parameters.read_time * np.arange(f, f + n) for (f, n) in tab]
+    tij = [read_time * np.arange(f, f + n) for (f, n) in tab]
     return tij
 
 

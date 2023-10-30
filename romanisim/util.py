@@ -7,7 +7,7 @@ from astropy import units as u
 from astropy.time import Time
 import galsim
 
-from romanisim import parameters
+from romanisim import parameters, l1
 from scipy import integrate
 
 
@@ -217,6 +217,8 @@ def add_more_metadata(metadata):
     metadata['exposure']['exposure_time'] = openshuttertime
     metadata['exposure']['effective_exposure_time'] = openshuttertime
     metadata['exposure']['duration'] = openshuttertime
+    read_pattern = l1.ma_table_to_tij(ma_table, read_time=1)
+    metadata['exposure']['read_pattern'] = [list(x) for x in read_pattern]
     # integration_start?  integration_end?  nints = 1?  ...
 
 
