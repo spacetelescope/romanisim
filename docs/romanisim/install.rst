@@ -59,3 +59,5 @@ You may wish to, for example, set up a new python virtual environment
 before running the above, or choose a different directory for
 WebbPSF's data files.
 
+Some users report issues with the FFTW dependency of galsim on Mac Arm
+systems.  See galsim's installation page for hints there.

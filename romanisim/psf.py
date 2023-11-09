@@ -20,6 +20,7 @@ should consider the following:
 
 """
 
+import numpy as np
 import galsim
 from galsim import roman
 from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
@@ -54,6 +55,8 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
         rendering scenes.
     """
     pix = pix if pix is not None else (2044, 2044)
+    if wcs is None:
+        log.warning('wcs is None; unlikely to get orientation of PSF correct.')
     if not webbpsf:
         filter_name = roman2galsim_bandpass[filter_name]
         defaultkw = {'pupil_bin': 8}
@@ -77,10 +80,25 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     wfi.filter = filter_name
     wfi.detector_position = pix
     oversample = kw.get('oversample', 4)
-    # webbpsf doesn't do distortion
     psf = wfi.calc_psf(oversample=oversample)
-    gimg = galsim.Image(
-        psf[0].data, scale=wfi.pixelscale / oversample)
+    # webbpsf doesn't do distortion
+    # calc_psf gives something aligned with the pixels, but with
+    # a constant pixel scale equal to wfi.pixelscale / oversample.
+    # we need to get the appropriate rotated WCS that matches this
+    newscale = wfi.pixelscale / oversample
+    if wcs is not None:
+        local_jacobian = wcs.local(image_pos=galsim.PositionD(pix)).getMatrix()
+        # angle of [du/dx, du/dy]
+        ang = np.arctan2(local_jacobian[0, 1], local_jacobian[0, 0])
+        rotmat = np.array([[np.cos(ang), np.sin(ang)], [-np.sin(ang), np.cos(ang)]])
+        newwcs = galsim.JacobianWCS(*(rotmat.ravel() * newscale))
+        # we are making a new, orthogonal, isotropic matrix for the PSF with the
+        # appropriate pixel scale.  This is intended to be the WCS for the PSF
+        # produced by webbpsf.
+    else:
+        newwcs = galsim.JacobianWCS(*(np.array([1, 0, 0, 1]) * newscale))
+        # just use a default North = up WCS
+    gimg = galsim.Image(psf[0].data, wcs=newwcs)
 
     # This code block could be used to fix the centroid of WebbPSF calculated
     # PSFs to be zero.  This makes downstream comparisons with WebbPSF

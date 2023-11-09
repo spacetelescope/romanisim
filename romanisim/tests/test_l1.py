@@ -145,7 +145,8 @@ def test_linearized_counts_to_resultants():
         assert np.isclose(medratio, 2.0, atol=1e-6)
         # also test that correctly propagate the nonlinearity DQ bits.
         assert np.all(dq[:, :-1, :-1] == dq2[:, :-1, :-1])
-        assert np.all(dq2[:, -1, -1] == np.bitwise_or(dq[:, -1, -1], parameters.dqbits['nonlinear']))
+        assert np.all(dq2[:, -1, -1] == (dq[:, -1, -1] |
+                                         parameters.dqbits['no_lin_corr']))
     log.info('DMS222: successfully applied nonlinearity to resultants.')
 
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)

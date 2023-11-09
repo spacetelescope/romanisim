@@ -62,8 +62,8 @@ def test_repair_coeffs():
 
     linearity = nonlinearity.NL(lin_coeffs, gain=gain)
 
-    assert linearity.dq[1, 1] == parameters.dqbits['nonlinear']
-    assert linearity.dq[22, 22] == parameters.dqbits['nonlinear']
+    assert linearity.dq[1, 1] == parameters.dqbits['no_lin_corr']
+    assert linearity.dq[22, 22] == parameters.dqbits['no_lin_corr']
     # All other entries should be zero
     assert np.count_nonzero(linearity.dq) == 2
 
