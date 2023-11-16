@@ -18,7 +18,7 @@ import copy
 import numpy as np
 import galsim
 from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs, persistence
+from romanisim import image, parameters, catalog, psf, util, wcs, persistence, ramp, l1
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -635,3 +635,109 @@ def test_reference_file_crds_match(level):
     else:
         # level = 2
         assert (type(im) is WfiImage)
+
+
+@metrics_logger("DMS231")
+@pytest.mark.soctests
+def test_inject_source_into_image():
+    """Inject a source into an image.
+    Demonstrates DMS231.
+    """
+
+    # Set constants and metadata
+    galsim.roman.n_pix = 4088
+    flux = 10e3
+    metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    metadata['instrument']['detector'] = 'WFI07'
+    metadata['instrument']['optical_element'] = 'F158'
+    metadata['exposure']['ma_table_number'] = 1
+
+    # Establish exposure timing parameters
+    ma_table = parameters.ma_table[metadata['exposure']['ma_table_number']]
+    tij = l1.ma_table_to_tij(ma_table)
+    tbar = ramp.ma_table_to_tbar(ma_table)
+    exptime = parameters.read_time * (ma_table[-1][0] + ma_table[-1][1] - 1)
+
+    # Create catalog of sources
+    twcs = wcs.get_wcs(metadata, usecrds=False)
+    rd_sca = twcs.toWorld(galsim.PositionD(
+        galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
+    cat = catalog.make_dummy_table_catalog(
+        rd_sca, bandpasses=[metadata['instrument']['optical_element']], nobj=10)
+
+    # Brighten sources
+    cat['F158'] = [flux * f158 for f158 in cat['F158']]
+
+    # Create catalog with one source for injection
+    source_cat = cat.copy()
+    source_cat.remove_rows(slice(0, 9))
+    xpos, ypos = twcs._xy(np.radians(source_cat['ra']), np.radians(source_cat['dec']))
+
+    # Remove the injection soruce from the image catalog
+    cat.remove_row(-1)
+
+    # Create original image with sources
+    rng = galsim.UniformDeviate(None)
+    origimage, simcatobj = image.simulate(
+        metadata, cat, usecrds=False,
+        webbpsf=False, level=2,
+        rng=rng)
+
+    # Create source to inject
+
+    # Set read noise and dark current to 0 for the injection source
+    galsim.roman.read_noise = 0
+    galsim.roman.dark_current = 0
+
+    # Create empty galsim image
+    sourcecounts = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=twcs, xmin=0, ymin=0)
+
+    # Set parameters and psf for injection source simulation
+    filter_name = metadata['instrument']['optical_element']
+    galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
+    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
+    abflux = romanisim.bandpass.get_abflux(filter_name)
+    sca = int(metadata['instrument']['detector'][3:])
+    psf = romanisim.psf.make_psf(sca, filter_name, wcs=twcs,
+                                 chromatic=False, webbpsf=True)
+    psfXmax = psf.image.bounds.getXMax() + 1
+    psfXmin = psf.image.bounds.getXMin() + 1
+    psfYmax = psf.image.bounds.getYMax() + 1
+    psfYmin = psf.image.bounds.getYMin() + 1
+
+    # Create injected source image
+    sourceobj = image.simulate_counts_generic(
+        sourcecounts, exptime, objlist=source_cat, psf=psf, zpflux=abflux, sky=None,
+        dark=None, flat=None,
+        bandpass=bandpass,
+        filter_name=filter_name, rng=rng)
+
+    # Create injected source ramp resultants
+    resultants, dq = l1.apportion_counts_to_resultants(sourcecounts.array, tij)
+
+    # Inject source to original image
+    newramp = (origimage.data[np.newaxis, :] * tbar[:, np.newaxis, np.newaxis]).value + resultants
+
+    # Make new image of the combination
+    newimage, readvar, poissonvar = image.make_l2(
+        newramp * u.DN, ma_table,
+        gain=1 * u.electron / u.DN, flat=1, dark=0)
+
+    # Test that all pixels outside of the psf of the injected source are equal to the original image
+    assert np.all(origimage.data[int(xpos) + psfXmax:int(xpos) - psfXmin, int(ypos) + psfYmax:int(ypos) - psfYmin].value
+                  == newimage[int(xpos) + psfXmax:int(xpos) - psfXmin, int(ypos) + psfYmax:int(ypos) - psfYmin].value)
+
+    # Test that all pixels inside of the psf of the injected source are different from the original image
+    assert np.any(origimage.data[int(xpos) - psfXmin:int(xpos) + psfXmax, int(ypos) - psfYmin:int(ypos) + psfYmax].value
+                  != newimage[int(xpos) - psfXmin:int(xpos) + psfXmax, int(ypos) - psfYmin:int(ypos) + psfYmax].value)
+
+    log.info(f'DMS231: successfully injected a source into an image at x,y = {xpos},{ypos}.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'originalimage': origimage,
+                   'newimage': newimage,
+                   'flux': flux,
+                   'tij': tij}
+        af.write_to(os.path.join(artifactdir, 'dms231.asdf'))
