@@ -5,7 +5,6 @@ per second expected for sources observed by Roman given a source with
 the nominal flat AB spectrum of 3631 Jy.  The ultimate source of this
 information is https://roman.gsfc.nasa.gov/science/WFI_technical.html .
 """
-import os
 from importlib import resources
 from scipy import integrate
 from astropy import constants
