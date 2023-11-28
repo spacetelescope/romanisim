@@ -6,7 +6,7 @@ the nominal flat AB spectrum of 3631 Jy.  The ultimate source of this
 information is https://roman.gsfc.nasa.gov/science/WFI_technical.html .
 """
 import os
-import pkg_resources
+from importlib import resources
 from scipy import integrate
 from astropy import constants
 from astropy.table import Table
@@ -50,8 +50,8 @@ def read_gsfc_effarea(filename=None):
         table with effective areas for different Roman bandpasses.
     """
     if filename is None:
-        dirname = pkg_resources.resource_filename('romanisim', 'data')
-        filename = os.path.join(dirname, 'Roman_effarea_20201130.csv')
+        filename = (resources.files('romanisim') / 'data'
+                    / 'Roman_effarea_20201130.csv')
     return Table.read(filename, format='csv', delimiter=',', header_start=1,
                       data_start=2)
 
