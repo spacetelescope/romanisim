@@ -114,7 +114,7 @@ cdef inline (float, float, float) fit_one_ramp(
 @cython.wraparound(False)
 def fit_ramps(np.ndarray[float, ndim=2] resultants,
                 np.ndarray[int, ndim=2] dq,
-                np.ndarray[float, ndim=1] read_noise, ma_table):
+                np.ndarray[float, ndim=1] read_noise, read_pattern):
     """Fit ramps using the Casertano+22 algorithm.
 
     This implementation fits all ramp segments between bad pixels
@@ -131,8 +131,8 @@ def fit_ramps(np.ndarray[float, ndim=2] resultants,
         the dq array.  dq != 0 implies bad pixel / CR.
     read noise: float
         the read noise in electrons
-    ma_table : list[list[int]]
-        the ma table prescription
+    read_pattern : list[list[int]]
+        list of list of indices of reads entering each resultant
 
     Returns
     -------
@@ -152,13 +152,14 @@ def fit_ramps(np.ndarray[float, ndim=2] resultants,
     resend : np.ndarray[nramp]
         The last resultant in this ramp.
     """
-    cdef int nresultant = len(ma_table)
-    cdef np.ndarray[int] nn = np.array([x[1] for x in ma_table]).astype('i4')
+    cdef int nresultant = len(read_pattern)
+    cdef np.ndarray[int] nn = np.array(
+        [len(x) for x in read_pattern]).astype('i4')
     # number of reads in each resultant
-    cdef np.ndarray[float] tbar = romanisim.ramp.ma_table_to_tbar(
-        ma_table).astype('f4')
-    cdef np.ndarray[float] tau = romanisim.ramp.ma_table_to_tau(
-        ma_table).astype('f4')
+    cdef np.ndarray[float] tbar = romanisim.ramp.read_pattern_to_tbar(
+        read_pattern).astype('f4')
+    cdef np.ndarray[float] tau = romanisim.ramp.read_pattern_to_tau(
+        read_pattern).astype('f4')
     cdef int npixel = resultants.shape[1]
     cdef int nramp = (np.sum(dq[0, :] == 0) +
                       np.sum((dq[:-1, :] != 0) & (dq[1:, :] == 0)))

@@ -6,7 +6,7 @@ Routines tested:
 - apportion_counts_to_resultants
 - add_read_noise_to_resultants
 - make_asdf
-- ma_table_to_tij
+- read_pattern_to_tij
 - make_l1
 """
 
@@ -27,10 +27,11 @@ tijlist = [
     [[1], [2], [3, 4, 5, 100]],
 ]
 
-ma_table_list = [
-    [[1, 10], [11, 1], [12, 10], [30, 1], [40, 5], [50, 100]],
-    [[1, 1]],
-    [[1, 1], [10, 1]],
+read_pattern_list = [
+    [[1 + x for x in range(10)], [11], [12 + x for x in range(10)], [30],
+         [40 + x for x in range(5)], [50 + x for x in range(100)]],
+    [[1]],
+    [[1], [10]],
 ]
 
 
@@ -219,12 +220,11 @@ def test_ipc():
     log.info('DMS226: successfully convolved image with IPC kernel.')
 
 
-def test_ma_table_to_tij():
-    tij = l1.ma_table_to_tij(1)
-    # this is the only numbered ma_table that we have presently provided.
+def test_read_pattern_to_tij():
+    tij = l1.read_pattern_to_tij(1)
     assert l1.validate_times(tij)
-    for ma_table in ma_table_list:
-        tij = l1.ma_table_to_tij(ma_table)
+    for read_pattern in read_pattern_list:
+        tij = l1.read_pattern_to_tij(read_pattern)
         assert l1.validate_times(tij)
 
 
@@ -238,10 +238,10 @@ def test_make_l1_and_asdf(tmp_path):
     # just test for sanity.
     counts = np.random.poisson(100, size=(100, 100))
     galsim.roman.n_pix = 100
-    for ma_table in ma_table_list:
-        resultants, dq = l1.make_l1(galsim.Image(counts), ma_table,
+    for read_pattern in read_pattern_list:
+        resultants, dq = l1.make_l1(galsim.Image(counts), read_pattern,
                                     gain=1 * u.electron / u.DN)
-        assert resultants.shape[0] == len(ma_table)
+        assert resultants.shape[0] == len(read_pattern)
         assert resultants.shape[1] == counts.shape[0]
         assert resultants.shape[2] == counts.shape[1]
         # these contain read noise and shot noise, so it's not
@@ -249,7 +249,7 @@ def test_make_l1_and_asdf(tmp_path):
         assert np.all(resultants == resultants.astype('i4'))
         # we could look for non-zero correlations from the IPC to
         # check that that is working?  But that is slightly annoying.
-        resultants, dq = l1.make_l1(galsim.Image(counts), ma_table,
+        resultants, dq = l1.make_l1(galsim.Image(counts), read_pattern,
                                     read_noise=0 * u.DN,
                                     gain=1 * u.electron / u.DN)
         assert np.all(resultants - parameters.pedestal
@@ -264,11 +264,11 @@ def test_make_l1_and_asdf(tmp_path):
         af.tree = {'roman': res_forasdf}
         af.validate()
         resultants, dq = l1.make_l1(galsim.Image(np.full((100, 100), 10**7)),
-                                    ma_table, gain=1 * u.electron / u.DN,
+                                    read_pattern, gain=1 * u.electron / u.DN,
                                     saturation=10**6 * u.DN)
         assert np.all((dq[-1] & parameters.dqbits['saturated']) != 0)
         resultants, dq = l1.make_l1(galsim.Image(np.zeros((100, 100))),
-                                    ma_table, gain=1 * u.electron / u.DN,
+                                    read_pattern, gain=1 * u.electron / u.DN,
                                     read_noise=0 * u.DN, crparam=dict())
         assert np.all((resultants[0] - parameters.pedestal == 0)
                       | ((dq[0] & parameters.dqbits['jump_det']) != 0))

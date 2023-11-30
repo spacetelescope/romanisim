@@ -424,32 +424,24 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     return out, extras
 
 
-def ma_table_to_tij(ma_table_number):
-    """Get the times of each read going into resultants for a MA table.
-
-    Currently only ma_table_number = 1 is supported, corresponding to a simple
-    fiducial high latitude imaging MA table.
-
-    This presently uses a hard-coded, somewhat inflexible MA table description
-    in the parameters file.  But that seems like an okay option given that the
-    current 'official' file is slated for redesign when the format is relaxed.
+def read_pattern_to_tij(read_pattern):
+    """Get the times of each read going into resultants for a read_pattern.
 
     Parameters
     ----------
-    ma_table_number : int or list[list]
-        if int, id of multiaccum table to use
-        otherwise a list of (first_read, n_reads) tuples going into resultants.
+    read_pattern : int or list[list]
+        If int, id of ma_table to use.
+        Otherwise a list of lists giving the indices of the reads entering each
+        resultant.
 
     Returns
     -------
     list[list[float]]
         list of list of readout times for each read entering a resultant
     """
-    if isinstance(ma_table_number, int):
-        tab = parameters.ma_table[ma_table_number]
-    else:
-        tab = ma_table_number
-    tij = [parameters.read_time * np.arange(f, f + n) for (f, n) in tab]
+    if isinstance(read_pattern, int):
+        read_pattern = parameters.read_pattern[read_pattern]
+    tij = [parameters.read_time * np.array(x) for x in read_pattern]
     return tij
 
 
@@ -478,7 +470,7 @@ def add_ipc(resultants, ipc_kernel=None):
     return out
 
 
-def make_l1(counts, ma_table_number,
+def make_l1(counts, read_pattern,
             read_noise=None, rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None):
@@ -491,9 +483,9 @@ def make_l1(counts, ma_table_number,
     ----------
     counts : galsim.Image
         total counts delivered to each pixel
-    ma_table_number : int
-        multi accum table number indicating how reads are apportioned among
-        resultants
+    read_pattern : int or list[list]
+        MA table number or list of lists giving indices of reads entering each
+        resultant.
     read_noise : np.ndarray[nx, ny] (float) or float
         Read noise entering into each read
     rng : galsim.BaseDeviate
@@ -521,7 +513,7 @@ def make_l1(counts, ma_table_number,
         DQ array marking saturated pixels and cosmic rays
     """
 
-    tij = ma_table_to_tij(ma_table_number)
+    tij = read_pattern_to_tij(read_pattern)
     log.info('Apportioning counts to resultants...')
     resultants, dq = apportion_counts_to_resultants(
         counts.array, tij, inv_linearity=inv_linearity, crparam=crparam,

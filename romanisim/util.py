@@ -186,10 +186,9 @@ def add_more_metadata(metadata):
 
     if 'exposure' not in metadata.keys():
         metadata['exposure'] = {}
-    ma_table = parameters.ma_table[
+    read_pattern = parameters.read_pattern[
         metadata['exposure']['ma_table_number']]
-    openshuttertime = parameters.read_time * (
-        ma_table[-1][0] + ma_table[-1][1] - 1)
+    openshuttertime = parameters.read_time * read_pattern[-1][-1]
     offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
                    end=openshuttertime * u.s)
     starttime = metadata['exposure']['start_time']
@@ -202,21 +201,18 @@ def add_more_metadata(metadata):
             starttime + offset).mjd
         metadata['exposure'][f'{prefix}_time_tdb'] = (
             starttime + offset).tdb.mjd
-    metadata['exposure']['ngroups'] = len(ma_table)
-    metadata['exposure']['nframes'] = ma_table[0][1]
+    metadata['exposure']['ngroups'] = len(read_pattern)
     metadata['exposure']['sca_number'] = (
         int(metadata['instrument']['detector'][-2:]))
     metadata['exposure']['integration_time'] = openshuttertime
     metadata['exposure']['elapsed_exposure_time'] = openshuttertime
     # ???
-    metadata['exposure']['frame_divisor'] = ma_table[0][1]
     metadata['exposure']['groupgap'] = 0
     metadata['exposure']['frame_time'] = parameters.read_time
-    metadata['exposure']['group_time'] = (
-        parameters.read_time * ma_table[0][1])
     metadata['exposure']['exposure_time'] = openshuttertime
     metadata['exposure']['effective_exposure_time'] = openshuttertime
     metadata['exposure']['duration'] = openshuttertime
+    metadata['exposure']['read_pattern'] = read_pattern
     # integration_start?  integration_end?  nints = 1?  ...
 
 
