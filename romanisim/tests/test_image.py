@@ -645,12 +645,17 @@ def test_inject_source_into_image():
     """
 
     # Set constants and metadata
-    galsim.roman.n_pix = 4088
-    flux = 10e3
+    galsim.roman.n_pix = 100
+    radius = 0.005
+    flux = 10e-10
+    rng_seed = 42
+    rng = galsim.UniformDeviate(rng_seed)
+    nobj = 10
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     metadata['instrument']['detector'] = 'WFI07'
     metadata['instrument']['optical_element'] = 'F158'
     metadata['exposure']['ma_table_number'] = 1
+    bandpasses = [metadata['instrument']['optical_element']]
 
     # Establish exposure timing parameters
     ma_table = parameters.ma_table[metadata['exposure']['ma_table_number']]
@@ -658,23 +663,15 @@ def test_inject_source_into_image():
     tbar = ramp.ma_table_to_tbar(ma_table)
     exptime = parameters.read_time * (ma_table[-1][0] + ma_table[-1][1] - 1)
 
-    # Create catalog of sources
+    # Create catalog of original sources
     twcs = wcs.get_wcs(metadata, usecrds=False)
     rd_sca = twcs.toWorld(galsim.PositionD(
         galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
-    cat = catalog.make_dummy_table_catalog(
-        rd_sca, bandpasses=[metadata['instrument']['optical_element']], nobj=10)
+    cat = table.vstack(catalog.make_stars(coord=rd_sca, radius=radius, rng=rng, n=nobj,
+                                          bandpasses=bandpasses, truncation_radius=radius * 0.3))
 
-    # Brighten sources
-    cat['F158'] = [flux * f158 for f158 in cat['F158']]
-
-    # Create catalog with one source for injection
-    source_cat = cat.copy()
-    source_cat.remove_rows(slice(0, 9))
-    xpos, ypos = twcs._xy(np.radians(source_cat['ra']), np.radians(source_cat['dec']))
-
-    # Remove the injection soruce from the image catalog
-    cat.remove_row(-1)
+    # Set source fluxes
+    cat['F158'] = [flux] * len(cat['F158'])
 
     # Create original image with sources
     rng = galsim.UniformDeviate(None)
@@ -685,19 +682,24 @@ def test_inject_source_into_image():
 
     # Create source to inject
 
-    # Set read noise and dark current to 0 for the injection source
-    galsim.roman.read_noise = 0
-    galsim.roman.dark_current = 0
+    # Create catalog with one source for injection
+    xpos, ypos = 10, 10
+    source_cat = cat.copy()
+    source_cat.remove_rows(slice(0, nobj))
+    source_cat['ra'], source_cat['dec'] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
 
     # Create empty galsim image
     sourcecounts = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=twcs, xmin=0, ymin=0)
 
-    # Set parameters and psf for injection source simulation
+    # Set parameters for injection source simulation
     filter_name = metadata['instrument']['optical_element']
     galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
     bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
     abflux = romanisim.bandpass.get_abflux(filter_name)
     sca = int(metadata['instrument']['detector'][3:])
+    flux_to_counts_factor = exptime * abflux
+
+    # Create PSF
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=twcs,
                                  chromatic=False, webbpsf=True)
     psfXmax = psf.image.bounds.getXMax() + 1
@@ -706,11 +708,12 @@ def test_inject_source_into_image():
     psfYmin = psf.image.bounds.getYMin() + 1
 
     # Create injected source image
-    sourceobj = image.simulate_counts_generic(
-        sourcecounts, exptime, objlist=source_cat, psf=psf, zpflux=abflux, sky=None,
-        dark=None, flat=None,
-        bandpass=bandpass,
-        filter_name=filter_name, rng=rng)
+    source_cat = catalog.table_to_catalog(source_cat, [filter_name])
+    image.add_objects_to_image(
+        sourcecounts, source_cat,
+        xpos=[xpos], ypos=[ypos], psf=psf, flux_to_counts_factor=flux_to_counts_factor,
+        bandpass=bandpass, filter_name=filter_name, rng=rng)
+    sourcecounts.quantize()
 
     # Create injected source ramp resultants
     resultants, dq = l1.apportion_counts_to_resultants(sourcecounts.array, tij)
