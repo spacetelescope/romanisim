@@ -729,13 +729,7 @@ def test_inject_source_into_image():
     assert np.any((origimage.data.value != newimage.value), where=nonzero)
 
     # Test that all pixels outside of the psf of the injected source are close to the original image
-    # Create array copies for all close comparison of non PSF-pixels
-    cleaned_origimage = copy.deepcopy(origimage.data.value)
-    cleaned_origimage[nonzero] = 1.0
-    cleaned_newimage = copy.deepcopy(newimage.value)
-    cleaned_newimage[nonzero] = 1.0
-
-    assert np.allclose(cleaned_origimage, cleaned_newimage, rtol=1e-05, atol=1e-08)
+    assert np.allclose(origimage.data.value[~nonzero], newimage.value[~nonzero], rtol=1e-05, atol=1e-08)
 
     # Create log entry and artifacts
     log.info(f'DMS231: successfully injected a source into an image at x,y = {xpos},{ypos}.')
