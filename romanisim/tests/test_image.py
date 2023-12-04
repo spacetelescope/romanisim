@@ -722,7 +722,7 @@ def test_inject_source_into_image():
 
     # Make new image of the combination
     newimage, readvar, poissonvar = image.make_l2(
-        newramp * u.DN, ma_table,
+        newramp * u.DN, read_pattern,
         gain=1 * u.electron / u.DN, flat=1, dark=0)
 
     # Create mask of PSF
