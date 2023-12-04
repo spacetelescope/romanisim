@@ -3,6 +3,9 @@ romanisim
 
 A Roman WFI image simulator based on galsim.
 
+We stylize the simulator Roman I-Sim and pronounce it roman - eye -
+sim; the package is romanisim.
+
 Contents
 ========
 

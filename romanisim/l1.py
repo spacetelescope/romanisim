@@ -369,6 +369,7 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     rng.generate(noise)
     if read_noise is None:
         read_noise = parameters.read_noise
+
     noise = noise * read_noise / np.array(
         [len(x)**0.5 for x in tij]).reshape(-1, 1, 1)
     resultants += noise
