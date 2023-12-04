@@ -7,7 +7,7 @@ from astropy import units as u
 from astropy.time import Time
 import galsim
 
-from romanisim import parameters, l1
+from romanisim import parameters
 from scipy import integrate
 
 
