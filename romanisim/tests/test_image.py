@@ -688,7 +688,7 @@ def test_inject_source_into_image():
     # Create catalog with one source for injection
     xpos, ypos = 10, 10
     source_cat = cat.copy()
-    source_cat.remove_rows(slice(0, nobj))
+    source_cat.remove_rows(slice(0, nobj - 1))
     source_cat['ra'], source_cat['dec'] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
 
     # Create empty galsim image
@@ -705,10 +705,6 @@ def test_inject_source_into_image():
     # Create PSF
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=twcs,
                                  chromatic=False, webbpsf=True)
-    psfXmax = psf.image.bounds.getXMax() + 1
-    psfXmin = psf.image.bounds.getXMin() + 1
-    psfYmax = psf.image.bounds.getYMax() + 1
-    psfYmin = psf.image.bounds.getYMin() + 1
 
     # Create injected source image
     source_cat = catalog.table_to_catalog(source_cat, [filter_name])
@@ -719,24 +715,26 @@ def test_inject_source_into_image():
     sourcecounts.quantize()
 
     # Create injected source ramp resultants
-    resultants, dq = l1.apportion_counts_to_resultants(sourcecounts.array, tij)
+    resultants, dq = l1.apportion_counts_to_resultants(sourcecounts.array, tij, rng=rng)
 
     # Inject source to original image
     newramp = (origimage.data[np.newaxis, :] * tbar[:, np.newaxis, np.newaxis]).value + resultants
 
     # Make new image of the combination
     newimage, readvar, poissonvar = image.make_l2(
-        newramp * u.DN, read_pattern,
+        newramp * u.DN, ma_table,
         gain=1 * u.electron / u.DN, flat=1, dark=0)
 
-    # Test that all pixels outside of the psf of the injected source are equal to the original image
-    assert np.all(origimage.data[int(xpos) + psfXmax:int(xpos) - psfXmin, int(ypos) + psfYmax:int(ypos) - psfYmin].value
-                  == newimage[int(xpos) + psfXmax:int(xpos) - psfXmin, int(ypos) + psfYmax:int(ypos) - psfYmin].value)
+    # Create mask of PSF
+    nonzero = (sourcecounts.array != 0)
 
     # Test that all pixels inside of the psf of the injected source are different from the original image
-    assert np.any(origimage.data[int(xpos) - psfXmin:int(xpos) + psfXmax, int(ypos) - psfYmin:int(ypos) + psfYmax].value
-                  != newimage[int(xpos) - psfXmin:int(xpos) + psfXmax, int(ypos) - psfYmin:int(ypos) + psfYmax].value)
+    assert np.any((origimage.data.value != newimage.value), where=nonzero)
 
+    # Test that all pixels outside of the psf of the injected source are close to the original image
+    assert np.allclose(origimage.data.value[~nonzero], newimage.value[~nonzero], rtol=1e-05, atol=1e-08)
+
+    # Create log entry and artifacts
     log.info(f'DMS231: successfully injected a source into an image at x,y = {xpos},{ypos}.')
 
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
