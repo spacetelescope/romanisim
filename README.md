@@ -3,7 +3,8 @@
 # romanisim: an image simulator for Roman
 
 romanisim is a Galsim-based simulator of imaging data from the Wide
-Field Instrument (WFI) on the Nancy Grace Roman Space Telescope.  It uses
+Field Instrument (WFI) on the Nancy Grace Roman Space Telescope
+(pronounced roman-eye-sim, stylized Roman I-Sim).  It uses
 [Galsim](https://galsim-developers.github.io/GalSim/_build/html/overview.html)
 to render astronomical scenes,
 [WebbPSF](https://galsim-developers.github.io/GalSim/_build/html/overview.html)

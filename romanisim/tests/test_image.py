@@ -70,15 +70,18 @@ def test_trim_objlist():
 
 def test_make_l2():
     resultants = np.ones((4, 50, 50), dtype='i4')
-    ma_table = [[0, 4], [4, 4], [8, 4], [12, 4]]
+    read_pattern = [[1 + x for x in range(4)],
+                    [5 + x for x in range(4)],
+                    [9 + x for x in range(4)],
+                    [13 + x for x in range(4)]]
     slopes, readvar, poissonvar = image.make_l2(
-        resultants, ma_table, gain=1, flat=1, dark=0)
+        resultants, read_pattern, gain=1, flat=1, dark=0)
     assert np.allclose(slopes, 0)
     resultants[:, :, :] = np.arange(4)[:, None, None]
     resultants *= u.DN
     gain = 1 * u.electron / u.DN
     slopes, readvar, poissonvar = image.make_l2(
-        resultants, ma_table,
+        resultants, read_pattern,
         gain=gain, flat=1, dark=0)
     assert np.allclose(slopes, 1 / parameters.read_time / 4 * u.electron / u.s)
     assert np.all(np.array(slopes.shape) == np.array(readvar.shape))
@@ -86,21 +89,21 @@ def test_make_l2():
     assert np.all(readvar >= 0)
     assert np.all(poissonvar >= 0)
     slopes1, readvar1, poissonvar1 = image.make_l2(
-        resultants, ma_table, read_noise=1, dark=0)
+        resultants, read_pattern, read_noise=1, dark=0)
     slopes2, readvar2, poissonvar2 = image.make_l2(
-        resultants, ma_table, read_noise=2, dark=0)
+        resultants, read_pattern, read_noise=2, dark=0)
     assert np.all(readvar2 >= readvar1)
     # because we change the weights depending on the ratio of read & poisson
     # noise, we can't assume above that readvar2 = readvar1 * 4.
     # But it should be pretty darn close here.
     assert np.all(np.abs(readvar2 / (readvar1 * 4) - 1) < 0.1)
     slopes2, readvar2, poissonvar2 = image.make_l2(
-        resultants, ma_table, read_noise=1, flat=0.5)
+        resultants, read_pattern, read_noise=1, flat=0.5)
     assert np.allclose(slopes2, slopes1 / 0.5)
     assert np.allclose(readvar2, readvar1 / 0.5**2)
     assert np.allclose(poissonvar2, poissonvar1 / 0.5**2)
     slopes, readvar, poissonvar = image.make_l2(
-        resultants, ma_table, read_noise=1, gain=gain, flat=1,
+        resultants, read_pattern, read_noise=1, gain=gain, flat=1,
         dark=resultants)
     assert np.allclose(slopes, 0)
 
@@ -658,10 +661,10 @@ def test_inject_source_into_image():
     bandpasses = [metadata['instrument']['optical_element']]
 
     # Establish exposure timing parameters
-    ma_table = parameters.ma_table[metadata['exposure']['ma_table_number']]
-    tij = l1.ma_table_to_tij(ma_table)
-    tbar = ramp.ma_table_to_tbar(ma_table)
-    exptime = parameters.read_time * (ma_table[-1][0] + ma_table[-1][1] - 1)
+    read_pattern = parameters.read_pattern[metadata['exposure']['ma_table_number']]
+    tij = l1.read_pattern_to_tij(read_pattern)
+    tbar = ramp.read_pattern_to_tbar(read_pattern)
+    exptime = parameters.read_time * read_pattern[-1][1]
 
     # Create catalog of original sources
     twcs = wcs.get_wcs(metadata, usecrds=False)
@@ -719,7 +722,7 @@ def test_inject_source_into_image():
 
     # Make new image of the combination
     newimage, readvar, poissonvar = image.make_l2(
-        newramp * u.DN, ma_table,
+        newramp * u.DN, read_pattern,
         gain=1 * u.electron / u.DN, flat=1, dark=0)
 
     # Create mask of PSF

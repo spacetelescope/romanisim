@@ -17,19 +17,6 @@ from romanisim import nonlinearity, parameters
 from romanisim import log
 
 
-tijlist = [
-    [[1], [2, 3], [4, 5], [6, 7]],
-    [[100], [101, 102, 103], [110]],
-    [[1], [2], [3, 4, 5, 100]],
-]
-
-ma_table_list = [
-    [[1, 10], [11, 1], [12, 10], [30, 1], [40, 5], [50, 100]],
-    [[1, 1]],
-    [[1, 1], [10, 1]],
-]
-
-
 def test_linear_apply():
     counts = np.random.poisson(100, size=(100, 100))
     coeffs = np.array([0, 0.994, 3.0e-5, 5.0e-10, 7.0e-15], dtype='f4')

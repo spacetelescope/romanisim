@@ -21,6 +21,7 @@ from . import catalog
 from . import parameters
 from . import util
 from . import nonlinearity
+from . import ramp
 import romanisim.l1
 import romanisim.bandpass
 import romanisim.psf
@@ -63,7 +64,7 @@ except ImportError:
 # these would each be optional arguments that would override
 
 
-def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
+def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
             linearity=None, dark=None, dq=None):
     """
     Simulate an image in a filter given resultants.
@@ -74,8 +75,8 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     ----------
     resultants : np.ndarray[nresultants, nx, ny]
         resultants array
-    ma_table : list[list] (int)
-        list of list of first read numbers and number of reads in each resultant
+    read_pattern : list[list] (int)
+        list of list of indices of reads entering each resultant
     read_noise : np.ndarray[nx, ny] (float)
         read_noise image to use.  If None, use galsim.roman.read_noise.
     flat : np.ndarray[nx, ny] (float)
@@ -111,12 +112,11 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
     if dark is not None:
         resultants = resultants - dark
 
-    from . import ramp
     log.info('Fitting ramps.')
 
     # commented out code below is inverse-covariance ramp fitting
     # which doesn't presently support DQ information
-    # rampfitter = ramp.RampFitInterpolator(ma_table)
+    # rampfitter = ramp.RampFitInterpolator(read_pattern)
     # ramppar, rampvar = rampfitter.fit_ramps(resultants * gain,
     #                                         read_noise * gain)
 
@@ -129,7 +129,7 @@ def make_l2(resultants, ma_table, read_noise=None, gain=None, flat=None,
 
     ramppar, rampvar = ramp.fit_ramps_casertano(
         resultants * gain, dq & parameters.dq_do_not_use,
-        read_noise * gain, ma_table)
+        read_noise * gain, read_pattern)
 
     log.warning('The ramp fitter is unaware of noise from dark current because '
                 'it runs on dark-subtracted images.  We could consider adding '
@@ -509,11 +509,11 @@ def simulate_counts(metadata, objlist,
         catalog of simulated objects in image
     """
 
-    ma_table = parameters.ma_table[
+    read_pattern = parameters.read_pattern[
         metadata['exposure']['ma_table_number']]
 
     sca = int(metadata['instrument']['detector'][3:])
-    exptime = parameters.read_time * (ma_table[-1][0] + ma_table[-1][1] - 1)
+    exptime = parameters.read_time * read_pattern[-1][-1]
     if rng is None and seed is None:
         seed = 43
         log.warning(
@@ -622,9 +622,8 @@ def simulate(metadata, objlist,
     ma_table_number = image_mod.meta.exposure.ma_table_number
     filter_name = image_mod.meta.instrument.optical_element
 
-    ma_table = parameters.ma_table[ma_table_number]
-    exptime_tau = ((ma_table[-1][0] + (ma_table[-1][1] / 2))
-                   * parameters.read_time)
+    read_pattern = parameters.read_pattern[ma_table_number]
+    exptime_tau = np.mean(read_pattern[-1]) * parameters.read_time
 
     # TODO: replace this stanza with a function that looks at the metadata
     # and keywords and returns a dictionary with all of the relevant reference
@@ -734,7 +733,7 @@ def simulate(metadata, objlist,
         im, extras = romanisim.l1.make_asdf(
             l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)
     elif level == 2:
-        slopeinfo = make_l2(l1, ma_table, read_noise=read_noise,
+        slopeinfo = make_l2(l1, read_pattern, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
                             dark=dark, dq=l1dq)
         l2dq = np.bitwise_or.reduce(l1dq, axis=0)
