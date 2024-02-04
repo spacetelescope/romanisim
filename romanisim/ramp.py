@@ -31,19 +31,19 @@ them, and interpolate between them for different different fluxes and ratios.
 """
 
 import numpy as np
-from . import parameters
+from . import parameters, l1
 import romanisim.ramp_fit_casertano
 from scipy import interpolate
 from astropy import units as u
 
 
-def ma_table_to_tbar(ma_table):
-    """Construct the mean times for each resultant from an ma_table.
+def read_pattern_to_tbar(read_pattern):
+    """Construct the mean times for each resultant from a read_pattern.
 
     Parameters
     ----------
-    ma_table : list[list]
-        List of lists specifying the first read and the number of reads in each
+    read_pattern : list[list]
+        List of lists specifying the indices of the reads entering each
         resultant.
 
     Returns
@@ -51,18 +51,16 @@ def ma_table_to_tbar(ma_table):
     tbar : np.ndarray[n_resultant] (float)
         The mean time of the reads of each resultant.
     """
-    firstreads = np.array([x[0] for x in ma_table])
-    nreads = np.array([x[1] for x in ma_table])
     read_time = parameters.read_time
-    meantimes = read_time * firstreads + read_time * (nreads - 1) / 2
+    meantimes = read_time * np.array([np.mean(res) for res in read_pattern])
     # at some point I need to think hard about whether the first read has
     # slightly less exposure time than all other reads due to the read/reset
     # time being slightly less than the read time.
     return meantimes
 
 
-def ma_table_to_tau(ma_table):
-    """Construct the tau for each resultant from an ma_table.
+def read_pattern_to_tau(read_pattern):
+    """Construct the tau for each resultant from a read_pattern.
 
     .. math:: \\tau = \\overline{t} - (n - 1)(n + 1)\\delta t / 6n
 
@@ -70,8 +68,8 @@ def ma_table_to_tau(ma_table):
 
     Parameters
     ----------
-    ma_table : list[list]
-        List of lists specifying the first read and the number of reads in each
+    read_pattern : list[list]
+        List of lists specifying the indices of the reads entering each
         resultant.
 
     Returns
@@ -79,14 +77,14 @@ def ma_table_to_tau(ma_table):
     :math:`\\tau`
         A time scale appropriate for computing variances.
     """
+    tij = l1.read_pattern_to_tij(read_pattern)
+    nreads = np.array([len(x) for x in read_pattern])
+    tau = np.array([np.sum((2 * (nn - np.arange(nn)) - 1) * tt) / nn ** 2
+                    for (nn, tt) in zip(nreads, tij)])
+    return tau
 
-    meantimes = ma_table_to_tbar(ma_table)
-    nreads = np.array([x[1] for x in ma_table])
-    read_time = parameters.read_time
-    return meantimes - (nreads - 1) * (nreads + 1) * read_time / 6 / nreads
 
-
-def construct_covar(read_noise, flux, ma_table):
+def construct_covar(read_noise, flux, read_pattern):
     """Constructs covariance matrix for first finite differences of unevenly
     sampled resultants.
 
@@ -96,8 +94,8 @@ def construct_covar(read_noise, flux, ma_table):
         The read noise (electrons)
     flux : float
         The electrons per second
-    ma_table : list[list]
-        List of lists specifying the first read and the number of reads in each
+    read_pattern : list[list]
+        List of lists specifying the indices of the reads entering each
         resultant.
 
     Returns
@@ -106,10 +104,9 @@ def construct_covar(read_noise, flux, ma_table):
         covariance matrix of first finite differences of unevenly sampled
         resultants.
     """
-    # read_time = parameters.read_time
-    tau = ma_table_to_tau(ma_table)
-    tbar = ma_table_to_tbar(ma_table)
-    nreads = np.array([x[1] for x in ma_table])
+    tau = read_pattern_to_tau(read_pattern)
+    tbar = read_pattern_to_tbar(read_pattern)
+    nreads = np.array([len(x) for x in read_pattern])
     # from Casertano (2022), using Eqs 16, 19, and replacing with forward
     # differences.
     # diagonal -> (rn)^2/(1/N_i + 1/N_{i-1}) + f(tau_i + tau_{i-1} - 2t_{i-1}).
@@ -126,7 +123,7 @@ def construct_covar(read_noise, flux, ma_table):
     return cc.astype('f4')
 
 
-def construct_ramp_fitting_matrices(covar, ma_table):
+def construct_ramp_fitting_matrices(covar, read_pattern):
     """Construct :math:`A^T C^{-1} A` and :math:`A^T C^{-1}`, the matrices
     needed to fit ramps from resultants.
 
@@ -137,8 +134,8 @@ def construct_ramp_fitting_matrices(covar, ma_table):
     ----------
     covar : np.ndarray[n_resultant, n_resultant] (float)
         covariance of differences of resultants
-    ma_table : list[list] giving first read number and number of reads in each
-        resultant
+    read_pattern : list[list]
+        List of lists specifying the reads entering each resultant
 
     Returns
     -------
@@ -147,8 +144,8 @@ def construct_ramp_fitting_matrices(covar, ma_table):
         pedestal, flux = np.linalg.inv(atcinva).dot(atcinva.dot(differences))
     """
 
-    aa = np.zeros((len(ma_table), 2), dtype='f4')
-    tbar = ma_table_to_tbar(ma_table)
+    aa = np.zeros((len(read_pattern), 2), dtype='f4')
+    tbar = read_pattern_to_tbar(read_pattern)
 
     # pedestal; affects only 1st finite difference.
     aa[0, 0] = 1
@@ -194,7 +191,7 @@ def construct_ki_and_variances(atcinva, atcinv, covars):
     return k, variances
 
 
-def ki_and_variance_grid(ma_table, flux_on_readvar_pts):
+def ki_and_variance_grid(read_pattern, flux_on_readvar_pts):
     """Construct a grid of :math:`k` and covariances for the values of
     flux_on_readvar.
 
@@ -206,8 +203,8 @@ def ki_and_variance_grid(ma_table, flux_on_readvar_pts):
 
     Parameters
     ----------
-    ma_table : list[list] (int)
-        a list of the first read and number of reads in each resultant
+    read_pattern : list[list] (int)
+        a list of lists of the indices of the reads entering each resultant
     flux_on_readvar_pts : array_like (float)
         values of flux / read_noise**2 for which :math:`k` and variances are
         desired.
@@ -224,14 +221,14 @@ def ki_and_variance_grid(ma_table, flux_on_readvar_pts):
     # the ramp fitting covariance matrices make a one-dimensional
     # family.  If we divide out the read variance, the single parameter
     # is flux / read_noise**2
-    cc_rn = construct_covar(1, 0, ma_table)
-    cc_flux = construct_covar(0, 1, ma_table)
+    cc_rn = construct_covar(1, 0, read_pattern)
+    cc_flux = construct_covar(0, 1, read_pattern)
     outki = []
     outvar = []
     for flux_on_readvar in flux_on_readvar_pts:
         cc_flux_scaled = cc_flux * flux_on_readvar
         atcinva, atcinv = construct_ramp_fitting_matrices(
-            cc_rn + cc_flux_scaled, ma_table)
+            cc_rn + cc_flux_scaled, read_pattern)
         covars = [cc_rn, cc_flux_scaled, cc_rn + cc_flux_scaled]
         ki, variances = construct_ki_and_variances(atcinva, atcinv, covars)
         outki.append(ki)
@@ -260,14 +257,14 @@ class RampFitInterpolator:
     :math:`k` or variances.  The expectation is that most users just initialize
     and then call the fit_ramps method.
     """
-    def __init__(self, ma_table, flux_on_readvar_pts=None):
-        """Construct a RampFitInterpolator for an ma_table and a grid of
+    def __init__(self, read_pattern, flux_on_readvar_pts=None):
+        """Construct a RampFitInterpolator for a read_pattern and a grid of
         flux/read_noise**2.
 
         Parameters
         ----------
-        ma_table : list[list] (int)
-            list of lists of first reads, number of reads in each resultant
+        read_pattern : list[list] (int)
+            list of lists of indices of reads entering each resultant
         flux_on_readvar_pts : np.ndarray (float)
             flux / read_noise**2 points at which to compute ramp fitting
             matrices.
@@ -280,8 +277,8 @@ class RampFitInterpolator:
                 np.linspace(-5, 5, 200, dtype='f4'))
         else:
             self.flux_on_readvar_pts = flux_on_readvar_pts
-        ki, var = ki_and_variance_grid(ma_table, self.flux_on_readvar_pts)
-        self.ma_table = ma_table
+        ki, var = ki_and_variance_grid(read_pattern, self.flux_on_readvar_pts)
+        self.read_pattern = read_pattern
         self.ki_vals = ki
         self.var_vals = var
         self.ki_interpolator = interpolate.CubicSpline(
@@ -385,7 +382,7 @@ class RampFitInterpolator:
             the covariance matrix of par, for each of three noise terms:
             the read noise, Poisson source noise, and total noise.
         """
-        tbar = ma_table_to_tbar(self.ma_table)
+        tbar = read_pattern_to_tbar(self.read_pattern)
         dtbar = np.diff(tbar).astype('f4')
         differences = resultants_to_differences(resultants)
         if fluxest is None:
@@ -424,8 +421,8 @@ def resultants_to_differences(resultants):
 # how do I demonstrate things are right?
 # let's just make a bunch of simulations of the same ramp, compute
 # an empirical covariance matrix, and compare it with an analytic one?
-def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, ma_table=None):
-    """Simulate many ramps with a particular flux, read noise, and ma_table.
+def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, read_pattern=None):
+    """Simulate many ramps with a particular flux, read noise, and read_pattern.
 
     To test ramp fitting, it's useful to be able to simulate a large number
     of ramps that are identical up to noise.  This function does that.
@@ -438,14 +435,13 @@ def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, ma_table=None):
         flux in electrons / s
     read_noise : float
         read noise in electrons
-    ma_table : list[list] (int)
-        list of lists indicating first read and number of reads in each
-        resultant
+    read_pattern : list[list] (int)
+        list of lists giving indices of reads entering each resultant
 
     Returns
     -------
-    ma_table : list[list] (int)
-        ma_table used
+    read_pattern : list[list] (int)
+        read_pattern used
     flux : float
         flux used
     readnoise : float
@@ -455,18 +451,22 @@ def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, ma_table=None):
     """
     from . import l1
 
-    if ma_table is None:
-        ma_table = [[1, 4], [5, 1], [6, 3], [9, 10], [19, 3], [22, 15]]
-    nread = np.array([x[1] for x in ma_table])
-    tij = l1.ma_table_to_tij(ma_table)
+    if read_pattern is None:
+        read_pattern = [
+            [1, 2, 3, 4], [5], [6, 7, 8],
+            [9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+            [19, 20, 21],
+            [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]]
+    nread = np.array([len(x) for x in read_pattern])
+    tij = l1.read_pattern_to_tij(read_pattern)
     totcounts = np.random.poisson(flux * np.max(np.concatenate(tij)), ntrial)
     resultants, dq = l1.apportion_counts_to_resultants(totcounts, tij)
-    resultants += np.random.randn(len(ma_table), ntrial) * (
-        readnoise / np.sqrt(nread)).reshape(len(ma_table), 1)
-    return (ma_table, flux, readnoise, resultants)
+    resultants += np.random.randn(len(read_pattern), ntrial) * (
+        readnoise / np.sqrt(nread)).reshape(len(read_pattern), 1)
+    return (read_pattern, flux, readnoise, resultants)
 
 
-def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
+def fit_ramps_casertano(resultants, dq, read_noise, read_pattern):
     """Fit ramps following Casertano+2022, including averaging partial ramps.
 
     Ramps are broken where dq != 0, and fits are performed on each sub-ramp.
@@ -482,8 +482,8 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
         the dq array.  dq != 0 implies bad pixel / CR.
     read noise: float
         the read noise in electrons
-    ma_table : list[list[int]]
-        the ma table prescription
+    read_pattern : list[list[int]]
+        list of lists giving indices of reads entering each resultant
 
     Returns
     -------
@@ -517,7 +517,7 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
         resultants.reshape(resultants.shape[0], -1),
         dq.reshape(resultants.shape[0], -1),
         read_noise.reshape(-1),
-        ma_table)
+        read_pattern)
 
     par = np.zeros(resultants.shape[1:] + (2,), dtype='f4')
     var = np.zeros(resultants.shape[1:] + (3, 2, 2), dtype='f4')
@@ -563,7 +563,7 @@ def fit_ramps_casertano(resultants, dq, read_noise, ma_table):
     return par, var
 
 
-def fit_ramps_casertano_no_dq(resultants, read_noise, ma_table):
+def fit_ramps_casertano_no_dq(resultants, read_noise, read_pattern):
     """Fit ramps following Casertano+2022, only using full ramps.
 
     This is a simpler implementation of fit_ramps_casertano, which doesn't
@@ -577,8 +577,8 @@ def fit_ramps_casertano_no_dq(resultants, read_noise, ma_table):
         the resultants in electrons
     read noise: float
         the read noise in electrons
-    ma_table : list[list[int]]
-        the ma table prescription
+    read_pattern : list[list[int]]
+        list of lists giving indices of reads entering each resultant
 
     Returns
     -------
@@ -596,9 +596,9 @@ def fit_ramps_casertano_no_dq(resultants, read_noise, ma_table):
     ptable = np.array([  # Casertano+2022, Table 2
         [-np.inf, 0], [5, 0.4], [10, 1], [20, 3], [50, 6], [100, 10]])
     pp = ptable[np.searchsorted(ptable[:, 0], s) - 1, 1]
-    nn = np.array([x[1] for x in ma_table])  # number of reads in each resultant
-    tbar = ma_table_to_tbar(ma_table)
-    tau = ma_table_to_tau(ma_table)
+    nn = np.array([len(x) for x in read_pattern])  # number of reads in each resultant
+    tbar = read_pattern_to_tbar(read_pattern)
+    tau = read_pattern_to_tau(read_pattern)
     tbarmid = (tbar[0] + tbar[-1]) / 2
     if nadd > 0:
         newshape = ((-1,) + (1,) * nadd)

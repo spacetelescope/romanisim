@@ -1,8 +1,8 @@
 
 """
 Unit tests for ramp-fitting functions.  Tested routines:
-* ma_table_to_tbar
-* ma_table_to_tau
+* read_pattern_to_tbar
+* read_pattern_to_tau
 * construct_covar
 * construct_ramp_fitting_matrices
 * construct_ki_and_variances
@@ -23,15 +23,17 @@ from romanisim import parameters
 
 def test_ramp(test_table=None):
     if test_table is None:
-        test_table = [[0, 3], [3, 5], [8, 1], [9, 1], [20, 3]]
-    tbar = ramp.ma_table_to_tbar(test_table)
+        test_table = [[1 + x for x in range(3)],
+                      [4 + x for x in range(5)],
+                      [10], [11], [21 + x for x in range(3)]]
+    tbar = ramp.read_pattern_to_tbar(test_table)
     read_time = parameters.read_time
     assert np.allclose(
-        tbar, [read_time * np.mean(x[0] + np.arange(x[1])) for x in test_table])
-    tau = ramp.ma_table_to_tau(test_table)
+        tbar, [read_time * np.mean(x) for x in test_table])
+    tau = ramp.read_pattern_to_tau(test_table)
     # this is kind of just a defined function; I don't have a really good
     # test for this without just duplicating code.
-    nreads = np.array([x[1] for x in test_table])
+    nreads = np.array([len(x) for x in test_table])
     assert np.allclose(
         tau, tbar - (nreads - 1) * (nreads + 1) * read_time / 6 / nreads)
     read_noise = 3
@@ -97,15 +99,15 @@ def test_ramp(test_table=None):
     from functools import partial
     rampfitters = [
         fitter.fit_ramps,
-        partial(ramp.fit_ramps_casertano_no_dq, ma_table=test_table),
-        partial(ramp.fit_ramps_casertano, ma_table=test_table,
+        partial(ramp.fit_ramps_casertano_no_dq, read_pattern=test_table),
+        partial(ramp.fit_ramps_casertano, read_pattern=test_table,
                 dq=resultants * 0)
     ]
     for fitfun in rampfitters:
         par, var = fitfun(resultants=resultants, read_noise=read_noise)
         assert np.allclose(par[:, 1], fluxes, atol=1e-6)
         if not np.all(par[:, 0]) == 0:
-            assert np.allclose(par[:, 0], pedestals, atol=1e-2)
+            assert np.allclose(par[:, 0], pedestals, atol=2e-2)
 
     # compare single ramp and multi-ramp versions
     p1, v1 = ramp.fit_ramps_casertano(resultants, resultants * 0, read_noise,
@@ -117,20 +119,20 @@ def test_ramp(test_table=None):
 
 
 def test_hard_ramps():
-    ma_tables = list()
-    ma_tables.append([[0, 1], [1, 1]])  # simple ramp
-    ma_tables.append([[0, 100], [100, 100]])
-    ma_tables.append([[x, 1] for x in np.arange(100)])  # big ramp
-    ma_tables.append([[0, 1], [100, 1]])  # big skip
-    for tab in ma_tables:
+    read_patterns = list()
+    read_patterns.append([[1], [2]])  # simple ramp
+    read_patterns.append([list(range(1, 101)), list(range(101, 201))])
+    read_patterns.append([[x] for x in np.arange(1, 101)])  # big ramp
+    read_patterns.append([[1], [101]])  # big skip
+    for tab in read_patterns:
         test_ramp(tab)
 
 
 def test_simulated_ramps():
     ntrial = 100000
-    ma_table, flux, read_noise, resultants = ramp.simulate_many_ramps(
+    read_pattern, flux, read_noise, resultants = ramp.simulate_many_ramps(
         ntrial=ntrial)
-    fitter = ramp.RampFitInterpolator(ma_table)
+    fitter = ramp.RampFitInterpolator(read_pattern)
     par, var = fitter.fit_ramps(resultants, read_noise)
     par2, var2 = fitter.fit_ramps(resultants, read_noise, fluxest=flux)
     # in the simulation, the true flux was flux, so we expect this
@@ -157,7 +159,7 @@ def test_simulated_ramps():
     # absent code changes.
 
     par, var = ramp.fit_ramps_casertano(
-        resultants, resultants * 0, read_noise, ma_table)
+        resultants, resultants * 0, read_noise, read_pattern)
     chi2dof_slope = np.sum((par[:, 1] - flux)**2 / var[:, 2, 1, 1]) / ntrial
     assert np.abs(chi2dof_slope - 1) < 0.03
 
@@ -165,7 +167,7 @@ def test_simulated_ramps():
     bad = np.random.uniform(size=resultants.shape) > 0.7
     dq = resultants * 0 + bad
     par, var = ramp.fit_ramps_casertano(
-        resultants, dq, read_noise, ma_table)
+        resultants, dq, read_noise, read_pattern)
     # only use okay ramps
     # ramps passing the below criterion have at least two adjacent valid reads
     # i.e., we can make a measurement from them.

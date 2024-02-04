@@ -60,4 +60,5 @@ before running the above, or choose a different directory for
 WebbPSF's data files.
 
 Some users report issues with the FFTW dependency of galsim on Mac Arm
-systems.  See galsim's installation page for hints there.
+systems.  See galsim's installation page for hints there.  In
+particular it may be helpful to install FFTW before galsim and romanisim.

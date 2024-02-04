@@ -5,6 +5,22 @@ import numpy as np
 from astropy.time import Time
 from astropy import units as u
 
+read_pattern = {1: [[1 + x for x in range(8)],
+                    [9 + x for x in range(8)],
+                    [17 + x for x in range(8)],
+                    [25 + x for x in range(8)],
+                    [33 + x for x in range(8)],
+                    [41 + x for x in range(8)]],
+                2: [[1 + x for x in range(5)],
+                    [6 + x for x in range(8)],
+                    [14],
+                    [15 + x for x in range(9)],
+                    [24 + x for x in range(25)]],
+                3: [[1 + x for x in range(25)],
+                    [26 + x for x in range(8)],
+                    [34],
+                    [35 + x for x in range(14)]]
+                }
 
 default_parameters_dictionary = {
     'instrument': {'name': 'WFI',
@@ -14,6 +30,7 @@ default_parameters_dictionary = {
     'exposure': {'start_time': Time('2026-01-01T00:00:00'),
                  'type': 'WFI_IMAGE',
                  'ma_table_number': 1,
+                 'read_pattern': read_pattern[1],
                  },
     'pointing': {'ra_v1': 270.0,
                  'dec_v1': 66.0,
@@ -44,10 +61,6 @@ read_noise = 5.0 * u.DN
 gain = 1 * u.electron / u.DN
 
 nborder = 4  # number of border pixels used for reference pixels.
-
-ma_table = {1: [[1, 8], [9, 8], [17, 8], [25, 8], [33, 8], [41, 8]],
-            2: [[1, 5], [6, 8], [14, 1], [15, 9], [24, 25]],
-            3: [[1, 25], [26, 8], [34, 1], [35, 14]]}
 
 read_time = 3.04
 

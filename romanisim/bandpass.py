@@ -5,12 +5,12 @@ per second expected for sources observed by Roman given a source with
 the nominal flat AB spectrum of 3631 Jy.  The ultimate source of this
 information is https://roman.gsfc.nasa.gov/science/WFI_technical.html .
 """
-import os
-import pkg_resources
+from importlib import resources
 from scipy import integrate
 from astropy import constants
 from astropy.table import Table
 from astropy import units as u
+import functools
 
 # to go from calibrated fluxes in maggies to counts in the Roman bands
 # we need to multiply by a constant determined by the AB magnitude
@@ -51,11 +51,17 @@ def read_gsfc_effarea(filename=None):
     astropy.table.Table
         table with effective areas for different Roman bandpasses.
     """
+
+    reader = functools.partial(Table.read, format='csv', delimiter=',',
+                               header_start=1, data_start=2)
     if filename is None:
-        dirname = pkg_resources.resource_filename('romanisim', 'data')
-        filename = os.path.join(dirname, 'Roman_effarea_20201130.csv')
-    return Table.read(filename, format='csv', delimiter=',', header_start=1,
-                      data_start=2)
+        ref = (resources.files('romanisim') / 'data'
+               / 'Roman_effarea_20201130.csv')
+        with resources.as_file(ref) as filename:
+            out = reader(filename)
+    else:
+        out = reader(filename)
+    return out
 
 
 def compute_abflux(effarea=None):
