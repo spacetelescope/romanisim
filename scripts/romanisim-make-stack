@@ -207,7 +207,7 @@ def main():
                 coord = SkyCoord(ra=float(entry['RA']) * u.deg, dec=float(entry['DEC']) * u.deg,
                                  frame='icrs')
                 wcs.fill_in_parameters(metadata, coord, boresight=args.boresight,
-                                       roll_ref=float(entry['PA']))
+                                       pa_aper=float(entry['PA']))
 
                 # Set metadata
                 metadata = ris.set_metadata(meta=metadata,
