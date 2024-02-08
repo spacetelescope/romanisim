@@ -36,9 +36,8 @@ if __name__ == '__main__':
     parser.add_argument('--radec', type=float, nargs=2,
                         help='ra and dec (deg)', default=None)
     parser.add_argument('--rng_seed', type=int, default=None)
-    parser.add_argument('--roll', type=float, default=0, help=(
-        'Roll angle for the instrument.  Angle between +Y and N, '
-        'unless boresight is set, in which case between +V3 and N.'))
+    parser.add_argument('--roll', type=float, default=0,
+                        help='Position angle (North towards YIdl) measured at the V2Ref/V3Ref of the aperture used.')
     parser.add_argument('--sca', type=int, default=7, help='SCA to simulate')
     parser.add_argument('--usecrds', action='store_true',
                         help='Use CRDS for distortion map')
@@ -77,7 +76,7 @@ if __name__ == '__main__':
     if args.radec is not None:
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
                          frame='icrs')
-        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, roll_ref=args.roll)
+        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, pa_aper=args.roll)
 
     rng = galsim.UniformDeviate(args.rng_seed)
 
