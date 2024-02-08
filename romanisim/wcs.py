@@ -44,8 +44,8 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
     Parameters
     ----------
     parameters : dict
-        CRDS parameters dictionary
-        keys like pointing.* and wcsinfo.* may be modified
+        Metadata dictionary
+        Dictionaries like pointing, aperture, and wcsinfo may be modified
 
     coord : astropy.coordinates.SkyCoord or galsim.CelestialCoord
         world coordinates at V2 / V3 ref (boresight or center of WFI CCDs)
@@ -66,6 +66,8 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
 
     if 'wcsinfo' not in parameters.keys():
         parameters['wcsinfo'] = {}
+    if 'aperture' not in parameters.keys():
+        parameters['aperture'] = {}
 
     parameters['wcsinfo']['ra_ref'] = (
         parameters['pointing']['ra_v1'])
@@ -79,12 +81,16 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
     if boresight:
         parameters['wcsinfo']['v2_ref'] = 0
         parameters['wcsinfo']['v3_ref'] = 0
+        parameters['aperture']['name'] = 'BORESIGHT'
     else:
         from .parameters import v2v3_wficen
         parameters['wcsinfo']['v2_ref'] = v2v3_wficen[0]
         parameters['wcsinfo']['v3_ref'] = v2v3_wficen[1]
         parameters['wcsinfo']['roll_ref'] = (
-            parameters['wcsinfo'].get('roll_ref', 0) + 60)
+            parameters['wcsinfo']['roll_ref'] + 60)
+        parameters['aperture']['name'] = 'WFI_CEN'
+
+    parameters['aperture']['position_angle'] = parameters['wcsinfo']['roll_ref']
 
 
 def get_wcs(image, usecrds=True, distortion=None):

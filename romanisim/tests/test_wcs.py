@@ -138,6 +138,7 @@ def test_wcs_crds_match():
 
     for key in metadata.keys():
         meta[key].update(metadata[key])
+    meta['wcs'] = None
 
     image_node = maker_utils.mk_level2_image()
     image_node['meta'] = meta

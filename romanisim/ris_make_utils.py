@@ -38,7 +38,7 @@ def merge_nested_dicts(dict1, dict2):
             dict1[key] = value
 
 
-def set_metadata(meta=None, date=None, bandpass='F087', sca=7, ma_table_number=1):
+def set_metadata(meta=None, date=None, bandpass='F087', sca=7, ma_table_number=1, truncate=None):
     """
     Set / Update metadata parameters
 
@@ -75,6 +75,12 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7, ma_table_number=1
     # Observational metadata
     meta['instrument']['optical_element'] = bandpass
     meta['exposure']['ma_table_number'] = ma_table_number
+    meta['exposure']['read_pattern'] = parameters.read_pattern[ma_table_number]
+    if truncate is not None:
+        meta['exposure']['read_pattern'] = meta['exposure']['read_pattern'][:truncate]
+        meta['exposure']['truncated'] = True
+    else:
+        meta['exposure']['truncated'] = False
 
     return meta
 

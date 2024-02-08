@@ -39,7 +39,7 @@ this functionality::
                             microsecond (default: None)
       --level LEVEL         1 or 2, for L1 or L2 output (default: 2)
       --ma_table_number MA_TABLE_NUMBER
-      --seed SEED
+      --rng_seed SEED
       --nobj NOBJ
       --boresight           radec specifies location of boresight, not center of WFI. (default: False)
       --previous PREVIOUS   previous simulated file in chronological order used for persistence modeling.
@@ -61,7 +61,7 @@ is available.  The ``--webbpsf`` argument indicates that the `WebbPSF
 <https://webbpsf.readthedocs.io>`_ package should be used to simulate
 the PSF; note that this presently disables chromatic PSF rendering.
 
-The ``--seed`` argument specifies a seed to the random number
+The ``--rng_seed`` argument specifies a seed to the random number
 generator, enabling reproducible results.
 
 The ``--nobj`` argument is only used when a catalog is not specified,
