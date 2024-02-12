@@ -5,6 +5,7 @@ per second expected for sources observed by Roman given a source with
 the nominal flat AB spectrum of 3631 Jy.  The ultimate source of this
 information is https://roman.gsfc.nasa.gov/science/WFI_technical.html .
 """
+import numpy as np
 from importlib import resources
 from scipy import integrate
 from astropy import constants
@@ -34,6 +35,7 @@ roman2galsim_bandpass.update(**{k: k for k in galsim_bandpasses})
 
 # AB Zero Spectral Flux Density
 ABZeroSpFluxDens = 3631e-23 * u.erg / (u.s * u.cm**2 * u.hertz)
+
 
 def read_gsfc_effarea(filename=None):
     """Read an effective area file from Roman.
@@ -92,20 +94,7 @@ def compute_abflux(effarea=None):
     abfv = ABZeroSpFluxDens
     out = dict()
     for bandpass in filter_names:
-        zpflux = compute_count_rate(thru=abfv, bandpass=bandpass, effarea=effarea)
-
-        # integrand = abfv * constants.c / (
-        #     effarea['Wave'] * u.micron)**2  # f_lambda
-        # integrand /= constants.h * constants.c / (
-        #     effarea['Wave'] * u.micron)  # hc/lambda
-        # integrand *= effarea[bandpass] * u.m**2  # effective area in filter
-        # # integrate.simpson looks like it loses units.  So convert to something
-        # # we know about.
-        # integrand = integrand.to(1 / (u.s * u.micron)).value
-        # zpflux = integrate.simpson(integrand, x=effarea['Wave'])
-        # # effarea['Wave'] is in microns, so we're left with a number of counts
-        # # per second
-        out[bandpass] = zpflux
+        out[bandpass] = compute_count_rate(flux=abfv, bandpass=bandpass, effarea=effarea)
     return out
 
 
@@ -122,7 +111,7 @@ def get_abflux(bandpass):
     Returns
     -------
     float
-        the zero point flux (photons / s)s
+        the zero point flux (photons / s)
     """
     bandpass = galsim2roman_bandpass.get(bandpass, bandpass)
 
@@ -134,25 +123,57 @@ def get_abflux(bandpass):
         get_abflux.abflux = abflux
     return abflux[bandpass]
 
-def compute_count_rate(thru=None, bandpass=None, filename=None, effarea=None):
-    # ab_zero = get_abflux(bandpass)
 
-    if not effarea:
+def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=None):
+    """Compute the AB zero point fluxes for each filter.
+
+    How many photons would a zeroth magnitude AB star deposit in
+    Roman's detectors in a second?
+
+    Parameters
+    ----------
+    flux : float
+        Spectral flux density
+    bandpass : str
+        the name of the bandpass
+    filename : str
+        filename to read in
+    effarea : astropy.Table.table
+        Table from GSFC with effective areas for each filter.
+    wavedist : numpy.ndarray
+        Array of wavelengths along which spectral flux densities are defined
+
+    Returns
+    -------
+    float
+        the total bandpass flux (photons / s)
+    """
+    # Read in default Roman effective areas from Goddard, if areas not supplied
+    if effarea is None:
         effarea = read_gsfc_effarea(filename)
 
-    integrand = thru * constants.c / (
-        effarea['Wave'] * u.micron)**2  # f_lambda
+    # If wavelength distribution is supplied, interpolate flux and area
+    # over it and the effective area table layout
+    if wavedist is not None:
+        all_wavel = np.unique(np.concatenate((effarea['Wave'], wavedist)))
+        all_flux = np.interp(all_wavel, wavedist, flux)
+        all_effarea = np.interp(all_wavel, effarea['Wave'], effarea[bandpass])
+    else:
+        all_wavel = effarea['Wave']
+        all_flux = flux
+        all_effarea = effarea[bandpass]
+
+    integrand = all_flux * constants.c / (
+        all_wavel * u.micron)**2  # f_lambda
     integrand /= constants.h * constants.c / (
-        effarea['Wave'] * u.micron)  # hc/lambda
-    integrand *= effarea[bandpass] * u.m**2  # effective area in filter
+        all_wavel * u.micron)  # hc/lambda
+    integrand *= all_effarea * u.m**2  # effective area in filter
     # integrate.simpson looks like it loses units.  So convert to something
     # we know about.
     integrand = integrand.to(1 / (u.s * u.micron)).value
-    # integrand /= compute_photflam(bandpass).value
-    zpflux = integrate.simpson(integrand, x=effarea['Wave'])
+
+    zpflux = integrate.simpson(integrand, x=all_wavel)
     # effarea['Wave'] is in microns, so we're left with a number of counts
     # per second
 
     return zpflux
-
-
