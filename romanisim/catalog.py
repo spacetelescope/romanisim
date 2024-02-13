@@ -174,7 +174,7 @@ def make_galaxies(coord,
         power law index of magnitudes
     faintmag : float
         faintest AB magnitude for which to generate sources
-        Note this magnitude is in a `fiducial' band which is not observed.
+        Note this magnitude is in a "fiducial" band which is not observed.
         Actual requested bandpasses are equal to this fiducial band plus
         1 mag of Gaussian noise.
     hlr_at_faintmag : float
@@ -272,7 +272,7 @@ def make_stars(coord,
         implies 3/5.
     faintmag : float
         faintest AB magnitude for which to generate sources
-        Note this magnitude is in a `fiducial' band which is not observed.
+        Note this magnitude is in a "fiducial" band which is not observed.
         Actual requested bandpasses are equal to this fiducial band plus
         1 mag of Gaussian noise.
     truncation_radius : float
