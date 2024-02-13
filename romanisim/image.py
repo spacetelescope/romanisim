@@ -65,7 +65,7 @@ except ImportError:
 
 
 def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
-            linearity=None, dark=None, dq=None):
+            linearity=None, darkrate=None, dq=None):
     """
     Simulate an image in a filter given resultants.
 
@@ -83,8 +83,8 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
         flat field to use
     linearity : romanisim.nonlinearity.NL object or None
         non-linearity correction to use.
-    dark : np.ndarray[nresultants, nx, ny] (float)
-        dark image to subtract from ramps (DN)
+    darkrate : np.ndarray[nx, ny] (float)
+        dark rate image to subtract from ramps (electron / s)
     dq : np.ndarray[nresultants, nx, ny] (int)
         DQ image corresponding to resultants
 
@@ -99,18 +99,13 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     """
 
     if read_noise is None:
-        read_noise = parameters.read_noise
+        read_noise = parameters.reference_data['readnoise']
 
     if gain is None:
-        gain = parameters.gain
+        gain = parameters.reference_data['gain']
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
-
-    # no error propagation
-
-    if dark is not None:
-        resultants = resultants - dark
 
     log.info('Fitting ramps.')
 
@@ -130,11 +125,10 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     ramppar, rampvar = ramp.fit_ramps_casertano(
         resultants * gain, dq & parameters.dq_do_not_use,
         read_noise * gain, read_pattern)
-
-    log.warning('The ramp fitter is unaware of noise from dark current because '
-                'it runs on dark-subtracted images.  We could consider adding '
-                'a separate dark rate term to fit ramps.')
     # could iterate if we wanted to improve the flux estimates
+
+    if darkrate is not None:
+        ramppar[..., 1] -= darkrate
 
     # The ramp fitter is not presently unit-aware; fix up the units by hand.
     # To do this right the ramp fitter should be made unit aware.
@@ -143,7 +137,7 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     # which isn't true as soon as things start having units and requires
     # special handling.  And we use read_time without units a lot throughout
     # the code base.
-    slopes = ramppar[..., 1] / u.s
+    slopes = ramppar[..., 1] * u.electron / u.s
     readvar = rampvar[..., 0, 1, 1] * (u.electron / u.s)**2
     poissonvar = rampvar[..., 1, 1, 1] * (u.electron / u.s)**2
 
@@ -556,6 +550,113 @@ def simulate_counts(metadata, objlist,
     return image, simcatobj
 
 
+def gather_reference_data(image_mod, usecrds=False):
+    """Gather reference data corresponding to metadata.
+
+    This function pulls files from parameters.reference_data and/or
+    CRDS to fill out the various reference files needed to perform
+    the simulation.  If CRDS is set, values in parameters.reference_data
+    are used instead of CRDS files when the reference_data are None.  If
+    all CRDS files should be used, parameters.reference_data must contain
+    only Nones.
+
+    This functionality is intended to allow users to specify different
+    levels via a configuration file and not have them be overwritten
+    by the CRDS defaults, but it's not terribly clean.
+
+    The input metadata is updated with CRDS software versions if CRDS
+    is used.
+
+    Returns
+    -------
+    dictionary containing the following keys:
+        read_noise
+        darkrate
+        gain
+        inv_linearity
+        linearity
+        saturation
+        reffiles
+    These have the reference images or constant values for the various
+    reference parameters.
+    """
+
+    reffiles = {k: v for k, v in parameters.reference_data.items()}
+
+    out = dict(**reffiles)
+    if usecrds:
+        import crds
+        refsneeded = [k for (k, v) in reffiles.items() if v is None]
+        flatneeded = 'flat' in refsneeded
+        if flatneeded:
+            refsneeded.remove('flat')
+        if len(refsneeded) > 0:
+            reffiles.update(crds.getreferences(
+                image_mod.get_crds_parameters(), reftypes=refsneeded,
+                observatory='roman'))
+        if flatneeded:
+            try:
+                flatfile = crds.getreferences(
+                    image_mod.get_crds_parameters(),
+                    reftypes=['flat'], observatory='roman')['flat']
+
+                flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
+                flat = flat_model.data[...].copy()
+            except crds.core.exceptions.CrdsLookupError:
+                log.warning('Could not find flat; using 1')
+                flat = 1
+            out['flat'] = flat
+        image_mod.meta.ref_file.crds.sw_version = crds.__version__
+        image_mod.meta.ref_file.crds.context_used = crds.get_context_name(
+            observatory=image_mod.crds_observatory)
+
+    # reffiles has all of the reference files / values we know about
+
+    nborder = parameters.nborder
+
+    # we now need to extract the relevant fields
+    if isinstance(reffiles['readnoise'], str):
+        model = roman_datamodels.datamodels.ReadnoiseRefModel(
+            reffiles['readnoise'])
+        out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
+
+    if isinstance(reffiles['gain'], str):
+        model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
+        out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
+
+    if isinstance(reffiles['dark'], str):
+        model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
+        out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy()
+        out['dark'] *= out['gain']
+    if isinstance(out['dark'], u.Quantity):
+        out['dark'] = out['dark'].to(u.electron / u.s).value
+
+    if isinstance(reffiles['inverselinearity'], str):
+        ilin_model = roman_datamodels.datamodels.InverselinearityRefModel(
+            reffiles['inverselinearity'])
+        out['inverselinearity'] = nonlinearity.NL(
+            ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
+            ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
+            gain=out['gain'])
+
+    if isinstance(reffiles['linearity'], str):
+        lin_model = roman_datamodels.datamodels.LinearityRefModel(
+            reffiles['linearity'])
+        out['linearity'] = nonlinearity.NL(
+            lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
+            lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
+            gain=out['gain'])
+
+    if isinstance(reffiles['saturation'], str):
+        saturation = roman_datamodels.datamodels.SaturationRefModel(
+            reffiles['saturation'])
+        saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
+        out['saturation'] = saturation
+
+    out['reffiles'] = reffiles
+    return out
+
+
 def simulate(metadata, objlist,
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
              persistence=None, seed=None, rng=None, **kwargs
@@ -603,16 +704,22 @@ def simulate(metadata, objlist,
         also include information on persistence and cosmic ray hits.
     """
 
+    if not usecrds:
+        log.warning('--usecrds is not set.  romanisim will not use reference '
+                    'files from CRDS.  The WCS may be incorrect and up-to-date '
+                    'calibration information will not be used.')
+
     meta = maker_utils.mk_common_meta()
     meta["photometry"] = maker_utils.mk_photometry()
+    meta['wcs'] = None
 
     for key in parameters.default_parameters_dictionary.keys():
         meta[key].update(parameters.default_parameters_dictionary[key])
 
-    util.add_more_metadata(meta)
-
     for key in metadata.keys():
         meta[key].update(metadata[key])
+
+    util.add_more_metadata(meta)
 
     # Create Image model to track validation
     image_node = maker_utils.mk_level2_image()
@@ -623,86 +730,16 @@ def simulate(metadata, objlist,
     filter_name = image_mod.meta.instrument.optical_element
 
     read_pattern = parameters.read_pattern[ma_table_number]
-    exptime_tau = np.mean(read_pattern[-1]) * parameters.read_time
 
-    # TODO: replace this stanza with a function that looks at the metadata
-    # and keywords and returns a dictionary with all of the relevant reference
-    # data in numpy arrays.
-    # should query CRDS for any reference files not specified on the command
-    # line.
-    reffiles = {}
-    if usecrds:
-        import crds
-        refnames_lst = ['readnoise', 'dark', 'gain', 'inverselinearity', 'linearity', 'saturation']
-
-        for key, value in parameters.reference_data.items():
-            if (key in refnames_lst) and (value is not None):
-                reffiles[key] = value
-                refnames_lst.remove(key)
-
-        if refnames_lst:
-            reffiles.update(crds.getreferences(
-                image_mod.get_crds_parameters(), reftypes=refnames_lst,
-                observatory='roman'))
-
-        read_noise_model = roman_datamodels.datamodels.ReadnoiseRefModel(
-            reffiles['readnoise'])
-        dark_model = roman_datamodels.datamodels.DarkRefModel(
-            reffiles['dark'])
-        gain_model = roman_datamodels.datamodels.GainRefModel(
-            reffiles['gain'])
-        inv_linearity_model = roman_datamodels.datamodels.InverselinearityRefModel(
-            reffiles['inverselinearity'])
-        linearity_model = roman_datamodels.datamodels.LinearityRefModel(
-            reffiles['linearity'])
-        saturation_model = roman_datamodels.datamodels.SaturationRefModel(
-            reffiles['saturation'])
-
-        try:
-            flatfile = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=['flat'], observatory='roman')['flat']
-
-            flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
-            flat = flat_model.data
-
-        except crds.core.exceptions.CrdsLookupError:
-            log.warning('Could not find flat; using 1')
-            flat = 1
-
-        # convert the last dark resultant into a dark rate by dividing by the
-        # mean time in that resultant.
-        nborder = parameters.nborder
-        read_noise = read_noise_model.data[nborder:-nborder, nborder:-nborder]
-        darkrate = dark_model.data[-1, nborder:-nborder, nborder:-nborder] / exptime_tau
-        dark = dark_model.data[:, nborder:-nborder, nborder:-nborder]
-        gain = gain_model.data[nborder:-nborder, nborder:-nborder]
-        inv_linearity = nonlinearity.NL(
-            inv_linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder],
-            inv_linearity_model.dq[nborder:-nborder, nborder:-nborder],
-            gain=gain)
-        linearity = nonlinearity.NL(
-            linearity_model.coeffs[:, nborder:-nborder, nborder:-nborder],
-            linearity_model.dq[nborder:-nborder, nborder:-nborder],
-            gain=gain)
-        darkrate *= gain
-        image_mod.meta.ref_file.crds.sw_version = crds.__version__
-        image_mod.meta.ref_file.crds.context_used = crds.get_context_name(
-            observatory=image_mod.crds_observatory
-        )
-        saturation = saturation_model.data[nborder:-nborder, nborder:-nborder]
-    else:
-        read_noise = parameters.reference_data["readnoise"] \
-            if parameters.reference_data["readnoise"] is not None else galsim.roman.read_noise
-        darkrate = parameters.reference_data["darkcurrent"] \
-            if parameters.reference_data["darkcurrent"] is not None else galsim.roman.dark_current
-        dark = parameters.reference_data["dark"]
-        gain = parameters.reference_data["gain"]
-        flat = parameters.reference_data["flat"] \
-            if parameters.reference_data["flat"] is not None else 1
-        inv_linearity = parameters.reference_data["inverselinearity"]
-        linearity = parameters.reference_data["linearity"]
-        saturation = parameters.reference_data["saturation"]
+    refdata = gather_reference_data(image_mod, usecrds=usecrds)
+    read_noise = refdata['readnoise']
+    darkrate = refdata['dark']
+    gain = refdata['gain']
+    inv_linearity = refdata['inverselinearity']
+    linearity = refdata['linearity']
+    saturation = refdata['saturation']
+    reffiles = refdata['reffiles']
+    flat = refdata['flat']
 
     if rng is None and seed is None:
         seed = 43
@@ -735,7 +772,7 @@ def simulate(metadata, objlist,
     elif level == 2:
         slopeinfo = make_l2(l1, read_pattern, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
-                            dark=dark, dq=l1dq)
+                            darkrate=darkrate, dq=l1dq)
         l2dq = np.bitwise_or.reduce(l1dq, axis=0)
         im, extras = make_asdf(
             *slopeinfo, metadata=image_mod.meta, persistence=persistence,
@@ -792,10 +829,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     # cal['step'] is left empty for now, but in principle
     #     could be filled out at some level
     # ephemeris contains a lot of angles that could be computed.
-    # exposure contains start_time, mid_time, end_time
-    #     plus MJD equivalents
-    #     plus TDB equivalents (?)
-    #     plus ENG equivalents (?)
+    # exposure contains
     #     ngroups, nframes, sca_number, gain_factor, integration_time,
     #     elapsed_exposure_time, nints, integration_start, integration_end,
     #     frame_divisor, groupgap, nsamples, sample_time, frame_time,
@@ -825,13 +859,6 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     #     leave border pixels blank for now.
     # amp33: leave blank for now.
     # data: image
-    # dq: I guess all 0?
-    # err: I guess I need to look up how this is defined.  But
-    #     the "right" thing is probably
-    #     sqrt(noisless image + read_noise**2)
-    #     i.e., Gaussian approximation of Poisson noise + read noise.
-    #     this is just sqrt(var_poisson + var_rnoise + var_flat)?
-    # var_rnoise: okay
     # var_flat: currently zero
     if metadata is not None:
         out['meta'].update(metadata)

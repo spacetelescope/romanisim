@@ -41,24 +41,21 @@ default_parameters_dictionary = {
                 'v3_ref': 0,
                 'roll_ref': 0,
                 },
+    'aperture': {'name': 'WFI_CEN',
+                 'position_angle': 0
+                },
 }
 
 reference_data = {
-    "dark": None,
-    "darkcurrent": None,
+    "dark": 0.01 * u.electron / u.s,
     "distortion": None,
     "flat": None,
-    "gain": None,
+    "gain": 2 * u.electron / u.DN,
     "inverselinearity": None,
     "linearity": None,
-    "readnoise": None,
-    "saturation": None
+    "readnoise": 5.0 * u.DN,
+    "saturation": 55000 * u.DN,
 }
-
-# default read noise
-read_noise = 5.0 * u.DN
-
-gain = 1 * u.electron / u.DN
 
 nborder = 4  # number of border pixels used for reference pixels.
 
@@ -83,9 +80,6 @@ v2v3_wficen = (1546.3846181707652, -892.7916365721071)  # arcsec
 # e.g., MA table 1 has ~144 s, so this is ~1 electron over the whole exposure.
 persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
                    half_well=50000, ignorerate=0.01)
-
-# default saturation level in DN absent reference file information
-saturation = 55000 * u.DN
 
 # arbitrary constant to add to initial L1 image so that pixels aren't clipped at zero.
 pedestal = 100 * u.DN
