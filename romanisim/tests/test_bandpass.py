@@ -223,14 +223,14 @@ def test_unevenly_sampled_wavelengths_flux_to_counts():
         area = effarea[filter] * u.m ** 2
 
         # Analytical flux
-        theo_counts = (wave_bin_width * (np.divide(np.multiply(area, an_flux), wavedist)
+        an_counts = (wave_bin_width * (np.divide(np.multiply(area, an_flux), wavedist)
                                          / constants.h.to(u.erg * u.s))).to(1 / u.s)
 
         # Sum the flux in the filter
-        theo_counts_sum = np.sum(theo_counts)
+        an_counts_sum = np.sum(an_counts)
 
         # Computed flux
         computed_flux = bandpass.compute_count_rate(flux=total_flux, bandpass=filter, wavedist=total_wavedist)
 
         # Test that proper results (within 4%) are returned for select bands.
-        assert np.isclose(theo_counts_sum.value, computed_flux, rtol=4.0e-2)
+        assert np.isclose(an_counts_sum.value, computed_flux, rtol=4.0e-2)
