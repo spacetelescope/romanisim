@@ -365,11 +365,14 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     else:
         rng = galsim.GaussianDeviate(rng)
 
+    if read_noise is None:
+        read_noise = parameters.reference_data['readnoise']
+    if read_noise is None:
+        log.warning('Not applying read noise due to weird reference data.')
+        return resultants
+
     noise = np.zeros(resultants.shape, dtype='f4')
     rng.generate(noise)
-    if read_noise is None:
-        read_noise = parameters.read_noise
-
     noise = noise * read_noise / np.array(
         [len(x)**0.5 for x in tij]).reshape(-1, 1, 1)
     resultants += noise
@@ -529,7 +532,7 @@ def make_l1(counts, read_pattern,
         resultants *= u.electron
 
     if gain is None:
-        gain = parameters.gain
+        gain = parameters.reference_data['gain']
     if gain is not None and not isinstance(gain, u.Quantity):
         gain = gain * u.electron / u.DN
         log.warning('Making up units for gain.')
@@ -554,7 +557,7 @@ def make_l1(counts, read_pattern,
     resultants += parameters.pedestal
 
     if saturation is None:
-        saturation = parameters.saturation
+        saturation = parameters.reference_data['saturation']
 
     # this maybe should be better applied at read time?
     # it's not actually clear to me what the right thing to do

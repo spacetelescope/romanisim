@@ -557,9 +557,6 @@ def fit_ramps_casertano(resultants, dq, read_noise, read_pattern):
         par = par[0]
         var = var[0]
 
-    if resultants_unit is not None:
-        par = par * resultants_unit
-
     return par, var
 
 

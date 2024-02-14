@@ -12,15 +12,15 @@ from romanisim import ris_make_utils as ris
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Make a demo image.',
-        epilog='EXAMPLE: %(prog)s output_image.fits',
+        epilog='EXAMPLE: %(prog)s output_image.asdf',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('filename', type=str, help='output image (fits)')
+    parser.add_argument('filename', type=str, help='output image (asdf)')
     parser.add_argument('--bandpass', type=str, help='bandpass to simulate',
                         default='F087')
     parser.add_argument('--boresight', action='store_true', default=False,
                         help=('radec specifies location of boresight, not '
                               'center of WFI.'))
-    parser.add_argument('--catalog', type=str, help='input catalog (csv)',
+    parser.add_argument('--catalog', type=str, help='input catalog (ecsv)',
                         default=None)
     parser.add_argument('--config', type=str, help='input parameter override file (yaml)',
                         default=None)
@@ -37,12 +37,14 @@ if __name__ == '__main__':
                         help='ra and dec (deg)', default=None)
     parser.add_argument('--rng_seed', type=int, default=None)
     parser.add_argument('--roll', type=float, default=0,
-                        help='Roll angle for the instrument.')
+                        help='Position angle (North towards YIdl) measured at the V2Ref/V3Ref of the aperture used.')
     parser.add_argument('--sca', type=int, default=7, help='SCA to simulate')
     parser.add_argument('--usecrds', action='store_true',
                         help='Use CRDS for distortion map')
     parser.add_argument('--webbpsf', action='store_true',
                         help='Use webbpsf for PSF')
+    parser.add_argument('--truncate', type=int, default=None, help=(
+        'If set, truncate the MA table at given number of resultants.'))
 
     args = parser.parse_args()
 
@@ -61,15 +63,20 @@ if __name__ == '__main__':
             combo_dict = parameters.__dict__ 
             ris.merge_nested_dicts(combo_dict, config)
             parameters.__dict__.update(combo_dict)
+    elif args.usecrds:
+        # don't use default values
+        for k in parameters.reference_data:
+            parameters.reference_data[k] = None
 
-    metadata = ris.set_metadata(date=args.date, bandpass=args.bandpass,
-                            sca=args.sca,
-                            ma_table_number=args.ma_table_number)
+    metadata = ris.set_metadata(
+        date=args.date, bandpass=args.bandpass,
+        sca=args.sca, ma_table_number=args.ma_table_number,
+        truncate=args.truncate)
     
     if args.radec is not None:
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
                          frame='icrs')
-        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, roll_ref=args.roll)
+        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, pa_aper=args.roll)
 
     rng = galsim.UniformDeviate(args.rng_seed)
 

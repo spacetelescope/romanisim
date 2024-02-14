@@ -174,6 +174,9 @@ def make_galaxies(coord,
         power law index of magnitudes
     faintmag : float
         faintest AB magnitude for which to generate sources
+        Note this magnitude is in a "fiducial" band which is not observed.
+        Actual requested bandpasses are equal to this fiducial band plus
+        1 mag of Gaussian noise.
     hlr_at_faintmag : float
         typical half light radius at faintmag (arcsec)
     bandpasses : list[str]
@@ -269,6 +272,9 @@ def make_stars(coord,
         implies 3/5.
     faintmag : float
         faintest AB magnitude for which to generate sources
+        Note this magnitude is in a "fiducial" band which is not observed.
+        Actual requested bandpasses are equal to this fiducial band plus
+        1 mag of Gaussian noise.
     truncation_radius : float
         truncation radius of cluster if not None; otherwise ignored.
     bandpasses : list[str]
@@ -373,7 +379,7 @@ def table_to_catalog(table, bandpasses):
             obj = galsim.Sersic(table['n'][i], table['half_light_radius'][i])
             obj = obj.shear(
                 q=table['ba'][i],
-                beta=(table['pa'][i] + np.pi / 2) * galsim.radians)
+                beta=(np.radians(table['pa'][i]) + np.pi / 2) * galsim.radians)
         else:
             raise ValueError('Catalog types must be either PSF or SER.')
         out.append(CatalogObject(pos, obj, fluxes))

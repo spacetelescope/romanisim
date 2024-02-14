@@ -117,6 +117,10 @@ def main():
             combo_dict = parameters.__dict__ 
             ris.merge_nested_dicts(combo_dict, config)
             parameters.__dict__.update(combo_dict)
+    elif args.usecrds:
+        # don't use default values
+        for k in parameters.reference_data:
+            parameters.reference_data[k] = None
 
     # Set up metadata
     metadata = deepcopy(default_parameters_dictionary)
@@ -207,7 +211,7 @@ def main():
                 coord = SkyCoord(ra=float(entry['RA']) * u.deg, dec=float(entry['DEC']) * u.deg,
                                  frame='icrs')
                 wcs.fill_in_parameters(metadata, coord, boresight=args.boresight,
-                                       roll_ref=float(entry['PA']))
+                                       pa_aper=float(entry['PA']))
 
                 # Set metadata
                 metadata = ris.set_metadata(meta=metadata,

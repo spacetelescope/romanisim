@@ -38,20 +38,20 @@ except ImportError:
     import roman_datamodels.testing.utils as maker_utils
 
 
-def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
+def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
     """Add WCS info to parameters dictionary.
 
     Parameters
     ----------
     parameters : dict
-        CRDS parameters dictionary
-        keys like pointing.* and wcsinfo.* may be modified
+        Metadata dictionary
+        Dictionaries like pointing, aperture, and wcsinfo may be modified
 
     coord : astropy.coordinates.SkyCoord or galsim.CelestialCoord
         world coordinates at V2 / V3 ref (boresight or center of WFI CCDs)
 
-    roll_ref : float
-        roll of the V3 axis from north
+    pa_aper : float
+        position angle (North to YIdl) at the aperture V2Ref/V3Ref
 
     boresight : bool
         whether coord is the telescope boresight (V2 = V3 = 0) or the center of
@@ -66,6 +66,8 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
 
     if 'wcsinfo' not in parameters.keys():
         parameters['wcsinfo'] = {}
+    if 'aperture' not in parameters.keys():
+        parameters['aperture'] = {}
 
     parameters['wcsinfo']['ra_ref'] = (
         parameters['pointing']['ra_v1'])
@@ -74,19 +76,24 @@ def fill_in_parameters(parameters, coord, roll_ref=0, boresight=True):
     parameters['wcsinfo']['dec_ref'] = (
         parameters['pointing']['dec_v1'])
 
-    parameters['wcsinfo']['roll_ref'] = roll_ref
+    # Romanisim uses ROLL_REF = PA_APER - V3IdlYAngle
+    V3IdlYAngle = -60 # this value should eventually be taken from the SIAF
+    parameters['wcsinfo']['roll_ref'] = pa_aper - V3IdlYAngle 
 
     if boresight:
         parameters['wcsinfo']['v2_ref'] = 0
         parameters['wcsinfo']['v3_ref'] = 0
+        parameters['aperture']['name'] = 'BORESIGHT'
     else:
         from .parameters import v2v3_wficen
         parameters['wcsinfo']['v2_ref'] = v2v3_wficen[0]
         parameters['wcsinfo']['v3_ref'] = v2v3_wficen[1]
-        parameters['wcsinfo']['roll_ref'] = (
-            parameters['wcsinfo'].get('roll_ref', 0) + 60)
+        parameters['aperture']['name'] = 'WFI_CEN'
+
+    parameters['aperture']['position_angle'] = pa_aper
 
 
+        
 def get_wcs(image, usecrds=True, distortion=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
 

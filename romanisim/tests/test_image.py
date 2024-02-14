@@ -75,37 +75,37 @@ def test_make_l2():
                     [9 + x for x in range(4)],
                     [13 + x for x in range(4)]]
     slopes, readvar, poissonvar = image.make_l2(
-        resultants, read_pattern, gain=1, flat=1, dark=0)
+        resultants, read_pattern, gain=1, flat=1, darkrate=0)
     assert np.allclose(slopes, 0)
     resultants[:, :, :] = np.arange(4)[:, None, None]
     resultants *= u.DN
     gain = 1 * u.electron / u.DN
     slopes, readvar, poissonvar = image.make_l2(
         resultants, read_pattern,
-        gain=gain, flat=1, dark=0)
+        gain=gain, flat=1, darkrate=0)
     assert np.allclose(slopes, 1 / parameters.read_time / 4 * u.electron / u.s)
     assert np.all(np.array(slopes.shape) == np.array(readvar.shape))
     assert np.all(np.array(slopes.shape) == np.array(poissonvar.shape))
     assert np.all(readvar >= 0)
     assert np.all(poissonvar >= 0)
     slopes1, readvar1, poissonvar1 = image.make_l2(
-        resultants, read_pattern, read_noise=1, dark=0)
+        resultants, read_pattern, read_noise=1, darkrate=0)
     slopes2, readvar2, poissonvar2 = image.make_l2(
-        resultants, read_pattern, read_noise=2, dark=0)
+        resultants, read_pattern, read_noise=2, darkrate=0)
     assert np.all(readvar2 >= readvar1)
     # because we change the weights depending on the ratio of read & poisson
     # noise, we can't assume above that readvar2 = readvar1 * 4.
     # But it should be pretty darn close here.
     assert np.all(np.abs(readvar2 / (readvar1 * 4) - 1) < 0.1)
     slopes2, readvar2, poissonvar2 = image.make_l2(
-        resultants, read_pattern, read_noise=1, flat=0.5)
+        resultants, read_pattern, read_noise=1, flat=0.5, darkrate=0)
     assert np.allclose(slopes2, slopes1 / 0.5)
     assert np.allclose(readvar2, readvar1 / 0.5**2)
     assert np.allclose(poissonvar2, poissonvar1 / 0.5**2)
     slopes, readvar, poissonvar = image.make_l2(
         resultants, read_pattern, read_noise=1, gain=gain, flat=1,
-        dark=resultants)
-    assert np.allclose(slopes, 0)
+        darkrate=1 / parameters.read_time / 4)
+    assert np.allclose(slopes, 0, atol=1e-6)
 
 
 def set_up_image_rendering_things():
@@ -559,8 +559,9 @@ def test_simulate():
         parameters.persistence['x0'], parameters.persistence['dx'],
         parameters.persistence['alpha'], parameters.persistence['gamma'])
     roughguess = roughguess * 140  # seconds of integration
+    gain = parameters.reference_data['gain']
     assert np.abs(
-        np.log(np.mean(diff * parameters.gain).value / roughguess)) < 1
+        np.log(np.mean(diff * gain).value / roughguess)) < 1
     # within a factor of e
     log.info('DMS224: added persistence to an image.')
 
@@ -723,7 +724,7 @@ def test_inject_source_into_image():
     # Make new image of the combination
     newimage, readvar, poissonvar = image.make_l2(
         newramp * u.DN, read_pattern,
-        gain=1 * u.electron / u.DN, flat=1, dark=0)
+        gain=1 * u.electron / u.DN, flat=1, darkrate=0)
 
     # Create mask of PSF
     nonzero = (sourcecounts.array != 0)

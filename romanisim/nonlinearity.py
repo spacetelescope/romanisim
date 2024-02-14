@@ -125,7 +125,7 @@ class NL:
         if dq is None:
             dq = np.zeros(coeffs.shape[1:], dtype='uint32')
         if gain is None:
-            gain = parameters.gain.to(u.electron / u.DN).value
+            gain = parameters.reference_data['gain'].to(u.electron / u.DN).value
         self.coeffs, self.dq = repair_coefficients(coeffs, dq)
         self.gain = gain
 

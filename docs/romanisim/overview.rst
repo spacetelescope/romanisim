@@ -66,7 +66,7 @@ adds an additional top-level branch to the asdf tree with the name
       ├─ma_table_number (int): 1
       ├─radec (NoneType): None
       ├─sca (int): 7
-      ├─seed (NoneType): None
+      ├─rng_seed (NoneType): None
       ├─simcatobj (NDArrayType): shape=(496,), dtype=void96
       ├─usecrds (bool): False
       └─webbpsf (bool): True
