@@ -124,7 +124,8 @@ def test_convert_flux_to_counts():
 
         # Add delta function flux
         dd_flux = (1.0e-35 * u.erg / (u.s * u.cm ** 2 * u.hertz * constants.h.to(u.erg * u.s))
-                   * area[bandpass.read_gsfc_effarea()['Wave'] == 1.29]).to(1 / u.s)
+                   * np.interp(1.29, bandpass.read_gsfc_effarea()['Wave'], area) * area.unit).to(1 / u.s)
+
         theoretical_flux[filter] = theoretical_flux[filter] + dd_flux
 
         # Computed flux
