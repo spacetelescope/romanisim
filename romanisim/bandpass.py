@@ -125,10 +125,10 @@ def get_abflux(bandpass):
 
 
 def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=None):
-    """Compute the AB zero point fluxes for each filter.
+    """Compute the count rate in a given filter, for a specified SED.
 
     How many photons would an object with SED given by
-    flux deposit in Roman's detectors in a second.
+    flux deposit in Roman's detectors in a second?
 
     Parameters
     ----------

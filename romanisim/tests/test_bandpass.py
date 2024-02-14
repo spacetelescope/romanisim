@@ -58,21 +58,21 @@ def test_compute_abflux(filter):
 
     # Create dirac-delta-like distribution for filter response
     wavedist = np.linspace(wavel.value - 0.001, wavel.value + 0.001, 1000)
-    flux = norm.pdf(wavedist, wavel.value, 0.0001)
+    thru = norm.pdf(wavedist, wavel.value, 0.0001)
 
     # Analytical flux
-    an_flux = (abfv * area / (constants.h.to(u.erg * u.s) * wavel)).to(1 / (u.s * u.micron))
+    theo_flux = (abfv * area / (constants.h.to(u.erg * u.s) * wavel)).to(1 / (u.s * u.micron))
 
     # Table for filter data storage
     data_table = Table()
     data_table['Wave'] = wavedist
-    data_table[filter] = flux
+    data_table[filter] = thru
 
     # Computed flux
     gauss_flux = bandpass.compute_abflux(data_table)
 
     # Comparing both fluxes as magnitudes
-    assert np.isclose(np.log10(an_flux.value), np.log10(gauss_flux[filter]), rtol=1.0e-6)
+    assert np.isclose(np.log10(theo_flux.value), np.log10(gauss_flux[filter]), rtol=1.0e-6)
 
 
 @pytest.mark.parametrize("filter, value", zip(FILTERLIST, ABVLIST))
@@ -84,17 +84,20 @@ def test_get_abflux(filter, value):
 @metrics_logger("DMS233")
 @pytest.mark.soctests
 def test_convert_flux_to_counts():
-    # Define AB zero flux, and dirac delta wavelength
+    # Define dirac delta wavelength
     dd_wavel = 1.290 * u.micron
+
+    # Define effective area table
     effarea = bandpass.read_gsfc_effarea()
 
-    # Create dirac-delta-like distribution for filter response
+    # Define wavelength distribution
     dd_wavedist = effarea['Wave'] * u.micron
 
     # Check that the wavelength spacing is constant
     assert np.all(np.isclose(np.diff(dd_wavedist), np.diff(dd_wavedist)[0], rtol=1.0e-6))
     wave_bin_width = np.diff(dd_wavedist)[0]
 
+    # Create dirac-delta-like distribution
     flux = norm.pdf(dd_wavedist, dd_wavel.value, 0.001)
 
     # Add constant flux
@@ -103,29 +106,36 @@ def test_convert_flux_to_counts():
     # Rescale
     flux *= 1.0e-35
 
-    # Add flux units
+    # Add spectral flux density units
     flux *= u.erg / (u.s * u.cm ** 2 * u.hertz)
 
-    an_flux = {}
-    an_flux_sum = {}
+    theoretical_flux = {}
     computed_flux = {}
+    flux_distro = {}
 
     for filter in IFILTLIST:
         # Define filter area
         area = bandpass.read_gsfc_effarea()[filter] * u.m ** 2
 
-        # Analytical flux
-        an_flux[filter] = (wave_bin_width * (np.divide(np.multiply(area, flux),
-                             dd_wavedist) / constants.h.to(u.erg * u.s))).to(1 / u.s)
+        # Define pedestal flux
+        flux_AB_ratio = ((100.0e-35 * u.erg / (u.s * u.cm ** 2 * u.hertz))
+                         / (3631e-23 * u.erg / (u.s * u.cm ** 2 * u.hertz)))
+        theoretical_flux[filter] = bandpass.get_abflux(filter) * flux_AB_ratio / u.s
 
-        # Sum the flux in the filter
-        an_flux_sum[filter] = np.sum(an_flux[filter])
+        # Add delta function flux
+        dd_flux = (1.0e-35 * u.erg / (u.s * u.cm ** 2 * u.hertz * constants.h.to(u.erg * u.s))
+                   * area[bandpass.read_gsfc_effarea()['Wave'] == 1.29]).to(1 / u.s)
+        theoretical_flux[filter] = theoretical_flux[filter] + dd_flux
 
         # Computed flux
-        computed_flux[filter] = bandpass.compute_count_rate(flux, filter)
+        computed_flux[filter] = bandpass.compute_count_rate(flux, filter) / u.s
 
-        # Test that proper results (within 2%) are returned for select bands.
-        assert np.isclose(an_flux_sum[filter].value, computed_flux[filter], rtol=2.0e-02)
+        # Test that proper results (within 0.2%) are returned for select bands.
+        assert np.isclose(theoretical_flux[filter].value, computed_flux[filter].value, rtol=2.0e-03)
+
+        # Flux distribution for artifacts
+        flux_distro[filter] = (wave_bin_width * (np.divide(np.multiply(area, flux),
+                               dd_wavedist) / constants.h.to(u.erg * u.s))).to(1 / u.s)
 
     # Create log entry and artifacts
     log.info('DMS233: integrated over an input spectra in physical units to derive the number of photons / s.')
@@ -133,8 +143,8 @@ def test_convert_flux_to_counts():
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
     if artifactdir is not None:
         af = asdf.AsdfFile()
-        af.tree = {'an_flux': an_flux,
-                   'an_flux_sum': an_flux_sum,
+        af.tree = {'flux_distro': flux_distro,
+                   'theoretical_flux': theoretical_flux,
                    'computed_flux': computed_flux,
                    'flux': flux}
         af.write_to(os.path.join(artifactdir, 'dms233.asdf'))
@@ -224,7 +234,7 @@ def test_unevenly_sampled_wavelengths_flux_to_counts():
 
         # Analytical flux
         an_counts = (wave_bin_width * (np.divide(np.multiply(area, an_flux), wavedist)
-                                         / constants.h.to(u.erg * u.s))).to(1 / u.s)
+                                       / constants.h.to(u.erg * u.s))).to(1 / u.s)
 
         # Sum the flux in the filter
         an_counts_sum = np.sum(an_counts)
