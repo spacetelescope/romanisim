@@ -127,12 +127,12 @@ def get_abflux(bandpass):
 def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=None):
     """Compute the AB zero point fluxes for each filter.
 
-    How many photons would a zeroth magnitude AB star deposit in
-    Roman's detectors in a second?
+    How many photons would an object with SED given by
+    flux deposit in Roman's detectors in a second.
 
     Parameters
     ----------
-    flux : float
+    flux : float or np.ndarray with shape matching wavedist.
         Spectral flux density
     bandpass : str
         the name of the bandpass
@@ -141,7 +141,7 @@ def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=Non
     effarea : astropy.Table.table
         Table from GSFC with effective areas for each filter.
     wavedist : numpy.ndarray
-        Array of wavelengths along which spectral flux densities are defined
+        Array of wavelengths along which spectral flux densities are defined in microns
 
     Returns
     -------
@@ -155,6 +155,10 @@ def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=Non
     # If wavelength distribution is supplied, interpolate flux and area
     # over it and the effective area table layout
     if wavedist is not None:
+        # Ensure that wavedist and flux have the same shape
+        if wavedist.shape != flux.shape:
+            raise ValueError('wavedist and flux must have identical shapes!')
+
         all_wavel = np.unique(np.concatenate((effarea['Wave'], wavedist)))
         all_flux = np.interp(all_wavel, wavedist, flux)
         all_effarea = np.interp(all_wavel, effarea['Wave'], effarea[bandpass])
