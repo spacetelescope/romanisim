@@ -133,7 +133,7 @@ def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=Non
     Parameters
     ----------
     flux : float or np.ndarray with shape matching wavedist.
-        Spectral flux density
+        Spectral flux density in units of ergs per second * hertz * cm^2
     bandpass : str
         the name of the bandpass
     filename : str
