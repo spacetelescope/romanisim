@@ -48,3 +48,12 @@ def test_simulate_image_file(tmp_path):
     im = asdf.open(args.filename)
     assert im['roman']['data'].shape == (100, 100)
     # we made an image
+
+
+def test_parse_filename():
+    assert ris_make_utils.parse_filename('blah') is None
+    obs = ris_make_utils.parse_filename(
+        'r9999901001001001001_01101_0001_uncal.asdf')
+    assert obs is not None
+    assert obs['program'] == '99999'
+    assert obs['pass'] == 1
