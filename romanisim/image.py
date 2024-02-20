@@ -756,7 +756,7 @@ def simulate(metadata, objlist,
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat)
     if level == 0:
-        im = dict(data=counts.array)
+        im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:
         l1, l1dq = romanisim.l1.make_l1(
             counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,

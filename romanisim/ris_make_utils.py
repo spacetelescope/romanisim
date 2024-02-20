@@ -2,6 +2,8 @@
 """
 
 from copy import deepcopy
+import os
+import re
 import asdf
 from astropy import table
 from astropy import time
@@ -9,6 +11,7 @@ from astropy import coordinates
 import galsim
 from galsim import roman
 import roman_datamodels
+from roman_datamodels import stnode
 from romanisim import catalog, image, wcs
 from romanisim import parameters
 
@@ -38,7 +41,8 @@ def merge_nested_dicts(dict1, dict2):
             dict1[key] = value
 
 
-def set_metadata(meta=None, date=None, bandpass='F087', sca=7, ma_table_number=1, truncate=None):
+def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
+                 ma_table_number=1, truncate=None):
     """
     Set / Update metadata parameters
 
@@ -148,6 +152,61 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
     return cat
 
 
+def parse_filename(filename):
+    """
+    Try program / pass / visit / ... information out of the filename.
+
+    Parameters
+    ----------
+    filename : str
+        filename to parse
+
+    Returns
+    -------
+    dictionary of metadata, or None if filename is non-standard
+    """
+
+    # format is:
+    # r + PPPPPCCAAASSSOOOVVV_ggsaa_eeee_DET_suffix.asdf
+    # PPPPP = program
+    # CC = execution plan number
+    # AAA = pass number
+    # SSS = segment number
+    # OOO = observation number
+    # VVV = visit number
+    # gg = group identifier
+    # s = sequence identifier
+    # aa = activity identifier
+    # eeee = exposure number
+    # rPPPPPCCAAASSSOOOVVV_ggsaa_eeee
+    # 0123456789012345678901234567890
+    if len(filename) < 31:
+        return None
+
+    regex = (r'r(\d{5})(\d{2})(\d{3})(\d{3})(\d{3})(\d{3})'
+              '_(\d{2})(\d{1})([a-zA-Z0-9]{2})_(\d{4})')
+    pattern = re.compile(regex)
+    filename = filename[:31]
+    match = pattern.match(filename)
+    if match is None:
+        return None
+    out = dict(obs_id=filename.replace('_', '')[1:],
+               visit_id=filename[1:20],
+               program=match.group(1),  # this one is a string
+               execution_plan=int(match.group(2)),
+               # pass = int(match.group(3))
+               segment=int(match.group(4)),
+               observation=int(match.group(5)),
+               visit=int(match.group(6)),
+               visit_file_group=int(match.group(7)),
+               visit_file_sequence=int(match.group(8)),
+               visit_file_activity=match.group(9),  # this one is a string
+               exposure=int(match.group(10)))
+    out['pass'] = int(match.group(3))
+    # not done above because pass is a reserved python keyword
+    return out
+
+
 def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     """
     Simulate an image and write it to a file.
@@ -164,10 +223,6 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
         Uniform distribution based off of a random seed
     persist : romanisim.persistence.Persistence
         Persistence object
-
-    Returns
-    -------
-
     """
 
     # Simulate image
@@ -181,6 +236,12 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     if 'filename' in romanisimdict:
         romanisimdict['filename'] = str(romanisimdict['filename'])
     romanisimdict.update(**extras)
+
+    basename = os.path.basename(args.filename)
+    obsdata = parse_filename(basename)
+    if obsdata is not None:
+        im['meta']['observation'].update(**obsdata)
+    im['meta']['filename'] = stnode.Filename(basename)
 
     # Write file
     af = asdf.AsdfFile()
