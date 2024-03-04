@@ -27,9 +27,9 @@ from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
 from romanisim import log
 
 
-def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
-             chromatic=False, **kw):
-    """Make a PSF profile for Roman.
+def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
+                 chromatic=False, **kw):
+    """Make a PSF profile for Roman at a specific detector location.
 
     Can construct both PSFs using galsim's built-in galsim.roman.roman_psfs
     routine, or can use webbpsf.
@@ -54,7 +54,7 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
         galsim profile object for convolution with source profiles when
         rendering scenes.
     """
-    pix = pix if pix is not None else (2044, 2044)
+    pix = pix if pix is not None else (roman.n_pix // 2, roman.n_pix // 2)
     if wcs is None:
         log.warning('wcs is None; unlikely to get orientation of PSF correct.')
     if not webbpsf:
@@ -118,3 +118,89 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     intimg = galsim.InterpolatedImage(
         gimg, normalization='flux', use_true_center=True, offset=centroid)
     return intimg
+
+
+def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
+             chromatic=False, variable=False, **kw):
+    """Make a PSF profile for Roman.
+
+    Optionally supports spatially variable PSFs via interpolation between
+    the four corners.
+
+    Parameters
+    ----------
+    sca : int
+        SCA number
+    filter_name : str
+        name of filter
+    wcs : callable (optional)
+        function giving mapping from pixels to sky for use in computing local
+        scale of image for webbpsf PSFs
+    pix : tuple (float, float)
+        pixel location of PSF on focal plane
+    variable : bool
+        True if a variable PSF object is desired
+    **kw : dict
+        Additional keywords passed to galsim.roman.getPSF
+
+    Returns
+    -------
+    profile : galsim.gsobject.GSObject
+        galsim profile object for convolution with source profiles when
+        rendering scenes.
+    """
+    if not variable:
+        return make_one_psf(sca, filter_name, wcs=wcs, webbpsf=webbpsf,
+                            pix=pix, chromatic=chromatic, **kw)
+    elif pix is not None:
+        raise ValueError('cannot set both pix and variable')
+    buf = 40
+    # WebbPSF complains if we get too close to (0, 0) for some reason.
+    # For other corners one can go to within a fraction of a pixel.
+    corners = dict(
+        ll=[buf, buf], lr=[roman.n_pix - buf, buf],
+        ul=[buf, roman.n_pix - buf], ur=[roman.n_pix - buf, roman.n_pix - buf])
+    psfs = dict()
+    for corner, pix in corners.items():
+        psfs[corner] = make_one_psf(sca, filter_name, wcs=wcs, webbpsf=webbpsf,
+                                    pix=pix, chromatic=chromatic, **kw)
+    return VariablePSF(corners, psfs)
+
+
+class VariablePSF:
+    """Spatially variable PSF wrapping GalSim profiles.
+
+    Linearly interpolates between four corner PSF profiles by summing
+    weighted GalSim PSF profiles.
+    """
+
+    def __init__(self, corners, psf):
+        self.corners = corners
+        self.psf = psf
+
+    def at_position(self, x, y):
+        """Instantiate a PSF profile at (x, y).
+
+        Linearly interpolate between the four corners to obtain the
+        PSF at this location.
+
+        Parameters
+        ----------
+        x : float
+            x position
+        y : float
+            y position
+
+        Returns
+        -------
+        GalSim profile representing PSF at (x, y).
+        """
+        npix = self.corners['ur'][-1]
+        off = self.corners['ll'][0]
+        wleft = np.clip((npix - x) / npix, 0, 1)
+        wlow = np.clip((npix - y) / npix, 0, 1)
+        out = (self.psf['ll'] * wleft * wlow +
+               self.psf['lr'] * (1 - wleft) * wlow +
+               self.psf['ul'] * wleft * (1 - wlow) +
+               self.psf['ur'] * (1 - wleft) * (1 - wlow))
+        return out

@@ -33,6 +33,8 @@ def test_make_psf():
     chromatic[3] = True
     bandpass = galsim.roman.getBandpasses(AB_zeropoint=True)['H158']
     vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
+    varpsf = psf.make_psf(8, 'F087', webbpsf=True, variable=True)
+    psfs.append(varpsf.at_position(100, 100))
     for p, c in zip(psfs, chromatic):
         if not c:
             im = p.drawImage().array
