@@ -197,8 +197,11 @@ class VariablePSF:
         """
         npix = self.corners['ur'][-1]
         off = self.corners['ll'][0]
-        wleft = np.clip((npix - x) / npix, 0, 1)
-        wlow = np.clip((npix - y) / npix, 0, 1)
+        wleft = np.clip((npix - x) / (npix - off), 0, 1)
+        wlow = np.clip((npix - y) / (npix - off), 0, 1)
+        # x = [0, off] -> 1
+        # x = [npix, infinity] -> 0
+        # linearly between those, likewise for y.
         out = (self.psf['ll'] * wleft * wlow +
                self.psf['lr'] * (1 - wleft) * wlow +
                self.psf['ul'] * wleft * (1 - wlow) +
