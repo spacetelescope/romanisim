@@ -278,7 +278,11 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
                 raise ValueError('Non-chromatic sources must have specified '
                                  'fluxes!')
             profile = profile.withFlux(obj.flux[filter_name])
-        final = galsim.Convolve(profile * flux_to_counts_factor, psf)
+        if hasattr(psf, 'at_position'):
+            psf0 = psf.at_position(xpos[i], ypos[i])
+        else:
+            psf0 = psf
+        final = galsim.Convolve(profile * flux_to_counts_factor, psf0)
         if chromatic:
             stamp = final.drawImage(
                 bandpass, center=image_pos, wcs=image.wcs.local(image_pos),
@@ -530,7 +534,8 @@ def simulate_counts(metadata, objlist,
             and objlist[0].profile.spectral):
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
-                                 chromatic=chromatic, webbpsf=webbpsf)
+                                 chromatic=chromatic, webbpsf=webbpsf,
+                                 variable=True)
     image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
