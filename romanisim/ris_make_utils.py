@@ -258,4 +258,4 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     af = asdf.AsdfFile()
     af.tree = {'roman': im, 'romanisim': romanisimdict}
 
-    af.write_to(args.filename)
+    af.write_to(open(args.filename, 'wb'))
