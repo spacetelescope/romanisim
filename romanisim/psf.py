@@ -24,7 +24,7 @@ from romanisim import log
 
 
 def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
-                 chromatic=False, **kw):
+                 chromatic=False, oversample=4, **kw):
     """Make a PSF profile for Roman at a specific detector location.
 
     Can construct both PSFs using galsim's built-in galsim.roman.roman_psfs
@@ -41,8 +41,11 @@ def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
         scale of image for webbpsf PSFs
     pix : tuple (float, float)
         pixel location of PSF on focal plane
+    oversample : int
+        oversampling with which to sample WebbPSF PSF
     **kw : dict
-        Additional keywords passed to galsim.roman.getPSF
+        Additional keywords passed to galsim.roman.getPSF or webbpsf.calc_psf,
+        depending on whether webbpsf is set.
 
     Returns
     -------
@@ -75,8 +78,7 @@ def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     wfi.detector = f'SCA{sca:02d}'
     wfi.filter = filter_name
     wfi.detector_position = pix
-    oversample = kw.get('oversample', 4)
-    psf = wfi.calc_psf(oversample=oversample)
+    psf = wfi.calc_psf(oversample=oversample, **kw)
     # webbpsf doesn't do distortion
     # calc_psf gives something aligned with the pixels, but with
     # a constant pixel scale equal to wfi.pixelscale / oversample.
@@ -137,7 +139,7 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     variable : bool
         True if a variable PSF object is desired
     **kw : dict
-        Additional keywords passed to galsim.roman.getPSF
+        Additional keywords passed to make_one_psf
 
     Returns
     -------
