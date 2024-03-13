@@ -214,17 +214,21 @@ def add_more_metadata(metadata):
     metadata['exposure']['duration'] = openshuttertime
     metadata['exposure']['read_pattern'] = read_pattern
     # integration_start?  integration_end?  nints = 1?  ...
+
+    if 'target' not in metadata.keys():
+        metadata['target'] = {}
     target = metadata['target']
     target['type'] = 'FIXED'
-    target['ra'] = parameters['wcsinfo']['ra_ref']
-    target['dec'] = parameters['wcsinfo']['dec_ref']
+    if 'wcsinfo' in metadata.keys():
+        target['ra'] = metadata['wcsinfo']['ra_ref']
+        target['dec'] = metadata['wcsinfo']['dec_ref']
+        target['proposer_ra'] = target['ra']
+        target['proposer_dec'] = target['dec']
     target['ra_uncertainty'] = 0
     target['dec_uncertainty'] = 0
     target['proper_motion_ra'] = 0
     target['proper_motion_dec'] = 0
     target['proper_motion_epoch'] = 'J2000'
-    target['proposer_ra'] = target['ra']
-    target['proposer_dec'] = target['dec']
     target['source_type'] = 'EXTENDED'
 
 
