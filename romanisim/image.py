@@ -90,11 +90,11 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     Returns
     -------
-    im : galsim.Image
+    im : np.ndarray
         best fitting slopes
-    var_rnoise : galsim.Image
+    var_rnoise : np.ndarray
         variance in slopes from read noise
-    var_poisson : galsim.Image
+    var_poisson : np.ndarray
         variance in slopes from source noise
     """
 
@@ -130,6 +130,9 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     if darkrate is not None:
         ramppar[..., 1] -= darkrate
 
+    if isinstance(gain, u.Quantity):
+        gain = gain.value  # no values make sense except for electron / DN
+
     # The ramp fitter is not presently unit-aware; fix up the units by hand.
     # To do this right the ramp fitter should be made unit aware.
     # It takes a bit of work to get this right because we use the fact
@@ -137,9 +140,9 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     # which isn't true as soon as things start having units and requires
     # special handling.  And we use read_time without units a lot throughout
     # the code base.
-    slopes = ramppar[..., 1] * u.electron / u.s
-    readvar = rampvar[..., 0, 1, 1] * (u.electron / u.s)**2
-    poissonvar = rampvar[..., 1, 1, 1] * (u.electron / u.s)**2
+    slopes = ramppar[..., 1] / gain * u.DN / u.s
+    readvar = rampvar[..., 0, 1, 1] / gain * (u.DN / u.s)**2
+    poissonvar = rampvar[..., 1, 1, 1] / gain * (u.DN / u.s)**2
 
     if flat is not None:
         flat = np.clip(flat, 1e-9, np.inf)
