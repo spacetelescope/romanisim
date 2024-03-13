@@ -90,11 +90,11 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     Returns
     -------
-    im : galsim.Image
+    im : np.ndarray
         best fitting slopes
-    var_rnoise : galsim.Image
+    var_rnoise : np.ndarray
         variance in slopes from read noise
-    var_poisson : galsim.Image
+    var_poisson : np.ndarray
         variance in slopes from source noise
     """
 
