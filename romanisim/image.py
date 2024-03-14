@@ -475,7 +475,8 @@ def simulate_counts(metadata, objlist,
                     rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
                     webbpsf=True,
-                    darkrate=None, flat=None):
+                    darkrate=None, flat=None,
+                    psf_keywords=dict()):
     """Simulate total counts in a single SCA.
 
     This gives the total counts in an idealized instrument with no systematics;
@@ -499,6 +500,8 @@ def simulate_counts(metadata, objlist,
         dark rate image to use (electrons / s)
     flat : float or np.ndarray[float]
         flat field to use
+    psf_keywords : dict
+        keywords passed to PSF generation routine
 
     Returns
     -------
@@ -538,7 +541,7 @@ def simulate_counts(metadata, objlist,
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
                                  chromatic=chromatic, webbpsf=webbpsf,
-                                 variable=True)
+                                 variable=True, **psf_keywords)
     image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
@@ -667,7 +670,8 @@ def gather_reference_data(image_mod, usecrds=False):
 
 def simulate(metadata, objlist,
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
-             persistence=None, seed=None, rng=None, **kwargs
+             persistence=None, seed=None, rng=None,
+             psf_keywords=dict(), **kwargs
              ):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -701,6 +705,8 @@ def simulate(metadata, objlist,
         Random number generator to use
     seed : int
         Seed for populating RNG.  Only used if rng is None.
+    psf_keywords : dict
+        Keywords passed to the PSF generation routine
 
     Returns
     -------
@@ -762,7 +768,7 @@ def simulate(metadata, objlist,
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
-        webbpsf=webbpsf, flat=flat)
+        webbpsf=webbpsf, flat=flat, psf_keywords=psf_keywords)
     if level == 0:
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:
