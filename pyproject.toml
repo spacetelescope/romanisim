@@ -1,75 +1,78 @@
 [project]
-name = 'romanisim'
-description = 'Nancy Grace Roman Space Telescope WFI Simulator'
-readme = 'README.md'
-requires-python = '>=3.10'
-license = { file = 'LICENSE' }
-authors = [{ name = 'STScI', email = 'help@stsci.edu' }]
+name = "romanisim"
+description = "Nancy Grace Roman Space Telescope WFI Simulator"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "STScI", email = "help@stsci.edu" },
+]
 classifiers = [
-    'Intended Audience :: Science/Research',
-    'Topic :: Scientific/Engineering :: Astronomy',
-    'License :: OSI Approved :: BSD License',
-    'Operating System :: MacOS :: MacOS X',
-    'Operating System :: POSIX',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3 :: Only',
-    'Programming Language :: Python :: 3.10',
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    'asdf >=2.15.1',
-    'astropy >=5.3',
-    'crds >=10.3.1',
-    'defusedxml >=0.5.0',
-    'galsim >=2.5.1',
-    # 'rad >=0.18.0',
-    # 'roman_datamodels >=0.18.0',
-    'rad @ git+https://github.com/spacetelescope/rad.git',
-    'roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git',
-    # dev versions of rad / roman_datamodels until released with DN/s units.
-    'gwcs >=0.18.1',
-    'jsonschema >=4.8',
-    'numpy >=1.22',
-    'webbpsf >=1.0.0',
-    'Cython >=0.29.21',
+    "asdf >=2.15.1",
+    "astropy >=5.3",
+    "crds >=10.3.1",
+    "defusedxml >=0.5.0",
+    "galsim >=2.5.1",
+    "rad @ git+https://github.com/spacetelescope/rad.git",
+    "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
+    "gwcs >=0.18.1",
+    "jsonschema >=4.8",
+    "numpy >=1.22",
+    "webbpsf >=1.0.0",
+    "Cython >=0.29.21",
 ]
-dynamic = ['version']
+dynamic = [
+    "version",
+]
+
+[project.license]
+file = "LICENSE"
 
 [project.optional-dependencies]
 docs = [
-    'sphinx <7',
-    'sphinx-automodapi',
-    'sphinx-rtd-theme',
-    'stsci-rtd-theme',
-    'sphinx-astropy',
-    'sphinx-asdf >=0.1.1',
-    'tomli; python_version <"3.11"'
+    "sphinx <7",
+    "sphinx-automodapi",
+    "sphinx-rtd-theme",
+    "stsci-rtd-theme",
+    "sphinx-astropy",
+    "sphinx-asdf >=0.1.1",
+    "tomli; python_version <\"3.11\"",
 ]
 test = [
-    'ci-watson >=0.3.0',
-    'colorama >=0.4.1',
-    'getch >=1.0.0',
-    'pytest >=4.6.0, <=8.0',
-    'pytest-openfiles >=0.5.0',
-    'pytest-doctestplus >=0.10.0',
-    'pytest-cov >=2.9.0',
-    'flake8 >=3.6.0',
-    'metrics_logger >= 0.1.0',
+    "ci-watson >=0.3.0",
+    "colorama >=0.4.1",
+    "getch >=1.0.0",
+    "pytest >=4.6.0, <=8.0",
+    "pytest-openfiles >=0.5.0",
+    "pytest-doctestplus >=0.10.0",
+    "pytest-cov >=2.9.0",
+    "flake8 >=3.6.0",
+    "metrics_logger >= 0.1.0",
 ]
 
 [project.urls]
-'Tracker' = 'https://github.com/spacetelescope/romanisim/issues'
-'Documentation' = 'https://romanisim.readthedocs.io/en/stable/'
-'Source Code' = 'https://github.com/spacetelescope/romanisim'
+Tracker = "https://github.com/spacetelescope/romanisim/issues"
+Documentation = "https://romanisim.readthedocs.io/en/stable/"
+"Source Code" = "https://github.com/spacetelescope/romanisim"
 
 [build-system]
 requires = [
-    'setuptools >=61',
-    'setuptools_scm[toml] >=3.4',
-    'wheel',
-    'Cython >=0.29.21',
-    'numpy >=1.18',
+    "setuptools >=61",
+    "setuptools_scm[toml] >=3.4",
+    "wheel",
+    "Cython >=0.29.21",
+    "numpy >=1.18",
 ]
-build-backend = 'setuptools.build_meta'
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 
@@ -77,47 +80,50 @@ build-backend = 'setuptools.build_meta'
 zip-safe = false
 
 [tool.setuptools.packages.find]
-exclude = ['examples']
+exclude = [
+    "examples",
+]
 
 [tool.pytest.ini_options]
 minversion = 4.6
 norecursedirs = [
-    'docs/_build',
-    'docs/exts',
-    'scripts',
-    'build',
-    '.tox',
+    "docs/_build",
+    "docs/exts",
+    "scripts",
+    "build",
+    ".tox",
 ]
-doctest_plus = 'enabled'
-doctest_rst = 'enabled'
+doctest_plus = "enabled"
+doctest_rst = "enabled"
 markers = [
-    'soctests: run only the SOC tests in the suite.',
-    'bigdata: uses a lot of data.',
+    "soctests: run only the SOC tests in the suite.",
+    "bigdata: uses a lot of data.",
 ]
 
-[tool.coverage]
-run = { omit = [
-    'romanisim/conftest.py',
-    'romanisim/setup.py',
-    'romanisim/tests/test*',
-    'docs/*',
-    # And list these again for running against installed version
-    '*/romanisim/conftest.py',
-    '*/romanisim/tests/test*',
-    '*/romanisim/regtest/test*',
-    '*/romanisim/*/tests/*',
-    '*/docs/*',
-] }
-report = { exclude_lines = [
-    'pragma: no cover',
-    'if self.debug:',
-    'except ImportError',
-    'raise AssertionError',
-    'raise NotImplementedError',
-    'if __name__ == "__main__":',
-] }
+[tool.coverage.run]
+omit = [
+    "romanisim/conftest.py",
+    "romanisim/setup.py",
+    "romanisim/tests/test*",
+    "docs/*",
+    "*/romanisim/conftest.py",
+    "*/romanisim/tests/test*",
+    "*/romanisim/regtest/test*",
+    "*/romanisim/*/tests/*",
+    "*/docs/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if self.debug:",
+    "except ImportError",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == \"__main__\":",
+]
 
 [tool.ruff]
 extend-ignore = [
-    "E501", # Line too long
+    "E501",
 ]
