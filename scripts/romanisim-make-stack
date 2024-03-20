@@ -8,7 +8,7 @@ from astropy import units as u
 from astropy.table import Table
 from astropy.time import Time
 import galsim
-from romanisim import wcs, persistence, log, parameters
+from romanisim import wcs, persistence, log, parameters, apt
 from romanisim.parameters import default_parameters_dictionary
 from romanisim import ris_make_utils as ris
 
@@ -25,7 +25,7 @@ def main():
                         metavar='mosaic_list.csv',
                         help='Input (csv) file containing lists of observation parameters: '
                              'ra, dec, roll_angle, optical_element, date, overhead_time, '
-                             'ms_table_number')
+                             'ma_table_number')
 
     # WCS Object Catalog
     parser.add_argument('cat_file_name',
@@ -155,7 +155,17 @@ def main():
         previous_file_name = {}
 
     # Obtain pointing information from input file
-    pointings = Table.read(args.pointing_file_name, comment="#", delimiter=" ")
+    with open(args.pointing_file_name, "r") as pfile:
+        # Test if pointing file is XML (APT) or CSV (Table)
+        file_is_apt = (pfile.read(1) == "<")
+
+    if file_is_apt:
+        # If APT file, create proper table from it
+        obs_list = apt.read_apt(args.pointing_file_name)
+        pointings = apt.create_sim_table(obs_list)
+    else:
+        # Open csv table pointing file    
+        pointings = Table.read(args.pointing_file_name, comment="#", delimiter=" ")
 
     # Loop over pointings
     for entry_idx, entry in enumerate(pointings):
