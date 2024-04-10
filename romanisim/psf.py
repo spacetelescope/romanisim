@@ -152,9 +152,10 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
                             pix=pix, chromatic=chromatic, **kw)
     elif pix is not None:
         raise ValueError('cannot set both pix and variable')
-    buf = 50
+    buf = 49
     # WebbPSF complains if we get too close to (0, 0) for some reason.
     # For other corners one can go to within a fraction of a pixel.
+    # if we go larger than 49 we have to change some of the tests, which use a 100x100 image.
     corners = dict(
         ll=[buf, buf], lr=[roman.n_pix - buf, buf],
         ul=[buf, roman.n_pix - buf], ur=[roman.n_pix - buf, roman.n_pix - buf])
