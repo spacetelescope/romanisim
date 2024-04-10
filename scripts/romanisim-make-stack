@@ -163,6 +163,7 @@ def main():
         # If APT file, create proper table from it
         obs_list = apt.read_apt(args.pointing_file_name)
         pointings = apt.create_sim_table(obs_list)
+        print(f"pointings = {pointings}")
     else:
         # Open csv table pointing file    
         pointings = Table.read(args.pointing_file_name, comment="#", delimiter=" ")
