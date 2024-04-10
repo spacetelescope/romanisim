@@ -152,7 +152,7 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
                             pix=pix, chromatic=chromatic, **kw)
     elif pix is not None:
         raise ValueError('cannot set both pix and variable')
-    buf = 40
+    buf = 50
     # WebbPSF complains if we get too close to (0, 0) for some reason.
     # For other corners one can go to within a fraction of a pixel.
     corners = dict(
