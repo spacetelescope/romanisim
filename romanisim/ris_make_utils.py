@@ -4,6 +4,7 @@
 from copy import deepcopy
 import os
 import re
+import defusedxml.ElementTree
 import asdf
 from astropy import table
 from astropy import time
@@ -15,6 +16,7 @@ from roman_datamodels import stnode
 from romanisim import catalog, image, wcs
 from romanisim import parameters
 
+NMAP = {'apt':'{http://www.stsci.edu/Roman/APT}'}
 
 def merge_nested_dicts(dict1, dict2):
     """
@@ -248,3 +250,158 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     af.tree = {'roman': im, 'romanisim': romanisimdict}
 
     af.write_to(args.filename)
+
+
+def parse_apt_file(filename, csv_exposures):
+    """
+    Pry program / pass / visit / ... information out of the apt file.
+
+    Parameters
+    ----------
+    filename : str
+        filename of apt to parse
+
+    Returns
+    -------
+    dictionary of metadata
+    """
+
+    # format is:
+    # r + PPPPPCCAAASSSOOOVVV_ggsaa_eeee_DET_suffix.asdf
+    # PPPPP = program
+    # CC = execution plan number
+    # AAA = pass number
+    # SSS = segment number
+    # OOO = observation number
+    # VVV = visit number
+    # gg = group identifier
+    # s = sequence identifier
+    # aa = activity identifier
+    # eeee = exposure number
+    # rPPPPPCCAAASSSOOOVVV_ggsaa_eeee
+    # 0123456789012345678901234567890
+    # if len(filename) < 31:
+    #     return None
+
+    # regex = (r'r(\d{5})(\d{2})(\d{3})(\d{3})(\d{3})(\d{3})'
+    #           '_(\d{2})(\d{1})([a-zA-Z0-9]{2})_(\d{4})')
+    # pattern = re.compile(regex)
+    # filename = filename[:31]
+    # match = pattern.match(filename)
+    # if match is None:
+    #     return None
+
+
+    # tree = defusedxml.ElementTree.parse(filename)
+    # targs = tree.find(XMLNS + 'Targets')
+    # target_elements = targs.findall(XMLNS + 'FixedTarget')
+    # target_dict = dict()
+    # for target in target_elements:
+    #     t_name = target.find(XMLNS + 'TargetName').text
+    #     t_coords = target.find(XMLNS + 'EquatorialCoordinates').get('Value')
+    #     t_coords = coordinates.SkyCoord(t_coords, unit=(u.hourangle, u.deg))
+    #     t_number = int(target.find(XMLNS + 'Number').text)
+    #     target_dict[t_number] = Target(t_name, t_number, t_coords)
+    # # I don't see any exposure time information.
+    # # I do see 'mosaic' information, but I am going to ignore it.
+    # # I don't see any exposure date information.
+    # # I think I'm supposed to record the target number, then go through
+    # # the pass plans, then get the observations in each pass plan.
+    # passplansection = tree.find(XMLNS + 'PassPlans')
+    # passplans = passplansection.findall(XMLNS + 'PassPlan')
+    # observations = sum([p.findall(XMLNS + 'Observation') for p in passplans],
+
+
+    apt_tree = defusedxml.ElementTree.parse(filename)
+    # apt_root = apt_tree.getroot()
+    # program = apt_tree.find('.//' + XMLNS + 'ProgramID').text if apt_tree.find('.//' + XMLNS + 'ProgramID').text else 1
+    # program = apt_tree.find('.//apt/ProgramID', namespaces=NMAP).text if apt_tree.find('.//apt/ProgramID', namespaces=NMAP).text else 1
+    program = apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text if apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text else 1
+
+
+    # execution_plan = apt_tree.find('.//' + XMLNS + 'ExecutionPlans').get('Value') if apt_tree.find('.//' + XMLNS + 'ExecutionPlans') else 1
+    execution_plan = 1
+    # This should be nested under execution plan?
+    # pass_plan_tree = apt_root.find('.//' + XMLNS + 'PassPlans')
+    # pass_plan_tree = apt_tree.find('.//apt:PassPlans', namespaces=NMAP)
+    pass_plan_tree = apt_tree.find('.//{*}PassPlans', namespaces=NMAP)
+    # pass_plans = pass_plan_tree.findall('.//' + XMLNS + 'PassPlan') if pass_plan_tree.findall('.//' + XMLNS + 'PassPlan') else [-1]
+    # pass_plans = pass_plan_tree.findall('.//apt:PassPlan', namespaces=NMAP) if pass_plan_tree.findall('.//apt:PassPlan', namespaces=NMAP) else [-1]
+    pass_plans = pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) if pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) else [-1]
+
+
+    # pass_numbers = apt_tree.findall('.//' + XMLNS + 'PassPlan').get('Number') if apt_tree.findall('.//' + XMLNS + 'PassPlan') else -1
+    passes = []
+    pass_numbers = []
+    segments = []
+    total_apt_exposures = 0
+    for exp in apt_tree.findall('.//{*}NumberOfExposures', namespaces=NMAP):
+        total_apt_exposures += int(exp.text)
+
+    print(f"total_apt_exposures = {total_apt_exposures}")
+    if csv_exposures > total_apt_exposures:
+        avg_visits = int(csv_exposures / total_apt_exposures)
+    else:
+        avg_visits = 1
+
+    name_prefix_lst = []
+
+    segment = 1
+    group = 1
+    sequence = 1
+    activity = 1
+
+    for pn in pass_plans:
+        # pass_info_dict = {}
+        # pass_info_dict["pass_number"] = pn.get('Number')
+        # pass_info_dict["segment"] = 0
+        pass_numbers.append(pn.get('Number'))
+        segments.append(1)
+
+        pass_number = pn.get('Number')
+
+        obs_num = 0      
+
+        for on in pn.findall('.//{*}Observation', namespaces=NMAP):
+            obs_num += 1
+            print(f"obs_num = {obs_num}")
+            exp_num = int(on.find('.//{*}NumberOfExposures', namespaces=NMAP).text)
+
+            for vn in range(avg_visits):
+                for en in range(exp_num):
+                    # Can make the Programmatic observation identifier list now
+                    prefix = "r" + str(program).zfill(5) + str(execution_plan).zfill(2) + str(pass_number).zfill(3) +\
+                             str(segment).zfill(3) + str(obs_num).zfill(3) + str(vn+1).zfill(3) + "_" +\
+                             str(group).zfill(2) + str(sequence).zfill(1) + str(activity).zfill(2) + "_" + str(en+1).zfill(4)
+                    name_prefix_lst.append(prefix)
+
+
+    # out = dict(obs_id=filename.replace('_', '')[1:],
+    #            visit_id=filename[1:20],
+    #            program=match.group(1),  # this one is a string
+    #            execution_plan=int(match.group(2)),
+    #            # pass = int(match.group(3))
+    #            segment=int(match.group(4)),
+    #            observation=int(match.group(5)),
+    #            visit=int(match.group(6)),
+    #            visit_file_group=int(match.group(7)),
+    #            visit_file_sequence=int(match.group(8)),
+    #            visit_file_activity=match.group(9),  # this one is a string
+    #            exposure=int(match.group(10)))
+    # out['pass'] = int(match.group(3))
+    # not done above because pass is a reserved python keyword
+    out = dict(# obs_id=obs_id,
+               # visit_id=visit_id,
+               program=program,  # this one is a string
+               execution_plan=execution_plan,
+               pass_numbers = pass_numbers,
+               segment=segments,
+               # observation=observation,
+               # visit=visit,
+               # visit_file_group=visit_file_group,
+               # visit_file_sequence=visit_file_sequence,
+               # visit_file_activity=visit_file_activity,  # this one is a string
+               # exposure=exposure
+               )
+    
+    return name_prefix_lst
