@@ -22,17 +22,21 @@ class FakeWCS():
 
 def test_make_psf():
     psfs = []
-    psfs.append(psf.make_psf(1, 'F087'))
-    psfs.append(psf.make_psf(2, 'F184', chromatic=False))
+    pkw = dict(nlambda=1)
+    psfs.append(psf.make_psf(1, 'F087', **pkw))
+    psfs.append(psf.make_psf(2, 'F184', chromatic=False, **pkw))
     psfs.append(psf.make_psf(3, 'F184', webbpsf=False))
     psfs.append(psf.make_psf(4, 'H158', webbpsf=False, chromatic=True))
     psfs.append(psf.make_psf(5, 'F184', pix=(1000, 1000), webbpsf=False))
-    psfs.append(psf.make_psf(6, 'F184', pix=(1000, 1000), webbpsf=True))
-    psfs.append(psf.make_psf(7, 'F129', wcs=FakeWCS()))
+    psfs.append(psf.make_psf(6, 'F184', pix=(1000, 1000), webbpsf=True,
+                             **pkw))
+    psfs.append(psf.make_psf(7, 'F129', wcs=FakeWCS(), **pkw))
     chromatic = [False] * 7
     chromatic[3] = True
     bandpass = galsim.roman.getBandpasses(AB_zeropoint=True)['H158']
     vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
+    varpsf = psf.make_psf(8, 'F087', webbpsf=True, variable=True, **pkw)
+    psfs.append(varpsf.at_position(100, 100))
     for p, c in zip(psfs, chromatic):
         if not c:
             im = p.drawImage().array

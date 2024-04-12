@@ -34,7 +34,7 @@ jobs:
       webbpsf_path: ${{ steps.webbpsf_path.outputs.path }}
       galsim_cat_path: ${{ steps.galsim_cat_path.outputs.path }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - id: data
@@ -53,7 +53,7 @@ jobs:
           wget ${{ steps.data.outputs.galsim_url }}/real_galaxy_catalog_23.5_example_fits.fits -O galsim-data/real_galaxy_catalog_23.5_example_fits.fits
       - id: data_hash
         run: echo "hash=${{ hashFiles( 'romanisim/data' ) }}" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: ${{ steps.data.outputs.path }}
           key: data-${{ steps.data_hash.outputs.hash }}

@@ -15,6 +15,5 @@ This is a fairly faithful representation of how level two image construction wor
 
 * We have a simplistic saturation treatment, just clipping resultants that exceed
   the saturation level to the saturation level and throwing a flag.
-* We do not include dark counts as part of the Poisson noise term in the ramp fitting.
 
 .. automodapi:: romanisim.ramp

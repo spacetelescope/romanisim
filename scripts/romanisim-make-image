@@ -45,6 +45,11 @@ if __name__ == '__main__':
                         help='Use webbpsf for PSF')
     parser.add_argument('--truncate', type=int, default=None, help=(
         'If set, truncate the MA table at given number of resultants.'))
+    parser.add_argument('--pretend-spectral', type=str, default=None, help=(
+        'Pretend the image is spectral.  exposure.type and instrument.element '
+        'are updated to be grism / prism.'))
+    parser.add_argument('--drop-extra-dq', default=False, action='store_true',
+                        help=('Do not store the optional simulated dq array.'))
 
     args = parser.parse_args()
 

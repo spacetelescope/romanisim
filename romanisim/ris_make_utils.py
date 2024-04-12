@@ -245,11 +245,22 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
         im['meta']['observation'].update(**obsdata)
     im['meta']['filename'] = stnode.Filename(basename)
 
+    pretend_spectral = getattr(args, 'pretend_spectral', None)
+    if pretend_spectral is not None:
+        im['meta']['exposure']['type'] = (
+            'WFI_' + args.pretend_spectral.upper())
+        im['meta']['instrument']['optical_element'] = (
+            args.pretend_spectral.upper())
+
+    drop_extra_dq = getattr(args, 'drop_extra_dq', False)
+    if drop_extra_dq:
+        romanisimdict.pop('dq')
+
     # Write file
     af = asdf.AsdfFile()
     af.tree = {'roman': im, 'romanisim': romanisimdict}
 
-    af.write_to(args.filename)
+    af.write_to(open(args.filename, 'wb'))
 
 
 def parse_apt_file(filename, csv_exposures):
