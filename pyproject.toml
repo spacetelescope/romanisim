@@ -2,7 +2,7 @@
 name = 'romanisim'
 description = 'Nancy Grace Roman Space Telescope WFI Simulator'
 readme = 'README.md'
-requires-python = '>=3.9'
+requires-python = '>=3.10'
 license = { file = 'LICENSE' }
 authors = [{ name = 'STScI', email = 'help@stsci.edu' }]
 classifiers = [
@@ -13,7 +13,7 @@ classifiers = [
     'Operating System :: POSIX',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3 :: Only',
-    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
 ]
 dependencies = [
     'asdf >=2.15.1',

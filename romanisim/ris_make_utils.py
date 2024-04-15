@@ -4,6 +4,7 @@
 from copy import deepcopy
 import os
 import re
+import numpy as np
 import asdf
 from astropy import table
 from astropy import time
@@ -13,7 +14,7 @@ from galsim import roman
 import roman_datamodels
 from roman_datamodels import stnode
 from romanisim import catalog, image, wcs
-from romanisim import parameters
+from romanisim import parameters, log
 
 
 def merge_nested_dicts(dict1, dict2):
@@ -148,6 +149,17 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
             coord, bandpasses=bandpasses, nobj=nobj, rng=rng)
     else:
         cat = table.Table.read(catalog_name, comment="#", delimiter=" ")
+        bandpass = [f for f in cat.dtype.names if f[0] == 'F']
+        bad = np.zeros(len(cat), dtype='bool')
+        for b in bandpass:
+            bad |= ~np.isfinite(cat[b])
+            if hasattr(cat[b], 'mask'):
+                bad |= cat[b].mask
+        cat = cat[~bad]
+        nbad = np.sum(bad)
+        if nbad > 0:
+            log.info(f'Removing {nbad} catalog entries with non-finite or '
+                     'masked fluxes.')
 
     return cat
 
@@ -251,7 +263,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
             args.pretend_spectral.upper())
 
     drop_extra_dq = getattr(args, 'drop_extra_dq', False)
-    if drop_extra_dq:
+    if drop_extra_dq and ('dq' in romanisimdict):
         romanisimdict.pop('dq')
 
     # Write file

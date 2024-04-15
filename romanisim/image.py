@@ -458,7 +458,9 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 
     if not np.all(flat == 1):
         image.quantize()
-        image.array[:, :] = np.random.binomial(
+        rng_numpy_seed = rng.raw()
+        rng_numpy = np.random.default_rng(rng_numpy_seed)
+        image.array[:, :] = rng_numpy.binomial(
             image.array.astype('i4'), flat / maxflat)
 
     if dark is not None:
@@ -800,6 +802,7 @@ def simulate(metadata, objlist,
             extras["simulate_reffiles"][key] = value
 
     extras['simcatobj'] = simcatobj
+    extras['wcs'] = wcs.convert_wcs_to_gwcs(counts.wcs)
     log.info('Simulation complete.')
     return im, extras
 
@@ -878,12 +881,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         out['meta'].update(metadata)
 
     if imwcs is not None:  # add a WCS
-        if isinstance(imwcs, wcs.GWCS):
-            out['meta'].update(wcs=imwcs.wcs)
-        else:
-            # make a gwcs WCS from a galsim.roman WCS
-            out['meta'].update(
-                wcs=wcs.wcs_from_fits_header(imwcs.header.header))
+        out['meta'].update(wcs=wcs.convert_wcs_to_gwcs(imwcs))
 
     out['data'] = slope
     out['dq'] = np.zeros(slope.shape, dtype='u4')

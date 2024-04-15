@@ -384,3 +384,22 @@ def wcs_from_fits_header(header):
     gw.bounding_box = ((-0.5, nx - 0.5), (-0.5, ny - 0.5))
 
     return gw
+
+
+def convert_wcs_to_gwcs(wcs):
+    """Convert a GalSim WCS object into a GWCS object.
+
+    Parameters
+    ----------
+    wcs : gwcs.wcs.WCS or wcs.GWCS
+        input WCS to convert
+
+    Returns
+    -------
+    wcs.GWCS corresponding to wcs.
+    """
+    if isinstance(wcs, GWCS):
+        return wcs.wcs
+    else:
+        # make a gwcs WCS from a galsim.roman WCS
+        return wcs_from_fits_header(wcs.header.header)
