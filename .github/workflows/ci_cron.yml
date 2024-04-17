@@ -60,6 +60,6 @@ jobs:
       cache-path: ${{ needs.data.outputs.path }}
       cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
-        - macos: py39-xdist
         - macos: py310-xdist
+        - macos: py311-xdist
         - linux: py3-devdeps-xdist

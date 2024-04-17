@@ -28,3 +28,4 @@ romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --ca
 # truncated spectroscopic image
 romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --webbpsf --usecrds --ma_table_number 110 --date 2027-06-01T00:30:00 --rng_seed 7 --drop-extra-dq r0000201001001001001_01101_0004_WFI01_uncal.asdf --pretend-spectral GRISM &
 
+wait
