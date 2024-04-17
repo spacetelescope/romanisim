@@ -208,7 +208,7 @@ def main():
                 # Preserve relevant stack options for image lines
                 for option, value in options_dct.items():
                     if (type(value) != bool) and (option != 'sca') and (option != 'prefix') \
-                            and (option != 'cat_file_name'):
+                            and (option != 'cat_file_name') and (option != 'apt'):
                         line += f" --{option} {value}"
                     elif (option == 'sca'):
                         line += f" --{option} {sca}"
