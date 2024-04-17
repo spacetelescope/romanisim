@@ -159,26 +159,12 @@ def main():
     if args.persistence:
         previous_file_name = {}
 
-    # # Obtain pointing information from input file
-    # with open(args.pointing_file_name, "r") as pfile:
-    #     # Test if pointing file is XML (APT) or CSV (Table)
-    #     file_is_apt = (pfile.read(1) == "<")
-
-    # if file_is_apt:
-    #     # If APT file, create proper table from it
-    #     obs_list = apt.read_apt(args.pointing_file_name)
-    #     pointings = apt.create_sim_table(obs_list)
-    #     print(f"pointings = {pointings}")
-    # else:
-
     # Open csv table pointing file    
     pointings = Table.read(args.pointing_file_name, comment="#", delimiter=" ")
 
     if args.apt:
         apt_idx = 0
         apt_prefix = ris.parse_apt_file(args.apt, len(pointings))
-        print(f"len(apt_prefix) = {len(apt_prefix)}")
-        print(f"apt_prefix = {apt_prefix}")
 
     # Loop over pointings
     for entry_idx, entry in enumerate(pointings):
