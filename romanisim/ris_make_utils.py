@@ -306,21 +306,21 @@ def parse_apt_file(filename, csv_exposures):
     # eeee = exposure number
     # rPPPPPCCAAASSSOOOVVV_ggsaa_eeee
 
+    # Parse the xml
     apt_tree = defusedxml.ElementTree.parse(filename)
-    program = apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text if apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text else 1
+    program = apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text \
+        if apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text else 1
 
     execution_plan = 1
     pass_plan_tree = apt_tree.find('.//{*}PassPlans', namespaces=NMAP)
-    pass_plans = pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) if pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) else [-1]
+    pass_plans = pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) \
+        if pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) else [-1]
 
-    passes = []
-    pass_numbers = []
-    segments = []
     total_apt_exposures = 0
     for exp in apt_tree.findall('.//{*}NumberOfExposures', namespaces=NMAP):
         total_apt_exposures += int(exp.text)
 
-    print(f"total_apt_exposures = {total_apt_exposures}")
+    # Account for extra exposures due to dither pattern
     if csv_exposures > total_apt_exposures:
         avg_visits = int(csv_exposures / total_apt_exposures)
     else:
@@ -328,22 +328,18 @@ def parse_apt_file(filename, csv_exposures):
 
     name_prefix_lst = []
 
+    # Set defaults
     segment = 1
     group = 1
     sequence = 1
     activity = 1
 
     for pn in pass_plans:
-        pass_numbers.append(pn.get('Number'))
-        segments.append(1)
-
         pass_number = pn.get('Number')
-
         obs_num = 0      
 
         for on in pn.findall('.//{*}Observation', namespaces=NMAP):
             obs_num += 1
-            print(f"obs_num = {obs_num}")
             exp_num = int(on.find('.//{*}NumberOfExposures', namespaces=NMAP).text)
 
             for vn in range(avg_visits):
