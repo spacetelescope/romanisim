@@ -4,10 +4,7 @@
 import numpy as np
 from astropy.time import Time
 from astropy import units as u
-from astropy.table import Table
 
-ma_table_map = {'HLWAS_IMAGING': 1,
-                }
 read_pattern = {1: [[1 + x for x in range(8)],
                     [9 + x for x in range(8)],
                     [17 + x for x in range(8)],
@@ -58,7 +55,7 @@ default_parameters_dictionary = {
                 },
     'aperture': {'name': 'WFI_CEN',
                  'position_angle': 0
-                 },
+                },
 }
 
 reference_data = {
@@ -136,15 +133,3 @@ persistence = {
     "half_well": 50000,
     "ignorerate": 0.01
 }
-
-# Add dither pattern
-dither_pattern = {'LINEGAP2': Table(rows=[(0.0, 0.0, 0.0),
-                                          (-0.1, 0.0, 45.0),
-                                          (0.0, -0.1, 45.0),
-                                          (0.1, 0.1, -90.0)],
-                                    names=("RA", "DEC", "PA")),
-                  }
-
-# Expected table column names and dtypes for creating exposures
-sim_table_names = ("RA", "DEC", "PA", "BANDPASS", "MA_TABLE_NUMBER", "DURATION")
-sim_table_dtypes = (np.float32, np.float32, np.float32, str, int, np.float32)
