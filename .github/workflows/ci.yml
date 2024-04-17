@@ -73,6 +73,7 @@ jobs:
       envs: |
         - linux: py310-oldestdeps-cov-xdist
         - linux: py310-xdist
+        - linux: py311-xdist
         - linux: py3-xdist
         - macos: py3-xdist
         - linux: py3-pyargs-xdist

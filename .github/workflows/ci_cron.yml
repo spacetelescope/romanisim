@@ -61,4 +61,5 @@ jobs:
       cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
         - macos: py310-xdist
+        - macos: py311-xdist
         - linux: py3-devdeps-xdist
