@@ -53,6 +53,7 @@ def main():
     
     q = f'select * from gaiadr3.gaia_source where distance({args.radecrad[0]}, {args.radecrad[1]}, ra, dec) < {args.radecrad[2]}'
     job = Gaia.launch_job_async(q)
+    r = job.get_results()
 
     outfile_name = f'gaia_{args.radecrad[0]:.2f}_{args.radecrad[1]:.2f}_{args.radecrad[2]:.2f}-{args.time}.ecsv'
     if args.output:
