@@ -231,6 +231,20 @@ def add_more_metadata(metadata):
     target['proper_motion_epoch'] = 'J2000'
     target['source_type'] = 'EXTENDED'
 
+    # there are a few metadata keywords that have problematic, too-long
+    # defaults in RDM.
+    # program.category
+    # ephemeris.ephemeris_reference_frame
+    # guidestar.gs_epoch
+    # this truncates these to the maximum allowed characters.  Alternative
+    # solutions would include doing things like:
+    #   making the roman_datamodels defaults archivable
+    #   making the roman_datamodels validation check lengths of strings
+    metadata['program']['category'] = metadata['program']['category'][:6]
+    metadata['ephemeris']['ephemeris_reference_frame'] = (
+        metadata['ephemeris']['ephemeris_reference_frame'][:10])
+    metadata['guidestar']['gs_epoch'] = metadata['guidestar']['gs_epoch'][:10]
+
 
 def king_profile(r, rc, rt):
     """Compute the King (1962) profile.
