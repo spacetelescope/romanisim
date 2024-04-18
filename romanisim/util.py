@@ -240,10 +240,14 @@ def add_more_metadata(metadata):
     # solutions would include doing things like:
     #   making the roman_datamodels defaults archivable
     #   making the roman_datamodels validation check lengths of strings
-    metadata['program']['category'] = metadata['program']['category'][:6]
-    metadata['ephemeris']['ephemeris_reference_frame'] = (
-        metadata['ephemeris']['ephemeris_reference_frame'][:10])
-    metadata['guidestar']['gs_epoch'] = metadata['guidestar']['gs_epoch'][:10]
+    if 'program' in metadata:
+        metadata['program']['category'] = metadata['program']['category'][:6]
+    if 'ephemeris' in metadata:
+        metadata['ephemeris']['ephemeris_reference_frame'] = (
+            metadata['ephemeris']['ephemeris_reference_frame'][:10])
+    if 'guidestar' in metadata:
+        metadata['guidestar']['gs_epoch'] = (
+            metadata['guidestar']['gs_epoch'][:10])
 
 
 def king_profile(r, rc, rt):
