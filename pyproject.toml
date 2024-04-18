@@ -19,18 +19,17 @@ classifiers = [
 dependencies = [
     "asdf >=2.15.1",
     "astropy >=5.3",
-    "crds >=10.3.1",
+    "crds >=11.16.16",
     "defusedxml >=0.5.0",
     "galsim >=2.5.1",
-    #"rad >=0.18.0",
-    #"roman_datamodels >=0.18.0",
-    "rad @ git+https://github.com/spacetelescope/rad.git",
-    "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
-    # dev versions of rad / roman_datamodels until released with DN/s units.
+    "rad >=0.19.2",
+    "roman_datamodels >=0.19.1",
+    # "rad @ git+https://github.com/spacetelescope/rad.git",
+    # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
     "gwcs >=0.18.1",
     "jsonschema >=4.8",
     "numpy >=1.22",
-    "webbpsf >=1.0.0",
+    "webbpsf >=1.2.1",
     "Cython >=0.29.21",
 ]
 dynamic = [
