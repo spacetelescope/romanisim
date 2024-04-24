@@ -141,8 +141,8 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     # special handling.  And we use read_time without units a lot throughout
     # the code base.
     slopes = ramppar[..., 1] / gain * u.DN / u.s
-    readvar = rampvar[..., 0, 1, 1] / gain * (u.DN / u.s)**2
-    poissonvar = rampvar[..., 1, 1, 1] / gain * (u.DN / u.s)**2
+    readvar = rampvar[..., 0, 1, 1] / gain**2 * (u.DN / u.s)**2
+    poissonvar = rampvar[..., 1, 1, 1] / gain**2 * (u.DN / u.s)**2
 
     if flat is not None:
         flat = np.clip(flat, 1e-9, np.inf)
