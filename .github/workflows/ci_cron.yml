@@ -59,6 +59,9 @@ jobs:
         GALSIM_CAT_PATH: ${{ needs.data.outputs.galsim_cat_path }}
       cache-path: ${{ needs.data.outputs.path }}
       cache-key: data-${{ needs.data.outputs.hash }}
+      libraries: |
+        brew:
+          - fftw
       envs: |
         - macos: py310-xdist
         - macos: py311-xdist
