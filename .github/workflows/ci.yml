@@ -65,14 +65,15 @@ jobs:
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@main
     needs: [ data ]
     with:
-      setenv: |
-        WEBBPSF_PATH: ${{ needs.data.outputs.webbpsf_path }}
-        GALSIM_CAT_PATH: ${{ needs.data.outputs.galsim_cat_path }}
-      cache-path: ${{ needs.data.outputs.path }}
-      cache-key: data-${{ needs.data.outputs.hash }}
       libraries: |
         brew:
           - fftw
+      setenv: |
+        WEBBPSF_PATH: ${{ needs.data.outputs.webbpsf_path }}
+        GALSIM_CAT_PATH: ${{ needs.data.outputs.galsim_cat_path }}
+        FFTW_DIR: /usr/local/lib/
+      cache-path: ${{ needs.data.outputs.path }}
+      cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
         - linux: py310-oldestdeps-cov-xdist
         - linux: py310-xdist
