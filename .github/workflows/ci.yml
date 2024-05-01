@@ -67,6 +67,7 @@ jobs:
     with:
       libraries: |
         brew:
+          - eigen
           - fftw
       setenv: |
         WEBBPSF_PATH: ${{ needs.data.outputs.webbpsf_path }}
