@@ -72,7 +72,7 @@ jobs:
       setenv: |
         WEBBPSF_PATH: ${{ needs.data.outputs.webbpsf_path }}
         GALSIM_CAT_PATH: ${{ needs.data.outputs.galsim_cat_path }}
-        FFTW_DIR: /usr/local/lib/
+        FFTW_DIR: /opt/homebrew/opt/fftw/lib/
       cache-path: ${{ needs.data.outputs.path }}
       cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
