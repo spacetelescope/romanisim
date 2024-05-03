@@ -241,6 +241,7 @@ def apportion_counts_to_resultants(
     if not np.all(counts == np.round(counts)):
         raise ValueError('apportion_counts_to_resultants expects the counts '
                          'to be integers!')
+    counts = np.clip(counts, 0, 2 * 10**9).astype('i4')
 
     # Set rng for creating cosmic rays, persistence, and readnoise
     if rng is None and seed is None:
@@ -264,7 +265,7 @@ def apportion_counts_to_resultants(
 
     # Create arrays to store various photon or electron counts and dq
     resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
-    counts_so_far = np.zeros(counts.shape, dtype='f4')
+    counts_so_far = np.zeros(counts.shape, dtype='i4')
     resultant_counts = np.zeros(counts.shape, dtype='f4')
     dq = np.zeros(resultants.shape, dtype=np.uint32)
 
@@ -288,7 +289,7 @@ def apportion_counts_to_resultants(
         # Loop over resultant probabilities
         for j, p in enumerate(pi):
             # Set read counts
-            read = rng_numpy.binomial((counts - counts_so_far).astype('i4'), p)
+            read = rng_numpy.binomial(counts - counts_so_far, p)
             counts_so_far += read
 
             # Apply cosmic rays
