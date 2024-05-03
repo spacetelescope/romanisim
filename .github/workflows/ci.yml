@@ -65,9 +65,14 @@ jobs:
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@main
     needs: [ data ]
     with:
+      libraries: |
+        brew:
+          - eigen
+          - fftw
       setenv: |
         WEBBPSF_PATH: ${{ needs.data.outputs.webbpsf_path }}
         GALSIM_CAT_PATH: ${{ needs.data.outputs.galsim_cat_path }}
+        FFTW_DIR: /opt/homebrew/opt/fftw/lib/
       cache-path: ${{ needs.data.outputs.path }}
       cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
