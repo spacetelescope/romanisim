@@ -8,6 +8,8 @@ import numpy as np
 Options.docstrings = True
 Options.annotate = False
 
+# importing these extension modules is tested in `.github/workflows/build.yml`; 
+# when adding new modules here, make sure to add them to the `test_command` entry there
 extensions = [Extension('romanisim.ramp_fit_casertano',
                         ['romanisim/ramp_fit_casertano.pyx'],
                         include_dirs=[np.get_include()])]
