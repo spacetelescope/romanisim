@@ -129,3 +129,6 @@ exclude_lines = [
 extend-ignore = [
     "E501",
 ]
+
+[tool.cibuildwheel.macos]
+before-build = "brew install eigen fftw"

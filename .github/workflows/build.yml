@@ -10,7 +10,8 @@ jobs:
   build:
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@v1
     with:
-      libraries: libfftw3-dev
+      env: |
+        FFTW_DIR: /opt/homebrew/opt/fftw/lib/
       targets: |
         # Linux wheels
         - cp3*-manylinux_x86_64
