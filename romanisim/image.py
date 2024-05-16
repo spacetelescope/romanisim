@@ -90,11 +90,11 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     Returns
     -------
-    im : galsim.Image
+    im : np.ndarray
         best fitting slopes
-    var_rnoise : galsim.Image
+    var_rnoise : np.ndarray
         variance in slopes from read noise
-    var_poisson : galsim.Image
+    var_poisson : np.ndarray
         variance in slopes from source noise
     """
 
@@ -130,6 +130,9 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     if darkrate is not None:
         ramppar[..., 1] -= darkrate
 
+    if isinstance(gain, u.Quantity):
+        gain = gain.value  # no values make sense except for electron / DN
+
     # The ramp fitter is not presently unit-aware; fix up the units by hand.
     # To do this right the ramp fitter should be made unit aware.
     # It takes a bit of work to get this right because we use the fact
@@ -137,9 +140,9 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     # which isn't true as soon as things start having units and requires
     # special handling.  And we use read_time without units a lot throughout
     # the code base.
-    slopes = ramppar[..., 1] * u.electron / u.s
-    readvar = rampvar[..., 0, 1, 1] * (u.electron / u.s)**2
-    poissonvar = rampvar[..., 1, 1, 1] * (u.electron / u.s)**2
+    slopes = ramppar[..., 1] / gain * u.DN / u.s
+    readvar = rampvar[..., 0, 1, 1] / gain**2 * (u.DN / u.s)**2
+    poissonvar = rampvar[..., 1, 1, 1] / gain**2 * (u.DN / u.s)**2
 
     if flat is not None:
         flat = np.clip(flat, 1e-9, np.inf)
@@ -278,7 +281,11 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
                 raise ValueError('Non-chromatic sources must have specified '
                                  'fluxes!')
             profile = profile.withFlux(obj.flux[filter_name])
-        final = galsim.Convolve(profile * flux_to_counts_factor, psf)
+        if hasattr(psf, 'at_position'):
+            psf0 = psf.at_position(xpos[i], ypos[i])
+        else:
+            psf0 = psf
+        final = galsim.Convolve(profile * flux_to_counts_factor, psf0)
         if chromatic:
             stamp = final.drawImage(
                 bandpass, center=image_pos, wcs=image.wcs.local(image_pos),
@@ -451,7 +458,9 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 
     if not np.all(flat == 1):
         image.quantize()
-        image.array[:, :] = np.random.binomial(
+        rng_numpy_seed = rng.raw()
+        rng_numpy = np.random.default_rng(rng_numpy_seed)
+        image.array[:, :] = rng_numpy.binomial(
             image.array.astype('i4'), flat / maxflat)
 
     if dark is not None:
@@ -468,7 +477,8 @@ def simulate_counts(metadata, objlist,
                     rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
                     webbpsf=True,
-                    darkrate=None, flat=None):
+                    darkrate=None, flat=None,
+                    psf_keywords=dict()):
     """Simulate total counts in a single SCA.
 
     This gives the total counts in an idealized instrument with no systematics;
@@ -492,6 +502,8 @@ def simulate_counts(metadata, objlist,
         dark rate image to use (electrons / s)
     flat : float or np.ndarray[float]
         flat field to use
+    psf_keywords : dict
+        keywords passed to PSF generation routine
 
     Returns
     -------
@@ -530,7 +542,8 @@ def simulate_counts(metadata, objlist,
             and objlist[0].profile.spectral):
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
-                                 chromatic=chromatic, webbpsf=webbpsf)
+                                 chromatic=chromatic, webbpsf=webbpsf,
+                                 variable=True, **psf_keywords)
     image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
@@ -659,7 +672,8 @@ def gather_reference_data(image_mod, usecrds=False):
 
 def simulate(metadata, objlist,
              usecrds=True, webbpsf=True, level=2, crparam=dict(),
-             persistence=None, seed=None, rng=None, **kwargs
+             persistence=None, seed=None, rng=None,
+             psf_keywords=dict(), **kwargs
              ):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -693,6 +707,8 @@ def simulate(metadata, objlist,
         Random number generator to use
     seed : int
         Seed for populating RNG.  Only used if rng is None.
+    psf_keywords : dict
+        Keywords passed to the PSF generation routine
 
     Returns
     -------
@@ -754,7 +770,7 @@ def simulate(metadata, objlist,
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
-        webbpsf=webbpsf, flat=flat)
+        webbpsf=webbpsf, flat=flat, psf_keywords=psf_keywords)
     if level == 0:
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:
@@ -786,6 +802,7 @@ def simulate(metadata, objlist,
             extras["simulate_reffiles"][key] = value
 
     extras['simcatobj'] = simcatobj
+    extras['wcs'] = wcs.convert_wcs_to_gwcs(counts.wcs)
     log.info('Simulation complete.')
     return im, extras
 
@@ -864,12 +881,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         out['meta'].update(metadata)
 
     if imwcs is not None:  # add a WCS
-        if isinstance(imwcs, wcs.GWCS):
-            out['meta'].update(wcs=imwcs.wcs)
-        else:
-            # make a gwcs WCS from a galsim.roman WCS
-            out['meta'].update(
-                wcs=wcs.wcs_from_fits_header(imwcs.header.header))
+        out['meta'].update(wcs=wcs.convert_wcs_to_gwcs(imwcs))
 
     out['data'] = slope
     out['dq'] = np.zeros(slope.shape, dtype='u4')

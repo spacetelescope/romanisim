@@ -93,7 +93,6 @@ def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
     parameters['aperture']['position_angle'] = pa_aper
 
 
-        
 def get_wcs(image, usecrds=True, distortion=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
 
@@ -282,7 +281,8 @@ class GWCS(galsim.wcs.CelestialWCS):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            x, y = self.wcs.world_to_pixel(r1, d1)
+            # x, y = self.wcs.world_to_pixel(r1, d1)
+            x, y = self.wcs.numerical_inverse(r1, d1)
 
         if np.ndim(ra) == np.ndim(dec) == 0:
             return x[0], y[0]
@@ -385,3 +385,22 @@ def wcs_from_fits_header(header):
     gw.bounding_box = ((-0.5, nx - 0.5), (-0.5, ny - 0.5))
 
     return gw
+
+
+def convert_wcs_to_gwcs(wcs):
+    """Convert a GalSim WCS object into a GWCS object.
+
+    Parameters
+    ----------
+    wcs : gwcs.wcs.WCS or wcs.GWCS
+        input WCS to convert
+
+    Returns
+    -------
+    wcs.GWCS corresponding to wcs.
+    """
+    if isinstance(wcs, GWCS):
+        return wcs.wcs
+    else:
+        # make a gwcs WCS from a galsim.roman WCS
+        return wcs_from_fits_header(wcs.header.header)

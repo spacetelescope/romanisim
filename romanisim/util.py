@@ -215,6 +215,40 @@ def add_more_metadata(metadata):
     metadata['exposure']['read_pattern'] = read_pattern
     # integration_start?  integration_end?  nints = 1?  ...
 
+    if 'target' not in metadata.keys():
+        metadata['target'] = {}
+    target = metadata['target']
+    target['type'] = 'FIXED'
+    if 'wcsinfo' in metadata.keys():
+        target['ra'] = metadata['wcsinfo']['ra_ref']
+        target['dec'] = metadata['wcsinfo']['dec_ref']
+        target['proposer_ra'] = target['ra']
+        target['proposer_dec'] = target['dec']
+    target['ra_uncertainty'] = 0
+    target['dec_uncertainty'] = 0
+    target['proper_motion_ra'] = 0
+    target['proper_motion_dec'] = 0
+    target['proper_motion_epoch'] = 'J2000'
+    target['source_type'] = 'EXTENDED'
+
+    # there are a few metadata keywords that have problematic, too-long
+    # defaults in RDM.
+    # program.category
+    # ephemeris.ephemeris_reference_frame
+    # guidestar.gs_epoch
+    # this truncates these to the maximum allowed characters.  Alternative
+    # solutions would include doing things like:
+    #   making the roman_datamodels defaults archivable
+    #   making the roman_datamodels validation check lengths of strings
+    if 'program' in metadata:
+        metadata['program']['category'] = metadata['program']['category'][:6]
+    if 'ephemeris' in metadata:
+        metadata['ephemeris']['ephemeris_reference_frame'] = (
+            metadata['ephemeris']['ephemeris_reference_frame'][:10])
+    if 'guidestar' in metadata:
+        metadata['guidestar']['gs_epoch'] = (
+            metadata['guidestar']['gs_epoch'][:10])
+
 
 def king_profile(r, rc, rt):
     """Compute the King (1962) profile.

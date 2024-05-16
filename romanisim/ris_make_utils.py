@@ -4,6 +4,8 @@
 from copy import deepcopy
 import os
 import re
+import defusedxml.ElementTree
+import numpy as np
 import asdf
 from astropy import table
 from astropy import time
@@ -13,8 +15,9 @@ from galsim import roman
 import roman_datamodels
 from roman_datamodels import stnode
 from romanisim import catalog, image, wcs
-from romanisim import parameters
+from romanisim import parameters, log
 
+NMAP = {'apt':'{http://www.stsci.edu/Roman/APT}'}
 
 def merge_nested_dicts(dict1, dict2):
     """
@@ -148,13 +151,24 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
             coord, bandpasses=bandpasses, nobj=nobj, rng=rng)
     else:
         cat = table.Table.read(catalog_name, comment="#", delimiter=" ")
+        bandpass = [f for f in cat.dtype.names if f[0] == 'F']
+        bad = np.zeros(len(cat), dtype='bool')
+        for b in bandpass:
+            bad |= ~np.isfinite(cat[b])
+            if hasattr(cat[b], 'mask'):
+                bad |= cat[b].mask
+        cat = cat[~bad]
+        nbad = np.sum(bad)
+        if nbad > 0:
+            log.info(f'Removing {nbad} catalog entries with non-finite or '
+                     'masked fluxes.')
 
     return cat
 
 
 def parse_filename(filename):
     """
-    Try program / pass / visit / ... information out of the filename.
+    Pry program / pass / visit / ... information out of the filename.
 
     Parameters
     ----------
@@ -243,8 +257,97 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
         im['meta']['observation'].update(**obsdata)
     im['meta']['filename'] = stnode.Filename(basename)
 
+    pretend_spectral = getattr(args, 'pretend_spectral', None)
+    if pretend_spectral is not None:
+        im['meta']['exposure']['type'] = (
+            'WFI_' + args.pretend_spectral.upper())
+        im['meta']['instrument']['optical_element'] = (
+            args.pretend_spectral.upper())
+
+    drop_extra_dq = getattr(args, 'drop_extra_dq', False)
+    if drop_extra_dq and ('dq' in romanisimdict):
+        romanisimdict.pop('dq')
+
     # Write file
     af = asdf.AsdfFile()
     af.tree = {'roman': im, 'romanisim': romanisimdict}
 
-    af.write_to(args.filename)
+    af.write_to(open(args.filename, 'wb'))
+
+
+def parse_apt_file(filename, csv_exposures):
+    """
+    Pry program / pass / visit / ... information out of the apt file.
+
+    Parameters
+    ----------
+    filename : str
+        filename of apt to parse
+
+    csv_exposures : int
+        number of exposures specified by the apt file
+
+    Returns
+    -------
+    list of name prefixes
+    """
+
+    # format is:
+    # r + PPPPPCCAAASSSOOOVVV_ggsaa_eeee_DET_suffix.asdf
+    # PPPPP = program
+    # CC = execution plan number
+    # AAA = pass number
+    # SSS = segment number
+    # OOO = observation number
+    # VVV = visit number
+    # gg = group identifier
+    # s = sequence identifier
+    # aa = activity identifier
+    # eeee = exposure number
+    # rPPPPPCCAAASSSOOOVVV_ggsaa_eeee
+
+    # Parse the xml
+    apt_tree = defusedxml.ElementTree.parse(filename)
+    program = apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text \
+        if apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text else 1
+
+    execution_plan = 1
+    pass_plan_tree = apt_tree.find('.//{*}PassPlans', namespaces=NMAP)
+    pass_plans = pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) \
+        if pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) else [-1]
+
+    total_apt_exposures = 0
+    for exp in apt_tree.findall('.//{*}NumberOfExposures', namespaces=NMAP):
+        total_apt_exposures += int(exp.text)
+
+    # Account for extra exposures due to dither pattern
+    if csv_exposures > total_apt_exposures:
+        avg_visits = int(csv_exposures / total_apt_exposures)
+    else:
+        avg_visits = 1
+
+    name_prefix_lst = []
+
+    # Set defaults
+    segment = 1
+    group = 1
+    sequence = 1
+    activity = 1
+
+    for pn in pass_plans:
+        pass_number = pn.get('Number')
+        obs_num = 0      
+
+        for on in pn.findall('.//{*}Observation', namespaces=NMAP):
+            obs_num += 1
+            exp_num = int(on.find('.//{*}NumberOfExposures', namespaces=NMAP).text)
+
+            for vn in range(avg_visits):
+                for en in range(exp_num):
+                    # Can make the Programmatic observation identifier list now
+                    prefix = "r" + str(program).zfill(5) + str(execution_plan).zfill(2) + str(pass_number).zfill(3) +\
+                             str(segment).zfill(3) + str(obs_num).zfill(3) + str(vn+1).zfill(3) + "_" +\
+                             str(group).zfill(2) + str(sequence).zfill(1) + str(activity).zfill(2) + "_" + str(en+1).zfill(4)
+                    name_prefix_lst.append(prefix)
+    
+    return name_prefix_lst

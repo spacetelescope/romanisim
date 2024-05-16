@@ -8,6 +8,60 @@ from astropy import units as u
 import galsim
 from romanisim import log, wcs, persistence, parameters
 from romanisim import ris_make_utils as ris
+from copy import copy
+
+
+def go(args):
+    if args.config is not None:
+        # Open and parse overrides file
+        with open(args.config, "r") as config_file:
+            config = yaml.safe_load(config_file)
+            combo_dict = parameters.__dict__
+            ris.merge_nested_dicts(combo_dict, config)
+            parameters.__dict__.update(combo_dict)
+    elif args.usecrds:
+        # don't use default values
+        for k in parameters.reference_data:
+            parameters.reference_data[k] = None
+
+    if args.sca == -1:
+        # simulate all 18 SCAs sequentially
+        origfilename = copy(args.filename)
+        origprevious = copy(args.previous)
+        for i in range(1, 19):
+            args.sca = i
+            args.filename = origfilename.format(f'WFI{args.sca:02d}')
+            if origprevious is not None:
+                args.previous = origprevious.format(f'WFI{args.sca:02d}')
+            go(args)
+        return
+
+    metadata = ris.set_metadata(
+        date=args.date, bandpass=args.bandpass,
+        sca=args.sca, ma_table_number=args.ma_table_number,
+        truncate=args.truncate)
+
+    if args.radec is not None:
+        coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
+                         frame='icrs')
+        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, pa_aper=args.roll)
+
+    rng = galsim.UniformDeviate(args.rng_seed)
+
+    # Create catalog
+    cat = ris.create_catalog(metadata=metadata, catalog_name=args.catalog,
+                             bandpasses=[args.bandpass], rng=rng,
+                             nobj=args.nobj, usecrds=args.usecrds)
+
+    # Create persistence object
+    if args.previous is not None:
+        persist = persistence.Persistence.read(args.previous)
+    else:
+        persist = persistence.Persistence()
+
+    # Simulate image and write to file
+    ris.simulate_image_file(args, metadata, cat, rng, persist)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -45,6 +99,11 @@ if __name__ == '__main__':
                         help='Use webbpsf for PSF')
     parser.add_argument('--truncate', type=int, default=None, help=(
         'If set, truncate the MA table at given number of resultants.'))
+    parser.add_argument('--pretend-spectral', type=str, default=None, help=(
+        'Pretend the image is spectral.  exposure.type and instrument.element '
+        'are updated to be grism / prism.'))
+    parser.add_argument('--drop-extra-dq', default=False, action='store_true',
+                        help=('Do not store the optional simulated dq array.'))
 
     args = parser.parse_args()
 
@@ -56,40 +115,4 @@ if __name__ == '__main__':
                 "packages like galsim's roman package or STIPS may better "
                 "serve such purposes.")
 
-    if args.config is not None:
-        # Open and parse overrides file
-        with open(args.config, "r") as config_file:
-            config = yaml.safe_load(config_file)
-            combo_dict = parameters.__dict__ 
-            ris.merge_nested_dicts(combo_dict, config)
-            parameters.__dict__.update(combo_dict)
-    elif args.usecrds:
-        # don't use default values
-        for k in parameters.reference_data:
-            parameters.reference_data[k] = None
-
-    metadata = ris.set_metadata(
-        date=args.date, bandpass=args.bandpass,
-        sca=args.sca, ma_table_number=args.ma_table_number,
-        truncate=args.truncate)
-    
-    if args.radec is not None:
-        coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
-                         frame='icrs')
-        wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, pa_aper=args.roll)
-
-    rng = galsim.UniformDeviate(args.rng_seed)
-
-    # Create catalog
-    cat = ris.create_catalog(metadata=metadata, catalog_name=args.catalog,
-                             bandpasses=[args.bandpass], rng=rng,
-                             nobj=args.nobj, usecrds=args.usecrds)
-
-    # Create persistence object
-    if args.previous is not None:
-        persist = persistence.Persistence.read(args.previous)
-    else:
-        persist = persistence.Persistence()
-
-    # Simulate image and write to file
-    ris.simulate_image_file(args, metadata, cat, rng, persist)
+    go(args)

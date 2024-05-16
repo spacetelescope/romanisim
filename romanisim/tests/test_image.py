@@ -84,7 +84,7 @@ def test_make_l2():
     slopes, readvar, poissonvar = image.make_l2(
         resultants, read_pattern,
         gain=gain, flat=1, darkrate=0)
-    assert np.allclose(slopes, 1 / parameters.read_time / 4 * u.electron / u.s)
+    assert np.allclose(slopes, 1 / parameters.read_time / 4 * u.DN / u.s)
     assert np.all(np.array(slopes.shape) == np.array(readvar.shape))
     assert np.all(np.array(slopes.shape) == np.array(poissonvar.shape))
     assert np.all(readvar >= 0)
@@ -112,8 +112,10 @@ def test_make_l2():
 def set_up_image_rendering_things():
     im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
     filter_name = 'F158'
-    impsfgray = psf.make_psf(1, filter_name, webbpsf=True, chromatic=False)
-    impsfchromatic = psf.make_psf(1, filter_name, webbpsf=False, chromatic=True)
+    impsfgray = psf.make_psf(1, filter_name, webbpsf=True, chromatic=False,
+                             nlambda=1)  # nlambda = 1 speeds tests
+    impsfchromatic = psf.make_psf(1, filter_name, webbpsf=False,
+                                  chromatic=True)
     bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
     fluxdict = {filter_name: counts}
@@ -171,7 +173,7 @@ def test_image_rendering():
     sca = 1
     pos = [50, 50]
     impsfgray = psf.make_psf(sca, filter_name, webbpsf=True, chromatic=False,
-                             pix=pos, oversample=oversample)
+                             pix=pos, oversample=oversample, nlambda=1)
     counts = 100000
     fluxdict = {filter_name: counts}
     psfcatalog = [catalog.CatalogObject(None, galsim.DeltaFunction(), fluxdict)]
@@ -181,7 +183,7 @@ def test_image_rendering():
     wfi.detector_position = pos
     # oversample = kw.get('oversample', 4)
     # webbpsf doesn't do distortion
-    psfob = wfi.calc_psf(oversample=oversample)
+    psfob = wfi.calc_psf(oversample=oversample, nlambda=1)
     psfim = psfob[1].data * counts
     # PSF from WebbPSF
     im = galsim.Image(101, 101, scale=wfi.pixelscale, xmin=0, ymin=0)
@@ -243,7 +245,7 @@ def test_image_rendering():
     modim = mod(xx, yy)
     from scipy.signal import fftconvolve
     # convolve with the PSF
-    psfob = wfi.calc_psf(oversample=oversample, fov_pixels=45)
+    psfob = wfi.calc_psf(oversample=oversample, fov_pixels=45, nlambda=1)
     psfim = psfob[0].data
     modim = fftconvolve(modim, psfim, mode='same')
     modim = np.sum(modim.reshape(-1, imsz, oversample), axis=-1)
@@ -440,7 +442,8 @@ def test_simulate_counts():
                                 webbpsf=False, ignore_distant_sources=100)
     im2 = image.simulate_counts(meta, graycat,
                                 usecrds=False, webbpsf=True,
-                                ignore_distant_sources=100)
+                                ignore_distant_sources=100,
+                                psf_keywords=dict(nlambda=1))
     im1 = im1[0].array
     im2 = im2[0].array
     maxim = np.where(im1 > im2, im1, im2)
@@ -498,9 +501,10 @@ def test_simulate():
     imdict['tabcatalog'][filter_name] = (
         imdict['tabcatalog'][filter_name] / abfluxdict[filter_name])
     l0 = image.simulate(meta, graycat, webbpsf=True, level=0,
-                        usecrds=False)
+                        usecrds=False, psf_keywords=dict(nlambda=1))
     l0tab = image.simulate(
-        meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False)
+        meta, imdict['tabcatalog'], webbpsf=True, level=0, usecrds=False,
+        psf_keywords=dict(nlambda=1))
     # seed = 0 is special and means "don't actually use a seed."  Any other
     # choice of seed gives deterministic behavior
     # note that we have scaled down the size of the image to 100x100 pix
@@ -510,7 +514,8 @@ def test_simulate():
     # i.e., there are 1600x too many CRs.  Fine for unit tests?
     rng = galsim.BaseDeviate(1)
     l1 = image.simulate(meta, graycat, webbpsf=True, level=1,
-                        crparam=dict(), usecrds=False, rng=rng)
+                        crparam=dict(), usecrds=False, rng=rng,
+                        psf_keywords=dict(nlambda=1))
     peakloc = np.nonzero(l0[0]['data'] == np.max(l0[0]['data']))
 
     # check that the location with the most flux is the location where the
@@ -529,11 +534,13 @@ def test_simulate():
 
     rng = galsim.BaseDeviate(1)
     l1_nocr = image.simulate(meta, graycat, webbpsf=True, level=1,
-                             usecrds=False, crparam=None, rng=rng)
+                             usecrds=False, crparam=None, rng=rng,
+                             psf_keywords=dict(nlambda=1))
     assert np.all(l1[0].data >= l1_nocr[0].data)
     log.info('DMS221: Successfully added cosmic rays to an L1 image.')
     l2 = image.simulate(meta, graycat, webbpsf=True, level=2,
-                        usecrds=False, crparam=dict())
+                        usecrds=False, crparam=dict(),
+                        psf_keywords=dict(nlambda=1))
     # throw in some CRs for fun
     l2c = image.simulate(meta, chromcat, webbpsf=False, level=2,
                          usecrds=False)
@@ -543,7 +550,8 @@ def test_simulate():
     # zap the whole frame, 100 seconds ago.
     rng = galsim.BaseDeviate(1)
     l1p = image.simulate(meta, graycat, webbpsf=True, level=1, usecrds=False,
-                         persistence=persist, crparam=None, rng=rng)
+                         persistence=persist, crparam=None, rng=rng,
+                         psf_keywords=dict(nlambda=1))
     # the random number gets instatiated from the same seed, but the order in
     # which the numbers are generated is different so we can't guarantee, e.g.,
     # that all of the new values are strictly greater than the old ones.
@@ -630,7 +638,7 @@ def test_reference_file_crds_match(level):
     im, simcatobj = image.simulate(
         metadata, cat, usecrds=True,
         webbpsf=True, level=level,
-        rng=rng)
+        rng=rng, psf_keywords=dict(nlambda=1))
 
     # Confirm that CRDS keyword was updated
     assert im.meta.ref_file.crds.sw_version != '12.3.1'

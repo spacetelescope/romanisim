@@ -23,7 +23,7 @@ jobs:
       webbpsf_path: ${{ steps.webbpsf_path.outputs.path }}
       galsim_cat_path: ${{ steps.galsim_cat_path.outputs.path }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - id: data
@@ -42,7 +42,7 @@ jobs:
           wget ${{ steps.data.outputs.galsim_url }}/real_galaxy_catalog_23.5_example_fits.fits -O galsim-data/real_galaxy_catalog_23.5_example_fits.fits
       - id: data_hash
         run: echo "hash=${{ hashFiles( 'romanisim/data' ) }}" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: ${{ steps.data.outputs.path }}
           key: data-${{ steps.data_hash.outputs.hash }}
@@ -54,12 +54,17 @@ jobs:
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@main
     needs: [ data ]
     with:
+      libraries: |
+        brew:
+          - eigen
+          - fftw
       setenv: |
         WEBBPSF_PATH: ${{ needs.data.outputs.webbpsf_path }}
         GALSIM_CAT_PATH: ${{ needs.data.outputs.galsim_cat_path }}
+        FFTW_DIR: /opt/homebrew/opt/fftw/lib/
       cache-path: ${{ needs.data.outputs.path }}
       cache-key: data-${{ needs.data.outputs.hash }}
       envs: |
-        - macos: py39-xdist
         - macos: py310-xdist
+        - macos: py311-xdist
         - linux: py3-devdeps-xdist
