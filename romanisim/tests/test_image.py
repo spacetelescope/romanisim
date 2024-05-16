@@ -18,7 +18,7 @@ import copy
 import numpy as np
 import galsim
 from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs, persistence, ramp, l1
+from romanisim import image, parameters, catalog, psf, util, wcs, persistence, ramp, l1, l3
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -30,6 +30,7 @@ import pytest
 from metrics_logger.decorators import metrics_logger
 from romanisim import log
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
+import roman_datamodels.maker_utils as maker_utils
 import romanisim.bandpass
 
 
@@ -753,25 +754,20 @@ def test_inject_source_into_mosaic():
     """
 
     # Set constants and metadata
-    galsim.roman.n_pix = 100
+    galsim.roman.n_pix = 200
     rng_seed = 42
-    rng = galsim.UniformDeviate(rng_seed)
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     metadata['instrument']['detector'] = 'WFI07'
     metadata['instrument']['optical_element'] = 'F158'
     metadata['exposure']['ma_table_number'] = 1
-    bandpass = [metadata['instrument']['optical_element']]
-    filter_name = metadata['instrument']['optical_element']
-    sca = 4
 
     # Create PSF
     twcs = wcs.get_wcs(metadata, usecrds=False)
-    psf = romanisim.psf.make_psf(sca, filter_name, wcs=twcs, chromatic=False, webbpsf=True)
 
-    # Create initial Level 2-like image
+    # Create initial Level 3-like image
 
     # Create Four-quadrant pattern of gaussian noise, centered around one
-    # Each quadrant's gaussin noise scales like total exposure time
+    # Each quadrant's gaussian noise scales like total exposure time
     # (total files contributed to each quadrant)
 
     # Create gaussian noise generators
@@ -780,75 +776,53 @@ def test_inject_source_into_mosaic():
     g3 = galsim.GaussianDeviate(31415926, mean=1.0, sigma=0.05)
     g4 = galsim.GaussianDeviate(31415926, mean=1.0, sigma=0.1)
 
-    # Create cps Image data array
-    la_arr = np.zeros([200, 200])
+    # Create level 3-like image model
+    l3_img = maker_utils.mk_level2_image(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
+
+    # Update metadata in the l3 model
+    for key in metadata.keys():
+        l3_img.meta[key].update(metadata[key])
 
     # Populate the image array with gaussian noise from generators
-    g1.generate(la_arr[0:100, 0:100])
-    g2.generate(la_arr[0:100, 100:200])
-    g3.generate(la_arr[100:200, 0:100])
-    g4.generate(la_arr[100:200, 100:200])
+    g1.generate(l3_img.data.value[0:100, 0:100])
+    g2.generate(l3_img.data.value[0:100, 100:200])
+    g3.generate(l3_img.data.value[100:200, 0:100])
+    g4.generate(l3_img.data.value[100:200, 100:200])
 
-    # Poisson Noise of image array
-    var_poisson = (la_arr - 1)**2
-
-    # Set scaling factor for injected sources, one in the center of each quadrant
-    # Flux / sigma_p^2
-    Ct1 = la_arr[50][50] / var_poisson[50][50]
-    Ct2 = la_arr[50][150] / var_poisson[50][150]
-    Ct3 = la_arr[150][50] / var_poisson[150][50]
-    Ct4 = la_arr[150][150] / var_poisson[150][150]
-
-    # Create empty postage stamp galsim source images
-    sourcecounts1 = galsim.ImageF(100, 100, wcs=twcs, xmin=0, ymin=0)
-    sourcecounts2 = galsim.ImageF(100, 100, wcs=twcs, xmin=0, ymin=100)
-    sourcecounts3 = galsim.ImageF(100, 100, wcs=twcs, xmin=100, ymin=0)
-    sourcecounts4 = galsim.ImageF(100, 100, wcs=twcs, xmin=100, ymin=100)
+    # Define Poisson Noise of image array
+    l3_img.var_poisson.value[0:100, 0:100] = 0.01**2
+    l3_img.var_poisson.value[0:100, 100:200] = 0.02**2
+    l3_img.var_poisson.value[100:200, 0:100] = 0.05**2
+    l3_img.var_poisson.value[100:200, 100:200] = 0.1**2
 
     # Create normalized psf source catalog (same source in each quadrant)
-    sc_dict = {"ra": [0.0], "dec": [0.0], "type": ["PSF"], "n": [-1.0],
-               "half_light_radius": [0.0], "pa": [0.0], "ba": [1.0], "F158": [1.0]}
+    sc_dict = {"ra": 4 * [0.0], "dec": 4 * [0.0], "type": 4 * ["PSF"], "n": 4 * [-1.0],
+               "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], "F158": 4 * [1.0]}
     source_cat = table.Table(sc_dict)
+
+    xpos, ypos = 50, 50
+    source_cat["ra"][0], source_cat["dec"][0] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+    xpos, ypos = 50, 150
+    source_cat['ra'][1], source_cat['dec'][1] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+    xpos, ypos = 150, 50
+    source_cat['ra'][2], source_cat['dec'][2] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+    xpos, ypos = 150, 150
+    source_cat['ra'][3], source_cat['dec'][3] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+
     source_cat = catalog.table_to_catalog(source_cat, ["F158"])
 
-    # Simulate source postage stamps, one for each quadrant
-    image.add_objects_to_image(sourcecounts1, source_cat, xpos=[50], ypos=[50],
-                               psf=psf, flux_to_counts_factor=Ct1, bandpass="F158",
-                               filter_name="F158", rng=rng)
-
-    image.add_objects_to_image(sourcecounts2, source_cat, xpos=[50], ypos=[150],
-                               psf=psf, flux_to_counts_factor=Ct2, bandpass=bandpass,
-                               filter_name=filter_name, rng=rng)
-
-    image.add_objects_to_image(sourcecounts3, source_cat, xpos=[150], ypos=[50],
-                               psf=psf, flux_to_counts_factor=Ct3, bandpass=bandpass,
-                               filter_name=filter_name, rng=rng)
-
-    image.add_objects_to_image(sourcecounts4, source_cat, xpos=[150], ypos=[150],
-                               psf=psf, flux_to_counts_factor=Ct4, bandpass=bandpass,
-                               filter_name=filter_name, rng=rng)
-
-    # Scale the source images back by their quadrant's center flux ratios
-    sourcecounts1 /= Ct1
-    sourcecounts2 /= Ct2
-    sourcecounts3 /= Ct3
-    sourcecounts4 /= Ct4
-
-    # Add sources to the original image array -  one per quadrant
-    la_arr[0:100, 0:100] += sourcecounts1.array
-    la_arr[0:100, 100:200] += sourcecounts2.array
-    la_arr[100:200, 0:100] += sourcecounts3.array
-    la_arr[100:200, 100:200] += sourcecounts4.array
+    # Add source_cat objects to l3_img
+    l3.add_objects_to_l3(l3_img, source_cat, seed=rng_seed)
 
     # Poisson Noise of the image with injected source
-    inject_var_poisson = (la_arr - 1)**2
+    inject_var_poisson = (l3_img.data.value - 1)**2
 
     # Ensure that the poisson variance of the source injected image in each quadrant
     # is greater than variance of the original image
-    assert inject_var_poisson[150][150] > var_poisson[150][150]
-    assert inject_var_poisson[150][50] > var_poisson[150][50]
-    assert inject_var_poisson[50][150] > var_poisson[50][150]
-    assert inject_var_poisson[50][50] > var_poisson[50][50]
+    assert inject_var_poisson[150][150] > l3_img.var_poisson.value[150][150]
+    assert inject_var_poisson[150][50] > l3_img.var_poisson.value[150][50]
+    assert inject_var_poisson[50][150] > l3_img.var_poisson.value[50][150]
+    assert inject_var_poisson[50][50] > l3_img.var_poisson.value[50][50]
 
     # Ensure that the poisson variance of the source injected image in each quadrant
     # relatively scales with the exposure time
