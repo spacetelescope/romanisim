@@ -759,8 +759,8 @@ def test_inject_source_into_image():
 
 @metrics_logger("DMS232")
 @pytest.mark.soctests
-def test_inject_source_into_mosaic():
-    """Inject a source into a mosaic.
+def test_inject_sources_into_mosaic():
+    """Inject sources into a mosaic.
     """
 
     # Set constants and metadata
@@ -772,7 +772,7 @@ def test_inject_source_into_mosaic():
     # Create WCS
     twcs = wcs.get_mosaic_wcs(metadata)
 
-    # Create initial Level 3-like image
+    # Create initial Level 3 mosaic
 
     # Create Four-quadrant pattern of gaussian noise, centered around one
     # Each quadrant's gaussian noise scales like total exposure time
@@ -784,7 +784,7 @@ def test_inject_source_into_mosaic():
     g3 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.05)
     g4 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.1)
 
-    # Create level 3-like image model
+    # Create level 3 mosaic model
     l3_img = maker_utils.mk_level3_mosaic(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
 
     # Update metadata in the l3 model
@@ -792,13 +792,13 @@ def test_inject_source_into_mosaic():
         if key in l3_img.meta:
             l3_img.meta[key].update(metadata[key])
 
-    # Populate the image array with gaussian noise from generators
+    # Populate the mosaic data array with gaussian noise from generators
     g1.generate(l3_img.data.value[0:100, 0:100])
     g2.generate(l3_img.data.value[0:100, 100:200])
     g3.generate(l3_img.data.value[100:200, 0:100])
     g4.generate(l3_img.data.value[100:200, 100:200])
 
-    # Define Poisson Noise of image array
+    # Define Poisson Noise of mosaic
     l3_img.var_poisson.value[0:100, 0:100] = 0.01**2
     l3_img.var_poisson.value[0:100, 100:200] = 0.02**2
     l3_img.var_poisson.value[100:200, 0:100] = 0.05**2
@@ -820,25 +820,25 @@ def test_inject_source_into_mosaic():
 
     source_cat = catalog.table_to_catalog(source_cat, ["F158"])
 
-    # Add source_cat objects to l3_img
+    # Add source_cat objects to mosaic
     l3.add_objects_to_l3(l3_img, source_cat, seed=rng_seed)
 
-    # Poisson Noise of the image with injected source
+    # Poisson Noise of the mosaic with injected source
     inject_var_poisson = (l3_img.data.value - 1)**2
 
     # Ensure that the total poisson variance of the source injected image in each quadrant
     # is greater than variance of the original image
-    assert np.sum(inject_var_poisson[0:100,0:100]) > np.sum(l3_img.var_poisson.value[0:100,0:100])
-    assert np.sum(inject_var_poisson[0:100,100:200]) > np.sum(l3_img.var_poisson.value[0:100,100:200])
-    assert np.sum(inject_var_poisson[100:200,0:100]) > np.sum(l3_img.var_poisson.value[100:200,0:100])
-    assert np.sum(inject_var_poisson[100:200,100:200]) > np.sum(l3_img.var_poisson.value[100:200,100:200])
+    assert np.sum(inject_var_poisson[0:100, 0:100]) > np.sum(l3_img.var_poisson.value[0:100, 0:100])
+    assert np.sum(inject_var_poisson[0:100, 100:200]) > np.sum(l3_img.var_poisson.value[0:100, 100:200])
+    assert np.sum(inject_var_poisson[100:200, 0:100]) > np.sum(l3_img.var_poisson.value[100:200, 0:100])
+    assert np.sum(inject_var_poisson[100:200, 100:200]) > np.sum(l3_img.var_poisson.value[100:200, 100:200])
 
     # Ensure that the total poisson variance of the source injected image in each quadrant
     # relatively scales with the exposure time
     # Quadrants: 4 > 3 > 2 > 1
-    assert np.sum(inject_var_poisson[100:200,100:200]) > np.sum(inject_var_poisson[100:200,0:100])
-    assert np.sum(inject_var_poisson[100:200,0:100]) > np.sum(inject_var_poisson[0:100,100:200])
-    assert np.sum(inject_var_poisson[0:100,100:200]) > np.sum(inject_var_poisson[0:100,0:100])
+    assert np.sum(inject_var_poisson[100:200, 100:200]) > np.sum(inject_var_poisson[100:200, 0:100])
+    assert np.sum(inject_var_poisson[100:200, 0:100]) > np.sum(inject_var_poisson[0:100, 100:200])
+    assert np.sum(inject_var_poisson[0:100, 100:200]) > np.sum(inject_var_poisson[0:100, 0:100])
 
     # Create log entry and artifacts
     log.info('DMS232 successfully injected sources into a mosiac at points (50,50), (50,150), (150,50), (150,150).')
