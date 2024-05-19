@@ -13,10 +13,7 @@ import galsim
 import pytest
 
 import roman_datamodels
-# try
 import roman_datamodels.maker_utils as maker_utils
-# except ImportError:
-#     import roman_datamodels.testing.utils as maker_utils
 
 
 def make_fake_distortion_function():

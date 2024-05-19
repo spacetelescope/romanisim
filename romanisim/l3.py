@@ -9,12 +9,12 @@ from . import image, wcs, psf
 
 
 def add_objects_to_l3(l3_img, source_cat, rng=None, seed=None):
-    """Add objects to a Level 3-like image
+    """Add objects to a Level 3 mosaic
 
     Parameters
     ----------
-    l3_img : ImageModel
-        Array containing a mosaic of images
+    l3_img : MosaicModel
+        Mosaic of images
     source_cat : list
         List of catalog objects to add to l3_img
 
@@ -32,14 +32,13 @@ def add_objects_to_l3(l3_img, source_cat, rng=None, seed=None):
         rng = galsim.UniformDeviate(seed)
 
     # Obtain observation keywords
-    filter_name = l3_img.meta.instrument.optical_element
-    sca = int(l3_img.meta.instrument.detector[-2:])
+    filter_name = l3_img.meta.basic.optical_element
 
-    # Generate wcs
-    twcs = wcs.get_wcs(l3_img.meta, usecrds=False)
+    # Generate WCS
+    twcs = wcs.get_mosaic_wcs(l3_img.meta)
 
     # Create PSF
-    l3_psf = psf.make_psf(sca, filter_name, wcs=twcs, chromatic=False, webbpsf=True)
+    l3_psf = psf.make_psf(filter_name=filter_name, sca=2, chromatic=False, webbpsf=True)
 
     # Generate x,y positions for sources
     coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]

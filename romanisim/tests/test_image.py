@@ -757,6 +757,8 @@ def test_inject_source_into_image():
         af.write_to(os.path.join(artifactdir, 'dms231.asdf'))
 
 
+@metrics_logger("DMS232")
+@pytest.mark.soctests
 def test_inject_source_into_mosaic():
     """Inject a source into a mosaic.
     """
@@ -764,13 +766,11 @@ def test_inject_source_into_mosaic():
     # Set constants and metadata
     galsim.roman.n_pix = 200
     rng_seed = 42
-    metadata = copy.deepcopy(parameters.default_parameters_dictionary)
-    metadata['instrument']['detector'] = 'WFI07'
-    metadata['instrument']['optical_element'] = 'F158'
-    metadata['exposure']['ma_table_number'] = 1
+    metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
+    metadata['basic']['optical_element'] = 'F158'
 
-    # Create PSF
-    twcs = wcs.get_wcs(metadata, usecrds=False)
+    # Create WCS
+    twcs = wcs.get_mosaic_wcs(metadata)
 
     # Create initial Level 3-like image
 
@@ -779,17 +779,18 @@ def test_inject_source_into_mosaic():
     # (total files contributed to each quadrant)
 
     # Create gaussian noise generators
-    g1 = galsim.GaussianDeviate(31415926, mean=1.0, sigma=0.01)
-    g2 = galsim.GaussianDeviate(31415926, mean=1.0, sigma=0.02)
-    g3 = galsim.GaussianDeviate(31415926, mean=1.0, sigma=0.05)
-    g4 = galsim.GaussianDeviate(31415926, mean=1.0, sigma=0.1)
+    g1 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.01)
+    g2 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.02)
+    g3 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.05)
+    g4 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.1)
 
     # Create level 3-like image model
-    l3_img = maker_utils.mk_level2_image(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
+    l3_img = maker_utils.mk_level3_mosaic(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
 
     # Update metadata in the l3 model
     for key in metadata.keys():
-        l3_img.meta[key].update(metadata[key])
+        if key in l3_img.meta:
+            l3_img.meta[key].update(metadata[key])
 
     # Populate the image array with gaussian noise from generators
     g1.generate(l3_img.data.value[0:100, 0:100])
@@ -825,16 +826,26 @@ def test_inject_source_into_mosaic():
     # Poisson Noise of the image with injected source
     inject_var_poisson = (l3_img.data.value - 1)**2
 
-    # Ensure that the poisson variance of the source injected image in each quadrant
+    # Ensure that the total poisson variance of the source injected image in each quadrant
     # is greater than variance of the original image
-    assert inject_var_poisson[150][150] > l3_img.var_poisson.value[150][150]
-    assert inject_var_poisson[150][50] > l3_img.var_poisson.value[150][50]
-    assert inject_var_poisson[50][150] > l3_img.var_poisson.value[50][150]
-    assert inject_var_poisson[50][50] > l3_img.var_poisson.value[50][50]
+    assert np.sum(inject_var_poisson[0:100,0:100]) > np.sum(l3_img.var_poisson.value[0:100,0:100])
+    assert np.sum(inject_var_poisson[0:100,100:200]) > np.sum(l3_img.var_poisson.value[0:100,100:200])
+    assert np.sum(inject_var_poisson[100:200,0:100]) > np.sum(l3_img.var_poisson.value[100:200,0:100])
+    assert np.sum(inject_var_poisson[100:200,100:200]) > np.sum(l3_img.var_poisson.value[100:200,100:200])
 
-    # Ensure that the poisson variance of the source injected image in each quadrant
+    # Ensure that the total poisson variance of the source injected image in each quadrant
     # relatively scales with the exposure time
     # Quadrants: 4 > 3 > 2 > 1
-    assert inject_var_poisson[150][150] > inject_var_poisson[150][50]
-    assert inject_var_poisson[150][50] > inject_var_poisson[50][150]
-    assert inject_var_poisson[50][150] > inject_var_poisson[50][50]
+    assert np.sum(inject_var_poisson[100:200,100:200]) > np.sum(inject_var_poisson[100:200,0:100])
+    assert np.sum(inject_var_poisson[100:200,0:100]) > np.sum(inject_var_poisson[0:100,100:200])
+    assert np.sum(inject_var_poisson[0:100,100:200]) > np.sum(inject_var_poisson[0:100,0:100])
+
+    # Create log entry and artifacts
+    log.info('DMS232 successfully injected sources into a mosiac at points (50,50), (50,150), (150,50), (150,150).')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'l3_img': l3_img,
+                   'inject_var_poisson': inject_var_poisson}
+        af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
