@@ -74,7 +74,7 @@ html_use_index = True
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/',
-               (None, 'http://data.astropy.org/intersphinx/python3.inv')),
+               (None, 'https://data.astropy.org/intersphinx/python3.inv')),
     'astropy': ('https://docs.astropy.org/en/stable/', None),
     'galsim': ('https://galsim-developers.github.io/GalSim/_build/html/', None),
     'coord': ('https://lsstdesc.org/Coord/_build/html/', None),
