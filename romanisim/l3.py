@@ -45,11 +45,14 @@ def add_objects_to_l3(l3_mos, source_cat, rng=None, seed=None):
                        for o in source_cat])
     sourcecountsall = galsim.ImageF(l3_mos.data.shape[0], l3_mos.data.shape[1], wcs=twcs, xmin=0, ymin=0)
     xpos, ypos = sourcecountsall.wcs._xy(coords[:, 0], coords[:, 1])
-    xpos = [round(x) for x in xpos]
-    ypos = [round(y) for y in ypos]
+    xpos_idx = [round(x) for x in xpos]
+    ypos_idx = [round(y) for y in ypos]
+
+    # Create overall scaling factor map
+    Ct_all = (l3_mos.data.value / l3_mos.var_poisson)
 
     # Cycle over sources and add them to the mosaic
-    for idx, (x, y) in enumerate(zip(xpos, ypos)):
+    for idx, (x, y) in enumerate(zip(xpos_idx, ypos_idx)):
         # Set scaling factor for injected sources
         # Flux / sigma_p^2
         Ct = (l3_mos.data[x][y].value / l3_mos.var_poisson[x][y].value)
@@ -58,7 +61,7 @@ def add_objects_to_l3(l3_mos, source_cat, rng=None, seed=None):
         sourcecounts = galsim.ImageF(l3_mos.data.shape[0], l3_mos.data.shape[1], wcs=twcs, xmin=0, ymin=0)
 
         # Simulate source postage stamp
-        image.add_objects_to_image(sourcecounts, [source_cat[idx]], xpos=[x], ypos=[y],
+        image.add_objects_to_image(sourcecounts, [source_cat[idx]], xpos=[xpos[idx]], ypos=[ypos[idx]],
                                    psf=l3_psf, flux_to_counts_factor=Ct, bandpass=[filter_name],
                                    filter_name=filter_name, rng=rng)
 
@@ -67,6 +70,11 @@ def add_objects_to_l3(l3_mos, source_cat, rng=None, seed=None):
 
         # Add sources to the original mosaic data array
         l3_mos.data = (l3_mos.data.value + sourcecounts.array) * l3_mos.data.unit
+
+        # Note for the future - other noise sources (read and flat) need to be implemented
+
+    # Set new poisson variance
+    l3_mos.var_poisson = l3_mos.data.value / Ct_all
 
     # l3_mos is updated in place, so no return
     return None

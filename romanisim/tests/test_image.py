@@ -785,60 +785,56 @@ def test_inject_sources_into_mosaic():
     g4 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.1)
 
     # Create level 3 mosaic model
-    l3_img = maker_utils.mk_level3_mosaic(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
+    l3_mos = maker_utils.mk_level3_mosaic(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
 
     # Update metadata in the l3 model
     for key in metadata.keys():
-        if key in l3_img.meta:
-            l3_img.meta[key].update(metadata[key])
+        if key in l3_mos.meta:
+            l3_mos.meta[key].update(metadata[key])
 
     # Populate the mosaic data array with gaussian noise from generators
-    g1.generate(l3_img.data.value[0:100, 0:100])
-    g2.generate(l3_img.data.value[0:100, 100:200])
-    g3.generate(l3_img.data.value[100:200, 0:100])
-    g4.generate(l3_img.data.value[100:200, 100:200])
+    g1.generate(l3_mos.data.value[0:100, 0:100])
+    g2.generate(l3_mos.data.value[0:100, 100:200])
+    g3.generate(l3_mos.data.value[100:200, 0:100])
+    g4.generate(l3_mos.data.value[100:200, 100:200])
 
     # Define Poisson Noise of mosaic
-    l3_img.var_poisson.value[0:100, 0:100] = 0.01**2
-    l3_img.var_poisson.value[0:100, 100:200] = 0.02**2
-    l3_img.var_poisson.value[100:200, 0:100] = 0.05**2
-    l3_img.var_poisson.value[100:200, 100:200] = 0.1**2
+    l3_mos.var_poisson.value[0:100, 0:100] = 0.01**2
+    l3_mos.var_poisson.value[0:100, 100:200] = 0.02**2
+    l3_mos.var_poisson.value[100:200, 0:100] = 0.05**2
+    l3_mos.var_poisson.value[100:200, 100:200] = 0.1**2
 
     # Create normalized psf source catalog (same source in each quadrant)
     sc_dict = {"ra": 4 * [0.0], "dec": 4 * [0.0], "type": 4 * ["PSF"], "n": 4 * [-1.0],
                "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], "F158": 4 * [1.0]}
-    source_cat = table.Table(sc_dict)
+    sc_table = table.Table(sc_dict)
 
     xpos, ypos = 50, 50
-    source_cat["ra"][0], source_cat["dec"][0] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+    sc_table["ra"][0], sc_table["dec"][0] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
     xpos, ypos = 50, 150
-    source_cat['ra'][1], source_cat['dec'][1] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+    sc_table['ra'][1], sc_table['dec'][1] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
     xpos, ypos = 150, 50
-    source_cat['ra'][2], source_cat['dec'][2] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+    sc_table['ra'][2], sc_table['dec'][2] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
     xpos, ypos = 150, 150
-    source_cat['ra'][3], source_cat['dec'][3] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+    sc_table['ra'][3], sc_table['dec'][3] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
 
-    source_cat = catalog.table_to_catalog(source_cat, ["F158"])
+    source_cat = catalog.table_to_catalog(sc_table, ["F158"])
+
+    # Copy original Mosaic before adding sources
+    l3_mos_orig = l3_mos.copy()
 
     # Add source_cat objects to mosaic
-    l3.add_objects_to_l3(l3_img, source_cat, seed=rng_seed)
+    l3.add_objects_to_l3(l3_mos, source_cat, seed=rng_seed)
 
-    # Poisson Noise of the mosaic with injected source
-    inject_var_poisson = (l3_img.data.value - 1)**2
+    # Ensure that every data pixel value has increased or
+    # remained the same with the new sources injected
+    assert np.all(l3_mos.data.value >= l3_mos_orig.data.value)
 
-    # Ensure that the total poisson variance of the source injected image in each quadrant
-    # is greater than variance of the original image
-    assert np.sum(inject_var_poisson[0:100, 0:100]) > np.sum(l3_img.var_poisson.value[0:100, 0:100])
-    assert np.sum(inject_var_poisson[0:100, 100:200]) > np.sum(l3_img.var_poisson.value[0:100, 100:200])
-    assert np.sum(inject_var_poisson[100:200, 0:100]) > np.sum(l3_img.var_poisson.value[100:200, 0:100])
-    assert np.sum(inject_var_poisson[100:200, 100:200]) > np.sum(l3_img.var_poisson.value[100:200, 100:200])
-
-    # Ensure that the total poisson variance of the source injected image in each quadrant
-    # relatively scales with the exposure time
-    # Quadrants: 4 > 3 > 2 > 1
-    assert np.sum(inject_var_poisson[100:200, 100:200]) > np.sum(inject_var_poisson[100:200, 0:100])
-    assert np.sum(inject_var_poisson[100:200, 0:100]) > np.sum(inject_var_poisson[0:100, 100:200])
-    assert np.sum(inject_var_poisson[0:100, 100:200]) > np.sum(inject_var_poisson[0:100, 0:100])
+    # Ensure that every pixel's poisson variance has increased or
+    # remained the same with the new sources injected
+    # Numpy isclose is needed to determine equality, due to float precision issues
+    close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-06)
+    assert np.all(l3_mos.var_poisson.value[~close_mask] > l3_mos_orig.var_poisson.value[~close_mask])
 
     # Create log entry and artifacts
     log.info('DMS232 successfully injected sources into a mosiac at points (50,50), (50,150), (150,50), (150,150).')
@@ -846,6 +842,8 @@ def test_inject_sources_into_mosaic():
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
     if artifactdir is not None:
         af = asdf.AsdfFile()
-        af.tree = {'l3_img': l3_img,
-                   'inject_var_poisson': inject_var_poisson}
+        af.tree = {'l3_mos': l3_mos,
+                   'l3_mos_orig': l3_mos_orig,
+                   'source_cat_table': sc_table,
+                   }
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
