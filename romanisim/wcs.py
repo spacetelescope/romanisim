@@ -148,6 +148,8 @@ def get_wcs(image, usecrds=True, distortion=None):
                        v2_ref=image_mod.meta.wcsinfo.v2_ref,
                        v3_ref=image_mod.meta.wcsinfo.v3_ref,
                        roll_ref=image_mod.meta.wcsinfo.roll_ref)
+        shape = image_mod.data.shape
+        wcs.bounding_box = ((-0.5, shape[-1] - 0.5), (-0.5, shape[-2] - 0.5))
         wcs = GWCS(wcs)
     else:
         # use galsim.roman
@@ -260,8 +262,8 @@ class GWCS(galsim.wcs.CelestialWCS):
         x1 = np.atleast_1d(x)
         y1 = np.atleast_1d(y)
 
-        coord = self.wcs.pixel_to_world(x1, y1)
-        r, d = coord.ra.to(u.rad).value, coord.dec.to(u.rad).value
+        coord = self.wcs(x1, y1, with_bounding_box=False)
+        r, d = (np.radians(c) for c in coord)
 
         if np.ndim(x) == np.ndim(y) == 0:
             return r[0], d[0]
@@ -282,7 +284,7 @@ class GWCS(galsim.wcs.CelestialWCS):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             # x, y = self.wcs.world_to_pixel(r1, d1)
-            x, y = self.wcs.numerical_inverse(r1, d1)
+            x, y = self.wcs.numerical_inverse(r1, d1, with_bounding_box=False)
 
         if np.ndim(ra) == np.ndim(dec) == 0:
             return x[0], y[0]
