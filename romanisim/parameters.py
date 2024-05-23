@@ -55,6 +55,23 @@ default_parameters_dictionary = {
                 },
     'aperture': {'name': 'WFI_CEN',
                  'position_angle': 0
+                 },
+}
+
+# Default metadata for level 3 mosaics
+default_mosaic_parameters_dictionary = {
+    'basic': {'time_mean_mjd': Time('2026-01-01T00:00:00').mjd,
+              'optical_element': 'F184',
+              },
+    'wcsinfo': {'ra_ref': 270.0,
+                'dec_ref': 66.0,
+                'v2_ref': 0,
+                'v3_ref': 0,
+                'roll_ref': 0,
+                'vparity': -1,
+                'v3yangle': -60.0,
+                # I don't know what vparity and v3yangle should really be,
+                # but they are always -1 and -60 in existing files.
                 },
 }
 

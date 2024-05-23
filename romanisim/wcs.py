@@ -77,8 +77,8 @@ def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
         parameters['pointing']['dec_v1'])
 
     # Romanisim uses ROLL_REF = PA_APER - V3IdlYAngle
-    V3IdlYAngle = -60 # this value should eventually be taken from the SIAF
-    parameters['wcsinfo']['roll_ref'] = pa_aper - V3IdlYAngle 
+    V3IdlYAngle = -60  # this value should eventually be taken from the SIAF
+    parameters['wcsinfo']['roll_ref'] = pa_aper - V3IdlYAngle
 
     if boresight:
         parameters['wcsinfo']['v2_ref'] = 0
@@ -406,3 +406,44 @@ def convert_wcs_to_gwcs(wcs):
     else:
         # make a gwcs WCS from a galsim.roman WCS
         return wcs_from_fits_header(wcs.header.header)
+
+
+def get_mosaic_wcs(mosaic):
+    """Get a WCS object for a given sca or set of CRDS parameters.
+
+    Parameters
+    ----------
+    mosaic : roman_datamodels.datamodels.MosaicModel or dict
+        Mosaic model or dictionary containing WCS parameters.
+
+    Returns
+    -------
+    galsim.CelestialWCS for the mosaic
+    """
+
+    # If sent a dictionary, create a temporary model for data interface
+    if (type(mosaic) is not roman_datamodels.datamodels.MosaicModel):
+        mosaic_node = maker_utils.mk_level3_mosaic()
+        for key in mosaic.keys():
+            if isinstance(mosaic[key], dict):
+                mosaic_node['meta'][key].update(mosaic[key])
+            else:
+                mosaic_node['meta'][key] = mosaic[key]
+        mosaic_node = roman_datamodels.datamodels.MosaicModel(mosaic_node)
+    else:
+        mosaic_node = mosaic
+
+    world_pos = astropy.coordinates.SkyCoord(
+        mosaic_node.meta.wcsinfo.ra_ref * u.deg,
+        mosaic_node.meta.wcsinfo.dec_ref * u.deg)
+
+    # Create a tangent plane WCS for the mosaic
+    # The affine parameters below should be reviewed and updated
+    affine = galsim.AffineTransform(
+        0.1, 0, 0, 0.1, origin=galsim.PositionI(mosaic_node.data.shape[0] / 2.0,
+                                                mosaic_node.data.shape[1] / 2.0,),
+        world_origin=galsim.PositionD(0, 0))
+    wcs = galsim.TanWCS(affine,
+                        util.celestialcoord(world_pos))
+
+    return wcs
