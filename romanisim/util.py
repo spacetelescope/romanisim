@@ -7,7 +7,7 @@ from astropy import units as u
 from astropy.time import Time
 import galsim
 
-from romanisim import parameters
+from romanisim import parameters, wcs
 from scipy import integrate
 
 
@@ -248,6 +248,40 @@ def add_more_metadata(metadata):
     if 'guidestar' in metadata:
         metadata['guidestar']['gs_epoch'] = (
             metadata['guidestar']['gs_epoch'][:10])
+
+
+def update_aperture_and_wcsinfo_metadata(metadata, gwcs):
+    """Update aperture and wcsinfo keywords to use the aperture for this SCA.
+
+    Updates metadata in place, setting v2v3ref to be equal to the v2 and v3 of
+    the center of the detector, and radecref accordingly.  Also updates the
+    aperture to refer to this SCA.
+
+    No updates are  performed if gwcs is not a gWCS object or if aperture and
+    wcsinfo are not present in metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        Metadata to update
+    gwcs : WCS object
+        image WCS
+    """
+    if ('aperture' not in metadata or 'wcsinfo' not in metadata
+            or not isinstance(gwcs, wcs.GWCS)):
+        return
+    gwcs = gwcs.wcs
+    metadata['aperture']['name'] = (
+        metadata['instrument']['detector'][:3] + '_'
+        + metadata['instrument']['detector'][3:] + '_FULL')
+    distortion = gwcs.get_transform('detector', 'v2v3')
+    center = (galsim.roman.n_pix / 2 - 0.5, galsim.roman.n_pix / 2 - 0.5)
+    v2v3 = distortion(*center)
+    radec = gwcs(*center)
+    metadata['wcsinfo']['ra_ref'] = radec[0]
+    metadata['wcsinfo']['dec_ref'] = radec[1]
+    metadata['wcsinfo']['v2_ref'] = v2v3[0]
+    metadata['wcsinfo']['v3_ref'] = v2v3[1]
 
 
 def king_profile(r, rc, rt):

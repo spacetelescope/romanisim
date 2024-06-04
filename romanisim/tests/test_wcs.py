@@ -98,6 +98,10 @@ def test_wcs():
     # should be close to the reference v2 & v3 offset.
     assert np.abs(cc3.separation(cc4).to(u.arcsec).value
                   - np.hypot(*parameters.v2v3_wficen)) < 1
+    metadata = dict(aperture=dict(), instrument=dict(), wcsinfo=dict())
+    metadata['instrument']['detector'] = 'WFI01'
+    util.update_aperture_and_wcsinfo_metadata(metadata, wcs.GWCS(gwcs))
+    assert metadata['aperture']['name'] == 'WFI_01_FULL'
 
 
 def test_wcs_from_fits_header():
