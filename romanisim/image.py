@@ -29,10 +29,7 @@ import romanisim.persistence
 from romanisim import log
 
 import roman_datamodels
-try:
-    import roman_datamodels.maker_utils as maker_utils
-except ImportError:
-    import roman_datamodels.testing.utils as maker_utils
+import roman_datamodels.maker_utils as maker_utils
 
 
 # galsim fluxes are in photons / cm^2 / s
