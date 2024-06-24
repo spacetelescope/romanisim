@@ -25,7 +25,7 @@ import romanisim.bandpass
 
 @metrics_logger("DMS232")
 @pytest.mark.soctests
-def test_inject_sources_into_mosaic1():
+def test_inject_sources_into_mosaic():
     """Inject sources into a mosaic.
     """
 
@@ -115,7 +115,7 @@ def test_inject_sources_into_mosaic1():
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
 
 
-def test_sim_mosaic1():
+def test_sim_mosaic():
     """Simulating mosaic from catalog file.
     """
 
