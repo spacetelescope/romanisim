@@ -331,7 +331,7 @@ def apportion_counts_to_resultants(
 
 
 def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
-                                 seed=None):
+                                 seed=None, pedestal_extra_noise=None):
     """Adds read noise to resultants.
 
     The resultants get Gaussian read noise with sigma = sigma_read/sqrt(N).
@@ -351,6 +351,9 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
         Random number generator to use
     seed : int
         Seed for populating RNG.  Only used if rng is None.
+    pedestal_extra_noise : float
+        Extra read noise to add to each pixel across all groups.
+        Equivalent to noise in the reference read.
 
     Returns
     -------
@@ -366,6 +369,9 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     else:
         rng = galsim.GaussianDeviate(rng)
 
+    # separate noise generator for pedestals so we can turn it on and off.
+    pedestalrng = galsim.GaussianDeviate(rng.raw())
+
     if read_noise is None:
         read_noise = parameters.reference_data['readnoise']
     if read_noise is None:
@@ -377,6 +383,12 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     noise = noise * read_noise / np.array(
         [len(x)**0.5 for x in tij]).reshape(-1, 1, 1)
     resultants += noise
+
+    if pedestal_extra_noise is not None:
+        noise = np.zeros(resultants.shape[1:], dtype='f4')
+        pedestalrng.generate(noise)
+        resultants += noise[None, ...] * pedestal_extra_noise
+
     return resultants
 
 
@@ -476,7 +488,8 @@ def add_ipc(resultants, ipc_kernel=None):
 
 
 def make_l1(counts, read_pattern,
-            read_noise=None, rng=None, seed=None,
+            read_noise=None, pedestal_extra_noise=None,
+            rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None):
     """Make an L1 image from a counts image.
@@ -493,6 +506,8 @@ def make_l1(counts, read_pattern,
         resultant.
     read_noise : np.ndarray[nx, ny] (float) or float
         Read noise entering into each read
+    pedestal_extra_noise : np.ndarray[nx, ny] (float) or float
+        Extra noise entering into each pixel (i.e., degenerate with pedestal)
     rng : galsim.BaseDeviate
         Random number generator to use
     seed : int
@@ -549,7 +564,8 @@ def make_l1(counts, read_pattern,
     log.info('Adding read noise...')
     resultants = add_read_noise_to_resultants(
         resultants, tij, rng=rng, seed=seed,
-        read_noise=read_noise)
+        read_noise=read_noise,
+        pedestal_extra_noise=pedestal_extra_noise)
 
     # quantize
     resultants = np.round(resultants)

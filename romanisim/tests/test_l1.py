@@ -70,9 +70,11 @@ def test_apportion_counts_to_resultants():
     counts_no_poisson_noise = 100
     counts = np.random.poisson(counts_no_poisson_noise, size=(100, 100))
     read_noise = 10
+    pedestal_extra_noise = 20
     res1out = []
     res2out = []
     res3out = []
+    res4out = []
     for tij in tijlist:
         resultants, dq = l1.apportion_counts_to_resultants(counts, tij)
         assert np.all(np.diff(resultants, axis=0) >= 0)
@@ -82,11 +84,15 @@ def test_apportion_counts_to_resultants():
                                                tij)
         res3 = l1.add_read_noise_to_resultants(resultants.copy(), tij,
                                                read_noise=read_noise)
+        res4 = l1.add_read_noise_to_resultants(
+            resultants.copy(), tij, read_noise=0,
+            pedestal_extra_noise=pedestal_extra_noise)
         assert np.all(res2 != resultants)
         assert np.all(res3 != resultants)
         res1out.append(resultants)
         res2out.append(res2)
         res3out.append(res3)
+        res4out.append(res4)
         for restij, plane_index in zip(tij, np.arange(res3.shape[0])):
             predcounts = (np.mean(restij) * counts_no_poisson_noise
                           / tij[-1][-1])
@@ -96,8 +102,16 @@ def test_apportion_counts_to_resultants():
             sdev = np.std(res3[plane_index] - resultants[plane_index])
             assert (np.abs(sdev - read_noise / np.sqrt(len(restij)))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
+            sdev = np.std(res4[plane_index] - resultants[plane_index])
+            assert (np.abs(sdev - pedestal_extra_noise)
+                    < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
+        # pedestal extra read noise should be correlated and cancel out of the
+        # first difference, and so should agree exactly with resultants
+        assert np.allclose(np.diff(res4 - resultants, axis=0), 0, atol=1e-4)
     log.info('DMS220: successfully added read noise to resultants.')
     log.info('DMS229: successfully generated ramp from counts.')
+    log.info('DMS223: successfully added correlated noise associated '
+             'with frame zero')
 
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
     if artifactdir is not None:
@@ -107,6 +121,14 @@ def test_apportion_counts_to_resultants():
                    'counts_no_poisson_noise': 100,
                    'tijlist': tijlist}
         af.write_to(os.path.join(artifactdir, 'dms229.asdf'))
+
+        af = asdf.AsdfFile()
+        af.tree = {'resultants': res4out,
+                   'resultants_nonoise': res1out,
+                   'counts': counts,
+                   'counts_no_poisson_noise': 100,
+                   'tijlist': tijlist}
+        af.write_to(os.path.join(artifactdir, 'dms223.asdf'))
 
 
 @metrics_logger("DMS222")

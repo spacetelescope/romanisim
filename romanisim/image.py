@@ -756,6 +756,7 @@ def simulate(metadata, objlist,
     saturation = refdata['saturation']
     reffiles = refdata['reffiles']
     flat = refdata['flat']
+    pedestal_extra_noise = parameters.pedestal_extra_noise
 
     if rng is None and seed is None:
         seed = 43
@@ -776,7 +777,9 @@ def simulate(metadata, objlist,
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:
         l1, l1dq = romanisim.l1.make_l1(
-            counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
+            counts, ma_table_number, read_noise=read_noise,
+            pedestal_extra_noise=pedestal_extra_noise,
+            rng=rng, gain=gain,
             crparam=crparam,
             inv_linearity=inv_linearity,
             tstart=image_mod.meta.exposure.start_time,
