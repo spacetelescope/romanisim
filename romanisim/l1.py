@@ -386,8 +386,9 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
 
     if pedestal_extra_noise is not None:
         noise = np.zeros(resultants.shape[1:], dtype='f4')
+        amplitude = np.hypot(pedestal_extra_noise, read_noise)
         pedestalrng.generate(noise)
-        resultants += noise[None, ...] * pedestal_extra_noise
+        resultants += noise[None, ...] * amplitude
 
     return resultants
 
