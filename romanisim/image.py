@@ -103,6 +103,10 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     if gain is None:
         gain = parameters.reference_data['gain']
+    try:
+        gain = gain.astype('f4')
+    except AttributeError:  # gain is not a Quantity
+        gain = np.float32(gain)
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
@@ -145,7 +149,7 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     poissonvar = rampvar[..., 1, 1, 1] / gain**2 * (u.DN / u.s)**2
 
     if flat is not None:
-        flat = np.clip(flat, 1e-9, np.inf)
+        flat = np.clip(flat, 1e-9, np.inf).astype('f4')
         slopes /= flat
         readvar /= flat**2
         poissonvar /= flat**2
