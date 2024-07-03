@@ -519,8 +519,9 @@ def simulate_counts(metadata, objlist,
         catalog of simulated objects in image
     """
 
-    read_pattern = parameters.read_pattern[
-        metadata['exposure']['ma_table_number']]
+    read_pattern = metadata['exposure'].get(
+        'read_pattern',
+        parameters.read_pattern[metadata['exposure']['ma_table_number']])
 
     sca = int(metadata['instrument']['detector'][3:])
     exptime = parameters.read_time * read_pattern[-1][-1]
@@ -749,7 +750,9 @@ def simulate(metadata, objlist,
     ma_table_number = image_mod.meta.exposure.ma_table_number
     filter_name = image_mod.meta.instrument.optical_element
 
-    read_pattern = parameters.read_pattern[ma_table_number]
+    read_pattern = metadata['exposure'].get(
+        'read_pattern',
+        parameters.read_pattern[metadata['exposure']['ma_table_number']])
 
     refdata = gather_reference_data(image_mod, usecrds=usecrds)
     read_noise = refdata['readnoise']
@@ -781,7 +784,7 @@ def simulate(metadata, objlist,
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:
         l1, l1dq = romanisim.l1.make_l1(
-            counts, ma_table_number, read_noise=read_noise,
+            counts, read_pattern, read_noise=read_noise,
             pedestal_extra_noise=pedestal_extra_noise,
             rng=rng, gain=gain,
             crparam=crparam,
