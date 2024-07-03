@@ -693,6 +693,7 @@ def simulate(metadata, objlist,
         * sca: metadata['instrument']['detector']
         * bandpass: metadata['instrument']['optical_detector']
         * ma_table_number: metadata['exposure']['ma_table_number']
+        * read_pattern: metadata['exposure']['read_pattern']
 
     objlist : list[CatalogObject] or Table
         List of objects in the field to simulate
@@ -747,7 +748,6 @@ def simulate(metadata, objlist,
     image_node['meta'] = meta
     image_mod = roman_datamodels.datamodels.ImageModel(image_node)
 
-    ma_table_number = image_mod.meta.exposure.ma_table_number
     filter_name = image_mod.meta.instrument.optical_element
 
     read_pattern = metadata['exposure'].get(
