@@ -103,6 +103,10 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     if gain is None:
         gain = parameters.reference_data['gain']
+    try:
+        gain = gain.astype('f4')
+    except AttributeError:  # gain is not a Quantity
+        gain = np.float32(gain)
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
@@ -145,7 +149,7 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     poissonvar = rampvar[..., 1, 1, 1] / gain**2 * (u.DN / u.s)**2
 
     if flat is not None:
-        flat = np.clip(flat, 1e-9, np.inf)
+        flat = np.clip(flat, 1e-9, np.inf).astype('f4')
         slopes /= flat
         readvar /= flat**2
         poissonvar /= flat**2
@@ -756,6 +760,7 @@ def simulate(metadata, objlist,
     saturation = refdata['saturation']
     reffiles = refdata['reffiles']
     flat = refdata['flat']
+    pedestal_extra_noise = parameters.pedestal_extra_noise
 
     if rng is None and seed is None:
         seed = 43
@@ -776,7 +781,9 @@ def simulate(metadata, objlist,
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:
         l1, l1dq = romanisim.l1.make_l1(
-            counts, ma_table_number, read_noise=read_noise, rng=rng, gain=gain,
+            counts, ma_table_number, read_noise=read_noise,
+            pedestal_extra_noise=pedestal_extra_noise,
+            rng=rng, gain=gain,
             crparam=crparam,
             inv_linearity=inv_linearity,
             tstart=image_mod.meta.exposure.start_time,
