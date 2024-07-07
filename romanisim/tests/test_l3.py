@@ -4,6 +4,7 @@
 
 import os
 import copy
+import math
 import numpy as np
 import galsim
 from galsim import roman
@@ -75,39 +76,38 @@ def test_inject_sources_into_mosaic():
                "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], "F158": 4 * [1.0]}
     sc_table = table.Table(sc_dict)
 
-    xpos, ypos = 50, 50
-    sc_table["ra"][0], sc_table["dec"][0] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
-    xpos, ypos = 50, 150
-    sc_table['ra'][1], sc_table['dec'][1] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
-    xpos, ypos = 150, 50
-    sc_table['ra'][2], sc_table['dec'][2] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
-    xpos, ypos = 150, 150
-    sc_table['ra'][3], sc_table['dec'][3] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
+    # Set locations
+    xpos_idx = [50, 50, 150, 150]
+    ypos_idx = [50, 150, 50, 150]
+
+    # Populate flux scaling ratio and catalog
+    Ct = []
+    for idx, (x, y) in enumerate(zip(xpos_idx, ypos_idx)):
+        # Set scaling factor for injected sources
+        # Flux / sigma_p^2
+        if l3_mos.var_poisson[x][y].value != 0:
+            Ct.append(math.fabs(l3_mos.data[x][y].value / l3_mos.var_poisson[x][y].value))
+        else:
+            Ct.append(1.0)
+
+        sc_table["ra"][idx], sc_table["dec"][idx] = (twcs._radec(x, y) * u.rad).to(u.deg).value
 
     source_cat = catalog.table_to_catalog(sc_table, ["F158"])
-    coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
-                           for o in source_cat])
 
-    # Copy original Mosaic before adding sources
+    # Copy original Mosaic before adding sources as sources are added in place
     l3_mos_orig = l3_mos.copy()
     l3_mos_orig.data = l3_mos.data.copy()
     l3_mos_orig.var_poisson = l3_mos.var_poisson.copy()
 
     # Add source_cat objects to mosaic
-    l3.add_objects_to_l3(l3_mos, source_cat, seed=rng_seed)
-    # l3.add_objects_to_l3(l3_mos, source_cat, coords=coords, seed=rng_seed)
+    l3.add_objects_to_l3(l3_mos, source_cat, Ct, seed=rng_seed)
 
-    import plotly.express as px
+    # Create overall scaling factor map
+    Ct_all = np.divide(l3_mos_orig.data.value, l3_mos_orig.var_poisson.value,
+                       out=np.ones(l3_mos_orig.data.shape), where=l3_mos_orig.var_poisson.value != 0)
 
-    fig1 = px.imshow(l3_mos_orig.data.value, title='Orig Mosaic Data', labels={'color': 'MJy / sr'})
-    fig1.show()
-
-    fig2 = px.imshow(l3_mos.data.value, title='Injected Mosaic Data', labels={'color': 'MJy / sr'})
-    fig2.show()
-
-    fig3 = px.imshow((l3_mos.data.value - l3_mos_orig.data.value), title='Diff Mosaic Data', labels={'color': 'MJy / sr'})
-    fig3.show()
-
+    # Set new poisson variance
+    l3_mos.var_poisson = (l3_mos.data.value / Ct_all) * l3_mos.var_poisson.unit
 
     # Ensure that every data pixel value has increased or
     # remained the same with the new sources injected
@@ -117,10 +117,6 @@ def test_inject_sources_into_mosaic():
     # remained the same with the new sources injected
     # Numpy isclose is needed to determine equality, due to float precision issues
     close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-06)
-
-    fig4 = px.imshow(close_mask.astype(int), title='Makes', labels={'color': 'T/F'})
-    fig4.show()
-
     assert False in close_mask
     assert np.all(l3_mos.var_poisson.value[~close_mask] > l3_mos_orig.var_poisson.value[~close_mask])
 
