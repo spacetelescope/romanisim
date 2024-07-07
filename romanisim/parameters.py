@@ -122,6 +122,9 @@ persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
 # arbitrary constant to add to initial L1 image so that pixels aren't clipped at zero.
 pedestal = 100 * u.DN
 
+# Addd this much extra noise as correlated extra noise in all resultants.
+pedestal_extra_noise = 4 * u.DN
+
 dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
 dq_do_not_use = dqbits['saturated'] | dqbits['jump_det']
 

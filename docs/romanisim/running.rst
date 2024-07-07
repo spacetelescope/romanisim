@@ -31,7 +31,7 @@ this functionality::
       --catalog CATALOG     input catalog (csv) (default: None)
       --radec RADEC RADEC   ra and dec (deg) (default: None)
       --bandpass BANDPASS   bandpass to simulate (default: F087)
-      --sca SCA             SCA to simulate (default: 7)
+      --sca SCA             SCA to simulate (default: 7). Use -1 to generate images for all SCAs.
       --usecrds             Use CRDS for distortion map (default: False)
       --webbpsf             Use webbpsf for PSF (default: False)
       --date DATE [DATE ...]

@@ -212,22 +212,30 @@ def make_wcs(targ_pos,
     ra_ref = targ_pos.ra.to(u.deg).value
     dec_ref = targ_pos.dec.to(u.deg).value
 
-    # v2_ref, v3_ref are in arcsec, but RotationSequence3D wants degrees.
+    # v2_ref, v3_ref are in arcsec, but RotationSequence3D wants degrees,
+    # so start by scaling by 3600.
     rot = models.RotationSequence3D(
         [v2_ref / 3600, -v3_ref / 3600, roll_ref, dec_ref, -ra_ref], 'zyxyz')
 
-    # distortion takes pixels to V2V3
-    # V2V3 are in arcseconds, while SphericalToCartesian expects degrees.
-    model = (distortion | (models.Scale(1 / 3600) & models.Scale(1 / 3600))
-             | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
-             | rot
-             | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
-    model.name = 'pixeltosky'
+    # V2V3 are in arcseconds, while SphericalToCartesian expects degrees,
+    # so again start by scaling by 3600
+    tel2sky = ((models.Scale(1 / 3600) & models.Scale(1 / 3600))
+                | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
+                | rot
+                | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
+    tel2sky.name = 'v23tosky'
+
     detector = cf.Frame2D(name='detector', axes_order=(0, 1),
                           unit=(u.pix, u.pix))
+    v2v3 = cf.Frame2D(name="v2v3", axes_order=(0, 1),
+        axes_names=("v2", "v3"), unit=(u.arcsec, u.arcsec))
     world = cf.CelestialFrame(reference_frame=astropy.coordinates.ICRS(),
                               name='world')
-    return gwcs.wcs.WCS(model, input_frame=detector, output_frame=world)
+
+    pipeline = [gwcs.wcs.Step(detector, distortion),
+                gwcs.wcs.Step(v2v3, tel2sky),
+                gwcs.wcs.Step(world, None)]
+    return gwcs.wcs.WCS(pipeline)
 
 
 class GWCS(galsim.wcs.CelestialWCS):

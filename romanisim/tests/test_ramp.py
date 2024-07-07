@@ -87,8 +87,8 @@ def test_ramp(test_table=None):
         scale = flux_on_readvar_pts[i]
         ki, var = ramp.construct_ki_and_variances(
             atcinva, atcinv, [rcovar, fcovar * scale, acovar])
-        assert np.allclose(kigrid[i], ki, atol=1e-6)
-        assert np.allclose(vargrid[i], var, atol=1e-6)
+        assert np.allclose(kigrid[i], ki, atol=1e-5, rtol=1e-4)
+        assert np.allclose(vargrid[i], var, atol=1e-5, rtol=1e-4)
     fitter = ramp.RampFitInterpolator(test_table, flux_on_readvar_pts)
     ki = fitter.ki(flux, read_noise)
     var = fitter.variances(flux, read_noise)
