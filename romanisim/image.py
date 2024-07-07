@@ -210,7 +210,8 @@ def trim_objlist(objlist, image):
 
 
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
-                         flux_to_counts_factor, bandpass=None, filter_name=None,
+                         flux_to_counts_factor, exptimes=None, bandpass=None, filter_name=None,
+                         wcs=None,
                          rng=None, seed=None):
     """Add sources to an image.
 
@@ -227,7 +228,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         x & y positions of sources (pixel) at which sources should be added
     psf : galsim.Profile
         PSF for image
-    flux_to_counts_factor : float
+    flux_to_counts_factor : array_like
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total counts in the
         image
@@ -272,6 +273,10 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     for i, obj in enumerate(objlist):
         t0 = time.time()
         image_pos = galsim.PositionD(xpos[i], ypos[i])
+        if wcs is None:
+            pwcs = image.wcs.local(image_pos)
+        else:
+            pwcs = wcs.local(image_pos)
         profile = obj.profile
         if not chromatic:
             if obj.flux is None:
@@ -282,21 +287,35 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             psf0 = psf.at_position(xpos[i], ypos[i])
         else:
             psf0 = psf
-        final = galsim.Convolve(profile * flux_to_counts_factor, psf0)
+        if isinstance(flux_to_counts_factor, list):
+            final = galsim.Convolve(profile * flux_to_counts_factor[i], psf0)
+        else:
+            final = galsim.Convolve(profile * flux_to_counts_factor, psf0)
         if chromatic:
             stamp = final.drawImage(
-                bandpass, center=image_pos, wcs=image.wcs.local(image_pos),
+                bandpass, center=image_pos, wcs=pwcs,
                 method='phot', rng=rng)
         else:
             try:
                 stamp = final.drawImage(center=image_pos,
-                                        wcs=image.wcs.local(image_pos))
+                                        wcs=pwcs)
             except galsim.GalSimFFTSizeError:
                 log.warning(f'Skipping source {i} due to too '
                             f'large FFT needed for desired accuracy.')
-        bounds = stamp.bounds & image.bounds
+        if exptimes is not None:
+            stamp /= exptimes[i]
+
+        if isinstance(image, u.Quantity):
+            im_bounds = galsim.BoundsI(galsim.PositionI(0,0), galsim.PositionI(image.shape))
+        else:
+            im_bounds = image.bounds
+        bounds = stamp.bounds & im_bounds
         if bounds.area() > 0:
-            image[bounds] += stamp[bounds]
+            if isinstance(image, u.Quantity):
+                image[bounds.getXMin():bounds.getXMax()+1,
+                      bounds.getYMin():bounds.getYMax()+1] += stamp[bounds].array * image.unit
+            else:
+                image[bounds] += stamp[bounds]
             counts = np.sum(stamp[bounds].array)
         else:
             counts = 0
@@ -304,6 +323,105 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         outinfo[i] = (counts, time.time() - t0)
     log.info('Rendered %d sources...' % nrender)
     return outinfo
+
+
+# def add_objects_to_image_old(image, objlist, xpos, ypos, psf,
+#                          flux_to_counts_factor, bandpass=None, filter_name=None,
+#                          rng=None, seed=None):
+#     """Add sources to an image.
+
+#     Note: this includes Poisson noise when photon shooting is used
+#     (i.e., for chromatic source profiles), and otherwise is noise free.
+
+#     Parameters
+#     ----------
+#     image : galsim.Image
+#         Image to which to add sources with associated WCS.
+#     objlist : list[CatalogObject]
+#         Objects to add to image
+#     xpos, ypos : array_like
+#         x & y positions of sources (pixel) at which sources should be added
+#     psf : galsim.Profile
+#         PSF for image
+#     flux_to_counts_factor : float
+#         physical fluxes in objlist (whether in profile SEDs or flux arrays)
+#         should be multiplied by this factor to convert to total counts in the
+#         image
+#     bandpass : galsim.Bandpass
+#         bandpass in which image is being rendered.  This is used only in cases
+#         where chromatic profiles & PSFs are being used.
+#     filter_name : str
+#         filter to use to select appropriate flux from objlist.  This is only
+#         used when achromatic PSFs and sources are being rendered.
+#     rng : galsim.BaseDeviate
+#         random number generator to use
+#     seed : int
+#         seed to use for random number generator
+
+#     Returns
+#     -------
+#     outinfo : np.ndarray
+#         Array structure containing rows for each source.  The columns give
+#         the total number of counts from the source entering the image and
+#         the time taken to render the source.
+#     """
+#     if rng is None and seed is None:
+#         seed = 143
+#         log.warning(
+#             'No RNG set, constructing a new default RNG from default seed.')
+#     if rng is None:
+#         rng = galsim.UniformDeviate(seed)
+
+#     log.info('Adding sources to image...')
+#     nrender = 0
+
+#     chromatic = False
+#     if len(objlist) > 0 and objlist[0].profile.spectral:
+#         chromatic = True
+#     if len(objlist) > 0 and chromatic and bandpass is None:
+#         raise ValueError('bandpass must be set for chromatic PSF rendering.')
+#     if len(objlist) > 0 and not chromatic and filter_name is None:
+#         raise ValueError('must specify filter when using achromatic PSF '
+#                          'rendering.')
+
+#     outinfo = np.zeros(len(objlist), dtype=[('counts', 'f4'), ('time', 'f4')])
+#     for i, obj in enumerate(objlist):
+#         t0 = time.time()
+#         image_pos = galsim.PositionD(xpos[i], ypos[i])
+#         profile = obj.profile
+#         if not chromatic:
+#             if obj.flux is None:
+#                 raise ValueError('Non-chromatic sources must have specified '
+#                                  'fluxes!')
+#             profile = profile.withFlux(obj.flux[filter_name])
+#         if hasattr(psf, 'at_position'):
+#             psf0 = psf.at_position(xpos[i], ypos[i])
+#         else:
+#             psf0 = psf
+#         final = galsim.Convolve(profile * flux_to_counts_factor, psf0)
+#         if chromatic:
+#             stamp = final.drawImage(
+#                 bandpass, center=image_pos, wcs=image.wcs.local(image_pos),
+#                 method='phot', rng=rng)
+#         else:
+#             try:
+#                 stamp = final.drawImage(center=image_pos,
+#                                         wcs=image.wcs.local(image_pos))
+#             except galsim.GalSimFFTSizeError:
+#                 log.warning(f'Skipping source {i} due to too '
+#                             f'large FFT needed for desired accuracy.')
+#         bounds = stamp.bounds & image.bounds
+#         if bounds.area() > 0:
+#             image[bounds] += stamp[bounds]
+#             counts = np.sum(stamp[bounds].array)
+#         else:
+#             counts = 0
+#         nrender += 1
+#         outinfo[i] = (counts, time.time() - t0)
+#     log.info('Rendered %d sources...' % nrender)
+#     return outinfo
+
+
 
 
 def simulate_counts_generic(image, exptime, objlist=None, psf=None,

@@ -85,12 +85,29 @@ def test_inject_sources_into_mosaic():
     sc_table['ra'][3], sc_table['dec'][3] = (twcs._radec(xpos, ypos) * u.rad).to(u.deg).value
 
     source_cat = catalog.table_to_catalog(sc_table, ["F158"])
+    coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
+                           for o in source_cat])
 
     # Copy original Mosaic before adding sources
     l3_mos_orig = l3_mos.copy()
+    l3_mos_orig.data = l3_mos.data.copy()
+    l3_mos_orig.var_poisson = l3_mos.var_poisson.copy()
 
     # Add source_cat objects to mosaic
     l3.add_objects_to_l3(l3_mos, source_cat, seed=rng_seed)
+    # l3.add_objects_to_l3(l3_mos, source_cat, coords=coords, seed=rng_seed)
+
+    import plotly.express as px
+
+    fig1 = px.imshow(l3_mos_orig.data.value, title='Orig Mosaic Data', labels={'color': 'MJy / sr'})
+    fig1.show()
+
+    fig2 = px.imshow(l3_mos.data.value, title='Injected Mosaic Data', labels={'color': 'MJy / sr'})
+    fig2.show()
+
+    fig3 = px.imshow((l3_mos.data.value - l3_mos_orig.data.value), title='Diff Mosaic Data', labels={'color': 'MJy / sr'})
+    fig3.show()
+
 
     # Ensure that every data pixel value has increased or
     # remained the same with the new sources injected
@@ -100,6 +117,11 @@ def test_inject_sources_into_mosaic():
     # remained the same with the new sources injected
     # Numpy isclose is needed to determine equality, due to float precision issues
     close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-06)
+
+    fig4 = px.imshow(close_mask.astype(int), title='Makes', labels={'color': 'T/F'})
+    fig4.show()
+
+    assert False in close_mask
     assert np.all(l3_mos.var_poisson.value[~close_mask] > l3_mos_orig.var_poisson.value[~close_mask])
 
     # Create log entry and artifacts
@@ -113,48 +135,3 @@ def test_inject_sources_into_mosaic():
                    'source_cat_table': sc_table,
                    }
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
-
-
-def test_sim_mosaic():
-    """Simulating mosaic from catalog file.
-    """
-
-    ra_ref = 1.0
-    dec_ref = 4.0
-
-    metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
-    metadata['basic']['optical_element'] = 'F158'
-    metadata['wcsinfo']['ra_ref'] = ra_ref
-    metadata['wcsinfo']['dec_ref'] = dec_ref
-    metadata['wcsinfo']['pixel_scale'] = 0.11
-    metadata['wcsinfo']['pixel_scale_local'] = 0.11
-    metadata['wcsinfo']['v2_ref'] = 0
-    metadata['wcsinfo']['v3_ref'] = 0
-
-    exptimes = [600]
-
-    cen = SkyCoord(ra=ra_ref * u.deg, dec=dec_ref * u.deg)
-    cat = catalog.make_dummy_table_catalog(cen, radius=0.01, nobj=100)
-    cat['F158'] = cat['F158'] * 10e10
-
-    source_cat = catalog.table_to_catalog(cat, ["F158"])
-
-    mosaic, extras = l3.simulate(metadata, source_cat, exptimes)
-
-    import plotly.express as px
-
-    fig1 = px.imshow(mosaic.data.value, title='Mosaic Data', labels={'color': 'MJy / sr'})
-    fig1.show()
-
-    fig2 = px.imshow(mosaic.context[-2:].reshape(mosaic.context.shape[-2:]), title='Mosaic Context', labels={'color': 'File Number'})
-    fig2.show()
-
-    pos_vals = mosaic.data.value.copy()
-    pos_vals[pos_vals <= 0] = 0.00000000001
-
-    fig3 = px.imshow(np.log(pos_vals), title='Mosaic Data (log)', labels={'color': 'MJy / sr'})
-    fig3.show()
-
-# TBD: Test with more complex context
-
-# TBD: Test of geometry construction
