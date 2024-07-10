@@ -220,15 +220,15 @@ def make_wcs(targ_pos,
     # V2V3 are in arcseconds, while SphericalToCartesian expects degrees,
     # so again start by scaling by 3600
     tel2sky = ((models.Scale(1 / 3600) & models.Scale(1 / 3600))
-                | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
-                | rot
-                | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
+               | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
+               | rot
+               | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
     tel2sky.name = 'v23tosky'
 
     detector = cf.Frame2D(name='detector', axes_order=(0, 1),
                           unit=(u.pix, u.pix))
     v2v3 = cf.Frame2D(name="v2v3", axes_order=(0, 1),
-        axes_names=("v2", "v3"), unit=(u.arcsec, u.arcsec))
+                      axes_names=("v2", "v3"), unit=(u.arcsec, u.arcsec))
     world = cf.CelestialFrame(reference_frame=astropy.coordinates.ICRS(),
                               name='world')
 

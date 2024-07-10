@@ -18,7 +18,7 @@ import copy
 import numpy as np
 import galsim
 from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs, persistence, ramp, l1, l3
+from romanisim import image, parameters, catalog, psf, util, wcs, persistence, ramp, l1
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -30,7 +30,6 @@ import pytest
 from metrics_logger.decorators import metrics_logger
 from romanisim import log
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
-import roman_datamodels.maker_utils as maker_utils
 import romanisim.bandpass
 
 

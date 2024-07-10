@@ -26,7 +26,7 @@ import roman_datamodels.maker_utils as maker_utils
 CENTER_SCA = 2
 
 
-def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords=None,
+def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords=None, unit_factor=1.0,
                       coords_unit='rad', wcs=None, psf=None, rng=None, seed=None):
     """Add objects to a Level 3 mosaic
 
@@ -42,6 +42,8 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
         x & y positions of sources (pixel) at which sources should be added
     coords : array_like
         ra & dec positions of sources (coords_unit) at which sources should be added
+    unit_factor: float
+        Factor to convert data to MJy / sr
     coords_unit : string
         units of coords
     wcs : galsim.GSFitsWCS
@@ -70,6 +72,9 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
     if psf is None:
         psf = romanisim.psf.make_psf(filter_name=filter_name, sca=CENTER_SCA, chromatic=False, webbpsf=True)
 
+    # Create Image canvas to add objects to
+    sourcecountsall = galsim.ImageF(l3_mos.data.value, wcs=wcs, xmin=0, ymin=0)
+
     # Create position arrays (if needed)
     if any(pos is None for pos in [xpos, ypos]):
         # Create coordinates (if needed)
@@ -78,14 +83,16 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
                                for o in source_cat])
             coords_unit = 'rad'
         # Generate x,y positions for sources
-        sourcecountsall = galsim.ImageF(l3_mos.data.shape[0], l3_mos.data.shape[1], wcs=wcs, xmin=0, ymin=0)
         xpos, ypos = sourcecountsall.wcs.radecToxy(coords[:, 0], coords[:, 1], coords_unit)
 
     # Add sources to the original mosaic data array
-    romanisim.image.add_objects_to_image(l3_mos.data, source_cat, xpos=xpos, ypos=ypos,
-                                         psf=psf, flux_to_counts_factor=exptimes, exptimes=exptimes,
-                                         bandpass=[filter_name], filter_name=filter_name,
+    romanisim.image.add_objects_to_image(sourcecountsall, source_cat, xpos=xpos, ypos=ypos,
+                                         psf=psf, flux_to_counts_factor=[xpt * unit_factor for xpt in exptimes],
+                                         exptimes=exptimes, bandpass=[filter_name], filter_name=filter_name,
                                          wcs=wcs, rng=rng, seed=seed)
+
+    # Save array with added sources
+    l3_mos.data = sourcecountsall.array * l3_mos.data.unit
 
     # l3_mos is updated in place, so no return
     return None

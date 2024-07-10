@@ -29,7 +29,7 @@ tijlist = [
 
 read_pattern_list = [
     [[1 + x for x in range(10)], [11], [12 + x for x in range(10)], [30],
-         [40 + x for x in range(5)], [50 + x for x in range(100)]],
+     [40 + x for x in range(5)], [50 + x for x in range(100)]],
     [[1]],
     [[1], [10]],
 ]

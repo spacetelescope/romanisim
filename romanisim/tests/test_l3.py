@@ -59,11 +59,15 @@ def test_inject_sources_into_mosaic():
         if key in l3_mos.meta:
             l3_mos.meta[key].update(metadata[key])
 
+    # Obtain unit conversion factor
+    unit_factor = parameters.reference_data['photom'][l3_mos.meta.basic.optical_element]
+
     # Populate the mosaic data array with gaussian noise from generators
     g1.generate(l3_mos.data.value[0:100, 0:100])
     g2.generate(l3_mos.data.value[0:100, 100:200])
     g3.generate(l3_mos.data.value[100:200, 0:100])
     g4.generate(l3_mos.data.value[100:200, 100:200])
+    l3_mos.data *= unit_factor.value
 
     # Define Poisson Noise of mosaic
     l3_mos.var_poisson.value[0:100, 0:100] = 0.01**2
@@ -85,8 +89,8 @@ def test_inject_sources_into_mosaic():
     for idx, (x, y) in enumerate(zip(xpos_idx, ypos_idx)):
         # Set scaling factor for injected sources
         # Flux / sigma_p^2
-        if l3_mos.var_poisson[x][y].value != 0:
-            Ct.append(math.fabs(l3_mos.data[x][y].value / l3_mos.var_poisson[x][y].value))
+        if l3_mos.var_poisson[y, x].value != 0:
+            Ct.append(math.fabs(l3_mos.data[y, x].value / l3_mos.var_poisson[y, x].value))
         else:
             Ct.append(1.0)
 
@@ -100,7 +104,7 @@ def test_inject_sources_into_mosaic():
     l3_mos_orig.var_poisson = l3_mos.var_poisson.copy()
 
     # Add source_cat objects to mosaic
-    l3.add_objects_to_l3(l3_mos, source_cat, Ct, seed=rng_seed)
+    l3.add_objects_to_l3(l3_mos, source_cat, Ct, unit_factor=unit_factor.value, seed=rng_seed)
 
     # Create overall scaling factor map
     Ct_all = np.divide(l3_mos_orig.data.value, l3_mos_orig.var_poisson.value,
@@ -117,6 +121,7 @@ def test_inject_sources_into_mosaic():
     # remained the same with the new sources injected
     # Numpy isclose is needed to determine equality, due to float precision issues
     close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-06)
+
     assert False in close_mask
     assert np.all(l3_mos.var_poisson.value[~close_mask] > l3_mos_orig.var_poisson.value[~close_mask])
 
