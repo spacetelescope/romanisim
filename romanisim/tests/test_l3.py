@@ -74,6 +74,7 @@ def test_inject_sources_into_mosaic():
     l3_mos.var_poisson.value[0:100, 100:200] = 0.02**2
     l3_mos.var_poisson.value[100:200, 0:100] = 0.05**2
     l3_mos.var_poisson.value[100:200, 100:200] = 0.1**2
+    # l3_mos.var_poisson /= unit_factor.value**2
 
     # Create normalized psf source catalog (same source in each quadrant)
     sc_dict = {"ra": 4 * [0.0], "dec": 4 * [0.0], "type": 4 * ["PSF"], "n": 4 * [-1.0],
@@ -112,6 +113,7 @@ def test_inject_sources_into_mosaic():
 
     # Set new poisson variance
     l3_mos.var_poisson = (l3_mos.data.value / Ct_all) * l3_mos.var_poisson.unit
+    # l3_mos.var_poisson = (l3_mos.data.value / Ct_all) * (l3_mos.var_poisson.unit / unit_factor.value**2)
 
     # Ensure that every data pixel value has increased or
     # remained the same with the new sources injected
@@ -120,10 +122,34 @@ def test_inject_sources_into_mosaic():
     # Ensure that every pixel's poisson variance has increased or
     # remained the same with the new sources injected
     # Numpy isclose is needed to determine equality, due to float precision issues
-    close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-06)
+    close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-20)
+
+    import plotly.express as px
+    fig1 = px.imshow(l3_mos_orig.data.value, title='Mosaic Data', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
+    fig1.show()
+
+    fig2 = px.imshow(l3_mos.data.value, title='Sources Data', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
+    fig2.show()
+
+    fig3 = px.imshow((l3_mos.data.value - l3_mos_orig.data.value), title='Diff Data', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
+    fig3.show()
+
+    fig4 = px.imshow(close_mask, title='Mask', labels={'color': 'True / False', 'x':'y axis', 'y':'x axis'})
+    fig4.show()
+
+    fig5 = px.imshow(l3_mos_orig.var_poisson.value, title='Mosaic Poisson', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
+    fig5.show()
+
+    fig6 = px.imshow(l3_mos.var_poisson.value, title='Sources Poisson', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
+    fig6.show()
+
+    fig7 = px.imshow((l3_mos.var_poisson.value - l3_mos_orig.var_poisson.value), title='Diff Poisson', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
+    fig7.show()
+
 
     assert False in close_mask
     assert np.all(l3_mos.var_poisson.value[~close_mask] > l3_mos_orig.var_poisson.value[~close_mask])
+    assert np.all(l3_mos.var_poisson.value > l3_mos_orig.var_poisson.value)
 
     # Create log entry and artifacts
     log.info('DMS232 successfully injected sources into a mosaic at points (50,50), (50,150), (150,50), (150,150).')
