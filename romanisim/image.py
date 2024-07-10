@@ -224,7 +224,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
 
     Parameters
     ----------
-    image : galsim.Image or astropy.Quantity[float]
+    image : galsim.Image
         Image to which to add sources with associated WCS. Updated in place.
     objlist : list[CatalogObject]
         Objects to add to image
@@ -313,17 +313,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         if exptimes is not None:
             stamp /= exptimes[i]
 
-        if isinstance(image, u.Quantity):
-            im_bounds = galsim.BoundsI(galsim.PositionI(0, 0), galsim.PositionI(image.shape))
-        else:
-            im_bounds = image.bounds
-        bounds = stamp.bounds & im_bounds
+        bounds = stamp.bounds & image.bounds
         if bounds.area() > 0:
-            if isinstance(image, u.Quantity):
-                image[bounds.getXMin():(bounds.getXMax() + 1),
-                      bounds.getYMin():(bounds.getYMax() + 1)] += stamp[bounds].array * image.unit
-            else:
-                image[bounds] += stamp[bounds]
+            image[bounds] += stamp[bounds]
             counts = np.sum(stamp[bounds].array)
         else:
             counts = 0

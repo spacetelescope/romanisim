@@ -201,8 +201,8 @@ class VariablePSF:
         # x = [0, off] -> 1
         # x = [npix, infinity] -> 0
         # linearly between those, likewise for y.
-        out = (self.psf['ll'] * wleft * wlow +
-               self.psf['lr'] * (1 - wleft) * wlow +
-               self.psf['ul'] * wleft * (1 - wlow) +
-               self.psf['ur'] * (1 - wleft) * (1 - wlow))
+        out = (self.psf['ll'] * wleft * wlow
+               + self.psf['lr'] * (1 - wleft) * wlow
+               + self.psf['ul'] * wleft * (1 - wlow)
+               + self.psf['ur'] * (1 - wleft) * (1 - wlow))
         return out
