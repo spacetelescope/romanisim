@@ -4,6 +4,9 @@
 import numpy as np
 from astropy.time import Time
 from astropy import units as u
+import webbpsf as wpsf
+
+pixel_scale = wpsf.WFI().pixelscale
 
 read_pattern = {1: [[1 + x for x in range(8)],
                     [9 + x for x in range(8)],

@@ -29,7 +29,7 @@ from gwcs import coordinate_frames as cf
 import gwcs.wcs
 import galsim.wcs
 from galsim import roman
-from . import util
+from . import util, parameters
 
 
 # Needed until RCAL release unfreezing link to RDM/RAD versions 0.14.1
@@ -456,7 +456,7 @@ def get_mosaic_wcs(mosaic, shape=None):
     # Create a tangent plane WCS for the mosaic
     # The affine parameters below should be reviewed and updated
     affine = galsim.AffineTransform(
-        0.1, 0, 0, 0.1, origin=galsim.PositionI(math.ceil(shape[0] / 2.0), math.ceil(shape[1] / 2.0)),
+        parameters.pixel_scale, 0, 0, parameters.pixel_scale, origin=galsim.PositionI(math.ceil(shape[0] / 2.0), math.ceil(shape[1] / 2.0)),
         world_origin=galsim.PositionD(0, 0))
     wcs = galsim.TanWCS(affine,
                         util.celestialcoord(world_pos))
