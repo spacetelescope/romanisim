@@ -15,6 +15,7 @@ telescope.  These include:
   which to place the given ra/dec
 * the default persistence parameters
 * the default cosmic ray parameters
+* the default gain when CRDS is not used
 
 These values can be overridden by specifying a yaml config file on the
 command line to romanisim-make-image.

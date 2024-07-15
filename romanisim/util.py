@@ -186,8 +186,10 @@ def add_more_metadata(metadata):
 
     if 'exposure' not in metadata.keys():
         metadata['exposure'] = {}
-    read_pattern = parameters.read_pattern[
-        metadata['exposure']['ma_table_number']]
+    read_pattern = metadata['exposure'].get(
+        'read_pattern',
+        parameters.read_pattern[metadata['exposure']['ma_table_number']])
+    metadata['exposure']['read_pattern'] = read_pattern
     openshuttertime = parameters.read_time * read_pattern[-1][-1]
     offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
                    end=openshuttertime * u.s)
@@ -212,7 +214,6 @@ def add_more_metadata(metadata):
     metadata['exposure']['exposure_time'] = openshuttertime
     metadata['exposure']['effective_exposure_time'] = openshuttertime
     metadata['exposure']['duration'] = openshuttertime
-    metadata['exposure']['read_pattern'] = read_pattern
     # integration_start?  integration_end?  nints = 1?  ...
 
     if 'target' not in metadata.keys():
