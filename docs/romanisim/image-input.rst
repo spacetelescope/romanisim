@@ -38,7 +38,7 @@ The following fields must be specified for each source:
 * shear_ba: the minor-to-major axis ratio of the shear (i.e., q `here <https://galsim-developers.github.io/GalSim/_build/html/shear.html#the-shear-class>`_)
 * dilate: the amount to dilate (>1) or shrink (<1) the source
 
-Following these required fields is a series of columns giving the fluxes of the the sources in "maggies", as in the catalog :doc:`docs </romanisim/catalog>`_ .
+Following these required fields is a series of columns giving the fluxes of the the sources in "maggies", as in the catalog :doc:`docs </romanisim/catalog>`.
 
 The simulator then renders these images in the scene and produces the simulated L1 or L2 images.
 
