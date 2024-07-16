@@ -427,7 +427,7 @@ def test_simulate_counts():
     # argument is high enough!
     roman.n_pix = 100
 
-    meta = util.default_image_meta(optical_element='F158')
+    meta = util.default_image_meta(filter_name='F158')
     wcs.fill_in_parameters(meta, coord)
     im1 = image.simulate_counts(meta, chromcat, usecrds=False,
                                 webbpsf=False, ignore_distant_sources=100)
@@ -457,8 +457,8 @@ def test_simulate():
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
     filter_name = 'F158'
-    meta = default_image_meta(time=time, filter_name=filter_name,
-                              coord=coord)
+    meta = util.default_image_meta(time=time, filter_name=filter_name,
+                                   coord=coord)
 
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
@@ -851,7 +851,6 @@ def test_image_input(tmpdir):
     catalog.make_image_catalog(filenames, psf, base_rgc_filename)
 
     # make some metadata to describe an image for us to render
-    imdict = set_up_image_rendering_things()
     roman.n_pix = 500
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     meta = util.default_image_meta(coord=coord, filter_name='F087')
