@@ -23,6 +23,10 @@ from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 import roman_datamodels.maker_utils as maker_utils
 import romanisim.bandpass
 
+# Define centermost SCA for PSFs
+CENTER_SCA = 2
+
+
 
 @metrics_logger("DMS232")
 @pytest.mark.soctests
@@ -162,21 +166,100 @@ def test_sim_mosaic():
 
     source_cat = catalog.table_to_catalog(cat, ["F158"])
 
-    mosaic, extras = l3.simulate(metadata, source_cat, exptimes)
+    filter = metadata['basic']['optical_element']
+
+    # if context is None:
+    # Create geometry from the object list
+    twcs = romanisim.wcs.get_mosaic_wcs(metadata)
+
+    coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
+                        for o in source_cat])
+
+    allx, ally = twcs.radecToxy(coords[:, 0], coords[:, 1], 'rad')
+
+    # Obtain the sample extremums
+    xmin = min(allx)
+    xmax = max(allx)
+    ymin = min(ally)
+    ymax = max(ally)
+
+    print(f"XXX X: min, max = {xmin, xmax}")
+    print(f"XXX Y: min, max = {ymin, ymax}")
+
+    # Obtain WCS center
+    xcen, ycen = twcs.radecToxy(twcs.center.ra, twcs.center.dec, 'rad')
+
+    # Determine maximum extremums from WCS center
+    xdiff = max([math.ceil(xmax - xcen), math.ceil(xcen - xmin)]) + 1
+    ydiff = max([math.ceil(ymax - ycen), math.ceil(ycen - ymin)]) + 1
+
+    print(f"XXX Test Center: xcen, ycen = {xcen}, {ycen}")
+ 
+    print(f"XXX 2*xdiff = {2*xdiff}")
+    print(f"XXX 2*ydiff = {2*ydiff}")
+
+    # Create context map preserving WCS center
+    # context = np.ones((1, 2 * xdiff, 2 * ydiff), dtype=np.uint32)
+    context = np.ones((1, 2 * ydiff, 2 * xdiff), dtype=np.uint32)
+
+    # Generate WCS
+    moswcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=(context.shape[1:])) #shape=context.shape[-2:])
+
+    psf = romanisim.psf.make_psf(filter_name=filter, sca=CENTER_SCA, chromatic=False, webbpsf=True)
+
+    # mosaic, extras = l3.simulate(metadata, source_cat, exptimes)
+    # l3.simulate(shape, wcs, efftime, filter, catalog, effreadnoise=None, sky=None, psf=None):
+    mosaic, extras = l3.simulate(context.shape[1:], twcs, exptimes[0], filter, source_cat, metadata=metadata)
 
     import plotly.express as px
 
     fig1 = px.imshow(mosaic.data.value, title='Mosaic Data', labels={'color': 'MJy / sr'})
     fig1.show()
 
-    fig2 = px.imshow(mosaic.context[-2:].reshape(mosaic.context.shape[-2:]), title='Mosaic Context', labels={'color': 'File Number'})
-    fig2.show()
+    # fig2 = px.imshow(mosaic.context[-2:].reshape(mosaic.context.shape[-2:]), title='Mosaic Context', labels={'color': 'File Number'})
+    # fig2.show()
 
     pos_vals = mosaic.data.value.copy()
     pos_vals[pos_vals <= 0] = 0.00000000001
 
     fig3 = px.imshow(np.log(pos_vals), title='Mosaic Data (log)', labels={'color': 'MJy / sr'})
     fig3.show()
+
+    # mosaic, extras = l3.simulate(metadata, source_cat, exptimes)
+    # l3.simulate(shape, wcs, efftime, filter, catalog, effreadnoise=None, sky=None, psf=None):
+    efftimes = util.decode_context_times(context, exptimes)
+
+    fig3 = px.imshow(mosaic.context[1:].reshape(mosaic.context.shape[1:]), title='Mosaic Context', labels={'color': 'File Number'})
+    fig3.show()
+
+    fig4 = px.imshow(efftimes, title='Effective Times', labels={'color': 'seconds'})
+    fig4.show()
+
+    tmp_image = galsim.ImageF(context.shape[1], context.shape[2], wcs=moswcs, xmin=0, ymin=0)
+
+    print(f"XXX context.shape = {context.shape}")
+    print(f"XXX efftimes.shape = {efftimes.shape}")
+    # print(f"XXX moswcs = {moswcs}")
+    # print(f"XXX twcs = {twcs}")
+    # print(f"XXX tmp_image.wcs = {tmp_image.wcs}")
+
+    xmoscen, ymoscen = moswcs.radecToxy(moswcs.center.ra, moswcs.center.dec, 'rad')
+    print(f"XXX Test Center: xmoscen, ymoscen = {xmoscen}, {ymoscen}")
+
+    mosaic2, extras2 = l3.simulate(context.shape[1:], tmp_image.wcs, efftimes, filter, source_cat, metadata=metadata)
+
+    fig1 = px.imshow(mosaic2.data.value, title='Mosaic Data', labels={'color': 'MJy / sr'})
+    fig1.show()
+
+
+
+    pos_vals2 = mosaic2.data.value.copy()
+    pos_vals2[pos_vals2 <= 0] = 0.00000000001
+
+    fig3 = px.imshow(np.log(pos_vals2), title='Mosaic Data (log)', labels={'color': 'MJy / sr'})
+    fig3.show()
+
+
 
 # TBD: Test with more complex context
 

@@ -104,25 +104,57 @@ def generate_mosaic_geometry():
     """
     pass
 
+def generate_exptime_array():
+    # Create geometry from the object list
+    twcs = romanisim.wcs.get_mosaic_wcs(meta)
 
-def simulate(metadata, cat, exptimes, context=None,
-             usecrds=True, webbpsf=True, seed=None, rng=None,
-             psf_keywords=dict(), **kwargs
-             ):
+    coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
+                        for o in cat])
+
+    allx, ally = twcs.radecToxy(coords[:, 0], coords[:, 1], 'rad')
+
+    # Obtain the sample extremums
+    xmin = min(allx)
+    xmax = max(allx)
+    ymin = min(ally)
+    ymax = max(ally)
+
+    # Obtain WCS center
+    xcen, ycen = twcs.radecToxy(twcs.center.ra, twcs.center.dec, 'rad')
+
+    # Determine maximum extremums from WCS center
+    xdiff = max([math.ceil(xmax - xcen), math.ceil(xcen - xmin)])
+    ydiff = max([math.ceil(ymax - ycen), math.ceil(ycen - ymin)])
+
+    print(f"XXX 2*xdiff = {2*xdiff}")
+    print(f"XXX 2*ydiff = {2*ydiff}")
+
+    # Create context map preserving WCS center
+    # context = np.ones((1, 2 * xdiff, 2 * ydiff), dtype=np.uint32)
+    context = np.ones((1, 2 * ydiff, 2 * xdiff), dtype=np.uint32)
+
+
+def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=None, sky=None, psf=None, seed=None, rng=None):
+            # , cat, exptimes, context=None,
+            #  usecrds=True, webbpsf=True, seed=None, rng=None,
+            #  psf_keywords=dict(), **kwargs
+            #  ):
     """TBD
     """
 
-    if not usecrds:
-        log.warning('--usecrds is not set.  romanisim will not use reference '
-                    'files from CRDS.  The WCS may be incorrect and up-to-date '
-                    'calibration information will not be used.')
+    # if not usecrds:
+    #     log.warning('--usecrds is not set.  romanisim will not use reference '
+    #                 'files from CRDS.  The WCS may be incorrect and up-to-date '
+    #                 'calibration information will not be used.')
 
     # Create metadata object
     meta = maker_utils.mk_mosaic_meta()
-    meta['wcs'] = None
 
     for key in parameters.default_mosaic_parameters_dictionary.keys():
         meta[key].update(parameters.default_mosaic_parameters_dictionary[key])
+
+    meta['wcs'] = wcs
+    meta['basic']['optical_element'] = filter
 
     for key in metadata.keys():
         if key not in meta:
@@ -131,51 +163,60 @@ def simulate(metadata, cat, exptimes, context=None,
         else:
             meta[key].update(metadata[key])
 
-    # May need an equivalent of this this for L3
+    # May need an equivalent of this this for L3?
     # util.add_more_metadata(meta)
 
-    filter_name = metadata['basic']['optical_element']
+    log.info('Simulating filter {0}...'.format(filter))
+    # mosaic, simcatobj = simulate_cps(
+    #     meta, cat, context, exptimes, rng=rng, usecrds=usecrds,
+    #     webbpsf=webbpsf, psf_keywords=psf_keywords)
+    # ORIG sim_CPS code below
 
-    if rng is None and seed is None:
-        seed = 43
-        log.warning(
-            'No RNG set, constructing a new default RNG from default seed.')
-    if rng is None:
-        rng = galsim.UniformDeviate(seed)
+    galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter]
+    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
 
-    if context is None:
-        # Create geometry from the object list
-        twcs = romanisim.wcs.get_mosaic_wcs(meta)
+    # objlist = catalog
 
-        coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
-                           for o in cat])
+    # # Is this needed?
+    # chromatic = False
+    # if (len(objlist) > 0
+    #         and not isinstance(objlist, table.Table)  # this case is always gray
+    #         and objlist[0].profile.spectral):
+    #     chromatic = True
 
-        allx, ally = twcs.radecToxy(coords[:, 0], coords[:, 1], 'rad')
+    # Create initial galsim image (x & y are flipped)
+    image = galsim.ImageF(shape[0], shape[1], wcs=wcs, xmin=0, ymin=0)
+    print(f"XXX image.array.shape = {image.array.shape}")
 
-        # Obtain the sample extremums
-        xmin = min(allx)
-        xmax = max(allx)
-        ymin = min(ally)
-        ymax = max(ally)
+    if sky is None:
+        date = meta['basic']['time_mean_mjd']
+        if not isinstance(date, astropy.time.Time):
+            date = astropy.time.Time(date, format='mjd')
 
-        # Obtain WCS center
-        xcen, ycen = twcs.radecToxy(twcs.center.ra, twcs.center.dec, 'rad')
+        # Examine this in more detail to ensure it is correct
+        # Create base sky level
+        mos_cent_pos = wcs.toWorld(image.true_center)
+        sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos,
+                                    date=date.datetime, exptime=1)
+        sky_level *= (1.0 + roman.stray_light_fraction)
+        # sky_mosaic = image * 0
+        # wcs.makeSkyImage(sky_mosaic, sky_level)
+        # sky_mosaic += roman.thermal_backgrounds[galsim_filter_name]
+        sky = sky_level
 
-        # Determine maximum extremums from WCS center
-        xdiff = max([math.ceil(xmax - xcen), math.ceil(xcen - xmin)])
-        ydiff = max([math.ceil(ymax - ycen), math.ceil(ycen - ymin)])
+    abflux = romanisim.bandpass.get_abflux(filter)
 
-        print(f"XXX 2*xdiff = {2*xdiff}")
-        print(f"XXX 2*ydiff = {2*ydiff}")
+    # Obtain physical unit conversion factor
+    unit_factor = parameters.reference_data['photom'][filter]
 
-        # Create context map preserving WCS center
-        # context = np.ones((1, 2 * xdiff, 2 * ydiff), dtype=np.uint32)
-        context = np.ones((1, 2 * ydiff, 2 * xdiff), dtype=np.uint32)
-
-    log.info('Simulating filter {0}...'.format(filter_name))
+    # mosaic, simcatobj = simulate_cps(
+    #     meta, cat, context, exptimes, rng=rng, usecrds=usecrds,
+    #     webbpsf=webbpsf, psf_keywords=psf_keywords) 
+    # renamed simulate_cps_generic
+    # Maybe return a mosaic object as well?
     mosaic, simcatobj = simulate_cps(
-        meta, cat, context, exptimes, rng=rng, usecrds=usecrds,
-        webbpsf=webbpsf, psf_keywords=psf_keywords)
+        image, meta, efftimes, objlist=catalog, psf=psf, zpflux=abflux, sky=sky,
+        wcs=wcs, rng=rng, seed=seed, unit_factor=unit_factor)
 
     extras = {}
 
@@ -195,72 +236,10 @@ def simulate(metadata, cat, exptimes, context=None,
     return mosaic, extras
 
 
-def simulate_cps(metadata, objlist, context, exptimes,
-                 rng=None, seed=None, webbpsf=True, usecrds=False,
-                 psf_keywords=dict()):
-    """TBD
-    """
-
-    if rng is None and seed is None:
-        seed = 43
-        log.warning(
-            'No RNG set, constructing a new default RNG from default seed.')
-    if rng is None:
-        rng = galsim.UniformDeviate(seed)
-
-    filter_name = metadata['basic']['optical_element']
-
-    date = metadata['basic']['time_mean_mjd']
-
-    if not isinstance(date, astropy.time.Time):
-        date = astropy.time.Time(date, format='mjd')
-
-    galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
-    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
-
-    # Generate WCS
-    moswcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=context.shape[-2:])
-
-    # Is this needed?
-    chromatic = False
-    if (len(objlist) > 0
-            and not isinstance(objlist, table.Table)  # this case is always gray
-            and objlist[0].profile.spectral):
-        chromatic = True
-
-    # With context, is possible that individual PSFs could be properly assigned?
-    # Would be a pain to implement
-    psf = romanisim.psf.make_psf(filter_name=filter_name, wcs=moswcs, sca=CENTER_SCA,
-                                 chromatic=chromatic, webbpsf=webbpsf,
-                                 variable=True, **psf_keywords)
-
-    # Create initial galsim image (x & y are flipped)
-    image = galsim.ImageF(context.shape[-1], context.shape[-2], wcs=moswcs, xmin=0, ymin=0)
-
-
-    # Examine this in more detail to ensure it is correct
-    # Create base sky level
-    mos_cent_pos = moswcs.toWorld(image.true_center)
-    sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos,
-                                  date=date.datetime, exptime=1)
-    sky_level *= (1.0 + roman.stray_light_fraction)
-    # sky_mosaic = image * 0
-    # moswcs.makeSkyImage(sky_mosaic, sky_level)
-    # sky_mosaic += roman.thermal_backgrounds[galsim_filter_name]
-    abflux = romanisim.bandpass.get_abflux(filter_name)
-
-    # Obtain physical unit conversion factor
-    unit_factor = parameters.reference_data['photom'][filter_name]
-
-    # Maybe return a mosaic object as well?
-    mosaic, simcatobj = simulate_cps_generic(
-        image, metadata, context, exptimes, objlist=objlist, psf=psf, zpflux=abflux, sky=sky_level,
-        wcs=moswcs, rng=rng, seed=seed, unit_factor=unit_factor)
-
-    return mosaic, simcatobj
-
-
-def simulate_cps_generic(image, metadata, context, exptimes, objlist=None, psf=None,
+# def simulate_cps_generic(image, metadata, context, exptimes, objlist=None, psf=None,
+#                          zpflux=None, wcs=None, xpos=None, ypos=None, sky=None,
+#                          flat=None, rng=None, seed=None, unit_factor=1):
+def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
                          zpflux=None, wcs=None, xpos=None, ypos=None, sky=None,
                          flat=None, rng=None, seed=None, unit_factor=1):
     """TBD
@@ -293,8 +272,8 @@ def simulate_cps_generic(image, metadata, context, exptimes, objlist=None, psf=N
     if ypos is not None:
         ypos = np.array(ypos)
 
-    if len(objlist) > 0 and psf is None:
-        raise ValueError('Must provide a PSF if you want to render objects.')
+    # if len(objlist) > 0 and psf is None:
+    #     raise ValueError('Must provide a PSF if you want to render objects.')
 
     if flat is None:
         flat = 1.0
@@ -323,28 +302,38 @@ def simulate_cps_generic(image, metadata, context, exptimes, objlist=None, psf=N
 
     # Add Objects requires a mosaic image
     # Maybe violates the notion of a "generic" count simulator?
-    print(f"XXX image.array.shape = {image.array.shape}")
-    print(f"XXX context.shape = {context.shape}")
-    mosaic_mdl = make_l3(image, context, metadata, exptimes, unit_factor=unit_factor)
+    mosaic_mdl = make_l3(image, metadata, efftimes, unit_factor=unit_factor)
 
     if wcs is not None:
         mosaic_mdl['wcs'] = wcs
 
     # Extract exposure time for each pixel
-    exptimes_pix = util.decode_context_times(context, exptimes)
+    # exptimes_pix = util.decode_context_times(context, exptimes)
 
-    print(f"XXX exptimes_pix.shape = {exptimes_pix.shape}")
+    # print(f"XXX efftimes.shape = {efftimes.shape}")
 
     xpos_idx = [round(x) for x in xpos]
     ypos_idx = [round(y) for y in ypos]
 
-    print(f"XXX xpos_idx = {xpos_idx}")
+    print(f"XXX Center x,y = {image.wcs.radecToxy(image.wcs.center.ra.rad, image.wcs.center.dec.rad, 'rad')}")
 
-    src_exptimes = exptimes * len(xpos)
+    print(f"XXX max, min (xpos) = {max(xpos)},{min(xpos)}")
+    print(f"XXX max, min (ypos) = {max(ypos)},{min(ypos)}")
+
+    print(f"XXX max, min (xpos_idx) = {max(xpos_idx)},{min(xpos_idx)}")
+    print(f"XXX max, min (ypos_idx) = {max(ypos_idx)},{min(ypos_idx)}")
+
+    if isinstance(efftimes, np.ndarray):
+        print(f"XXX efftimes is an array!")
+        src_exptimes = [efftimes[y,x] for x,y in zip(xpos_idx, ypos_idx)]
+        # src_exptimes = [efftimes[x,y] for x,y in zip(xpos_idx, ypos_idx)]
+    else:
+        src_exptimes = [efftimes] * len(xpos)
 
     # Add objects to mosaic model
     objinfo = add_objects_to_l3(
         mosaic_mdl, objlist, src_exptimes, rng=rng)
+
     objinfo = np.zeros(
         len(objlist),
         dtype=[('x', 'f4'), ('y', 'f4'), ('counts', 'f4'), ('time', 'f4')])
@@ -355,7 +344,9 @@ def simulate_cps_generic(image, metadata, context, exptimes, objlist=None, psf=N
     return mosaic_mdl, objinfo
 
 
-def make_l3(image, context, metadata, exptimes, rng=None, seed=None,
+# def make_l3(image, context, metadata, exptimes, rng=None, seed=None,
+#             saturation=None, unit_factor=1):
+def make_l3(image, metadata, efftimes, rng=None, seed=None,
             saturation=None, unit_factor=1):
     """TBD
     """
@@ -370,8 +361,8 @@ def make_l3(image, context, metadata, exptimes, rng=None, seed=None,
 
     # code from apportion_counts_to_resultants
 
-    # mosaic = np.swapaxes(image.array, 0, 1)
-    mosaic = image.array.copy()
+    mosaic = np.swapaxes(image.array, 0, 1)
+    # mosaic = image.array.copy()
 
     # Set rng for creating readnoise, flat noise
     if rng is None and seed is None:
@@ -415,22 +406,23 @@ def make_l3(image, context, metadata, exptimes, rng=None, seed=None,
     # Set mosaic to be a mosaic model
     mosaic_mdl = maker_utils.mk_level3_mosaic(shape=mosaic.shape, meta=metadata)
 
-    # Extract exposure time for each pixel
-    exptimes_pix = util.decode_context_times(context, exptimes)
+    # # Extract exposure time for each pixel
+    # exptimes_pix = util.decode_context_times(context, exptimes)
 
     # Set data
     mosaic_mdl.data = mosaic * unit_factor
-    mosaic_mdl.data = np.divide(mosaic_mdl.data.value, exptimes_pix,
+    print(f"XXX mosaic_mdl.data.value.shape = {mosaic_mdl.data.value.shape}")
+    mosaic_mdl.data = np.divide(mosaic_mdl.data.value, efftimes,
                                 out=np.zeros(mosaic_mdl.data.shape),
-                                where=exptimes_pix != 0) * mosaic_mdl.data.unit
+                                where=efftimes != 0) * mosaic_mdl.data.unit
 
     # Context
     # Binary index of images that contribute to the pixel
     # Defined by geometry.. if not, all non zero = 1.
-    mosaic_mdl.context = context
+    # mosaic_mdl.context = context
 
     # Poisson noise
-    mosaic_mdl.var_poisson = unit_factor**2 / exptimes_pix**2
+    # mosaic_mdl.var_poisson = unit_factor**2 / efftimes**2
 
     # Weight
     # Use exptime weight

@@ -424,6 +424,8 @@ def get_mosaic_wcs(mosaic, shape=None):
     ----------
     mosaic : roman_datamodels.datamodels.MosaicModel or dict
         Mosaic model or dictionary containing WCS parameters.
+    shape: list
+        Length of dimensions of mosaic
 
     Returns
     -------
@@ -452,11 +454,12 @@ def get_mosaic_wcs(mosaic, shape=None):
     if shape is None:
         shape = (mosaic_node.data.shape[0],
                  mosaic_node.data.shape[1])
+        shape = mosaic_node.data.shape
 
     # Create a tangent plane WCS for the mosaic
     # The affine parameters below should be reviewed and updated
     affine = galsim.AffineTransform(
-        parameters.pixel_scale, 0, 0, parameters.pixel_scale, origin=galsim.PositionI(math.ceil(shape[0] / 2.0), math.ceil(shape[1] / 2.0)),
+        parameters.pixel_scale, 0, 0, parameters.pixel_scale, origin=galsim.PositionI(x=math.ceil(shape[1] / 2.0), y=math.ceil(shape[0] / 2.0)),
         world_origin=galsim.PositionD(0, 0))
     wcs = galsim.TanWCS(affine,
                         util.celestialcoord(world_pos))
