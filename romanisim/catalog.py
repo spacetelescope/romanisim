@@ -10,6 +10,7 @@ from galsim import roman
 from astropy import coordinates
 from astropy import table
 from astropy import units as u
+from astropy.io import fits
 from . import util
 import romanisim.bandpass
 
@@ -334,6 +335,140 @@ def make_stars(coord,
     return out
 
 
+def image_table_to_catalog(table, bandpasses):
+    """Read a astropy Table into a list of CatalogObjects.
+
+    We want to read in an image catalog and make a list of CatalogObjects.
+    The image catalog indicates that specific galaxies stored as images in a
+    RealGalaxyCatalog should be rendered at specific locations in the images,
+    for example, if one had postage stamps of galaxies from a hydro sim and
+    wanted to render them in a Roman simulation.  The table must have the
+    following columns:
+
+    * ra : float, right ascension in degrees
+    * dec : float, declination in degrees
+    * ident: int, identity entry in RealGalaxyCatalog
+    * dilate: float, how much to dilate the image by, in degrees
+    * rotate: float, how much to rotate the image by
+    * shear_ba: how much to shear the image by
+                (new minor over major axis, if the original image were round)
+    * shear_pa: angle to shear the image on, in degrees
+
+    Additionally there must be a column for each bandpass giving the total flux
+    in that bandbass, integrating over the image.
+
+    The file name for the RealGalaxyCatalog must be present in the
+    'real_galaxy_catalog_filename' keyword in the table metadata.
+
+    Note that GalSim tries to deconvolve the image by the RealGalaxyCatalog
+    PSF before reconvolving it with the appropriate filter PSF.  Depending
+    on the dilation factor and the RealGalaxyCatalog PSF, this can require
+    substantial deconvolution and lead to ringing.  For sufficiently large
+    dilations, any initial PSF will become larger than the Roman PSF
+    and induce ringing.
+
+    Parameters
+    ----------
+    table : astropy.table.Table
+        astropy Table containing ra, dec, ident, dilate, rotate, shear_amount,
+        shear_pa, and fluxes in different bandpasses.
+        Metadata must include real_galaxy_catalog_filename pointing to the
+        RealGalaxyCatalog to use.
+    bandpasses : list[str]
+        list of names of bandpasses.  These bandpasses must have
+        columns of the corresponding names in the catalog, containing
+        the objects' fluxes.
+
+    Returns
+    -------
+    list[CatalogObject]
+        list of catalog objects for catalog
+    """
+    out = list()
+    if 'real_galaxy_catalog_filename' not in table.meta:
+        raise ValueError(
+            'catalog file name must be present in table metadata.')
+    rgc = galsim.RealGalaxyCatalog(table.meta['real_galaxy_catalog_filename'])
+    for i in range(len(table)):
+        pos = coordinates.SkyCoord(table['ra'][i] * u.deg, table['dec'][i] * u.deg,
+                                   frame='icrs')
+        pos = util.celestialcoord(pos)
+        fluxes = {bp: table[bp][i] for bp in bandpasses}
+        obj = galsim.RealGalaxy(rgc, id=table['ident'][i])
+        obj = obj.shear(
+            q=table['shear_ba'][i],
+            beta=(np.radians(table['shear_pa'][i])
+                  + np.pi / 2) * galsim.radians)
+        obj = obj.dilate(table['dilate'][i])
+        obj = obj.rotate(np.radians(table['rotate'][i]) * galsim.radians)
+        out.append(CatalogObject(pos, obj, fluxes))
+    return out
+
+
+def make_image_catalog(image_filenames, psf, out_base_filename,
+                       pixel_scale=0.05):
+    """Construct a RealGalaxyCatalog from a list of image filenames.
+
+    GalSim supports catalogs of real galaxies from images that can be inserted
+    into images.  This function makes it easy to produce a minimal set of files
+    that can be used as a GalSim RealGalaxyCatalog from list list of fits
+    images.  These images can come from anywhere, but are expected to come from
+    either real imaging or hydro simulations.
+
+    This routine assumes that all images have a pixel scale of 0.05" and are
+    seen through a common PSF, which is given as the PSF argument.  This PSF is
+    deconvolved before reconvolving with the appropriate filter-specific PSF
+    when rendering a Roman image.
+
+    Files are written to the provided base filename, plus
+    ".fits", "_image.fits", and "_psf.fits" extensions.  The first file
+    contains a binary table with some metadata about the included images;
+    the second contains a file with one HDU for each image; the third includes
+    the PSF image.
+
+    Parameters
+    ----------
+    image_filenames : list[str]
+        filenames of images of images to use
+    psf : np.ndarray[float]
+        image of PSF through which images were seen
+    out_base_filename : str
+        output filename to use for RealGalaxyCatalog files output here
+    pixel_scale : float
+        pixel scale of PSF and images
+
+    Returns
+    -------
+    None - this routine only writes files to out_base_filename
+    """
+    outdtype = [('ident', 'i4'), ('gal_filename', 'U200'), ('psf_filename', 'U200'),
+                ('noise_file_name', 'U200'), ('gal_hdu', 'i4'), ('psf_hdu', 'i4'),
+                ('pixel_scale', 'f4'), ('noise_variance', 'f4'), ('mag', 'f4'),
+                ('band', 'U10'), ('weight', 'f4'), ('stamp_flux', 'f4')]
+    nimage = len(image_filenames)
+    res = np.zeros(nimage, dtype=outdtype)
+    res['ident'] = np.arange(nimage)
+    out_filename_image = out_base_filename + '_img.fits'
+    hdul = fits.HDUList()
+    for fn in image_filenames:
+        hdu = fits.open(fn)[0]
+        hdul.append(hdu)
+    hdul.writeto(out_filename_image)
+    res['gal_filename'] = out_filename_image
+    res['gal_hdu'] = res['ident']
+    out_filename_psf = (out_base_filename + '_psf.fits')
+    fits.writeto(out_filename_psf, psf)
+    res['psf_filename'] = out_filename_psf
+    res['psf_hdu'] = 0
+    res['pixel_scale'] = pixel_scale
+    res['noise_variance'] = 0
+    res['mag'] = 0  # not sure what this is used for
+    res['stamp_flux'] = 1  # not sure what this is used for
+    res['weight'] = 1/nimage
+    res['band'] = 'F087'
+    fits.writeto(out_base_filename + '.fits', res)
+
+
 def table_to_catalog(table, bandpasses):
     """Read a astropy Table into a list of CatalogObjects.
 
@@ -347,6 +482,9 @@ def table_to_catalog(table, bandpasses):
     * half_light_radius : float, half light radius in arcsec
     * pa : float, position angle of ellipse relative to north (on the sky) in degrees
     * ba : float, ratio of semiminor axis b over semimajor axis a
+
+    Alternatively, the table must have the columns specified in
+    image_table_to_catalog (for image input).
 
     Additionally there must be a column for each bandpass giving the flux
     in that bandbass.
@@ -366,6 +504,9 @@ def table_to_catalog(table, bandpasses):
     list[CatalogObject]
         list of catalog objects for catalog
     """
+
+    if 'ident' in table.dtype.names:
+        return image_table_to_catalog(table, bandpasses)
 
     out = list()
     for i in range(len(table)):

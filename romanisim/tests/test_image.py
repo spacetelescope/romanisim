@@ -427,16 +427,7 @@ def test_simulate_counts():
     # argument is high enough!
     roman.n_pix = 100
 
-    meta = {
-        'exposure': {
-            'start_time': Time('2020-01-01T00:00:00'),
-            'ma_table_number': 1,
-        },
-        'instrument': {
-            'detector': 'WFI01',
-            'optical_element': 'F158',
-        },
-    }
+    meta = util.default_image_meta(optical_element='F158')
     wcs.fill_in_parameters(meta, coord)
     im1 = image.simulate_counts(meta, chromcat, usecrds=False,
                                 webbpsf=False, ignore_distant_sources=100)
@@ -466,24 +457,8 @@ def test_simulate():
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
     filter_name = 'F158'
-
-    meta = {
-        'exposure': {
-            'start_time': time,
-            'ma_table_number': 1,
-        },
-        'instrument': {
-            'optical_element': filter_name,
-            'detector': 'WFI01'
-        },
-        'wcsinfo': {
-            'ra_ref': coord.ra.to(u.deg).value,
-            'dec_ref': coord.dec.to(u.deg).value,
-            'v2_ref': 0,
-            'v3_ref': 0,
-            'roll_ref': 0,
-        },
-    }
+    meta = default_image_meta(time=time, filter_name=filter_name,
+                              coord=coord)
 
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
@@ -847,3 +822,82 @@ def test_inject_sources_into_mosaic():
                    'source_cat_table': sc_table,
                    }
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
+
+
+@metrics_logger("DMS228")
+@pytest.mark.soctests
+def test_image_input(tmpdir):
+    # make some simple example images
+    imsz = 99
+    cenpix = imsz // 2
+    yy, xx = np.meshgrid(np.arange(imsz) - cenpix, np.arange(imsz) - cenpix)
+    im1 = ((xx ** 2 + yy ** 2) < 30 ** 2) * 1.0  # circle
+    im2 = im1 * 0
+    im2[35:65, 10:-10] = 1  # rectangle
+
+    # make a PSF for these
+    psf = im1 * 0
+    psf[cenpix, cenpix] = 1
+    from scipy.ndimage import gaussian_filter
+    sigma = 1
+    psf = gaussian_filter(psf, 1)
+
+    # set up the image catalog
+    from astropy.io import fits
+    filenames = [tmpdir.join('im1.fits'), tmpdir.join('im2.fits')]
+    fits.writeto(filenames[0], gaussian_filter(im1, sigma))
+    fits.writeto(filenames[1], gaussian_filter(im2, sigma))
+    base_rgc_filename = tmpdir.join('test_image_catalog')
+    catalog.make_image_catalog(filenames, psf, base_rgc_filename)
+
+    # make some metadata to describe an image for us to render
+    imdict = set_up_image_rendering_things()
+    roman.n_pix = 500
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+    meta = util.default_image_meta(coord=coord, filter_name='F087')
+    imwcs = wcs.get_wcs(meta, usecrds=False)
+
+    # make a table of sources for us to render
+    tab = table.Table()
+    cen = imwcs.toWorld(galsim.PositionD(roman.n_pix / 2, roman.n_pix / 2))
+    offsets = np.array([[-300, 300, -100, -200, 0, 0],
+                        [0, 100, -200, -100, 0, -300]])
+    offsets = offsets * 0.1 / 60 / 60
+    tab['ra'] = util.skycoord(cen).ra.to(u.degree).value + offsets[0, :]
+    tab['dec'] = util.skycoord(cen).dec.to(u.degree).value + offsets[1, :]
+    tab['ident'] = np.arange(6) % 2  # alternate circles and rectangles
+    tab['rotate'] = np.arange(6) * 60
+    tab['shear_pa'] = (5 - np.arange(6)) * 60
+    tab['shear_ba'] = [0.5, 0.3, 0.9, 0.8, 1, 1]
+    tab['dilate'] = [0.5, 0.1, 0.9, 1.1, 2, 0.8]
+    tab['F087'] = [1e-7, 2e-7, 3e-7, 3e-7, 2e-7, 1e-7]
+    tab.meta['real_galaxy_catalog_filename'] = str(base_rgc_filename) + '.fits'
+
+    # render the image
+    res = image.simulate(meta, tab, usecrds=False, webbpsf=False)
+
+    # did we get all the flux?
+    totflux = np.sum(res[0].data.value - np.median(res[0].data.value))
+    expectedflux = (romanisim.bandpass.get_abflux('F087') * np.sum(tab['F087'])
+                    / parameters.reference_data['gain'].value)
+    assert np.abs(totflux / expectedflux - 1) < 0.1
+
+    # are there sources where there should be?
+    for r, d in zip(tab['ra'], tab['dec']):
+        x, y = imwcs.toImage(r, d, units=galsim.degrees)
+        x = int(x)
+        y = int(y)
+        assert res[0].data.value[y, x] > np.median(res[0].data.value) * 5
+    log.info('DMS228: Successfully added rendered sources from image input; '
+             'sources are present and flux matches.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'im1': im1,
+                   'im2': im2,
+                   'psf': psf,
+                   'catalog': tab,
+                   'output': res[0].data,
+                   }
+        af.write_to(os.path.join(artifactdir, 'dms228.asdf'))
