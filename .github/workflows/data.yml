@@ -30,7 +30,7 @@ jobs:
           wget ${{ env.GALSIM_DATA_URL }}/real_galaxy_catalog_23.5_example_fits.fits -O  galsim_data/real_galaxy_catalog_23.5_example_fits.fits
       - id: galsim_data
         run: echo "hash=${{ hashFiles( 'galsim_data/' ) }}" >> $GITHUB_OUTPUT
-      - run: echo GALSIM_PATH=${{ needs.download_webbpsf_data.outputs.cache_path }}galsim_data/ >> $GITHUB_ENV
+      - run: echo GALSIM_PATH=/tmp/data/galsim_data/ >> $GITHUB_ENV
       - run: |
           mkdir -p ${{ env.GALSIM_PATH }}
           mv ./galsim_data/* ${{ env.GALSIM_PATH }}
@@ -40,10 +40,11 @@ jobs:
         with:
           path: ${{ needs.download_webbpsf_data.outputs.cache_path }}
           key: ${{ needs.download_webbpsf_data.outputs.cache_key }}
-      - run: echo WEBBPSF_PATH=${{ needs.download_webbpsf_data.outputs.cache_path }}webbpsf-data/ >> $GITHUB_ENV
+      - run: mv ${{ needs.download_webbpsf_data.outputs.cache_path }}/webbpsf-data/ /tmp/data/
+      - run: echo WEBBPSF_PATH=/tmp/data/webbpsf-data/ >> $GITHUB_ENV
       # save a new cache to the same generalized data directory, combined with extra data
       - name: save a single combined data cache
         uses: actions/cache/save@v4
         with:
-          path: ${{ needs.download_webbpsf_data.outputs.cache_path }}
+          path: /tmp/data/
           key: data-${{ needs.download_webbpsf_data.outputs.cache_key }}-galsim-data-${{ steps.galsim_data.outputs.hash }}

@@ -25,7 +25,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - run: echo cache_key=${{ steps.latest_cache_key.outputs.cache_key }}
       - id: cache_path
-        run: echo cache_path=${{ runner.temp }}/data/ >> $GITHUB_OUTPUT
+        run: echo cache_path=/tmp/data/ >> $GITHUB_OUTPUT
     outputs:
       cache_key: ${{ steps.latest_cache_key.outputs.cache_key }}
       cache_path: ${{ steps.cache_path.outputs.cache_path }}
