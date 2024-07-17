@@ -25,8 +25,8 @@ jobs:
           - eigen
           - fftw
       setenv: |
-        WEBBPSF_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}/webbpsf-data/
-        GALSIM_CAT_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}/galsim_data/real_galaxy_catalog_23.5_example.fits
+        WEBBPSF_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}webbpsf-data/
+        GALSIM_CAT_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}galsim_data/real_galaxy_catalog_23.5_example.fits
         FFTW_DIR: /opt/homebrew/opt/fftw/lib/
       cache-path: ${{ needs.latest_data_cache.outputs.cache_path }}
       cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}
