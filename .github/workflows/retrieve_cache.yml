@@ -4,9 +4,9 @@ on:
   workflow_call:
     outputs:
       cache_key:
-        value:
+        value: ${{ jobs.retrieve_cache.outputs.cache_key }}
       cache_path:
-        value:
+        value: ${{ jobs.retrieve_cache.outputs.cache_path }}
 
 jobs:
   retrieve_cache:
