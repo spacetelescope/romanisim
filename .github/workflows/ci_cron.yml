@@ -15,7 +15,7 @@ on:
 jobs:
   latest_data_cache:
     if: (github.repository == 'spacetelescope/romanisim' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Weekly CI')))
-    uses: ./.github/workflows/retrieve_cache.yml@main
+    uses: ./.github/workflows/retrieve_cache.yml
   test:
     needs: [ latest_data_cache ]
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
