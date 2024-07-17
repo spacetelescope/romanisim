@@ -23,15 +23,15 @@ jobs:
       GALSIM_DATA_URL: https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
     steps:
       - name: download GalSim data
-        id: galsim_data
         run: |
           mkdir ./galsim_data/
           wget ${{ env.GALSIM_DATA_URL }}/real_galaxy_catalog_23.5_example.fits -O ./galsim_data/real_galaxy_catalog_23.5_example.fits
           wget ${{ env.GALSIM_DATA_URL }}/real_galaxy_catalog_23.5_example_selection.fits -O ./galsim_data/real_galaxy_catalog_23.5_example_selection.fits
           wget ${{ env.GALSIM_DATA_URL }}/real_galaxy_catalog_23.5_example_fits.fits -O ./galsim_data/real_galaxy_catalog_23.5_example_fits.fits
-          echo "hash=${{ hashFiles( './galsim_data/' ) }}" >> $GITHUB_OUTPUT
-          mv ./galsim_data/ ${{ needs.download_webbpsf_data.outputs.cache_path }}
-          echo "GALSIM_CAT_PATH=${{ needs.download_webbpsf_data.outputs.cache_path }}/galsim_data/real_galaxy_catalog_23.5_example.fits" >> $GITHUB_OUTPUT
+      - id: galsim_data
+        run: echo "hash=${{ hashFiles( './galsim_data/' ) }}" >> $GITHUB_OUTPUT
+      - run: mv ./galsim_data/ ${{ needs.download_webbpsf_data.outputs.cache_path }}
+      - run: echo "GALSIM_CAT_PATH=${{ needs.download_webbpsf_data.outputs.cache_path }}/galsim_data/real_galaxy_catalog_23.5_example.fits"
       - name: retrieve cached WebbPSF data
         uses: actions/cache/restore@v4
         with:
