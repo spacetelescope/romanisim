@@ -1,51 +1,50 @@
-name: data
+name: download and cache data
 
 on:
-  workflow_call:
-    outputs:
-      path:
-        value: ${{ jobs.data.outputs.path }}
-      hash:
-        value: ${{ jobs.data.outputs.hash }}
-      webbpsf_path:
-        value: ${{ jobs.data.outputs.webbpsf_path }}
-      galsim_cat_path:
-        value: ${{ jobs.data.outputs.galsim_cat_path }}
+  schedule:
+    - cron: "42 4 * * 3"
+  workflow_dispatch:
+    inputs:
+      webbpsf_minimal:
+        description: minimal WebbPSF dataset
+        type: boolean
+        required: false
+        default: true
 
 jobs:
-  data:
-    name: download data
+  download_webbpsf_data:
+    uses: spacetelescope/webbpsf/.github/workflows/download_data.yml@develop
+    with:
+      minimal: ${{ github.event_name != 'workflow_dispatch' && true || inputs.webbpsf_minimal }}
+  combine_data_cache:
+    needs: [ download_webbpsf_data ]
     runs-on: ubuntu-latest
+    env:
+      GALSIM_DATA_URL: https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: data
+      - name: download GalSim data    
         run: |
-          echo "webbpsf_url=https://stsci.box.com/shared/static/qxpiaxsjwo15ml6m4pkhtk36c9jgj70k.gz" >> $GITHUB_OUTPUT
-          echo "galsim_url=https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/" >> $GITHUB_OUTPUT
-          echo "path=/tmp/data" >> $GITHUB_OUTPUT
+          mkdir galsim_data
+          wget ${{ env.GALSIM_DATA_URL }}/real_galaxy_catalog_23.5_example.fits -O  galsim_data/real_galaxy_catalog_23.5_example.fits
+          wget ${{ env.GALSIM_DATA_URL }}/real_galaxy_catalog_23.5_example_selection.fits -O  galsim_data/real_galaxy_catalog_23.5_example_selection.fits
+          wget ${{ env.GALSIM_DATA_URL }}/real_galaxy_catalog_23.5_example_fits.fits -O  galsim_data/real_galaxy_catalog_23.5_example_fits.fits
+      - id: galsim_data
+        run: echo "hash=${{ hashFiles( 'galsim_data/' ) }}" >> $GITHUB_OUTPUT
+      - run: echo GALSIM_PATH=/tmp/data/galsim_data/ >> $GITHUB_ENV
       - run: |
-          mkdir ${{ steps.data.outputs.path }}
-          wget ${{ steps.data.outputs.webbpsf_url }} -O ${{ steps.data.outputs.path }}/minimal-webbpsf-data.tar.gz
-          cd ${{ steps.data.outputs.path }}
-          tar -xzvf minimal-webbpsf-data.tar.gz
-          mkdir galsim-data
-          wget ${{ steps.data.outputs.galsim_url }}/real_galaxy_catalog_23.5_example.fits -O galsim-data/real_galaxy_catalog_23.5_example.fits
-          wget ${{ steps.data.outputs.galsim_url }}/real_galaxy_catalog_23.5_example_selection.fits -O galsim-data/real_galaxy_catalog_23.5_example_selection.fits
-          wget ${{ steps.data.outputs.galsim_url }}/real_galaxy_catalog_23.5_example_fits.fits -O galsim-data/real_galaxy_catalog_23.5_example_fits.fits
-      - id: data_hash
-        run: echo "hash=${{ hashFiles( 'romanisim/data' ) }}" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v4
+          mkdir -p ${{ env.GALSIM_PATH }}
+          mv ./galsim_data/* ${{ env.GALSIM_PATH }}
+      - run: echo GALSIM_CAT_PATH=${{ env.GALSIM_PATH }}real_galaxy_catalog_23.5_example.fits >> $GITHUB_ENV
+      - name: retrieve cached WebbPSF data
+        uses: actions/cache/restore@v4
         with:
-          path: ${{ steps.data.outputs.path }}
-          key: data-${{ steps.data_hash.outputs.hash }}
-      - id: webbpsf_path
-        run: echo "path=${{ steps.data.outputs.path }}/webbpsf-data" >> $GITHUB_OUTPUT
-      - id: galsim_cat_path
-        run: echo "path=${{ steps.data.outputs.path }}/galsim-data/real_galaxy_catalog_23.5_example.fits" >> $GITHUB_OUTPUT
-    outputs:
-      path: ${{ steps.data.outputs.path }}
-      hash: ${{ steps.data_hash.outputs.hash }}
-      webbpsf_path: ${{ steps.webbpsf_path.outputs.path }}
-      galsim_cat_path: ${{ steps.galsim_cat_path.outputs.path }}
+          path: ${{ needs.download_webbpsf_data.outputs.cache_path }}
+          key: ${{ needs.download_webbpsf_data.outputs.cache_key }}
+      - run: mv ${{ needs.download_webbpsf_data.outputs.cache_path }}/webbpsf-data/ /tmp/data/
+      - run: echo WEBBPSF_PATH=/tmp/data/webbpsf-data/ >> $GITHUB_ENV
+      # save a new cache to the same generalized data directory, combined with extra data
+      - name: save a single combined data cache
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/data/
+          key: data-${{ needs.download_webbpsf_data.outputs.cache_key }}-galsim-data-${{ steps.galsim_data.outputs.hash }}
