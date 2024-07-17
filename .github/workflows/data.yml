@@ -31,12 +31,12 @@ jobs:
         run: echo "hash=${{ hashFiles( './galsim_data/' ) }}" >> $GITHUB_OUTPUT
       - run: mv ./galsim_data/ ${{ runner.temp }}/data/
       - run: echo "GALSIM_CAT_PATH=${{ runner.temp }}/data/galsim_data/real_galaxy_catalog_23.5_example.fits" >> $GITHUB_OUTPUT
-      - run: mkdir ${{ runner.temp }}/data/
       - uses: actions/cache/restore@v4
         with:
-          path: ${{ runner.temp }}/data/webbpsf-data/
+          path: ${{ needs.download_webbpsf_data.outputs.cache_path }}
           key: ${{ needs.download_webbpsf_data.outputs.cache_key }}
+      # save a new cache to the same generalized data directory, combined with extra data
       - uses: actions/cache/save@v4
         with:
-          path: ${{ runner.temp }}/data/
+          path: ${{ needs.download_webbpsf_data.outputs.cache_path }}
           key: data-${{ needs.download_webbpsf_data.outputs.cache_key }}-galsim-data-${{ steps.galsim_data_hash.outputs.hash }}
