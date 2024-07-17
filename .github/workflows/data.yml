@@ -29,8 +29,8 @@ jobs:
           wget ${{ env.GALSIM_DATA_URL }}/real_galaxy_catalog_23.5_example_fits.fits -O ./galsim_data/real_galaxy_catalog_23.5_example_fits.fits
       - id: galsim_data_hash
         run: echo "hash=${{ hashFiles( './galsim_data/' ) }}" >> $GITHUB_OUTPUT
-      - run: mv ./galsim_data/ ${{ runner.temp }}/data/
-      - run: echo "GALSIM_CAT_PATH=${{ runner.temp }}/data/galsim_data/real_galaxy_catalog_23.5_example.fits" >> $GITHUB_OUTPUT
+      - run: mv ./galsim_data/ ${{ needs.download_webbpsf_data.outputs.cache_path }}
+      - run: echo "GALSIM_CAT_PATH=${{ needs.download_webbpsf_data.outputs.cache_path }}/galsim_data/real_galaxy_catalog_23.5_example.fits" >> $GITHUB_OUTPUT
       - uses: actions/cache/restore@v4
         with:
           path: ${{ needs.download_webbpsf_data.outputs.cache_path }}
