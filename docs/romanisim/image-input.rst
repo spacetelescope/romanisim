@@ -46,7 +46,7 @@ The simulator then renders these images in the scene and produces the simulated 
 Constructing a RealGalaxyCatalog
 ================================
 
-The simulator contains a routine intended to make it easier to construct ``RealGalaxyCatalog``s from lists of input images and their associated PSF.  This helper routine does not expose all of the functionality of the ``RealGalaxyCatalog``, but it can at least help get one started.  Given a list of fits files containing images of galaxies and an image of their PSF, the routine builds the index file, image file, and PSF file needed by the image input mode.  One can then specify the index file name in the ``real_galaxy_catalog_filename`` attribute of the catalog and generate sources.
+The simulator contains a routine intended to make it easier to construct a ``RealGalaxyCatalog`` from lists of input images and their associated PSF.  This helper routine does not expose all of the functionality of the ``RealGalaxyCatalog``, but it can at least help get one started.  Given a list of fits files containing images of galaxies and an image of their PSF, the routine builds the index file, image file, and PSF file needed by the image input mode.  One can then specify the index file name in the ``real_galaxy_catalog_filename`` attribute of the catalog and generate sources.
 
 See the ``test_image_input`` `unit test <https://github.com/spacetelescope/romanisim/blob/main/romanisim/tests/test_image.py>`_ for a fully worked example.
 
