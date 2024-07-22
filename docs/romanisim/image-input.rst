@@ -1,7 +1,7 @@
 Image Input
 ===========
 
-The simulator can alternatively take as input a catalog that references a separate list of images of sources.  The format of the catalog is described below, and the underlying "list of images" is described by a ``RealGalaxyCatalog``; see :ref:`Constructing a RealGalaxyCatalog`.  The concept here is that users may have noiseless images of galaxies from, for example, hydro simulations, and may wish to inject those into simulated images at specific locations.  Or users may have reference images from, for example, the COSMOS field, which could be used as truth images for simulations.
+The simulator can alternatively take as input a catalog that references a separate list of images of sources.  The format of the catalog is described below, and the underlying "list of images" is described by a ``RealGalaxyCatalog``; see :ref:`constructing-a-rgc`.  The concept here is that users may have noiseless images of galaxies from, for example, hydro simulations, and may wish to inject those into simulated images at specific locations.  Or users may have reference images from, for example, the COSMOS field, which could be used as truth images for simulations.
 
 The simulator leverages GalSim's ``RealGalaxyCatalog`` framework to support this use case.  There are a handful of existing catalogs of images in the appropriate format for use with the ``RealGalaxyCatalog``---in particular, `GalSim's COSMOS reference catalog <https://galsim-developers.github.io/GalSim/_build/html/real_gal.html#downloading-the-cosmos-catalog>`_ .
 
@@ -42,6 +42,7 @@ Following these required fields is a series of columns giving the fluxes of the 
 
 The simulator then renders these images in the scene and produces the simulated L1 or L2 images.
 
+.. _constructing-a-rgc:
 
 Constructing a RealGalaxyCatalog
 ================================
