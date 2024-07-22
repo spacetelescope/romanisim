@@ -409,16 +409,15 @@ def make_image_catalog(image_filenames, psf, out_base_filename,
                        pixel_scale=0.05):
     """Construct a RealGalaxyCatalog from a list of image filenames.
 
-    GalSim supports catalogs of real galaxies from images that can be inserted
-    into images.  This function makes it easy to produce a minimal set of files
-    that can be used as a GalSim RealGalaxyCatalog from list list of fits
-    images.  These images can come from anywhere, but are expected to come from
-    either real imaging or hydro simulations.
+    GalSim supports catalogs of real galaxies from input images that can be
+    inserted into output images.  This function makes it easy to produce a
+    set of files that can be used as a GalSim RealGalaxyCatalog from a list of
+    fits input images.  These input images can come from anywhere, but are
+    expected to come from either real imaging or from hydro simulations.
 
-    This routine assumes that all images have a pixel scale of 0.05" and are
-    seen through a common PSF, which is given as the PSF argument.  This PSF is
-    deconvolved before reconvolving with the appropriate filter-specific PSF
-    when rendering a Roman image.
+    This routine assumes that all images a common PSF, which is given as the
+    PSF argument.  This PSF is deconvolved before reconvolving with the
+    appropriate filter-specific PSF when rendering a Roman image.
 
     Files are written to the provided base filename, plus
     ".fits", "_image.fits", and "_psf.fits" extensions.  The first file

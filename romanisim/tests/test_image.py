@@ -840,7 +840,7 @@ def test_image_input(tmpdir):
     psf[cenpix, cenpix] = 1
     from scipy.ndimage import gaussian_filter
     sigma = 1
-    psf = gaussian_filter(psf, 1)
+    psf = gaussian_filter(psf, sigma)
 
     # set up the image catalog
     from astropy.io import fits
