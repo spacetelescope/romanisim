@@ -415,7 +415,7 @@ def make_image_catalog(image_filenames, psf, out_base_filename,
     fits input images.  These input images can come from anywhere, but are
     expected to come from either real imaging or from hydro simulations.
 
-    This routine assumes that all images a common PSF, which is given as the
+    This routine assumes that all images share a common PSF, which is given as the
     PSF argument.  This PSF is deconvolved before reconvolving with the
     appropriate filter-specific PSF when rendering a Roman image.
 
