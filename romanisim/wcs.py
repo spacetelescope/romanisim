@@ -458,11 +458,10 @@ def get_mosaic_wcs(mosaic, shape=None):
 
     # Create a tangent plane WCS for the mosaic
     # The affine parameters below should be reviewed and updated
-    affine = galsim.AffineTransform(
+    affine = galsim.fitswcs.AffineTransform(
         parameters.pixel_scale, 0, 0, parameters.pixel_scale, origin=galsim.PositionI(x=math.ceil(shape[1] / 2.0), y=math.ceil(shape[0] / 2.0)),
         world_origin=galsim.PositionD(0, 0))
-    wcs = galsim.TanWCS(affine,
+    wcs = galsim.fitswcs.TanWCS(affine,
                         util.celestialcoord(world_pos))
-    # wcs = GWCS(wcs)
 
     return wcs

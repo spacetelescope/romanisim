@@ -248,7 +248,7 @@ class RampFitInterpolator:
     resultants.  The weights of this linear combination are a single parameter
     family in the flux in the ramp divided by the read variance.  So rather than
     explicitly calculating those weights for each pixel, we can up front calculate
-    them overa  grid in the flux over the read variance, and interpolate off that
+    them over a grid in the flux over the read variance, and interpolate off that
     grid for each point.  That can all be done in a vectorized way, allowing one
     to avoid doing something like a matrix inverse for each of a 16 million pixels.
 

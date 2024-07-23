@@ -81,7 +81,7 @@ def test_inject_sources_into_mosaic():
 
     # Create normalized psf source catalog (same source in each quadrant)
     sc_dict = {"ra": 4 * [0.0], "dec": 4 * [0.0], "type": 4 * ["PSF"], "n": 4 * [-1.0],
-               "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], "F158": 4 * [1.0]}
+                "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], "F158": 4 * [1.0]}
     sc_table = table.Table(sc_dict)
 
     # Set locations
@@ -112,7 +112,7 @@ def test_inject_sources_into_mosaic():
 
     # Create overall scaling factor map
     Ct_all = np.divide(l3_mos_orig.data.value, l3_mos_orig.var_poisson.value,
-                       out=np.ones(l3_mos_orig.data.shape), where=l3_mos_orig.var_poisson.value != 0)
+                        out=np.ones(l3_mos_orig.data.shape), where=l3_mos_orig.var_poisson.value != 0)
 
     # Set new poisson variance
     l3_mos.var_poisson = (l3_mos.data.value / Ct_all) * l3_mos.var_poisson.unit
@@ -136,45 +136,39 @@ def test_inject_sources_into_mosaic():
     if artifactdir is not None:
         af = asdf.AsdfFile()
         af.tree = {'l3_mos': l3_mos,
-                   'l3_mos_orig': l3_mos_orig,
-                   'source_cat_table': sc_table,
-                   }
+                    'l3_mos_orig': l3_mos_orig,
+                    'source_cat_table': sc_table,
+                    }
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
 
 
+# Add decorators
 def test_sim_mosaic():
     """Simulating mosaic from catalog file.
     """
 
-    ra_ref = 1.0
-    dec_ref = 4.0
+    ra_ref = parameters.default_mosaic_parameters_dictionary['wcsinfo']['ra_ref']
+    dec_ref = parameters.default_mosaic_parameters_dictionary['wcsinfo']['dec_ref']
 
     metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
-    metadata['basic']['optical_element'] = 'F158'
-    metadata['wcsinfo']['ra_ref'] = ra_ref
-    metadata['wcsinfo']['dec_ref'] = dec_ref
-    metadata['wcsinfo']['pixel_scale'] = 0.11
-    metadata['wcsinfo']['pixel_scale_local'] = 0.11
-    metadata['wcsinfo']['v2_ref'] = 0
-    metadata['wcsinfo']['v3_ref'] = 0
+    filter_name = metadata['basic']['optical_element']
 
     exptimes = [600]
 
     cen = SkyCoord(ra=ra_ref * u.deg, dec=dec_ref * u.deg)
-    cat = catalog.make_dummy_table_catalog(cen, radius=0.01, nobj=100)
-    cat['F158'] = cat['F158'] * 10e10
+    cat = catalog.make_dummy_table_catalog(cen, radius=0.02, nobj=100)
+    # TBD Fix Fluxes
+    # cat['F158'] = cat['F158'] * 10e10
+    cat[filter_name] = cat[filter_name] * 10e12
 
-    source_cat = catalog.table_to_catalog(cat, ["F158"])
+    cat = cat[0:10]
 
-    filter = metadata['basic']['optical_element']
+    source_cat = catalog.table_to_catalog(cat, [filter_name])
 
-    # if context is None:
-    # Create geometry from the object list
+    # Create bounds from the object list
     twcs = romanisim.wcs.get_mosaic_wcs(metadata)
-
     coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
                         for o in source_cat])
-
     allx, ally = twcs.radecToxy(coords[:, 0], coords[:, 1], 'rad')
 
     # Obtain the sample extremums
@@ -183,9 +177,6 @@ def test_sim_mosaic():
     ymin = min(ally)
     ymax = max(ally)
 
-    print(f"XXX X: min, max = {xmin, xmax}")
-    print(f"XXX Y: min, max = {ymin, ymax}")
-
     # Obtain WCS center
     xcen, ycen = twcs.radecToxy(twcs.center.ra, twcs.center.dec, 'rad')
 
@@ -193,73 +184,62 @@ def test_sim_mosaic():
     xdiff = max([math.ceil(xmax - xcen), math.ceil(xcen - xmin)]) + 1
     ydiff = max([math.ceil(ymax - ycen), math.ceil(ycen - ymin)]) + 1
 
-    print(f"XXX Test Center: xcen, ycen = {xcen}, {ycen}")
- 
-    print(f"XXX 2*xdiff = {2*xdiff}")
-    print(f"XXX 2*ydiff = {2*ydiff}")
-
     # Create context map preserving WCS center
-    # context = np.ones((1, 2 * xdiff, 2 * ydiff), dtype=np.uint32)
     context = np.ones((1, 2 * ydiff, 2 * xdiff), dtype=np.uint32)
 
     # Generate WCS
-    moswcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=(context.shape[1:])) #shape=context.shape[-2:])
+    moswcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=(context.shape[1:]))
 
-    psf = romanisim.psf.make_psf(filter_name=filter, sca=CENTER_SCA, chromatic=False, webbpsf=True)
-
-    # mosaic, extras = l3.simulate(metadata, source_cat, exptimes)
-    # l3.simulate(shape, wcs, efftime, filter, catalog, effreadnoise=None, sky=None, psf=None):
-    mosaic, extras = l3.simulate(context.shape[1:], twcs, exptimes[0], filter, source_cat, metadata=metadata)
+    # Simulate mosaic
+    mosaic, extras = l3.simulate(context.shape[1:], moswcs, exptimes[0], filter_name, source_cat, metadata=metadata)
 
     import plotly.express as px
 
-    fig1 = px.imshow(mosaic.data.value, title='Mosaic Data', labels={'color': 'MJy / sr'})
+    fig1 = px.imshow(mosaic.data.value, title='1. Mosaic Data', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
     fig1.show()
-
-    # fig2 = px.imshow(mosaic.context[-2:].reshape(mosaic.context.shape[-2:]), title='Mosaic Context', labels={'color': 'File Number'})
-    # fig2.show()
 
     pos_vals = mosaic.data.value.copy()
     pos_vals[pos_vals <= 0] = 0.00000000001
 
-    fig3 = px.imshow(np.log(pos_vals), title='Mosaic Data (log)', labels={'color': 'MJy / sr'})
+    fig3 = px.imshow(np.log(pos_vals), title='3. Mosaic Data (log)', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
     fig3.show()
 
-    # mosaic, extras = l3.simulate(metadata, source_cat, exptimes)
-    # l3.simulate(shape, wcs, efftime, filter, catalog, effreadnoise=None, sky=None, psf=None):
+
+    # Second test, passing more in
+
+    psf = romanisim.psf.make_psf(filter_name=filter_name, sca=CENTER_SCA, chromatic=False, webbpsf=True)
+
     efftimes = util.decode_context_times(context, exptimes)
 
-    fig3 = px.imshow(mosaic.context[1:].reshape(mosaic.context.shape[1:]), title='Mosaic Context', labels={'color': 'File Number'})
-    fig3.show()
-
-    fig4 = px.imshow(efftimes, title='Effective Times', labels={'color': 'seconds'})
+    fig4 = px.imshow(efftimes, title='4. Effective Times', labels={'color': 'seconds', 'x': 'Y axis', 'y': 'X axis'})
     fig4.show()
 
-    tmp_image = galsim.ImageF(context.shape[1], context.shape[2], wcs=moswcs, xmin=0, ymin=0)
+    mosaic2, extras2 = l3.simulate(context.shape[1:], moswcs, efftimes, filter_name, source_cat, metadata=metadata, psf=psf)
 
-    print(f"XXX context.shape = {context.shape}")
-    print(f"XXX efftimes.shape = {efftimes.shape}")
-    # print(f"XXX moswcs = {moswcs}")
-    # print(f"XXX twcs = {twcs}")
-    # print(f"XXX tmp_image.wcs = {tmp_image.wcs}")
-
-    xmoscen, ymoscen = moswcs.radecToxy(moswcs.center.ra, moswcs.center.dec, 'rad')
-    print(f"XXX Test Center: xmoscen, ymoscen = {xmoscen}, {ymoscen}")
-
-    mosaic2, extras2 = l3.simulate(context.shape[1:], tmp_image.wcs, efftimes, filter, source_cat, metadata=metadata)
-
-    fig1 = px.imshow(mosaic2.data.value, title='Mosaic Data', labels={'color': 'MJy / sr'})
-    fig1.show()
-
-
+    fig5 = px.imshow(mosaic2.data.value, title='5. Mosaic Data', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    fig5.show()
 
     pos_vals2 = mosaic2.data.value.copy()
     pos_vals2[pos_vals2 <= 0] = 0.00000000001
 
-    fig3 = px.imshow(np.log(pos_vals2), title='Mosaic Data (log)', labels={'color': 'MJy / sr'})
-    fig3.show()
+    fig6 = px.imshow(np.log(pos_vals2), title='6. Mosaic Data (log)', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    fig6.show()
 
+    # did we get all the flux?
+    totflux = np.sum(mosaic2.data.value - np.median(mosaic2.data.value))
+    expectedflux = (romanisim.bandpass.get_abflux(filter_name) * np.sum(cat[filter_name])
+                    / parameters.reference_data['gain'].value)
+    # Need fixed fluxes to fix this
+    # assert np.abs(totflux / expectedflux - 1) < 0.1
 
+    # Are there sources where there should be?
+    for r, d in zip(cat['ra'], cat['dec']):
+        x, y = moswcs.toImage(r, d, units=galsim.degrees)
+        x = int(x)
+        y = int(y)
+        assert mosaic2.data.value[y, x] > np.median(mosaic2.data.value) * 5
+
+# TBD: Test var_poisson (variable exposure times)
 
 # TBD: Test with more complex context
 
