@@ -21,18 +21,17 @@ import romanisim.image
 import romanisim.persistence
 from romanisim import log
 import roman_datamodels.maker_utils as maker_utils
-
-# Define centermost SCA for PSFs
-CENTER_SCA = 2
+import roman_datamodels.datamodels as rdm
+from roman_datamodels.stnode import WfiMosaic
 
 
 def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords=None, unit_factor=1.0,
-                      coords_unit='rad', wcs=None, psf=None, rng=None, seed=None):
+                      filter_name=None, coords_unit='rad', wcs=None, psf=None, rng=None, seed=None):
     """Add objects to a Level 3 mosaic
 
     Parameters
     ----------
-    l3_mos : MosaicModel
+    l3_mos : MosaicModel or galsim.Image
         Mosaic of images
     source_cat : list
         List of catalog objects to add to l3_mos
@@ -60,9 +59,9 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
     None
         l3_mos is updated in place
     """
-
     # Obtain optical element
-    filter_name = l3_mos.meta.basic.optical_element
+    if filter_name is None:
+        filter_name = l3_mos.meta.basic.optical_element
 
     # Generate WCS (if needed)
     if wcs is None:
@@ -70,10 +69,13 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
 
     # Create PSF (if needed)
     if psf is None:
-        psf = romanisim.psf.make_psf(filter_name=filter_name, sca=CENTER_SCA, chromatic=False, webbpsf=True)
+        psf = romanisim.psf.make_psf(filter_name=filter_name, sca=parameters.default_sca, chromatic=False, webbpsf=True)
 
     # Create Image canvas to add objects to
-    sourcecountsall = galsim.ImageF(l3_mos.data.value, wcs=wcs, xmin=0, ymin=0)
+    if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
+        sourcecountsall = galsim.ImageF(l3_mos.data.value, wcs=wcs, xmin=0, ymin=0)
+    else:
+        sourcecountsall = l3_mos
 
     # Create position arrays (if needed)
     if any(pos is None for pos in [xpos, ypos]):
@@ -87,12 +89,14 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
 
     # Add sources to the original mosaic data array
     romanisim.image.add_objects_to_image(sourcecountsall, source_cat, xpos=xpos, ypos=ypos,
-                                         psf=psf, flux_to_counts_factor=[xpt * unit_factor for xpt in exptimes],
-                                         exptimes=exptimes, bandpass=[filter_name], filter_name=filter_name,
-                                         wcs=wcs, rng=rng, seed=seed)
+                                         psf=psf, flux_to_counts_factor=exptimes,
+                                         convtimes=[xpt / unit_factor for xpt in exptimes],
+                                         bandpass=[filter_name], filter_name=filter_name,
+                                         rng=rng, seed=seed)
 
     # Save array with added sources
-    l3_mos.data = sourcecountsall.array * l3_mos.data.unit
+    if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
+        l3_mos.data = sourcecountsall.array * l3_mos.data.unit
 
     # l3_mos is updated in place, so no return
     return None

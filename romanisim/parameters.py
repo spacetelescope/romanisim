@@ -84,14 +84,25 @@ reference_data = {
     "linearity": None,
     "readnoise": 5.0 * u.DN,
     "saturation": 55000 * u.DN,
-    "photom": {"F062": 0.28798833 * u.MJy / u.sr,
-               "F087": 0.3911463 * u.MJy / u.sr,
-               "F106": 0.37039083 * u.MJy / u.sr,
-               "F129": 0.36495176 * u.MJy / u.sr,
-               "F146": 0.11750617 * u.MJy / u.sr,
-               "F158": 0.35352992 * u.MJy / u.sr,
-               "F184": 0.53612772 * u.MJy / u.sr,
-               "F213": 0.55763922 * u.MJy / u.sr,
+    # Taken from roman_wfi_photom_0046.asdf
+    "photom": {"photmjsr": {"F062": 0.28798833 * u.MJy / u.sr,
+                            "F087": 0.3911463 * u.MJy / u.sr,
+                            "F106": 0.37039083 * u.MJy / u.sr,
+                            "F129": 0.36495176 * u.MJy / u.sr,
+                            "F146": 0.11750617 * u.MJy / u.sr,
+                            "F158": 0.35352992 * u.MJy / u.sr,
+                            "F184": 0.53612772 * u.MJy / u.sr,
+                            "F213": 0.55763922 * u.MJy / u.sr,
+                            },
+               "pixelareasr": {"F062": 2.640600009241359e-13 * u.sr,
+                               "F087": 2.640600009241359e-13 * u.sr,
+                               "F106": 2.640600009241359e-13 * u.sr,
+                               "F129": 2.640600009241359e-13 * u.sr,
+                               "F146": 2.640600009241359e-13 * u.sr,
+                               "F158": 2.640600009241359e-13 * u.sr,
+                               "F184": 2.640600009241359e-13 * u.sr,
+                               "F213": 2.640600009241359e-13 * u.sr,
+                               }
                }
 }
 
@@ -148,6 +159,9 @@ cr = {
     "pixel_size": 10,
     "pixel_depth": 5,
 }
+
+# Centermost PSF to use for mosaic creation
+default_sca = 2
 
 # Persistence defaults
 # delete persistence records fainter than 0.01 electron / s

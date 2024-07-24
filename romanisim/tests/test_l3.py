@@ -34,7 +34,8 @@ def test_inject_sources_into_mosaic():
     galsim.roman.n_pix = 200
     rng_seed = 42
     metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
-    metadata['basic']['optical_element'] = 'F158'
+    filter_name = 'F158'
+    metadata['basic']['optical_element'] = filter_name
 
     # Create WCS
     twcs = wcs.get_mosaic_wcs(metadata, shape=(galsim.roman.n_pix, galsim.roman.n_pix))
@@ -53,6 +54,7 @@ def test_inject_sources_into_mosaic():
 
     # Create level 3 mosaic model
     l3_mos = maker_utils.mk_level3_mosaic(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
+    l3_mos['meta']['wcs'] = twcs
 
     # Update metadata in the l3 model
     for key in metadata.keys():
@@ -60,7 +62,9 @@ def test_inject_sources_into_mosaic():
             l3_mos.meta[key].update(metadata[key])
 
     # Obtain unit conversion factor
-    unit_factor = parameters.reference_data['photom'][l3_mos.meta.basic.optical_element]
+    # Need to convert from counts / pixel to MJy / sr
+    unit_factor = ((3631 * u.Jy) / (romanisim.bandpass.get_abflux(filter_name)
+                                    * parameters.reference_data['photom']["pixelareasr"][filter_name])).to(u.MJy / u.sr)
 
     # Populate the mosaic data array with gaussian noise from generators
     g1.generate(l3_mos.data.value[0:100, 0:100])
@@ -74,11 +78,11 @@ def test_inject_sources_into_mosaic():
     l3_mos.var_poisson.value[0:100, 100:200] = 0.02**2
     l3_mos.var_poisson.value[100:200, 0:100] = 0.05**2
     l3_mos.var_poisson.value[100:200, 100:200] = 0.1**2
-    # l3_mos.var_poisson /= unit_factor.value**2
+    l3_mos.var_poisson *= unit_factor.value**2
 
     # Create normalized psf source catalog (same source in each quadrant)
     sc_dict = {"ra": 4 * [0.0], "dec": 4 * [0.0], "type": 4 * ["PSF"], "n": 4 * [-1.0],
-               "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], "F158": 4 * [1.0]}
+               "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], filter_name: 4 * [1.0]}
     sc_table = table.Table(sc_dict)
 
     # Set locations
@@ -97,7 +101,7 @@ def test_inject_sources_into_mosaic():
 
         sc_table["ra"][idx], sc_table["dec"][idx] = (twcs._radec(x, y) * u.rad).to(u.deg).value
 
-    source_cat = catalog.table_to_catalog(sc_table, ["F158"])
+    source_cat = catalog.table_to_catalog(sc_table, [filter_name])
 
     # Copy original Mosaic before adding sources as sources are added in place
     l3_mos_orig = l3_mos.copy()
@@ -109,11 +113,11 @@ def test_inject_sources_into_mosaic():
 
     # Create overall scaling factor map
     Ct_all = np.divide(l3_mos_orig.data.value, l3_mos_orig.var_poisson.value,
-                       out=np.ones(l3_mos_orig.data.shape), where=l3_mos_orig.var_poisson.value != 0)
+                       out=np.ones(l3_mos_orig.data.shape),
+                       where=l3_mos_orig.var_poisson.value != 0)
 
     # Set new poisson variance
     l3_mos.var_poisson = (l3_mos.data.value / Ct_all) * l3_mos.var_poisson.unit
-    # l3_mos.var_poisson = (l3_mos.data.value / Ct_all) * (l3_mos.var_poisson.unit / unit_factor.value**2)
 
     # Ensure that every data pixel value has increased or
     # remained the same with the new sources injected
@@ -122,34 +126,10 @@ def test_inject_sources_into_mosaic():
     # Ensure that every pixel's poisson variance has increased or
     # remained the same with the new sources injected
     # Numpy isclose is needed to determine equality, due to float precision issues
-    close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-20)
-
-    import plotly.express as px
-    fig1 = px.imshow(l3_mos_orig.data.value, title='Mosaic Data', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
-    fig1.show()
-
-    fig2 = px.imshow(l3_mos.data.value, title='Sources Data', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
-    fig2.show()
-
-    fig3 = px.imshow((l3_mos.data.value - l3_mos_orig.data.value), title='Diff Data', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
-    fig3.show()
-
-    fig4 = px.imshow(close_mask, title='Mask', labels={'color': 'True / False', 'x':'y axis', 'y':'x axis'})
-    fig4.show()
-
-    fig5 = px.imshow(l3_mos_orig.var_poisson.value, title='Mosaic Poisson', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
-    fig5.show()
-
-    fig6 = px.imshow(l3_mos.var_poisson.value, title='Sources Poisson', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
-    fig6.show()
-
-    fig7 = px.imshow((l3_mos.var_poisson.value - l3_mos_orig.var_poisson.value), title='Diff Poisson', labels={'color':'counts / second', 'x':'y axis', 'y':'x axis'})
-    fig7.show()
-
+    close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-06)
 
     assert False in close_mask
     assert np.all(l3_mos.var_poisson.value[~close_mask] > l3_mos_orig.var_poisson.value[~close_mask])
-    assert np.all(l3_mos.var_poisson.value > l3_mos_orig.var_poisson.value)
 
     # Create log entry and artifacts
     log.info('DMS232 successfully injected sources into a mosaic at points (50,50), (50,150), (150,50), (150,150).')
