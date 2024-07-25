@@ -22,6 +22,7 @@ Contents
    romanisim/refs
 
    romanisim/catalog
+   romanisim/image-input
    romanisim/apt
 
    romanisim/bandpass

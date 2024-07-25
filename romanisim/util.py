@@ -333,3 +333,51 @@ def sample_king_distances(rc, rt, npts, rng=None):
     cdf /= cdf[-1]
     radii = np.interp(rr, cdf, x)
     return radii
+
+
+def default_image_meta(time=None, ma_table=1, filter_name='F087',
+                       detector='WFI01', coord=None):
+    """Return some simple default metadata for input to image.simulate
+
+    Parameters
+    ----------
+    time : astropy.time.Time
+        Time to use, default to 2020-01-01
+    ma_table : int
+        MA table number to use
+    filter_name : str
+        filter name to use
+    detector : str
+        detector to use
+    coord : astropy.coordinates.SkyCoord
+        coordinates to use, default to (270, 66)
+
+    Returns
+    -------
+    Metadata dictionary corresponding to input parameters.
+    """
+
+    if time is None:
+        time = Time('2020-01-01T00:00:00')
+    if coord is None:
+        coord = SkyCoord(270 * u.deg, 66 * u.deg)
+
+    meta = {
+        'exposure': {
+            'start_time': time,
+            'ma_table_number': 1,
+        },
+        'instrument': {
+            'optical_element': filter_name,
+            'detector': 'WFI01'
+        },
+        'wcsinfo': {
+            'ra_ref': coord.ra.to(u.deg).value,
+            'dec_ref': coord.dec.to(u.deg).value,
+            'v2_ref': 0,
+            'v3_ref': 0,
+            'roll_ref': 0,
+        },
+    }
+
+    return meta
