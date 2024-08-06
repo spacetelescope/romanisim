@@ -150,7 +150,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         cat = catalog.make_dummy_table_catalog(
             coord, bandpasses=bandpasses, nobj=nobj, rng=rng)
     else:
-        cat = table.Table.read(catalog_name, comment="#", delimiter=" ")
+        cat = table.Table.read(catalog_name)
         bandpass = [f for f in cat.dtype.names if f[0] == 'F']
         bad = np.zeros(len(cat), dtype='bool')
         for b in bandpass:

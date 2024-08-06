@@ -47,10 +47,10 @@ def test_inject_sources_into_mosaic():
     # (total files contributed to each quadrant)
 
     # Create gaussian noise generators
-    g1 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.01)
-    g2 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.02)
-    g3 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.05)
-    g4 = galsim.GaussianDeviate(rng_seed, mean=1.0, sigma=0.1)
+    g1 = galsim.GaussianDeviate(rng_seed, mean=1.0e-7, sigma=0.01e-7)
+    g2 = galsim.GaussianDeviate(rng_seed, mean=1.0e-7, sigma=0.02e-7)
+    g3 = galsim.GaussianDeviate(rng_seed, mean=1.0e-7, sigma=0.05e-7)
+    g4 = galsim.GaussianDeviate(rng_seed, mean=1.0e-7, sigma=0.1e-7)
 
     # Create level 3 mosaic model
     l3_mos = maker_utils.mk_level3_mosaic(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
@@ -61,9 +61,12 @@ def test_inject_sources_into_mosaic():
         if key in l3_mos.meta:
             l3_mos.meta[key].update(metadata[key])
 
-    # Obtain unit conversion factor
+    # Obtain unit conversion factors
     # Need to convert from counts / pixel to MJy / sr
-    unit_factor = ((3631 * u.Jy) / (romanisim.bandpass.get_abflux(filter_name)
+    # Flux to counts
+    cps_conv = romanisim.bandpass.get_abflux(filter_name)
+    # Unit factor
+    unit_factor = ((3631 * u.Jy) / (romanisim.bandpass.get_abflux(filter_name) * 10e6
                                     * parameters.reference_data['photom']["pixelareasr"][filter_name])).to(u.MJy / u.sr)
 
     # Populate the mosaic data array with gaussian noise from generators
@@ -71,18 +74,17 @@ def test_inject_sources_into_mosaic():
     g2.generate(l3_mos.data.value[0:100, 100:200])
     g3.generate(l3_mos.data.value[100:200, 0:100])
     g4.generate(l3_mos.data.value[100:200, 100:200])
-    l3_mos.data *= unit_factor.value
 
     # Define Poisson Noise of mosaic
     l3_mos.var_poisson.value[0:100, 0:100] = 0.01**2
     l3_mos.var_poisson.value[0:100, 100:200] = 0.02**2
     l3_mos.var_poisson.value[100:200, 0:100] = 0.05**2
     l3_mos.var_poisson.value[100:200, 100:200] = 0.1**2
-    l3_mos.var_poisson *= unit_factor.value**2
 
     # Create normalized psf source catalog (same source in each quadrant)
+    mag_flux = 1e-10
     sc_dict = {"ra": 4 * [0.0], "dec": 4 * [0.0], "type": 4 * ["PSF"], "n": 4 * [-1.0],
-               "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], filter_name: 4 * [1.0]}
+               "half_light_radius": 4 * [0.0], "pa": 4 * [0.0], "ba": 4 * [1.0], filter_name: 4 * [mag_flux]}
     sc_table = table.Table(sc_dict)
 
     # Set locations
@@ -109,7 +111,7 @@ def test_inject_sources_into_mosaic():
     l3_mos_orig.var_poisson = l3_mos.var_poisson.copy()
 
     # Add source_cat objects to mosaic
-    l3.add_objects_to_l3(l3_mos, source_cat, Ct, unit_factor=unit_factor.value, seed=rng_seed)
+    l3.add_objects_to_l3(l3_mos, source_cat, Ct, cps_conv=cps_conv, unit_factor=unit_factor.value, seed=rng_seed)
 
     # Create overall scaling factor map
     Ct_all = np.divide(l3_mos_orig.data.value, l3_mos_orig.var_poisson.value,
@@ -127,9 +129,13 @@ def test_inject_sources_into_mosaic():
     # remained the same with the new sources injected
     # Numpy isclose is needed to determine equality, due to float precision issues
     close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-06)
-
     assert False in close_mask
     assert np.all(l3_mos.var_poisson.value[~close_mask] > l3_mos_orig.var_poisson.value[~close_mask])
+
+    # Ensure total added flux matches expected added flux
+    total_rec_flux = np.sum(l3_mos.data - l3_mos_orig.data) / unit_factor
+    total_theo_flux = 4 * mag_flux * cps_conv
+    assert np.isclose(total_rec_flux, total_theo_flux, rtol=4e-02)
 
     # Create log entry and artifacts
     log.info('DMS232 successfully injected sources into a mosaic at points (50,50), (50,150), (150,50), (150,150).')

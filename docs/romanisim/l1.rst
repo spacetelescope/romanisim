@@ -39,9 +39,13 @@ This persistence rate is sampled with a Poisson distribution and added to each p
 
 Persistence-affected pixels are expected to be rare, and are tracked sparsely via a list of the indices of affected pixels, the amount of the illumination, and the times of their illumination.  Pixels are dropped from persistence tracking when their persistence rate is less than one electron per 100 seconds.  If the same pixel is receives large fluxes multiple times, these are treated as two independent events and the resulting persistence flux is handled by summing the persistence rates given above over each event.
 
-Cosmic rays 
+Cosmic rays
 -----------
-Cosmic rays are added to the simulation read-by-read.  The cosmic ray parameters follow Wu et al. (2023).  The locations of cosmic rays are chosen at random to sample the focal plane uniformly.  Lengths are chosen according to a power law distribution :math:`p(l) \\sim l^{-4.33}`, with lengths between 10 and 10,000 microns.  Charge deposition rates per micron are selected from a Moyal distribution located at 120 electrons per micron with a width of 50 electrons per micron.  An idealized charge is computed for each pixel in a read according to the product of the deposition rate per micron and the length of the cosmic ray's path within that pixel.  This idealized charge is Poisson sampled and added to the relevant pixels in a read. 
+Cosmic rays are added to the simulation read-by-read.  The cosmic ray parameters follow Wu et al. (2023).  The locations of cosmic rays are chosen at random to sample the focal plane uniformly.  Lengths are chosen according to a power law distribution :math:`p(l) \\sim l^{-4.33}`, with lengths between 10 and 10,000 microns.  Charge deposition rates per micron are selected from a Moyal distribution located at 120 electrons per micron with a width of 50 electrons per micron.  An idealized charge is computed for each pixel in a read according to the product of the deposition rate per micron and the length of the cosmic ray's path within that pixel.  This idealized charge is Poisson sampled and added to the relevant pixels in a read.
+
+Gain
+----
+L1 files are in units of DN.  We convert from photons to DN using gains from CRDS or a default values of 2 electron per DN, treating electrons and photons as equivalent.  This neglects the possibility that the quantum yield may be different from 1 at certain wavelengths, in particular in the blue, where `Givans+2022 <https://iopscience.iop.org/article/10.1088/1538-3873/ac46ba>`_ find a quantum field of up to 1.05.
 
 .. automodapi:: romanisim.l1
 .. automodapi:: romanisim.nonlinearity
