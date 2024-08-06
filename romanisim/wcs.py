@@ -460,6 +460,5 @@ def get_mosaic_wcs(mosaic, shape=None):
         world_origin=galsim.PositionD(0, 0))
     wcs = galsim.TanWCS(affine,
                         util.celestialcoord(world_pos))
-    # wcs = GWCS(wcs)
 
     return wcs
