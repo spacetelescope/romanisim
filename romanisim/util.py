@@ -335,6 +335,90 @@ def sample_king_distances(rc, rt, npts, rng=None):
     return radii
 
 
+def decode_context_times(context, exptimes):
+    """
+    Get 0-based indices of input images that contributed to (resampled)
+    output pixel with coordinates ``x`` and ``y``.
+
+    Parameters
+    ----------
+    context: numpy.ndarray
+        A 3D `~numpy.ndarray` of integral data type.
+
+    exptimes: list of floats
+        Exposure times for each component image.
+
+
+    Returns
+    -------
+    total_exptimes: numpy.ndarray
+        A 2D array of total exposure time for each pixel.
+    """
+
+    if context.ndim != 3:
+        raise ValueError("'context' must be a 3D array.")
+
+    """
+    Context decoding example:
+    An example context array for an output image of array shape ``(5, 6)``
+    obtained by resampling 80 input images.
+
+    .. code-block:: none
+
+        con = np.array(
+            [[[0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 36196864, 0, 0],
+              [0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0],
+              [0, 0, 537920000, 0, 0, 0]],
+             [[0, 0, 0, 0, 0, 0,],
+              [0, 0, 0, 67125536, 0, 0],
+              [0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0],
+              [0, 0, 163856, 0, 0, 0]],
+             [[0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 8203, 0, 0],
+              [0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0],
+              [0, 0, 32865, 0, 0, 0]]],
+            dtype=np.int32
+        )
+        decode_context(con, [3, 2], [1, 4])
+        [array([ 9, 12, 14, 19, 21, 25, 37, 40, 46, 58, 64, 65, 67, 77]),
+        array([ 9, 20, 29, 36, 47, 49, 64, 69, 70, 79])]
+    """
+
+    nbits = 8 * context.dtype.itemsize
+
+    total_exptimes = np.zeros(context.shape[1:])
+
+    for x in range(total_exptimes.shape[0]):
+        for y in range(total_exptimes.shape[1]):
+            files = [v & (1 << k) for v in context[:, x, y] for k in range(nbits)]
+            tot_time = 0
+            files = [file for file in files if (file != 0)]
+
+            for im_idx in files:
+                tot_time += exptimes[im_idx - 1]
+
+            total_exptimes[x][y] = tot_time
+
+    def sum_times(x):
+        tot_time = 0
+        files = [x & (1 << k) for k in range(nbits)]
+        files = [file for file in files if (file != 0)]
+        for im_idx in files:
+            tot_time += exptimes[im_idx - 1]
+        return tot_time
+
+    vectorized_sum_times = np.vectorize(sum_times)
+
+    total_exptimes = vectorized_sum_times(context[:,])
+    total_exptimes = total_exptimes.reshape(total_exptimes.shape[1:])
+
+    return total_exptimes
+
+
 def default_image_meta(time=None, ma_table=1, filter_name='F087',
                        detector='WFI01', coord=None):
     """Return some simple default metadata for input to image.simulate

@@ -1,80 +1,104 @@
-"""Function for Level 3-like images.
+"""Roman WFI simulator functions for Level 3 mosaics.
 
+Based on galsim's implementation of Roman image simulation.  Uses galsim Roman modules
+for most of the real work.
 """
 
 import numpy as np
+import math
+import astropy.time
+from astropy import table
 import galsim
-from . import log
-from . import image, wcs, psf
+from galsim import roman
+
+from . import parameters
+from . import util
+import romanisim.wcs
+import romanisim.l1
+import romanisim.bandpass
+import romanisim.psf
+import romanisim.image
+import romanisim.persistence
+from romanisim import log
+import roman_datamodels.maker_utils as maker_utils
+import roman_datamodels.datamodels as rdm
+from roman_datamodels.stnode import WfiMosaic
 
 
-def add_objects_to_l3(l3_mos, source_cat, rng=None, seed=None):
+def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords=None, cps_conv=1.0, unit_factor=1.0,
+                      filter_name=None, coords_unit='rad', wcs=None, psf=None, rng=None, seed=None):
     """Add objects to a Level 3 mosaic
 
     Parameters
     ----------
-    l3_mos : MosaicModel
+    l3_mos : MosaicModel or galsim.Image
         Mosaic of images
     source_cat : list
         List of catalog objects to add to l3_mos
+    exptimes : list
+        Exposure times to scale back to rate units
+    xpos, ypos : array_like
+        x & y positions of sources (pixel) at which sources should be added
+    coords : array_like
+        ra & dec positions of sources (coords_unit) at which sources should be added
+    cps_conv : float
+        Factor to convert data to cps
+    unit_factor: float
+        Factor to convert counts data to MJy / sr
+    coords_unit : string
+        units of coords
+    wcs : galsim.GSFitsWCS
+        WCS corresponding to image
+    psf : galsim.Profile
+        PSF for image
+    rng : galsim.BaseDeviate
+        random number generator to use
+    seed : int
+        seed to use for random number generator
 
     Returns
     -------
     None
         l3_mos is updated in place
     """
-
-    if rng is None and seed is None:
-        seed = 143
-        log.warning(
-            'No RNG set, constructing a new default RNG from default seed.')
-    if rng is None:
-        rng = galsim.UniformDeviate(seed)
-
     # Obtain optical element
-    filter_name = l3_mos.meta.basic.optical_element
+    if filter_name is None:
+        filter_name = l3_mos.meta.basic.optical_element
 
-    # Generate WCS
-    twcs = wcs.get_mosaic_wcs(l3_mos.meta)
+    # Generate WCS (if needed)
+    if wcs is None:
+        wcs = romanisim.wcs.get_mosaic_wcs(l3_mos.meta, shape=l3_mos.data.shape)
 
-    # Create PSF
-    l3_psf = psf.make_psf(filter_name=filter_name, sca=2, chromatic=False, webbpsf=True)
+    # Create PSF (if needed)
+    if psf is None:
+        psf = romanisim.psf.make_psf(filter_name=filter_name, sca=parameters.default_sca, chromatic=False, webbpsf=True)
 
-    # Generate x,y positions for sources
-    coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
-                       for o in source_cat])
-    sourcecountsall = galsim.ImageF(l3_mos.data.shape[0], l3_mos.data.shape[1], wcs=twcs, xmin=0, ymin=0)
-    xpos, ypos = sourcecountsall.wcs._xy(coords[:, 0], coords[:, 1])
-    xpos_idx = [round(x) for x in xpos]
-    ypos_idx = [round(y) for y in ypos]
+    # Create Image canvas to add objects to
+    if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
+        sourcecountsall = galsim.ImageF(l3_mos.data.value, wcs=wcs, xmin=0, ymin=0)
+    else:
+        sourcecountsall = l3_mos
 
-    # Create overall scaling factor map
-    Ct_all = (l3_mos.data.value / l3_mos.var_poisson)
+    # Create position arrays (if needed)
+    if any(pos is None for pos in [xpos, ypos]):
+        # Create coordinates (if needed)
+        if coords is None:
+            coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
+                               for o in source_cat])
+            coords_unit = 'rad'
+        # Generate x,y positions for sources
+        xpos, ypos = sourcecountsall.wcs.radecToxy(coords[:, 0], coords[:, 1], coords_unit)
 
-    # Cycle over sources and add them to the mosaic
-    for idx, (x, y) in enumerate(zip(xpos_idx, ypos_idx)):
-        # Set scaling factor for injected sources
-        # Flux / sigma_p^2
-        Ct = (l3_mos.data[x][y].value / l3_mos.var_poisson[x][y].value)
+    # Add sources to the original mosaic data array
+    romanisim.image.add_objects_to_image(sourcecountsall, source_cat, xpos=xpos, ypos=ypos,
+                                         psf=psf, flux_to_counts_factor=[xpt * cps_conv for xpt in exptimes],
+                                         convtimes=[xpt / unit_factor for xpt in exptimes],
+                                         bandpass=[filter_name], filter_name=filter_name,
+                                         rng=rng, seed=seed)
 
-        # Create empty postage stamp galsim source image
-        sourcecounts = galsim.ImageF(l3_mos.data.shape[0], l3_mos.data.shape[1], wcs=twcs, xmin=0, ymin=0)
-
-        # Simulate source postage stamp
-        image.add_objects_to_image(sourcecounts, [source_cat[idx]], xpos=[xpos[idx]], ypos=[ypos[idx]],
-                                   psf=l3_psf, flux_to_counts_factor=Ct, bandpass=[filter_name],
-                                   filter_name=filter_name, rng=rng)
-
-        # Scale the source image back by its flux ratios
-        sourcecounts /= Ct
-
-        # Add sources to the original mosaic data array
-        l3_mos.data = (l3_mos.data.value + sourcecounts.array) * l3_mos.data.unit
-
-        # Note for the future - other noise sources (read and flat) need to be implemented
-
-    # Set new poisson variance
-    l3_mos.var_poisson = l3_mos.data.value / Ct_all
+    # Save array with added sources
+    if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
+        l3_mos.data = sourcecountsall.array * l3_mos.data.unit
 
     # l3_mos is updated in place, so no return
     return None

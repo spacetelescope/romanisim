@@ -17,6 +17,7 @@ more investigation.
 """
 
 import warnings
+import math
 import numpy as np
 import astropy.coordinates
 from astropy import units as u
@@ -219,15 +220,15 @@ def make_wcs(targ_pos,
     # V2V3 are in arcseconds, while SphericalToCartesian expects degrees,
     # so again start by scaling by 3600
     tel2sky = ((models.Scale(1 / 3600) & models.Scale(1 / 3600))
-                | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
-                | rot
-                | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
+               | gwcs.geometry.SphericalToCartesian(wrap_lon_at=wrap_v2_at)
+               | rot
+               | gwcs.geometry.CartesianToSpherical(wrap_lon_at=wrap_lon_at))
     tel2sky.name = 'v23tosky'
 
     detector = cf.Frame2D(name='detector', axes_order=(0, 1),
                           unit=(u.pix, u.pix))
     v2v3 = cf.Frame2D(name="v2v3", axes_order=(0, 1),
-        axes_names=("v2", "v3"), unit=(u.arcsec, u.arcsec))
+                      axes_names=("v2", "v3"), unit=(u.arcsec, u.arcsec))
     world = cf.CelestialFrame(reference_frame=astropy.coordinates.ICRS(),
                               name='world')
 
@@ -416,7 +417,7 @@ def convert_wcs_to_gwcs(wcs):
         return wcs_from_fits_header(wcs.header.header)
 
 
-def get_mosaic_wcs(mosaic):
+def get_mosaic_wcs(mosaic, shape=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
 
     Parameters
@@ -431,13 +432,16 @@ def get_mosaic_wcs(mosaic):
 
     # If sent a dictionary, create a temporary model for data interface
     if (type(mosaic) is not roman_datamodels.datamodels.MosaicModel):
-        mosaic_node = maker_utils.mk_level3_mosaic()
+        if shape is None:
+            mosaic_node = maker_utils.mk_level3_mosaic()
+        else:
+            mosaic_node = maker_utils.mk_level3_mosaic(shape=shape)
         for key in mosaic.keys():
             if isinstance(mosaic[key], dict):
                 mosaic_node['meta'][key].update(mosaic[key])
             else:
                 mosaic_node['meta'][key] = mosaic[key]
-        mosaic_node = roman_datamodels.datamodels.MosaicModel(mosaic_node)
+        # mosaic_node = roman_datamodels.datamodels.MosaicModel(mosaic_node)
     else:
         mosaic_node = mosaic
 
@@ -445,11 +449,14 @@ def get_mosaic_wcs(mosaic):
         mosaic_node.meta.wcsinfo.ra_ref * u.deg,
         mosaic_node.meta.wcsinfo.dec_ref * u.deg)
 
+    if shape is None:
+        shape = (mosaic_node.data.shape[0],
+                 mosaic_node.data.shape[1])
+
     # Create a tangent plane WCS for the mosaic
     # The affine parameters below should be reviewed and updated
     affine = galsim.AffineTransform(
-        0.1, 0, 0, 0.1, origin=galsim.PositionI(mosaic_node.data.shape[0] / 2.0,
-                                                mosaic_node.data.shape[1] / 2.0,),
+        0.1, 0, 0, 0.1, origin=galsim.PositionI(math.ceil(shape[0] / 2.0), math.ceil(shape[1] / 2.0)),
         world_origin=galsim.PositionD(0, 0))
     wcs = galsim.TanWCS(affine,
                         util.celestialcoord(world_pos))

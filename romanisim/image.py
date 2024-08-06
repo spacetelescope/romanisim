@@ -29,10 +29,7 @@ import romanisim.persistence
 from romanisim import log
 
 import roman_datamodels
-try:
-    import roman_datamodels.maker_utils as maker_utils
-except ImportError:
-    import roman_datamodels.testing.utils as maker_utils
+import roman_datamodels.maker_utils as maker_utils
 
 
 # galsim fluxes are in photons / cm^2 / s
@@ -217,7 +214,8 @@ def trim_objlist(objlist, image):
 
 
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
-                         flux_to_counts_factor, bandpass=None, filter_name=None,
+                         flux_to_counts_factor, convtimes=None,
+                         bandpass=None, filter_name=None,
                          rng=None, seed=None):
     """Add sources to an image.
 
@@ -227,17 +225,19 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     Parameters
     ----------
     image : galsim.Image
-        Image to which to add sources with associated WCS.
+        Image to which to add sources with associated WCS. Updated in place.
     objlist : list[CatalogObject]
         Objects to add to image
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
     psf : galsim.Profile
         PSF for image
-    flux_to_counts_factor : float
+    flux_to_counts_factor : float or list
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total counts in the
         image
+    convtimes: array_like
+        Exposure times with unit scaling to convert to output rate units
     bandpass : galsim.Bandpass
         bandpass in which image is being rendered.  This is used only in cases
         where chromatic profiles & PSFs are being used.
@@ -279,6 +279,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     for i, obj in enumerate(objlist):
         t0 = time.time()
         image_pos = galsim.PositionD(xpos[i], ypos[i])
+        pwcs = image.wcs.local(image_pos)
         profile = obj.profile
         if not chromatic:
             if obj.flux is None:
@@ -289,18 +290,22 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             psf0 = psf.at_position(xpos[i], ypos[i])
         else:
             psf0 = psf
-        final = galsim.Convolve(profile * flux_to_counts_factor, psf0)
+        factor = flux_to_counts_factor[i] if isinstance(flux_to_counts_factor, list) else flux_to_counts_factor
+        final = galsim.Convolve(profile * factor, psf0)
         if chromatic:
             stamp = final.drawImage(
-                bandpass, center=image_pos, wcs=image.wcs.local(image_pos),
+                bandpass, center=image_pos, wcs=pwcs,
                 method='phot', rng=rng)
         else:
             try:
                 stamp = final.drawImage(center=image_pos,
-                                        wcs=image.wcs.local(image_pos))
+                                        wcs=pwcs)
             except galsim.GalSimFFTSizeError:
                 log.warning(f'Skipping source {i} due to too '
                             f'large FFT needed for desired accuracy.')
+        if convtimes is not None:
+            stamp /= convtimes[i]
+
         bounds = stamp.bounds & image.bounds
         if bounds.area() > 0:
             image[bounds] += stamp[bounds]

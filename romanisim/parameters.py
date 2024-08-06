@@ -84,6 +84,17 @@ reference_data = {
     "linearity": None,
     "readnoise": 5.0 * u.DN,
     "saturation": 55000 * u.DN,
+    # Taken from roman_wfi_photom_0046.asdf
+    "photom": {"pixelareasr": {"F062": 2.640600009241359e-13 * u.sr,
+                               "F087": 2.640600009241359e-13 * u.sr,
+                               "F106": 2.640600009241359e-13 * u.sr,
+                               "F129": 2.640600009241359e-13 * u.sr,
+                               "F146": 2.640600009241359e-13 * u.sr,
+                               "F158": 2.640600009241359e-13 * u.sr,
+                               "F184": 2.640600009241359e-13 * u.sr,
+                               "F213": 2.640600009241359e-13 * u.sr,
+                               }
+               }
 }
 
 nborder = 4  # number of border pixels used for reference pixels.
@@ -139,6 +150,9 @@ cr = {
     "pixel_size": 10,
     "pixel_depth": 5,
 }
+
+# Centermost PSF to use for mosaic creation
+default_sca = 2
 
 # Persistence defaults
 # delete persistence records fainter than 0.01 electron / s
