@@ -23,14 +23,10 @@ from romanisim import log
 import roman_datamodels.maker_utils as maker_utils
 import roman_datamodels.datamodels as rdm
 from roman_datamodels.stnode import WfiMosaic
-from astropy import units as u
-
-# Define centermost SCA for PSFs
-CENTER_SCA = 2
 
 
-def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords=None, unit_factor=1.0,
-                      filter_name = None, coords_unit='rad', wcs=None, psf=None, rng=None, seed=None):
+def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords=None, cps_conv=1.0, unit_factor=1.0,
+                      filter_name=None, coords_unit='rad', wcs=None, psf=None, rng=None, seed=None):
     """Add objects to a Level 3 mosaic
 
     Parameters
@@ -45,8 +41,10 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
         x & y positions of sources (pixel) at which sources should be added
     coords : array_like
         ra & dec positions of sources (coords_unit) at which sources should be added
+    cps_conv : float
+        Factor to convert data to cps
     unit_factor: float
-        Factor to convert data to MJy / sr
+        Factor to convert counts data to MJy / sr
     coords_unit : string
         units of coords
     wcs : galsim.GSFitsWCS
@@ -73,7 +71,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
 
     # Create PSF (if needed)
     if psf is None:
-        psf = romanisim.psf.make_psf(filter_name=filter_name, sca=CENTER_SCA, chromatic=False, webbpsf=True)
+        psf = romanisim.psf.make_psf(filter_name=filter_name, sca=parameters.default_sca, chromatic=False, webbpsf=True)
 
     # Create Image canvas to add objects to
     if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
@@ -93,9 +91,10 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
 
     # Add sources to the original mosaic data array
     romanisim.image.add_objects_to_image(sourcecountsall, source_cat, xpos=xpos, ypos=ypos,
-                                         psf=psf, flux_to_counts_factor=[xpt * unit_factor for xpt in exptimes],
-                                         exptimes=exptimes, bandpass=[filter_name], filter_name=filter_name,
-                                         wcs=wcs, rng=rng, seed=seed)
+                                         psf=psf, flux_to_counts_factor=[xpt * cps_conv for xpt in exptimes],
+                                         convtimes=[xpt / unit_factor for xpt in exptimes],
+                                         bandpass=[filter_name], filter_name=filter_name,
+                                         rng=rng, seed=seed)
 
     # Save array with added sources
     if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):

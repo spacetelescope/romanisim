@@ -186,8 +186,10 @@ def add_more_metadata(metadata):
 
     if 'exposure' not in metadata.keys():
         metadata['exposure'] = {}
-    read_pattern = parameters.read_pattern[
-        metadata['exposure']['ma_table_number']]
+    read_pattern = metadata['exposure'].get(
+        'read_pattern',
+        parameters.read_pattern[metadata['exposure']['ma_table_number']])
+    metadata['exposure']['read_pattern'] = read_pattern
     openshuttertime = parameters.read_time * read_pattern[-1][-1]
     offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
                    end=openshuttertime * u.s)
@@ -212,7 +214,6 @@ def add_more_metadata(metadata):
     metadata['exposure']['exposure_time'] = openshuttertime
     metadata['exposure']['effective_exposure_time'] = openshuttertime
     metadata['exposure']['duration'] = openshuttertime
-    metadata['exposure']['read_pattern'] = read_pattern
     # integration_start?  integration_end?  nints = 1?  ...
 
     if 'target' not in metadata.keys():
@@ -416,3 +417,51 @@ def decode_context_times(context, exptimes):
     total_exptimes = total_exptimes.reshape(total_exptimes.shape[1:])
 
     return total_exptimes
+
+
+def default_image_meta(time=None, ma_table=1, filter_name='F087',
+                       detector='WFI01', coord=None):
+    """Return some simple default metadata for input to image.simulate
+
+    Parameters
+    ----------
+    time : astropy.time.Time
+        Time to use, default to 2020-01-01
+    ma_table : int
+        MA table number to use
+    filter_name : str
+        filter name to use
+    detector : str
+        detector to use
+    coord : astropy.coordinates.SkyCoord
+        coordinates to use, default to (270, 66)
+
+    Returns
+    -------
+    Metadata dictionary corresponding to input parameters.
+    """
+
+    if time is None:
+        time = Time('2020-01-01T00:00:00')
+    if coord is None:
+        coord = SkyCoord(270 * u.deg, 66 * u.deg)
+
+    meta = {
+        'exposure': {
+            'start_time': time,
+            'ma_table_number': 1,
+        },
+        'instrument': {
+            'optical_element': filter_name,
+            'detector': 'WFI01'
+        },
+        'wcsinfo': {
+            'ra_ref': coord.ra.to(u.deg).value,
+            'dec_ref': coord.dec.to(u.deg).value,
+            'v2_ref': 0,
+            'v3_ref': 0,
+            'roll_ref': 0,
+        },
+    }
+
+    return meta

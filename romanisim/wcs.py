@@ -443,7 +443,7 @@ def get_mosaic_wcs(mosaic, shape=None):
                 mosaic_node['meta'][key].update(mosaic[key])
             else:
                 mosaic_node['meta'][key] = mosaic[key]
-        mosaic_node = roman_datamodels.datamodels.MosaicModel(mosaic_node)
+        # mosaic_node = roman_datamodels.datamodels.MosaicModel(mosaic_node)
     else:
         mosaic_node = mosaic
 

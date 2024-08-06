@@ -214,9 +214,9 @@ def trim_objlist(objlist, image):
 
 
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
-                         flux_to_counts_factor, exptimes=None,
+                         flux_to_counts_factor, convtimes=None,
                          bandpass=None, filter_name=None,
-                         wcs=None, rng=None, seed=None):
+                         rng=None, seed=None):
     """Add sources to an image.
 
     Note: this includes Poisson noise when photon shooting is used
@@ -236,16 +236,14 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total counts in the
         image
-    exptimes: array_like
-        Exposure times to scale back to rate units
+    convtimes: array_like
+        Exposure times with unit scaling to convert to output rate units
     bandpass : galsim.Bandpass
         bandpass in which image is being rendered.  This is used only in cases
         where chromatic profiles & PSFs are being used.
     filter_name : str
         filter to use to select appropriate flux from objlist.  This is only
         used when achromatic PSFs and sources are being rendered.
-    wcs : galsim.GSFitsWCS
-        WCS corresponding to image
     rng : galsim.BaseDeviate
         random number generator to use
     seed : int
@@ -281,10 +279,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     for i, obj in enumerate(objlist):
         t0 = time.time()
         image_pos = galsim.PositionD(xpos[i], ypos[i])
-        if wcs is None:
-            pwcs = image.wcs.local(image_pos)
-        else:
-            pwcs = wcs.local(image_pos)
+        pwcs = image.wcs.local(image_pos)
         profile = obj.profile
         if not chromatic:
             if obj.flux is None:
@@ -295,10 +290,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             psf0 = psf.at_position(xpos[i], ypos[i])
         else:
             psf0 = psf
-        if isinstance(flux_to_counts_factor, list):
-            final = galsim.Convolve(profile * flux_to_counts_factor[i], psf0)
-        else:
-            final = galsim.Convolve(profile * flux_to_counts_factor, psf0)
+        factor = flux_to_counts_factor[i] if isinstance(flux_to_counts_factor, list) else flux_to_counts_factor
+        final = galsim.Convolve(profile * factor, psf0)
         if chromatic:
             stamp = final.drawImage(
                 bandpass, center=image_pos, wcs=pwcs,
@@ -310,8 +303,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             except galsim.GalSimFFTSizeError:
                 log.warning(f'Skipping source {i} due to too '
                             f'large FFT needed for desired accuracy.')
-        if exptimes is not None:
-            stamp /= exptimes[i]
+        if convtimes is not None:
+            stamp /= convtimes[i]
 
         bounds = stamp.bounds & image.bounds
         if bounds.area() > 0:
@@ -531,8 +524,9 @@ def simulate_counts(metadata, objlist,
         catalog of simulated objects in image
     """
 
-    read_pattern = parameters.read_pattern[
-        metadata['exposure']['ma_table_number']]
+    read_pattern = metadata['exposure'].get(
+        'read_pattern',
+        parameters.read_pattern[metadata['exposure']['ma_table_number']])
 
     sca = int(metadata['instrument']['detector'][3:])
     exptime = parameters.read_time * read_pattern[-1][-1]
@@ -704,6 +698,7 @@ def simulate(metadata, objlist,
         * sca: metadata['instrument']['detector']
         * bandpass: metadata['instrument']['optical_detector']
         * ma_table_number: metadata['exposure']['ma_table_number']
+        * read_pattern: metadata['exposure']['read_pattern']
 
     objlist : list[CatalogObject] or Table
         List of objects in the field to simulate
@@ -758,10 +753,11 @@ def simulate(metadata, objlist,
     image_node['meta'] = meta
     image_mod = roman_datamodels.datamodels.ImageModel(image_node)
 
-    ma_table_number = image_mod.meta.exposure.ma_table_number
     filter_name = image_mod.meta.instrument.optical_element
 
-    read_pattern = parameters.read_pattern[ma_table_number]
+    read_pattern = metadata['exposure'].get(
+        'read_pattern',
+        parameters.read_pattern[metadata['exposure']['ma_table_number']])
 
     refdata = gather_reference_data(image_mod, usecrds=usecrds)
     read_noise = refdata['readnoise']
@@ -793,7 +789,7 @@ def simulate(metadata, objlist,
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:
         l1, l1dq = romanisim.l1.make_l1(
-            counts, ma_table_number, read_noise=read_noise,
+            counts, read_pattern, read_noise=read_noise,
             pedestal_extra_noise=pedestal_extra_noise,
             rng=rng, gain=gain,
             crparam=crparam,
