@@ -417,7 +417,7 @@ def convert_wcs_to_gwcs(wcs):
         return wcs_from_fits_header(wcs.header.header)
 
 
-def get_mosaic_wcs(mosaic, shape=None):
+def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
 
     Parameters
@@ -430,6 +430,10 @@ def get_mosaic_wcs(mosaic, shape=None):
     Returns
     -------
     galsim.CelestialWCS for the mosaic
+
+    Needs updating:
+     - if xpos, ypos, and coords are provided, then a GWCS compatible object will be created (and meta updated with it)
+     - if not, a functional CelestialWCS is created [useful for quick computation, but GWCS needed for validation of a final simulation]
     """
 
     # If sent a dictionary, create a temporary model for data interface
@@ -456,12 +460,19 @@ def get_mosaic_wcs(mosaic, shape=None):
                  mosaic_node.data.shape[1])
         shape = mosaic_node.data.shape
 
-    # Create a tangent plane WCS for the mosaic
-    # The affine parameters below should be reviewed and updated
-    affine = galsim.fitswcs.AffineTransform(
-        parameters.pixel_scale, 0, 0, parameters.pixel_scale, origin=galsim.PositionI(x=math.ceil(shape[1] / 2.0), y=math.ceil(shape[0] / 2.0)),
-        world_origin=galsim.PositionD(0, 0))
-    wcs = galsim.fitswcs.TanWCS(affine,
-                        util.celestialcoord(world_pos))
+    if (elem is None for elem in [xpos,ypos,coord]):
+        # Create a tangent plane WCS for the mosaic
+        # The affine parameters below should be reviewed and updated
+        affine = galsim.fitswcs.AffineTransform(
+            parameters.pixel_scale, 0, 0, parameters.pixel_scale, origin=galsim.PositionI(x=math.ceil(shape[1] / 2.0), y=math.ceil(shape[0] / 2.0)),
+            world_origin=galsim.PositionD(0, 0))
+        wcs = galsim.fitswcs.TanWCS(affine,
+                            util.celestialcoord(world_pos))
+    else:
+        # Create GWCS compatible tangent plane WCS
+        header = {}
+        wcs = galsim.FittedSIPWCS(xpos, ypos, coord[:, 0], coord[:, 1], wcs_type='TAN', center=util.celestialcoord(world_pos))
+        wcs._writeHeader(header, galsim.BoundsI(0, image.array.shape[0], 0, image.array.shape[1]))
+        metadata['wcs']  = romanisim.wcs.wcs_from_fits_header(header)
 
     return wcs

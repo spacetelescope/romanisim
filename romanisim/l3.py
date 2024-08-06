@@ -23,6 +23,7 @@ from romanisim import log
 import roman_datamodels.maker_utils as maker_utils
 import roman_datamodels.datamodels as rdm
 from roman_datamodels.stnode import WfiMosaic
+import astropy.units as u
 
 
 def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords=None, cps_conv=1.0, unit_factor=1.0,
@@ -112,12 +113,17 @@ def generate_mosaic_geometry():
 
 def generate_exptime_array(cat, meta):
     """ Create geometry from the object list
+    TBD
     """
+
+    # Get wcs for this metadata
     twcs = romanisim.wcs.get_mosaic_wcs(meta)
 
+    # Obtain sky positions for objects
     coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
                         for o in cat])
 
+    # Calculate x,y positions for objects
     allx, ally = twcs.radecToxy(coords[:, 0], coords[:, 1], 'rad')
 
     # Obtain the sample extremums
@@ -134,17 +140,12 @@ def generate_exptime_array(cat, meta):
     ydiff = max([math.ceil(ymax - ycen), math.ceil(ycen - ymin)])
 
     # Create context map preserving WCS center
-    # context = np.ones((1, 2 * xdiff, 2 * ydiff), dtype=np.uint32)
     context = np.ones((1, 2 * ydiff, 2 * xdiff), dtype=np.uint32)
 
     return context
 
 
 def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=None, sky=None, psf=None, seed=None, rng=None):
-            # , cat, exptimes, context=None,
-            #  usecrds=True, webbpsf=True, seed=None, rng=None,
-            #  psf_keywords=dict(), **kwargs
-            #  ):
     """TBD
     """
 
@@ -194,8 +195,13 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=No
 
     abflux = romanisim.bandpass.get_abflux(filter)
 
-    # Obtain physical unit conversion factor
-    unit_factor = parameters.reference_data['photom'][filter]
+    # Obtain unit conversion factors
+    # Need to convert from counts / pixel to MJy / sr
+    # Flux to counts
+    cps_conv = romanisim.bandpass.get_abflux(filter)
+    # Unit factor
+    unit_factor = ((3631 * u.Jy) / (romanisim.bandpass.get_abflux(filter) * 10e6
+                                    * parameters.reference_data['photom']["pixelareasr"][filter])).to(u.MJy / u.sr)
 
     # Set effective read noise
     if effreadnoise is None:
@@ -204,7 +210,7 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=No
     # Simulate mosaic
     mosaic, simcatobj = simulate_cps(
         image, meta, efftimes, objlist=catalog, psf=psf, zpflux=abflux, sky=sky,
-        effreadnoise=effreadnoise,
+        effreadnoise=effreadnoise, cps_conv=cps_conv,
         wcs=wcs, rng=rng, seed=seed, unit_factor=unit_factor)
 
     # Create Mosaic Model
@@ -222,7 +228,7 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=No
 
 def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
                          zpflux=None, wcs=None, xpos=None, ypos=None, sky=None,
-                         effreadnoise = None,
+                         effreadnoise=None, cps_conv=1,
                          flat=None, rng=None, seed=None, unit_factor=1,
                          ignore_distant_sources=10,):
     """TBD
@@ -310,19 +316,12 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
     image /= efftimes
 
     # Generate GWCS compatible wcs
-    world_pos = astropy.coordinates.SkyCoord(
-        metadata['wcsinfo']['ra_ref'] * u.deg,
-        metadata['wcsinfo']['dec_ref'] * u.deg)
-    header = {}
-    sipwcs = galsim.FittedSIPWCS(xpos, ypos, coord[:, 0], coord[:, 1], wcs_type='TAN', center=util.celestialcoord(world_pos))
-    sipwcs._writeHeader(header, galsim.BoundsI(0, image.array.shape[0], 0, image.array.shape[1]))
-    metadata['wcs']  = romanisim.wcs.wcs_from_fits_header(header)
-
+    sipwcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=image.array.shape, xpos=xpos, ypos=ypos, coord=coord)
     image.wcs = sipwcs
 
     # Add objects to mosaic
     objinfo = add_objects_to_l3(
-        image, objlist, src_exptimes, wcs=sipwcs, filter_name=metadata['basic']['optical_element'], rng=rng)
+        image, objlist, src_exptimes, wcs=sipwcs, filter_name=metadata['basic']['optical_element'], rng=rng, cps_conv=cps_conv, unit_factor=unit_factor)
        
     # Add object info artifacts
     objinfo = np.zeros(
