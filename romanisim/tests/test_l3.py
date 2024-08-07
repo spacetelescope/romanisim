@@ -169,12 +169,6 @@ def test_sim_mosaic():
 
     cen = SkyCoord(ra=ra_ref * u.deg, dec=dec_ref * u.deg)
     cat = catalog.make_dummy_table_catalog(cen, radius=0.02, nobj=100)
-    # TBD Fix Fluxes
-    # cat['F158'] = cat['F158'] * 10e10
-    # cat[filter_name] = cat[filter_name] * 10e12
-
-    cat = cat[0:10]
-
     source_cat = catalog.table_to_catalog(cat, [filter_name])
 
     # Create bounds from the object list
@@ -213,7 +207,7 @@ def test_sim_mosaic():
     pos_vals = mosaic.data.value.copy()
     pos_vals[pos_vals <= 0] = 0.00000000001
 
-    fig3 = px.imshow(np.log(pos_vals), title='3. Mosaic Data (log)', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    fig3 = px.imshow(np.log(pos_vals), title='3. Mosaic Data (log)', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
     fig3.show()
 
 
@@ -234,14 +228,17 @@ def test_sim_mosaic():
     pos_vals2 = mosaic2.data.value.copy()
     pos_vals2[pos_vals2 <= 0] = 0.00000000001
 
-    fig6 = px.imshow(np.log(pos_vals2), title='6. Mosaic Data (log)', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    fig6 = px.imshow(np.log(pos_vals2), title='6. Mosaic Data (log)', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
     fig6.show()
+
+
+    # The two tests below do not pass yet
 
     # did we get all the flux?
     totflux = np.sum(mosaic2.data.value - np.median(mosaic2.data.value))
     expectedflux = (romanisim.bandpass.get_abflux(filter_name) * np.sum(cat[filter_name])
                     / parameters.reference_data['gain'].value)
-    # Need fixed fluxes to fix this
+    # Something about the flux scaling or the sky is off? This fails
     # assert np.abs(totflux / expectedflux - 1) < 0.1
 
     # Are there sources where there should be?

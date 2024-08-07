@@ -431,9 +431,10 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
     -------
     galsim.CelestialWCS for the mosaic
 
-    Needs updating:
+    Comment block needs updating:
      - if xpos, ypos, and coords are provided, then a GWCS compatible object will be created (and meta updated with it)
-     - if not, a functional CelestialWCS is created [useful for quick computation, but GWCS needed for validation of a final simulation]
+     - if not, a functional CelestialWCS is created [useful for quick computation, 
+       but GWCS needed for validation of a final simulation]
     """
 
     # If sent a dictionary, create a temporary model for data interface
@@ -447,7 +448,6 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
                 mosaic_node['meta'][key].update(mosaic[key])
             else:
                 mosaic_node['meta'][key] = mosaic[key]
-        # mosaic_node = roman_datamodels.datamodels.MosaicModel(mosaic_node)
     else:
         mosaic_node = mosaic
 
@@ -473,6 +473,5 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
         header = {}
         wcs = galsim.FittedSIPWCS(xpos, ypos, coord[:, 0], coord[:, 1], wcs_type='TAN', center=util.celestialcoord(world_pos))
         wcs._writeHeader(header, galsim.BoundsI(0, image.array.shape[0], 0, image.array.shape[1]))
-        metadata['wcs']  = romanisim.wcs.wcs_from_fits_header(header)
-
+        metadata['wcs'] = romanisim.wcs.wcs_from_fits_header(header)
     return wcs

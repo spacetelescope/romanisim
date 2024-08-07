@@ -112,8 +112,9 @@ def generate_mosaic_geometry():
     pass
 
 def generate_exptime_array(cat, meta):
-    """ Create geometry from the object list
-    TBD
+    """ To be updated..
+    Function to ascertain / set exposure time in each pixel 
+    Present code is placeholder to be built upon
     """
 
     # Get wcs for this metadata
@@ -184,8 +185,6 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=No
         # Examine this in more detail to ensure it is correct
         # Create base sky level
         mos_cent_pos = wcs.toWorld(image.true_center)
-        # sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos,
-        #                             date=date.datetime, exptime=1)
         sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos, exptime=1)
         sky_level *= (1.0 + roman.stray_light_fraction)
         # sky_mosaic = image * 0
@@ -252,12 +251,11 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
         objlist = []
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
-            xpos, ypos = image.wcs.radecToxy(
-                np.radians(objlist['ra']), np.radians(objlist['dec']), 'rad')
+            coord = np.array([[o['ra'], np.radians(o['dec'])] for o in objlist])
         else:
             coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
                              for o in objlist])
-            xpos, ypos = image.wcs.radecToxy(coord[:, 0], coord[:, 1], 'rad')
+        xpos, ypos = image.wcs.radecToxy(coord[:, 0], coord[:, 1], 'rad')
         # use private vectorized transformation
     if xpos is not None:
         xpos = np.array(xpos)
@@ -273,9 +271,7 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
     chromatic = False
     if len(objlist) > 0 and objlist[0].profile.spectral:
         chromatic = True
-
-    
-
+   
     # Pixelized object locations
     xpos_idx = [round(x) for x in xpos]
     ypos_idx = [round(y) for y in ypos]
@@ -290,8 +286,6 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
     # Set the average exposure time to objects lacking one
     avg_exptime = np.average(src_exptimes)
     src_exptimes[keep] = avg_exptime
-
-
 
     # Noise
 
