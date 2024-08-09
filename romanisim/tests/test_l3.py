@@ -7,19 +7,13 @@ import copy
 import math
 import numpy as np
 import galsim
-from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs, persistence, ramp, l1, l3
-from astropy.coordinates import SkyCoord
+from romanisim import parameters, catalog, wcs, l3
 from astropy import units as u
-from astropy.time import Time
 from astropy import table
 import asdf
-import webbpsf
-from astropy.modeling.functional_models import Sersic2D
 import pytest
 from metrics_logger.decorators import metrics_logger
 from romanisim import log
-from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 import roman_datamodels.maker_utils as maker_utils
 import romanisim.bandpass
 

@@ -1006,7 +1006,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         flux_to_counts_factor *= abflux
 
     # compute the total number of counts we got from the source
-    objinfo = add_objects_to_image(
+    add_objects_to_image(
         sourcecounts, cat,
         xpos=x, ypos=y, psf=psf,
         flux_to_counts_factor=flux_to_counts_factor,
