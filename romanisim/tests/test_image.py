@@ -578,7 +578,9 @@ def test_make_test_catalog_and_images():
     if fn is not None:
         fn = str(fn)
     res = image.make_test_catalog_and_images(usecrds=False,
-                                             galaxy_sample_file_name=fn)
+                                             galaxy_sample_file_name=fn,
+                                             webbpsf=False,
+                                             filters=['Y106'])
     assert len(res) > 0
 
 
