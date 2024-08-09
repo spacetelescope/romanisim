@@ -915,3 +915,137 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         af.tree = {'roman': out, 'romanisim': extras}
         af.write_to(filepath)
     return out, extras
+
+
+def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
+                           gain=None, webbpsf=True):
+    """Inject sources into an L2 image.
+
+    This routine allows sources to be injected onto an existing L2 image.
+    Source injection into an L2 image relies on knowing the objects'
+    x and y locations, the PSF, and the image gain; if these are not provided,
+    reasonable defaults are generated.
+
+    The simulation proceeds by (optionally) using the model WCS to generate the
+    x & y locations, grabbing the gain from
+    romanisim.parameters.reference_data, and grabbing the read_pattern from the
+    model_metadata.  The number of additional counts in each pixel are
+    simulated.  We create a "virtual" ramp that uses the input L2 image and
+    evenly apportions the measured DN/s along the ramp using the MA table.  We
+    apportion the new counts to a new ramp, and add the new ramp to the virtual
+    ramp.  We then refit the new ramp, and replace the old fit with the new
+    fit.
+
+    This simulation is not as complete as the full L2 simulation.  We do not
+    include non-linearity or saturation, for example.  Identified CR hits
+    are lost.  But it should do a decent job at providing realistic
+    uncertainties otherwise, including how read & Poisson noise influence
+    the choice of weights used in ramp fitting and how those influence the
+    final uncertainties.
+
+    Parameters
+    ----------
+    model: roman_datamodels.datamodels.ImageModel
+        model into which to inject sources
+    cat: astropy.table.Table
+        catalog of sources to inject into image
+    x: list[float] or None
+        x coordinates of catalog locations in image
+    y: list[float] or None
+        y coordinates of catalog locations in image
+    psf: galsim.gsobject.GSObject
+        PSF to use
+    rng: galsim.BaseDeviate
+        galsim random number generator to use
+    gain: float [electron / DN]
+        gain to use when converting simulated electrons to DN
+    webbpsf: bool
+        if True, use WebbPSF to model the PSF
+
+    Returns
+    -------
+    model_out: roman_datamodels.datamodel.ImageModel
+        model with additional sources
+    """
+    if rng is None:
+        rng = galsim.UniformDeviate(123)
+
+    if x is None or y is None:
+        x, y = model.meta.wcs.numerical_inverse(cat['ra'], cat['dec'],
+                                                with_bounding_box=False)
+
+    filter_name = model.meta.instrument.optical_element
+    cat = catalog.table_to_catalog(cat, [filter_name])
+
+    # are we doing photon shooting?
+    chromatic = False
+    if len(cat) > 0 and cat[0].profile.spectral:
+        chromatic = True
+
+    wcs = romanisim.wcs.GWCS(model.meta.wcs)
+    if psf is None:
+        psf = romanisim.psf.make_psf(
+            int(model.meta.instrument.detector[-2:]), filter_name, wcs=wcs,
+            chromatic=False, webbpsf=webbpsf)
+
+    if gain is None:
+        gain = parameters.reference_data['gain']
+
+    # assemble bits we need in order to add a source to an image
+    sourcecounts = galsim.ImageF(model.data.shape[0], model.data.shape[1],
+                                 wcs=wcs, xmin=0, ymin=0)
+    galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
+    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
+    abflux = romanisim.bandpass.get_abflux(filter_name)
+    read_pattern = model.meta.exposure.read_pattern
+    exptime = parameters.read_time * read_pattern[-1][-1]
+    tij = romanisim.l1.read_pattern_to_tij(read_pattern)
+    tbar = ramp.read_pattern_to_tbar(read_pattern)
+    flux_to_counts_factor = exptime
+    if not chromatic:
+        flux_to_counts_factor *= abflux
+
+    # compute the total number of counts we got from the source
+    add_objects_to_image(
+        sourcecounts, cat,
+        xpos=x, ypos=y, psf=psf,
+        flux_to_counts_factor=flux_to_counts_factor,
+        bandpass=bandpass, filter_name=filter_name, rng=rng)
+
+    m = sourcecounts.array != 0
+
+    # add Poisson noise if we made a noiseless, not-photon-shooting
+    # image.
+    if not chromatic:
+        pd = galsim.PoissonDeviate(rng)
+        noise = np.clip(sourcecounts.array[m].copy(), 0, np.inf)
+        pd.generate_from_expectation(noise)
+        sourcecounts.array[m] = noise
+
+    sourcecounts.quantize()
+
+    m = sourcecounts.array != 0
+    # many pixels which may have received a small fraction of a count
+    # receive 0 after the Poisson sampling.
+
+    # create injected source ramp resultants
+    resultants, dq = romanisim.l1.apportion_counts_to_resultants(
+        sourcecounts.array[m], tij, rng=rng)
+    resultants *= u.electron
+
+    # Inject source to original image
+    newramp = model.data[None, :] * tbar[:, None, None] * u.s
+    newramp[:, m] += resultants / gain
+    # newramp has units of DN
+
+    # Make new image of the combination
+    newimage, readvar, poissonvar = make_l2(
+        newramp[:, m], read_pattern,
+        gain=gain, flat=1, darkrate=0)
+
+    res = model.copy()
+    res.data[m] = newimage
+    res.var_rnoise[m] = readvar
+    res.var_poisson[m] = poissonvar
+    res.err[m] = np.sqrt(readvar + poissonvar)
+    return res
