@@ -125,7 +125,7 @@ exclude_lines = [
     "if __name__ == \"__main__\":",
 ]
 
-[tool.ruff]
+[tool.ruff.lint]
 extend-ignore = [
     "E501",
 ]
