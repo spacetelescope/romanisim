@@ -418,10 +418,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
         including DQ images and persistence information.
     """
 
-    try:
-        import roman_datamodels.testing.utils as maker_utils
-    except ImportError:
-        import roman_datamodels.maker_utils as maker_utils
+    import roman_datamodels.maker_utils as maker_utils
     nborder = parameters.nborder
     npix = galsim.roman.n_pix + 2 * nborder
     out = maker_utils.mk_level1_science_raw(

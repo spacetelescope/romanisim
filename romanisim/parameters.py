@@ -167,3 +167,6 @@ persistence = {
     "half_well": 50000,
     "ignorerate": 0.01
 }
+
+# angle of V3 relative to +Y
+V3IdlYAngle = -60
