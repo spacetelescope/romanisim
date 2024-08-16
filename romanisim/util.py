@@ -219,10 +219,11 @@ def add_more_metadata(metadata):
     metadata['exposure']['duration'] = openshuttertime
     metadata['guidestar']['gw_window_xsize'] = 16
     metadata['guidestar']['gw_window_ysize'] = 16
-    metadata['guidestar']['gw_window_xstop'] = (
-        metadata['guidestar']['gw_window_xstart'])
-    metadata['guidestar']['gw_window_ystop'] = (
-        metadata['guidestar']['gw_window_ystart'])
+    if 'gw_window_xstart' in metadata['guidestar']:
+        metadata['guidestar']['gw_window_xstop'] = (
+            metadata['guidestar']['gw_window_xstart'])
+        metadata['guidestar']['gw_window_ystop'] = (
+            metadata['guidestar']['gw_window_ystart'])
     # integration_start?  integration_end?  nints = 1?  ...
 
     if 'target' not in metadata.keys():
@@ -255,7 +256,7 @@ def add_more_metadata(metadata):
     if 'ephemeris' in metadata:
         metadata['ephemeris']['ephemeris_reference_frame'] = (
             metadata['ephemeris']['ephemeris_reference_frame'][:10])
-    if 'guidestar' in metadata:
+    if 'guidestar' in metadata and 'gs_epoch' in metadata['guidestar']:
         metadata['guidestar']['gs_epoch'] = (
             metadata['guidestar']['gs_epoch'][:10])
 

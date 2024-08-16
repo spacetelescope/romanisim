@@ -612,6 +612,8 @@ def gather_reference_data(image_mod, usecrds=False):
             for reftype, reffn in reffiles.items():
                 if reftype in ['inverselinearity', 'ipc', 'flat']:
                     continue
+                if reftype not in refsneeded:
+                    continue
                 image_mod.meta.ref_file[reftype] = os.path.basename(reffn)
         if flatneeded:
             try:
