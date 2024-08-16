@@ -518,27 +518,28 @@ def update_photom_keywords(im, gain=None):
     gain = (np.median(gain)
             if gain is not None else parameters.reference_data['gain'])
     gain = gain.value if isinstance(gain, u.Quantity) else gain
-    if 'wcs' in out['meta']:
-        wcs = out['meta']['wcs']
+    if 'wcs' in im['meta']:
+        wcs = im['meta']['wcs']
         cenpix = (im.data.shape[0] // 2, im.data.shape[1] // 2)
-        cc = wcs.world_to_pix((cenpix[0], cenpix[0], cenpix[0] + 1),
-                              (cenpix[1], cenpix[1] + 1, cenpix[1]))
+        cc = wcs.pixel_to_world((cenpix[0], cenpix[0], cenpix[0] + 1),
+                                (cenpix[1], cenpix[1] + 1, cenpix[1]))
         angle = (cc[0].position_angle(cc[1]) -
                  cc[0].position_angle(cc[2]))
         area = (cc[0].separation(cc[1]) * cc[0].separation(cc[2])
                 * np.sin(angle.to(u.rad).value))
-        out['meta']['photometry']['pixelarea_steradians'] = area.to(u.sr)
-        out['meta']['photometry']['pixelarea_arcsecsq'] = (
+        im['meta']['photometry']['pixelarea_steradians'] = area.to(u.sr)
+        im['meta']['photometry']['pixelarea_arcsecsq'] = (
             area.to(u.arcsec ** 2))
-        out['meta']['conversion_megajansky'] = gain * (
+        im['meta']['photometry']['conversion_megajanskys'] = gain * (
             3631 /
             bandpass.get_abflux(im.meta['instrument']['optical_element']) /
             10 ** 6 /
-            out['meta']['photometry']['pixelarea_steradians']) * u.MJy / u.sr
-        out['meta']['conversion_microjansky'] = (
-            out['meta']['conversion_megajansky'].to(u.uJy / u.arcsec ** 2))
+            im['meta']['photometry']['pixelarea_steradians']) * u.MJy
+        im['meta']['photometry']['conversion_microjanskys'] = (
+            im['meta']['photometry']['conversion_megajanskys'].to(
+                u.uJy / u.arcsec ** 2))
 
-    out['meta']['photometry']['conversion_megajansky_uncertainty'] = (
+    im['meta']['photometry']['conversion_megajanskys_uncertainty'] = (
         0 * u.MJy / u.sr)
-    out['meta']['photometry']['conversion_microjansky_uncertainty'] = (
+    im['meta']['photometry']['conversion_microjanskys_uncertainty'] = (
         0 * u.uJy / u.arcsec ** 2)

@@ -881,8 +881,9 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         out['meta'].update(metadata)
 
     if imwcs is not None:  # add a WCS
-        out['meta'].update(wcs=wcs.convert_wcs_to_gwcs(imwcs))
-        out['meta']['wcsinfo']['s_region'] = wcs.create_s_region(imwcs)
+        gwcs = wcs.convert_wcs_to_gwcs(imwcs)
+        out['meta'].update(wcs=gwcs)
+        out['meta']['wcsinfo']['s_region'] = wcs.create_s_region(gwcs)
 
     util.update_photom_keywords(out, gain=gain)
 

@@ -481,11 +481,11 @@ def create_s_region(wcs, shape=None):
     if shape is not None:
         bbox = ((-0.5, shape[-1] - 0.5), (-0.5, shape[-2] - 0.5))
     else:
-        bbox = wcs.bounding_box
-    bbox = ((int(round(x + 0.5)) for x in r) for r in bbox)
+        bbox = [[x for x in r] for r in wcs.bounding_box]
+    bbox = [[int(round(r[0] + 0.5)), int(round(r[1] - 0.5))] for r in bbox]
     xcorn, ycorn = ([bbox[0][0], bbox[0][1], bbox[0][1], bbox[0][0]],
                     [bbox[1][0], bbox[1][0], bbox[1][1], bbox[1][1]])
     racorn, deccorn = wcs(xcorn, ycorn)
-    rd = np.array([[r, d] for r, d in zip(racorn, decorn)])
+    rd = np.array([[r, d] for r, d in zip(racorn, deccorn)])
     s_region = "POLYGON ICRS " + " ".join([str(x) for x in rd.ravel()])
     return s_region
