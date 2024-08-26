@@ -58,7 +58,7 @@ def test_tij_to_pij():
             pij, np.diff(np.concatenate(tij), prepend=0) / tij[-1][-1])
 
 
-@metrics_logger("DMS220", "DMS229")
+@metrics_logger("DMS220", "DMS229", "DMS223")
 @pytest.mark.soctests
 def test_apportion_counts_to_resultants():
     """Test that we can apportion counts to resultants and appropriately add
