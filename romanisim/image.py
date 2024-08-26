@@ -5,28 +5,19 @@ for most of the real work.
 """
 
 import time
+import os
 import copy
 import numpy as np
 import astropy.time
-from astropy import units as u
-from astropy import coordinates
-from astropy import table
+from astropy import units as u, coordinates, table
 import asdf
 import galsim
 from galsim import roman
-
-
-from . import wcs
-from . import catalog
-from . import parameters
-from . import util
-from . import nonlinearity
-from . import ramp
+from . import wcs, catalog, parameters, util, nonlinearity, ramp, log
 import romanisim.l1
 import romanisim.bandpass
 import romanisim.psf
 import romanisim.persistence
-from romanisim import log
 
 import roman_datamodels
 import roman_datamodels.maker_utils as maker_utils
@@ -605,6 +596,7 @@ def gather_reference_data(image_mod, usecrds=False):
     """
 
     reffiles = {k: v for k, v in parameters.reference_data.items()}
+    reffiles.pop('photom')
 
     out = dict(**reffiles)
     if usecrds:
@@ -617,6 +609,12 @@ def gather_reference_data(image_mod, usecrds=False):
             reffiles.update(crds.getreferences(
                 image_mod.get_crds_parameters(), reftypes=refsneeded,
                 observatory='roman'))
+            for reftype, reffn in reffiles.items():
+                if reftype in ['inverselinearity', 'ipc', 'flat']:
+                    continue
+                if reftype not in refsneeded:
+                    continue
+                image_mod.meta.ref_file[reftype] = os.path.basename(reffn)
         if flatneeded:
             try:
                 flatfile = crds.getreferences(
@@ -625,6 +623,7 @@ def gather_reference_data(image_mod, usecrds=False):
 
                 flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
                 flat = flat_model.data[...].copy()
+                image_mod.meta.ref_file['flat'] = os.path.basename(flatfile)
             except crds.core.exceptions.CrdsLookupError:
                 log.warning('Could not find flat; using 1')
                 flat = 1
@@ -808,7 +807,7 @@ def simulate(metadata, objlist,
         l2dq = np.bitwise_or.reduce(l1dq, axis=0)
         im, extras = make_asdf(
             *slopeinfo, metadata=image_mod.meta, persistence=persistence,
-            dq=l2dq, imwcs=counts.wcs)
+            dq=l2dq, imwcs=counts.wcs, gain=gain)
     else:
         extras = dict()
 
@@ -849,18 +848,15 @@ def make_test_catalog_and_images(
 
 
 def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
-              filepath=None, persistence=None, dq=None, imwcs=None):
+              filepath=None, persistence=None, dq=None, imwcs=None,
+              gain=None):
     """Wrap a galsim simulated image with ASDF/roman_datamodel metadata.
 
     Eventually this needs to get enough info to reconstruct a refit WCS.
     """
 
-    out = maker_utils.mk_level2_image()
-    # fill this output with as much real information as possible.
-    # aperture['name'] gets the correct SCA
-    # aperture['position_angle'] gets the correct PA
-    # cal['step'] is left empty for now, but in principle
-    #     could be filled out at some level
+    out = maker_utils.mk_level2_image(
+        n_groups=len(metadata['exposure']['read_pattern']))
     # ephemeris contains a lot of angles that could be computed.
     # exposure contains
     #     ngroups, nframes, sca_number, gain_factor, integration_time,
@@ -881,23 +877,17 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     #     the earth out to L2, and use that for the velocity
     #     aberration?  Don't do until someone asks.
     # visit: start_time, end_time, total_exposures, ...?
-    # wcsinfo: v2_ref, v3_ref, vparitiy, v3yangle, ra_ref, dec_ref
+    # wcsinfo: v2_ref, v3_ref, vparity, v3yangle, ra_ref, dec_ref
     #     roll_ref, s_region
-    # photometry: all of these conversions could be filled out
-    #     just requires the assumed zero point, some definitions,
-    #     and the WCS.
-    # border_ref_pix_left, _right, _top, _bottom:
-    #     leave reference blank for now
-    # dq_border_pix_left, _right, _top, _bottom:
-    #     leave border pixels blank for now.
-    # amp33: leave blank for now.
-    # data: image
-    # var_flat: currently zero
     if metadata is not None:
         out['meta'].update(metadata)
 
     if imwcs is not None:  # add a WCS
-        out['meta'].update(wcs=wcs.convert_wcs_to_gwcs(imwcs))
+        gwcs = wcs.convert_wcs_to_gwcs(imwcs)
+        out['meta'].update(wcs=gwcs)
+        out['meta']['wcsinfo']['s_region'] = wcs.create_s_region(gwcs)
+
+    util.update_photom_keywords(out, gain=gain)
 
     out['data'] = slope
     out['dq'] = np.zeros(slope.shape, dtype='u4')

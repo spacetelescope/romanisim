@@ -16,6 +16,7 @@ boresight for galsim.roman than for what I get from CRDS.  This bears
 more investigation.
 """
 
+import os
 import warnings
 import math
 import numpy as np
@@ -30,13 +31,8 @@ import gwcs.wcs
 import galsim.wcs
 from galsim import roman
 from . import util
-
-
-# Needed until RCAL release unfreezing link to RDM/RAD versions 0.14.1
-try:
-    import roman_datamodels.maker_utils as maker_utils
-except ImportError:
-    import roman_datamodels.testing.utils as maker_utils
+import romanisim.parameters
+import roman_datamodels.maker_utils as maker_utils
 
 
 def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
@@ -78,8 +74,8 @@ def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
         parameters['pointing']['dec_v1'])
 
     # Romanisim uses ROLL_REF = PA_APER - V3IdlYAngle
-    V3IdlYAngle = -60  # this value should eventually be taken from the SIAF
-    parameters['wcsinfo']['roll_ref'] = pa_aper - V3IdlYAngle
+    parameters['wcsinfo']['roll_ref'] = (
+        pa_aper - romanisim.parameters.V3IdlYAngle)
 
     if boresight:
         parameters['wcsinfo']['v2_ref'] = 0
@@ -140,6 +136,7 @@ def get_wcs(image, usecrds=True, distortion=None):
             reftypes=['distortion'],
             observatory='roman',
         )['distortion']
+        image_mod.meta.ref_file['distortion'] = os.path.basename(dist_name)
 
         dist_model = roman_datamodels.datamodels.DistortionRefModel(dist_name)
         distortion = dist_model.coordinate_distortion_transform
@@ -462,3 +459,33 @@ def get_mosaic_wcs(mosaic, shape=None):
                         util.celestialcoord(world_pos))
 
     return wcs
+
+
+def create_s_region(wcs, shape=None):
+    """Create s_region string from wcs.
+
+    Parameters
+    ----------
+    wcs : gwcs.wcs.WCS instance
+        wcs for which s_region is desired
+    shape : tuple
+        use this shape to determine the pixel boundaries instead bounding box
+
+    Returns
+    -------
+    s_region : str
+        the s_region string, POLYGON ICRS + coordinates of 4 corners
+    """
+    if not isinstance(wcs, gwcs.wcs.WCS):
+        raise ValueError('wcs must be a gwcs WCS object.')
+    if shape is not None:
+        bbox = ((-0.5, shape[-1] - 0.5), (-0.5, shape[-2] - 0.5))
+    else:
+        bbox = [[x for x in r] for r in wcs.bounding_box]
+    bbox = [[int(round(r[0] + 0.5)), int(round(r[1] - 0.5))] for r in bbox]
+    xcorn, ycorn = ([bbox[0][0], bbox[0][1], bbox[0][1], bbox[0][0]],
+                    [bbox[1][0], bbox[1][0], bbox[1][1], bbox[1][1]])
+    racorn, deccorn = wcs(xcorn, ycorn)
+    rd = np.array([[r, d] for r, d in zip(racorn, deccorn)])
+    s_region = "POLYGON ICRS " + " ".join([str(x) for x in rd.ravel()])
+    return s_region

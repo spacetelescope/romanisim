@@ -16,6 +16,7 @@ import roman_datamodels
 from roman_datamodels import stnode
 from romanisim import catalog, image, wcs
 from romanisim import parameters, log
+import romanisim
 
 NMAP = {'apt':'{http://www.stsci.edu/Roman/APT}'}
 
@@ -250,6 +251,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     if 'filename' in romanisimdict:
         romanisimdict['filename'] = str(romanisimdict['filename'])
     romanisimdict.update(**extras)
+    romanisimdict['version'] = romanisim.__version__
 
     basename = os.path.basename(args.filename)
     obsdata = parse_filename(basename)
@@ -263,6 +265,8 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
             'WFI_' + args.pretend_spectral.upper())
         im['meta']['instrument']['optical_element'] = (
             args.pretend_spectral.upper())
+        im['meta']['guidestar']['gw_window_xsize'] = 170
+        im['meta']['guidestar']['gw_window_ysize'] = 24
 
     drop_extra_dq = getattr(args, 'drop_extra_dq', False)
     if drop_extra_dq and ('dq' in romanisimdict):

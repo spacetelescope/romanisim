@@ -6,8 +6,9 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
 import galsim
+import gwcs as gwcsmod
 
-from romanisim import parameters, wcs
+from romanisim import parameters, wcs, bandpass
 from scipy import integrate
 
 
@@ -186,6 +187,8 @@ def add_more_metadata(metadata):
 
     if 'exposure' not in metadata.keys():
         metadata['exposure'] = {}
+    if 'guidestar' not in metadata.keys():
+        metadata['guidestar'] = {}
     read_pattern = metadata['exposure'].get(
         'read_pattern',
         parameters.read_pattern[metadata['exposure']['ma_table_number']])
@@ -214,6 +217,13 @@ def add_more_metadata(metadata):
     metadata['exposure']['exposure_time'] = openshuttertime
     metadata['exposure']['effective_exposure_time'] = openshuttertime
     metadata['exposure']['duration'] = openshuttertime
+    metadata['guidestar']['gw_window_xsize'] = 16
+    metadata['guidestar']['gw_window_ysize'] = 16
+    if 'gw_window_xstart' in metadata['guidestar']:
+        metadata['guidestar']['gw_window_xstop'] = (
+            metadata['guidestar']['gw_window_xstart'])
+        metadata['guidestar']['gw_window_ystop'] = (
+            metadata['guidestar']['gw_window_ystart'])
     # integration_start?  integration_end?  nints = 1?  ...
 
     if 'target' not in metadata.keys():
@@ -246,7 +256,7 @@ def add_more_metadata(metadata):
     if 'ephemeris' in metadata:
         metadata['ephemeris']['ephemeris_reference_frame'] = (
             metadata['ephemeris']['ephemeris_reference_frame'][:10])
-    if 'guidestar' in metadata:
+    if 'guidestar' in metadata and 'gs_epoch' in metadata['guidestar']:
         metadata['guidestar']['gs_epoch'] = (
             metadata['guidestar']['gs_epoch'][:10])
 
@@ -268,10 +278,12 @@ def update_aperture_and_wcsinfo_metadata(metadata, gwcs):
     gwcs : WCS object
         image WCS
     """
-    if ('aperture' not in metadata or 'wcsinfo' not in metadata
-            or not isinstance(gwcs, wcs.GWCS)):
+    if 'aperture' not in metadata or 'wcsinfo' not in metadata:
         return
-    gwcs = gwcs.wcs
+    if isinstance(gwcs, wcs.GWCS):
+        gwcs = gwcs.wcs
+    if not isinstance(gwcs, gwcsmod.wcs.WCS):
+        return
     metadata['aperture']['name'] = (
         metadata['instrument']['detector'][:3] + '_'
         + metadata['instrument']['detector'][3:] + '_FULL')
@@ -279,10 +291,26 @@ def update_aperture_and_wcsinfo_metadata(metadata, gwcs):
     center = (galsim.roman.n_pix / 2 - 0.5, galsim.roman.n_pix / 2 - 0.5)
     v2v3 = distortion(*center)
     radec = gwcs(*center)
+    t2sky = gwcs.get_transform('v2v3', 'world')
+    radecn = t2sky(v2v3[0], v2v3[1] + 1)
+    roll_ref = (
+        SkyCoord(radec[0] * u.deg, radec[1] * u.deg).position_angle(
+        SkyCoord(radecn[0] * u.deg, radecn[1] * u.deg)))
+    roll_ref = roll_ref.to(u.deg).value
+    # new roll ref appropriate for new v2v3 ref
+    # note: some of this logic will need to change after
+    # aberration is incorporated.  roll_ref will need to
+    # be computed from the aberrated v2v3 frame to the sky.
+    # but maybe this doesn't matter since the aberrated v2v3
+    # axes are parallel to the v2v3 axes.
+    # whether we need to change radec ref, v2v3 ref depends
+    # on how we ultimately define these quantities.
+
     metadata['wcsinfo']['ra_ref'] = radec[0]
     metadata['wcsinfo']['dec_ref'] = radec[1]
     metadata['wcsinfo']['v2_ref'] = v2v3[0]
     metadata['wcsinfo']['v3_ref'] = v2v3[1]
+    metadata['wcsinfo']['roll_ref'] = roll_ref
 
 
 def king_profile(r, rc, rt):
@@ -465,3 +493,54 @@ def default_image_meta(time=None, ma_table=1, filter_name='F087',
     }
 
     return meta
+
+
+def update_photom_keywords(im, gain=None):
+    """Add photometry calibration keywords to image metadata.
+
+    This fills out the im.meta['photometry'] keywords:
+
+    * conversion_megajanskys (MJy/sr corresponding to 1 DN / s / pix)
+    * conversion_microjanskys (uJy/sq. arcsec corresponding to 1 DN / s / pix)
+    * corresponding uncertainties (0 in appropriate units)
+    * pixelarea_steradians (area of central pixel in steradians)
+    * pixelarea_arcsecsq (area of central pixel in square arcseconds)
+
+    The values are derived from the bandpasses of the filters and and the WCS
+    of the image.
+
+    Parameters
+    ----------
+    im : roman_datamodels.ImageModel
+        Image whose metadata should be updated with photometry keywords
+    gain : float, Quantity, array
+        Gain image to use
+    """
+    gain = (np.median(gain)
+            if gain is not None else parameters.reference_data['gain'])
+    gain = gain.value if isinstance(gain, u.Quantity) else gain
+    if 'wcs' in im['meta']:
+        wcs = im['meta']['wcs']
+        cenpix = (im.data.shape[0] // 2, im.data.shape[1] // 2)
+        cc = wcs.pixel_to_world((cenpix[0], cenpix[0], cenpix[0] + 1),
+                                (cenpix[1], cenpix[1] + 1, cenpix[1]))
+        angle = (cc[0].position_angle(cc[1]) -
+                 cc[0].position_angle(cc[2]))
+        area = (cc[0].separation(cc[1]) * cc[0].separation(cc[2])
+                * np.sin(angle.to(u.rad).value))
+        im['meta']['photometry']['pixelarea_steradians'] = area.to(u.sr)
+        im['meta']['photometry']['pixelarea_arcsecsq'] = (
+            area.to(u.arcsec ** 2))
+        im['meta']['photometry']['conversion_megajanskys'] = gain * (
+            3631 /
+            bandpass.get_abflux(im.meta['instrument']['optical_element']) /
+            10 ** 6 /
+            im['meta']['photometry']['pixelarea_steradians']) * u.MJy
+        im['meta']['photometry']['conversion_microjanskys'] = (
+            im['meta']['photometry']['conversion_megajanskys'].to(
+                u.uJy / u.arcsec ** 2))
+
+    im['meta']['photometry']['conversion_megajanskys_uncertainty'] = (
+        0 * u.MJy / u.sr)
+    im['meta']['photometry']['conversion_microjanskys_uncertainty'] = (
+        0 * u.uJy / u.arcsec ** 2)
