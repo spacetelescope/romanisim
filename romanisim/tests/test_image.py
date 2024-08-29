@@ -393,18 +393,23 @@ def test_simulate_counts_generic():
     # to figure out where to render objects.  That would require setting
     # up a real PSF and is annoying.  Skipping that.
     # render some objects
-    image.simulate_counts_generic(
-        im, exptime, objlist=imdict['graycatalog'], psf=imdict['impsfgray'],
+    im6 = im.copy()
+    objinfo = image.simulate_counts_generic(
+        im6, exptime, objlist=imdict['graycatalog'], psf=imdict['impsfgray'],
         xpos=[50, 50], ypos=[50, 50], zpflux=zpflux,
         filter_name=imdict['filter_name'])
+    assert np.sum(im6.array) > 0  # at least verify that we added some sources...
+    assert len(objinfo) == 2  # two sources were added
+    im7 = im.copy()
     objinfo = image.simulate_counts_generic(
-        im, exptime, objlist=imdict['chromcatalog'],
+        im7, exptime, objlist=imdict['chromcatalog'],
         xpos=[50, 50], ypos=[50, 50],
         psf=imdict['impsfchromatic'], bandpass=imdict['bandpass'])
-    assert np.sum(im.array) > 0  # at least verify that we added some sources...
+    assert np.sum(im7.array) > 0  # at least verify that we added some sources...
     assert len(objinfo) == 2  # two sources were added
+    im8 = im.copy()
     objinfo = image.simulate_counts_generic(
-        im, exptime, objlist=imdict['chromcatalog'],
+        im8, exptime, objlist=imdict['chromcatalog'],
         psf=imdict['impsfchromatic'], xpos=[1000, 1000],
         ypos=[1000, 1000], zpflux=zpflux)
     assert np.sum(objinfo['counts'] > 0) == 0

@@ -444,7 +444,7 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
         else:
             mosaic_node = maker_utils.mk_level3_mosaic(shape=shape)
         for key in mosaic.keys():
-            if isinstance(mosaic[key], dict):
+            if isinstance(mosaic[key], dict) and key in mosaic_node['meta'].keys():
                 mosaic_node['meta'][key].update(mosaic[key])
             else:
                 mosaic_node['meta'][key] = mosaic[key]

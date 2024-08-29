@@ -13,6 +13,7 @@ from galsim import roman
 
 from . import parameters
 from . import util
+import romanisim.catalog
 import romanisim.wcs
 import romanisim.l1
 import romanisim.bandpass
@@ -27,7 +28,7 @@ import astropy.units as u
 
 
 def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords=None, cps_conv=1.0, unit_factor=1.0,
-                      filter_name=None, coords_unit='rad', wcs=None, psf=None, rng=None, seed=None):
+                      filter_name=None, bandpass=None, coords_unit='rad', wcs=None, psf=None, rng=None, seed=None):
     """Add objects to a Level 3 mosaic
 
     Parameters
@@ -65,6 +66,8 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
     # Obtain optical element
     if filter_name is None:
         filter_name = l3_mos.meta.basic.optical_element
+    if bandpass is None:
+        bandpass = [filter_name]
 
     # Generate WCS (if needed)
     if wcs is None:
@@ -91,10 +94,10 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
         xpos, ypos = sourcecountsall.wcs.radecToxy(coords[:, 0], coords[:, 1], coords_unit)
 
     # Add sources to the original mosaic data array
-    romanisim.image.add_objects_to_image(sourcecountsall, source_cat, xpos=xpos, ypos=ypos,
+    outinfo = romanisim.image.add_objects_to_image(sourcecountsall, source_cat, xpos=xpos, ypos=ypos,
                                          psf=psf, flux_to_counts_factor=[xpt * cps_conv for xpt in exptimes],
                                          convtimes=[xpt / unit_factor for xpt in exptimes],
-                                         bandpass=[filter_name], filter_name=filter_name,
+                                         bandpass=bandpass, filter_name=filter_name,
                                          rng=rng, seed=seed)
 
     # Save array with added sources
@@ -102,7 +105,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
         l3_mos.data = sourcecountsall.array * l3_mos.data.unit
 
     # l3_mos is updated in place, so no return
-    return None
+    return outinfo
 
 
 def generate_mosaic_geometry():
@@ -146,7 +149,11 @@ def generate_exptime_array(cat, meta):
     return context
 
 
-def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=None, sky=None, psf=None, seed=None, rng=None):
+def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, 
+             effreadnoise=None, sky=None, psf=None, coords_unit='rad',
+             cps_conv=None, unit_factor=None,
+             bandpass=None, zpflux=None, seed=None, rng=None,
+             **kwargs):
     """TBD
     """
 
@@ -172,7 +179,8 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=No
     log.info('Simulating filter {0}...'.format(filter))
 
     galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter]
-    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
+    if bandpass is None:
+        bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
 
     # Create initial galsim image (x & y are flipped)
     image = galsim.ImageF(shape[1], shape[0], wcs=wcs, xmin=0, ymin=0)
@@ -186,34 +194,85 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=No
         # Create base sky level
         mos_cent_pos = wcs.toWorld(image.true_center)
         sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos, exptime=1)
+        print(f"XXX 10 sky_level = {sky_level}")
         sky_level *= (1.0 + roman.stray_light_fraction)
-        # sky_mosaic = image * 0
-        # wcs.makeSkyImage(sky_mosaic, sky_level)
-        # sky_mosaic += roman.thermal_backgrounds[galsim_filter_name]
-        sky = sky_level
+        print(f"XXX 20 sky_level = {sky_level}")
+        sky_mosaic = image * 0
+        wcs.makeSkyImage(sky_mosaic, sky_level)
+        sky_mosaic += roman.thermal_backgrounds[galsim_filter_name]
+        print(f"XXX 50 mean(sky_mosaic) = {np.mean(sky_mosaic.array)}")
+        print(f"XXX 51 max(sky_mosaic) = {np.max(sky_mosaic.array)}")
+        print(f"XXX 52 min(sky_mosaic) = {np.min(sky_mosaic.array)}")
+        print(f"XXX 53 stddev(sky_mosaic) = {np.std(sky_mosaic.array)}")
+        print(f"XXX 54 sky_level + roman.thermal_backgrounds[galsim_filter_name] = {(sky_level + roman.thermal_backgrounds[galsim_filter_name])}")
+        sky = sky_mosaic
+        # sky = sky_level
 
     abflux = romanisim.bandpass.get_abflux(filter)
 
     # Obtain unit conversion factors
     # Need to convert from counts / pixel to MJy / sr
     # Flux to counts
-    cps_conv = romanisim.bandpass.get_abflux(filter)
+    if cps_conv is None:
+        cps_conv = romanisim.bandpass.get_abflux(filter)
     # Unit factor
-    unit_factor = ((3631 * u.Jy) / (romanisim.bandpass.get_abflux(filter) * 10e6
+    if unit_factor is None:
+        unit_factor = ((3631 * u.Jy) / (romanisim.bandpass.get_abflux(filter) * 10e6
                                     * parameters.reference_data['photom']["pixelareasr"][filter])).to(u.MJy / u.sr)
 
     # Set effective read noise
     if effreadnoise is None:
         effreadnoise = efftimes / parameters.read_time
 
+    # import plotly.express as px
+
+    # fig1 = px.imshow(image.array, title='1. BEFORE im1.array', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    # fig1.show()
+
+    # pos_vals = image.array.copy()
+    # pos_vals[pos_vals <= 0] = np.min(np.abs(pos_vals))
+
+    # fig2 = px.imshow(np.log(pos_vals), title='2. BEFORE im1.array(log)', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
+    # fig2.show()
+
+    print(f"XXX YYY cps_conv = {cps_conv}")
+    print(f"XXX YYY unit_factor = {unit_factor}")
+
     # Simulate mosaic
     mosaic, simcatobj = simulate_cps(
-        image, meta, efftimes, objlist=catalog, psf=psf, zpflux=abflux, sky=sky,
-        effreadnoise=effreadnoise, cps_conv=cps_conv,
-        wcs=wcs, rng=rng, seed=seed, unit_factor=unit_factor)
+        image, meta, efftimes, objlist=catalog, psf=psf, 
+        # zpflux=abflux, 
+        zpflux=zpflux,
+        sky=sky,
+        effreadnoise=effreadnoise, cps_conv=cps_conv, coords_unit=coords_unit,
+        bandpass=bandpass, 
+        wcs=wcs, rng=rng, seed=seed, unit_factor=unit_factor,
+        **kwargs)
+    
+    # import plotly.express as px
 
+    # fig3 = px.imshow(mosaic.array, title='3. AFTER im1.array', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    # fig3.show()
+
+    # pos_vals = mosaic.array.copy()
+    # pos_vals[pos_vals <= 0] = np.min(np.abs(pos_vals))
+
+    # fig4 = px.imshow(np.log(pos_vals), title='4. AFTER im1.array(log)', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
+    # fig4.show()
+
+    if "var_poisson" in simcatobj:
+        var_poisson = simcatobj["var_poisson"]
+    else:
+        var_poisson = None
+
+    if "var_readnoise" in simcatobj:
+        var_readnoise = simcatobj["var_readnoise"].value
+    else:
+        var_readnoise = None
+    
     # Create Mosaic Model
-    mosaic_mdl = make_l3(mosaic, metadata, efftimes, unit_factor=unit_factor)
+    mosaic_mdl = make_l3(mosaic, metadata, efftimes, unit_factor=unit_factor,
+                         var_poisson=var_poisson, var_readnoise=var_readnoise)
 
     # Add simulation artifacts
     extras = {}
@@ -226,12 +285,29 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, effreadnoise=No
 
 
 def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
-                         zpflux=None, wcs=None, xpos=None, ypos=None, sky=None,
-                         effreadnoise=None, cps_conv=1,
-                         flat=None, rng=None, seed=None, unit_factor=1,
+                         zpflux=None, wcs=None, xpos=None, ypos=None, coord=None, sky=0,
+                         effreadnoise=None, cps_conv=1, bandpass=None, coords_unit='rad',
+                         flat=None, rng=None, seed=None, unit_factor=1.0 * (u.MJy / u.sr),
                          ignore_distant_sources=10,):
     """TBD
     """
+    print("XXX simulate_cps saved_args are:\n")
+    print(f"XXX     efftimes = {efftimes}") 
+    # print(f"XXX     objlist = {objlist}") 
+    print(f"XXX     zpflux = {zpflux}") 
+    print(f"XXX     wcs = {wcs}") 
+    print(f"XXX     xpos = {xpos}") 
+    print(f"XXX     ypos = {ypos}") 
+    print(f"XXX     coord = {coord}") 
+    print(f"XXX     sky = {sky}") 
+    print(f"XXX     effreadnoise = {effreadnoise}") 
+    print(f"XXX     cps_conv = {cps_conv}") 
+    print(f"XXX     bandpass = {bandpass}") 
+    print(f"XXX     unit_factor = {unit_factor}") 
+    print(f"XXX     ignore_distant_sources = {ignore_distant_sources}") 
+    print(f"XXX     seed = {seed}") 
+    
+
     if rng is None and seed is None:
         seed = 144
         log.warning(
@@ -251,10 +327,19 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
         objlist = []
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
+            print("objlist is a table.. reading coord")
             coord = np.array([[o['ra'], np.radians(o['dec'])] for o in objlist])
         else:
-            coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
-                             for o in objlist])
+            print("objlist is NOT a table.. creating coord")
+            if (coords_unit == 'rad'):
+                print(f"XXX coords are rads")
+                coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
+                                for o in objlist])
+            # elif (coords_unit == 'deg'):
+            else:
+                print(f"XXX coords are deg")
+                coord = np.array([[o.sky_pos.ra.deg, o.sky_pos.dec.deg]
+                                for o in objlist])
         xpos, ypos = image.wcs.radecToxy(coord[:, 0], coord[:, 1], 'rad')
         # use private vectorized transformation
     if xpos is not None:
@@ -262,50 +347,81 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
     if ypos is not None:
         ypos = np.array(ypos)
 
-    # Check for objects outside the image boundary
-    if len(objlist) > 0:
-        keep = romanisim.image.in_bounds(xpos, ypos, image.bounds, ignore_distant_sources)
-    else:
-        keep = []
-
     chromatic = False
     if len(objlist) > 0 and objlist[0].profile.spectral:
         chromatic = True
-   
-    # Pixelized object locations
-    xpos_idx = [round(x) for x in xpos]
-    ypos_idx = [round(y) for y in ypos]
 
-    # Set exposure time per source
-    if isinstance(efftimes, np.ndarray):
-        src_exptimes = [efftimes[y,x] for x,y in zip(xpos_idx, ypos_idx)]
+    # Check for objects outside the image boundary (+ consideration)
+    if len(objlist) > 0:
+        keep = romanisim.image.in_bounds(xpos, ypos, image.bounds, ignore_distant_sources)
+        print(f"XXX type(objlist) = {type(objlist)}")
+        print(f"XXX keep = {keep}")
+        print(f"XXX xpos = {xpos}")
+        print(f"XXX ypos = {ypos}")
+        print(f"XXX image.bounds = {image.bounds}")
+        objlist = np.array(objlist)[keep].tolist()
+        xpos = xpos[keep]
+        ypos = ypos[keep]
+        # Pixelized object locations
+        xpos_idx = [round(x) for x in xpos]
+        ypos_idx = [round(y) for y in ypos]
+
+        offedge = romanisim.image.in_bounds(xpos, ypos, image.bounds, 0)
+        # Set exposure time per source
+        if isinstance(efftimes, np.ndarray):
+            src_exptimes = [efftimes[y,x] for x,y in zip(xpos_idx, ypos_idx)]
+        else:
+            src_exptimes = [efftimes] * len(xpos)
+        src_exptimes = np.array(src_exptimes)
+
+        # Set the average exposure time to objects lacking one
+        if True in offedge:
+            avg_exptime = np.average(src_exptimes)
+            src_exptimes[offedge] = avg_exptime
+
     else:
-        src_exptimes = [efftimes] * len(xpos)
-    src_exptimes = np.array(src_exptimes)
+        print("XXX No objects!")
+        src_exptimes = []
 
-    # Set the average exposure time to objects lacking one
-    avg_exptime = np.average(src_exptimes)
-    src_exptimes[keep] = avg_exptime
+    
+   
+    # if len(objlist) > 0:
+    #     print(f"XXX keep = {keep}")
+    #     print(f"XXX type(objlist) = {type(objlist)}")
+    #     # objlist = objlist[keep]
+    #     xpos = xpos[keep]
+    #     ypos = ypos[keep]
+    #     # keep = np.ones(len(objlist), dtype='bool')
+    #     # objlist = objlist[keep]
+        
 
-    # Noise
+    #     # Pixelized object locations
+    #     xpos_idx = [round(x) for x in xpos]
+    #     ypos_idx = [round(y) for y in ypos]
 
-    # add Poisson noise if we made a noiseless, not-photon-shooting
-    # image.
-    poisson_noise = galsim.PoissonNoise(rng, sky_level=sky)
-    if not chromatic:
-        image.addNoise(poisson_noise)
+    #     # Set exposure time per source
+    #     if isinstance(efftimes, np.ndarray):
+    #         src_exptimes = [efftimes[y,x] for x,y in zip(xpos_idx, ypos_idx)]
+    #     else:
+    #         src_exptimes = [efftimes] * len(xpos)
+    #     src_exptimes = np.array(src_exptimes)
 
-    if effreadnoise is not None:
-        readnoise = np.zeros(image.array.shape, dtype='f4')
-        rn_rng = galsim.GaussianDeviate(seed)
-        rn_rng.generate(readnoise)
-        readnoise = readnoise * effreadnoise
-        readnoise /= np.sqrt(efftimes)
+    #     # Set the average exposure time to objects lacking one
+    #     avg_exptime = np.average(src_exptimes)
+    #     src_exptimes = avg_exptime
 
-        image += readnoise
-        extras['readnoise'] = readnoise
+    #     # keep = np.ones(len(objlist), dtype='bool')
+    # else:
+    #     src_exptimes = []
+    print(f"XXX src_exptimes = {src_exptimes}")
+
+    
 
     # Convert to the proper units and temporal scaling
+    print(f"XXX unit_factor.value = {unit_factor.value}")
+    print(f"XXX image = {image}")
+    print(f"XXX WWW before addign objects, max(image) = {np.nanmax(image.array)}")
+    # I think I can remove this? image should be empty here
     image *= unit_factor.value
     image /= efftimes
 
@@ -313,22 +429,218 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
     sipwcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=image.array.shape, xpos=xpos, ypos=ypos, coord=coord)
     image.wcs = sipwcs
 
-    # Add objects to mosaic
-    objinfo = add_objects_to_l3(
-        image, objlist, src_exptimes, wcs=sipwcs, filter_name=metadata['basic']['optical_element'], rng=rng, cps_conv=cps_conv, unit_factor=unit_factor)
-       
+    # # Noise
+    # poisson_noise = galsim.PoissonNoise(rng)
+    # if sky is not None:
+    #     workim = image * 0
+    #     workim += sky
+    #     workim.addNoise(poisson_noise)
+    #     print(f"XXX WWW max(workim) = {np.nanmax(workim.array)}")
+    #     image += workim * unit_factor.value
+
+    # # add Poisson noise if we made a noiseless, not-photon-shooting
+    # # image.
+    # # poisson_noise = galsim.PoissonNoise(rng, sky_level=sky)
+    # poisson_noise = galsim.PoissonNoise(rng)
+    # if not chromatic:
+    #     print(f"XXX poisson_noise = {poisson_noise}")
+    #     image.addNoise(poisson_noise)
+
+    # if sky is not None:
+    #     workim = image * 0
+    #     workim += sky
+    #     workim.addNoise(poisson_noise)
+    #     image += workim
+
+    # if effreadnoise is not None:
+    #     readnoise = np.zeros(image.array.shape, dtype='f4')
+    #     rn_rng = galsim.GaussianDeviate(seed)
+    #     rn_rng.generate(readnoise)
+    #     readnoise = readnoise * effreadnoise
+    #     readnoise /= np.sqrt(efftimes)
+
+    #     image += readnoise
+    #     extras['readnoise'] = readnoise
+
+    import plotly.express as px
+
+    fig1 = px.imshow(image.array, title='1. BEFORE image.array', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    fig1.show()
+
+    pos_vals = image.array.copy()
+    pos_vals[pos_vals <= 0] = np.min(np.abs(pos_vals))
+
+    # fig2 = px.imshow(np.log(pos_vals), title='2. BEFORE image.array(log)', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
+    # fig2.show()
+
+    if len(src_exptimes) > 0:
+        # Add objects to mosaic
+        objinfokeep = add_objects_to_l3(
+            image, objlist, src_exptimes, wcs=sipwcs, xpos=xpos, ypos=ypos,
+            filter_name=metadata['basic']['optical_element'], bandpass=bandpass, psf=psf, rng=rng,
+            cps_conv=cps_conv, unit_factor=unit_factor)
+        
+    fig3 = px.imshow(image.array, title='3. AFTER image.array', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    fig3.show()
+
+    pos_vals = image.array.copy()
+    pos_vals[pos_vals <= 0] = np.min(np.abs(pos_vals))
+
+    fig4 = px.imshow(np.log(pos_vals), title='4. AFTER image.array(log)', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
+    fig4.show()
+    
+        
     # Add object info artifacts
-    objinfo = np.zeros(
+    objinfo = {}
+    objinfo['array'] = np.zeros(
         len(objlist),
         dtype=[('x', 'f4'), ('y', 'f4'), ('counts', 'f4'), ('time', 'f4')])
     if len(objlist) > 0:
         objinfo['x'] = xpos
         objinfo['y'] = ypos
+        objinfo['counts'] = objinfokeep['counts']
+        objinfo['time'] = objinfokeep['time']
+    else:
+        objinfo['counts'] = np.array([])
+        objinfo['time'] = np.array([])
     extras['objinfo'] = objinfo
+
+    # Noise
+    im_no_noise = image.array.copy()
+    print(f"XXX WWW max(image) = {np.nanmax(image.array)}")
+    # add Poisson noise if we made a noiseless, not-photon-shooting
+    # image.
+    # poisson_noise = galsim.PoissonNoise(rng, sky_level=sky)
+    print(f"XXX WWW unit_factor = {unit_factor}")
+    print(f"XXX WWW cps_conv = {cps_conv}")
+    poisson_noise = galsim.PoissonNoise(rng)
+    if not chromatic:
+    #     # This works in ADU, so need to convert back to coutns first.. add this, then convert back
+    #     print(f"XXX WWW poisson_noise = {poisson_noise}")
+    #     im1 = image.copy()
+
+    #     im1 *= efftimes / unit_factor
+
+    #     im2 = im1.copy()
+    #     im3 = im1.copy()
+    # #     image.addNoise(poisson_noise * unit_factor)
+    #     im1.addNoise(poisson_noise)
+        
+    #     im2 *= efftimes
+    #     im2.addNoise(poisson_noise)
+    #     im2 /= efftimes
+
+        
+
+    #     # print(f"XXX WWW np.allclose(im1.array, im2.array) = {np.allclose(im1.array, im2.array)}")
+    #     # print(f"XXX WWW np.nanmax(im1.array / im2.array) = {np.nanmax(im1.array / im2.array)}")
+    #     # print(f"XXX WWW np.nanmin(im1.array / im2.array) = {np.nanmin(im1.array / im2.array)}")
+    #     # print(f"XXX WWW np.nanmax(im1.array) = {np.nanmax(im1.array)}")
+    #     # print(f"XXX WWW np.nanmin(im1.array) = {np.nanmin(im1.array)}")
+    #     # print(f"XXX WWW np.nanmax(im2.array) = {np.nanmax(im2.array)}")
+    #     # print(f"XXX WWW np.nanmin(im2.array) = {np.nanmin(im2.array)}")
+    #     # print(f"XXX WWW np.nanmax(im3.array) = {np.nanmax(im3.array)}")
+    #     # print(f"XXX WWW np.nanmin(im3.array) = {np.nanmin(im3.array)}")
+
+    #     im1 /= efftimes / unit_factor
+    #     print(f"XXX WWW np.nanmax(im1.array) = {np.nanmax(im1.array)}")
+    #     print(f"XXX WWW np.nanmin(im1.array) = {np.nanmin(im1.array)}")
+
+    #     # delete above
+
+        # This works in ADU, so need to convert back to counts first.. add this, then convert back
+        image *= efftimes / unit_factor.value
+        image.addNoise(poisson_noise)
+        image /= efftimes / unit_factor.value
+
+
+    print(f"XXX WWW PRESKY mean(image.array - im_no_noise) = {np.nanmean(image.array - im_no_noise)}")
+    print(f"XXX WWW PRESKY max(image.array - im_no_noise) = {np.nanmax(image.array - im_no_noise)}")
+    print(f"XXX WWW PRESKY min(image.array - im_no_noise) = {np.nanmin(image.array - im_no_noise)}")
+    print(f"XXX WWW PRESKY [0:50, :] mean(image.array - im_no_noise) = {np.nanmean(image.array[0:50, :] - im_no_noise[0:50, :])}")
+    print(f"XXX WWW PRESKY [50:, :] mean(image.array - im_no_noise) = {np.nanmean(image.array[50:, :] - im_no_noise[50:, :])}")
+    print(f"XXX WWW PRESKY ABS mean(image.array - im_no_noise) = {np.nanmean(np.abs(image.array - im_no_noise))}")
+    print(f"XXX WWW PRESKY [0:50, :] ABS mean(image.array - im_no_noise) = {np.nanmean(np.abs(image.array[0:50, :] - im_no_noise[0:50, :]))}")
+    print(f"XXX WWW PRESKY [50:, :] ABS mean(image.array - im_no_noise) = {np.nanmean(np.abs(image.array[50:, :] - im_no_noise[50:, :]))}")
+
+
+    if sky is not None:
+        print(f"XXX VVV efftimes = {efftimes}")
+        print(f"XXX VVV sky = {sky}")
+        if isinstance(sky, (galsim.Image)):
+            sky_arr = sky.array
+        elif not isinstance(sky, (np.ndarray)):
+            sky_arr = sky * np.ones(image.array.shape, dtype=float)
+        else:
+            sky_arr = sky
+        # sky *= efftimes
+        # if isinstance(sky, (galsim.Image)):
+        #     sky = sky.array
+        # elif not isinstance(sky, (np.ndarray)):
+        #     sky = sky * np.ones(image.array.shape, dtype=float)
+        workim = image * 0
+        workim += sky
+        workim *= efftimes
+        workim.addNoise(poisson_noise)
+        print(f"XXX VVV  workim = {sky}")
+        print(f"XXX WWW VVV mean(workim) = {np.nanmean(workim.array)}")
+        print(f"XXX WWW VVV min(workim) = {np.nanmin(workim.array)}")
+        print(f"XXX WWW VVV max(workim) = {np.nanmax(workim.array)}")
+        image += (workim * unit_factor.value / efftimes)
+        # image += workim * unit_factor.value 
+        print(f"XXX WWW VVV mean(workim) = {np.nanmean(workim.array * unit_factor.value / efftimes)}")
+        print(f"XXX WWW VVV min(workim) = {np.nanmin(workim.array * unit_factor.value / efftimes)}")
+        print(f"XXX WWW VVV max(workim) = {np.nanmax(workim.array * unit_factor.value / efftimes)}")
+        
+    else:
+        sky_arr = np.zeros(image.array.shape, dtype=float)
+
+    extras['var_poisson'] = np.abs(image.array - (im_no_noise + sky_arr))
+    print(f"XXX WWW mean(var_poisson) = {np.nanmax(extras['var_poisson'])}")
+    print(f"XXX WWW min(var_poisson) = {np.nanmin(extras['var_poisson'])}")
+    print(f"XXX WWW max(var_poisson) = {np.nanmax(extras['var_poisson'])}")
+    print(f"XXX WWW mean(image.array) = {np.nanmean(image.array)}")
+    print(f"XXX WWW var(image.array) = {np.nanmin(image.array)}")
+    print(f"XXX WWW min(image.array) = {np.nanmin(image.array)}")
+    print(f"XXX WWW max(image.array) = {np.nanmax(image.array)}")
+    print(f"XXX WWW max(im_no_noise) = {np.nanmax(im_no_noise)}")
+    print(f"XXX WWW max(image.array - im_no_noise) = {np.nanmax(image.array - im_no_noise)}")
+    print(f"XXX WWW min(image.array - im_no_noise) = {np.nanmin(image.array - im_no_noise)}")
+
+    if effreadnoise is not None:
+        # This works in ADU, so need to convert back to coutns first.. add this, then convert back
+        readnoise = np.zeros(image.array.shape, dtype='f4')
+        rn_rng = galsim.GaussianDeviate(seed)
+        rn_rng.generate(readnoise)
+        readnoise = readnoise * effreadnoise
+        readnoise /= np.sqrt(efftimes)
+        print(f"XXX WWW max(readnoise) = {np.nanmax(readnoise)}")
+
+        image += readnoise * unit_factor.value / efftimes
+        extras['readnoise'] = readnoise * unit_factor / efftimes
+
+        extras['var_readnoise'] = (rn_rng.sigma * (effreadnoise / np.sqrt(efftimes)) * (unit_factor / efftimes))**2
+
+    fig5 = px.imshow(image.array, title='5. AFTER noise image.array', labels={'color': 'MJy / sr', 'x': 'Y axis', 'y': 'X axis'})
+    fig5.show()
+
+    pos_vals = image.array.copy()
+    pos_vals[pos_vals <= 0] = np.min(np.abs(pos_vals))
+
+    fig6 = px.imshow(np.log(pos_vals), title='6. AFTER noise image.array(log)', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
+    fig6.show()
+
+    fig7 = px.imshow(sky_arr, title='6.1 sky_arr', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
+    fig7.show()
+
+    fig8 = px.imshow(im_no_noise, title='6.2 im_no_noise', labels={'color': 'log(MJy / sr)', 'x': 'Y axis', 'y': 'X axis'})
+    fig8.show()
+    
 
     return image, extras
 
-def make_l3(image, metadata, efftimes, rng=None, seed=None,
+
+def make_l3(image, metadata, efftimes, rng=None, seed=None, var_poisson=None,
             var_flat=None, var_readnoise=None, context=None,
             unit_factor=(1.0 * u.MJy / u.sr)):
     """TBD
@@ -357,14 +669,19 @@ def make_l3(image, metadata, efftimes, rng=None, seed=None,
     mosaic_node.data = mosaic * unit_factor.unit
 
     # Poisson noise variance
-    # mosaic_node.var_poisson = unit_factor**2 / efftimes**2
-    mosaic_node.var_poisson = (unit_factor**2 / efftimes_arr**2).astype(np.float32)
+    print(f"XXX WWW make_l3 var_poisson = {var_poisson}")
+    if var_poisson is None:
+        mosaic_node.var_poisson = (unit_factor**2 / efftimes_arr**2).astype(np.float32)
+    else:
+        mosaic_node.var_poisson = u.Quantity(var_poisson.astype(np.float32), unit_factor.unit ** 2)
    
     # Read noise variance
     if var_readnoise is None:
         mosaic_node.var_rnoise = u.Quantity(np.zeros(mosaic.shape, dtype=np.float32), unit_factor.unit ** 2)
     else:
-        mosaic_node.var_rnoise = u.Quantity(var_readnoise, unit_factor.unit ** 2, dtype=np.float32)
+        print(f"XXX var_readnoise = {var_readnoise}")
+        mosaic_node.var_rnoise = u.Quantity((var_readnoise * np.ones(mosaic.shape)).astype(np.float32), unit_factor.unit ** 2)
+            # var_readnoise, unit_factor.unit ** 2, dtype=np.float32)
 
     # Flat variance
     if var_flat is None:
