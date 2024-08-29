@@ -5,14 +5,9 @@ for most of the real work.
 """
 
 import numpy as np
-import math
-import astropy.time
-from astropy import table
 import galsim
-from galsim import roman
 
 from . import parameters
-from . import util
 import romanisim.catalog
 import romanisim.wcs
 import romanisim.l1
@@ -20,8 +15,6 @@ import romanisim.bandpass
 import romanisim.psf
 import romanisim.image
 import romanisim.persistence
-from romanisim import log
-import roman_datamodels.maker_utils as maker_utils
 import roman_datamodels.datamodels as rdm
 from roman_datamodels.stnode import WfiMosaic
 import astropy.units as u
