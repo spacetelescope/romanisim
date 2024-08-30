@@ -23,7 +23,6 @@ Contents
 
    romanisim/catalog
    romanisim/image-input
-   romanisim/apt
 
    romanisim/bandpass
    romanisim/psf
