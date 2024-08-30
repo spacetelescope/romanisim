@@ -416,6 +416,9 @@ def convert_wcs_to_gwcs(wcs):
 
 def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
+    - if xpos, ypos, and coords are provided, then a GWCS compatible object will be created (and meta updated with it)
+    - if not, a functional CelestialWCS is created [useful for quick computation,
+       but GWCS needed for validation of a final simulation]
 
     Parameters
     ----------
@@ -423,15 +426,14 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
         Mosaic model or dictionary containing WCS parameters.
     shape: list
         Length of dimensions of mosaic
+    xpos, ypos : array_like (float)
+        x, y positions of each source in objlist
+    coord : array_like (float)
+        ra, dec positions of each source in objlist
 
     Returns
     -------
     galsim.CelestialWCS for the mosaic
-
-    Comment block needs updating:
-     - if xpos, ypos, and coords are provided, then a GWCS compatible object will be created (and meta updated with it)
-     - if not, a functional CelestialWCS is created [useful for quick computation, 
-       but GWCS needed for validation of a final simulation]
     """
 
     # If sent a dictionary, create a temporary model for data interface
