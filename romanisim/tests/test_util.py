@@ -141,5 +141,12 @@ def test_random_points_at_radii():
     # less than 1, or even 1.3.
 
 
-# not going to test flatten / unflatten dictionary at this point, since we only
-# use this for metadata management we intend to remove.
+def test_merge_dicts():
+    res = util.merge_dicts(dict(), dict(a='a', b='b'))
+    assert len(res) == 2
+    res = util.merge_dicts(dict(a=dict(a1='hello')),
+                           dict(a=dict(a1='goodbye')))
+    assert (len(res) == 1) and (res['a']['a1'] == 'goodbye')
+    res = util.merge_dicts(dict(a=dict(a1='hello')),
+                           dict(a='hello'))
+    assert (len(res) == 1) and (res['a'] == 'hello')
