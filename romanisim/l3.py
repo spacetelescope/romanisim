@@ -4,6 +4,7 @@ Based on galsim's implementation of Roman image simulation.  Uses galsim Roman m
 for most of the real work.
 """
 
+import math
 import numpy as np
 import galsim
 

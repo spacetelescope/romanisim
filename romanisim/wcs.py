@@ -30,7 +30,7 @@ from gwcs import coordinate_frames as cf
 import gwcs.wcs
 import galsim.wcs
 from galsim import roman
-from . import util, parameters
+from . import util
 import romanisim.parameters
 import roman_datamodels.maker_utils as maker_utils
 
@@ -471,8 +471,8 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
         # Create GWCS compatible tangent plane WCS
         header = {}
         wcs = galsim.FittedSIPWCS(xpos, ypos, coord[:, 0], coord[:, 1], wcs_type='TAN', center=util.celestialcoord(world_pos))
-        wcs._writeHeader(header, galsim.BoundsI(0, image.array.shape[0], 0, image.array.shape[1]))
-        metadata['wcs'] = romanisim.wcs.wcs_from_fits_header(header)
+        wcs._writeHeader(header, galsim.BoundsI(0, shape[0], 0, shape[1]))
+        # metadata['wcs'] = romanisim.wcs.wcs_from_fits_header(header)
     return wcs
 
 
