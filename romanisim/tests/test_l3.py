@@ -8,17 +8,17 @@ from copy import deepcopy
 import math
 import numpy as np
 import galsim
-from romanisim import parameters, catalog, wcs, l3, psf, util
+from romanisim import parameters, catalog, wcs, l3, psf, util, log
 from astropy import units as u
 from astropy import table
 import asdf
 import pytest
 from metrics_logger.decorators import metrics_logger
-from romanisim import log
 import roman_datamodels.maker_utils as maker_utils
 import romanisim.bandpass
 from galsim import roman
 from astropy.coordinates import SkyCoord
+
 
 @metrics_logger("DMS232")
 @pytest.mark.soctests
@@ -140,9 +140,9 @@ def test_inject_sources_into_mosaic():
     if artifactdir is not None:
         af = asdf.AsdfFile()
         af.tree = {'l3_mos': l3_mos,
-                    'l3_mos_orig': l3_mos_orig,
-                    'source_cat_table': sc_table,
-                    }
+                   'l3_mos_orig': l3_mos_orig,
+                   'source_cat_table': sc_table,
+                   }
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
 
 
@@ -175,7 +175,7 @@ def test_sim_mosaic():
     # Create bounds from the object list
     twcs = romanisim.wcs.get_mosaic_wcs(metadata)
     coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
-                        for o in source_cat])
+                       for o in source_cat])
     allx, ally = twcs.radecToxy(coords[:, 0], coords[:, 1], 'rad')
 
     # Obtain the sample extremums
@@ -198,11 +198,12 @@ def test_sim_mosaic():
     moswcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=(context.shape[1:]))
 
     # Simulate mosaic
-    mosaic, extras = l3.simulate(context.shape[1:], moswcs, exptimes[0], filter_name, source_cat, metadata=metadata, seed=rng_seed)
+    mosaic, extras = l3.simulate(context.shape[1:], moswcs, exptimes[0],
+                                 filter_name, source_cat, metadata=metadata, seed=rng_seed)
 
     # Ensure center pixel of bright objects is bright
     x_all, y_all = moswcs.radecToxy(coords[:10, 0], coords[:10, 1], 'rad')
-    for x,y in zip(x_all, y_all):
+    for x, y in zip(x_all, y_all):
         x = int(x)
         y = int(y)
         assert mosaic.data.value[y, x] > (np.median(mosaic.data.value) * 5)
@@ -237,7 +238,7 @@ def set_up_image_rendering_things():
     bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
     fluxdict = {filter_name: counts}
-    
+
     # Sample catalogs
     graycatalog = [
         catalog.CatalogObject(None, galsim.DeltaFunction(), deepcopy(fluxdict)),
@@ -268,8 +269,6 @@ def set_up_image_rendering_things():
                 graycatalog=graycatalog,
                 chromcatalog=chromcatalog, filter_name=filter_name,
                 tabcatalog=tabcat)
-
-
 
 
 def test_simulate_vs_cps():
@@ -313,17 +312,15 @@ def test_simulate_vs_cps():
     # Create chromatic data in simulate_cps
     im1 = im.copy()
     im1, extras1 = l3.simulate_cps(im1, metadata, exptime, objlist=chromcat,
-                                  xpos=[50] * len(chromcat), ypos=[50] * len(chromcat),
-                                  bandpass=imdict['bandpass'],
-                                 seed=rng_seed,
-                                  ignore_distant_sources=100)
+                                   xpos=[50] * len(chromcat), ypos=[50] * len(chromcat),
+                                   bandpass=imdict['bandpass'], seed=rng_seed,
+                                   ignore_distant_sources=100)
 
     # Create filter data in simulate_cps
     im2 = im.copy()
-    im2, extras2 = l3.simulate_cps(im2, metadata, exptime, objlist=graycat, 
+    im2, extras2 = l3.simulate_cps(im2, metadata, exptime, objlist=graycat,
                                    xpos=[50] * len(chromcat), ypos=[50] * len(chromcat),
-                                    psf=imdict['impsfgray'],
-                                seed=rng_seed, 
+                                   psf=imdict['impsfgray'], seed=rng_seed,
                                    ignore_distant_sources=100)
 
     # Ensure that the two simualtions are in line with each other
@@ -333,19 +330,16 @@ def test_simulate_vs_cps():
 
     # Create chromatic data in simulate
     im3, extras3 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, chromcat,
-                               bandpass=imdict['bandpass'], 
-                                seed=rng_seed,
-                                cps_conv=1, unit_factor=(1 * u.MJy / u.sr),
+                               bandpass=imdict['bandpass'], seed=rng_seed,
+                               cps_conv=1, unit_factor=(1 * u.MJy / u.sr),
                                metadata=metadata, sky=0,
-                               ignore_distant_sources=100,
-                               effreadnoise=0,
+                               ignore_distant_sources=100, effreadnoise=0,
                                )
-    
+
     # Create filter data in simulate
     im4, extras4 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, graycat,
                                psf=imdict['impsfgray'],
-                               cps_conv=1, unit_factor=(1 * u.MJy / u.sr),
-                            seed=rng_seed,
+                               cps_conv=1, unit_factor=(1 * u.MJy / u.sr), seed=rng_seed,
                                metadata=metadata, sky=0,
                                ignore_distant_sources=100,
                                effreadnoise=0,
@@ -373,7 +367,7 @@ def test_simulate_cps():
     im.array[:] = 0
     npix = np.prod(im.array.shape)
     exptime = 100
-    
+
     # Create metadata
     metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
@@ -402,7 +396,7 @@ def test_simulate_cps():
     poisson_rate = skycountspersecond
     assert (np.abs(np.mean(im2.array) - poisson_rate)
             < 10 * np.sqrt(poisson_rate / npix))
-     
+
     # verify that Poisson noise is included
     # pearson chi2 test is probably best here, but it's finicky to get
     # right---one needs to choose the right bins so that the convergence
@@ -424,7 +418,7 @@ def test_simulate_cps():
     _, objinfo = l3.simulate_cps(
         im3, metadata, exptime, objlist=imdict['graycatalog'], psf=imdict['impsfgray'],
         xpos=[50, 50], ypos=[50, 50], seed=rng_seed)
-        # filter_name=imdict['filter_name'])
+
     assert np.sum(im3.array) > 0  # at least verify that we added some sources...
     assert len(objinfo['objinfo']['array']) == 2  # two sources were added
 
@@ -489,19 +483,16 @@ def test_exptime_array():
 
     # Create chromatic data simulation
     im1, extras1 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, chromcat,
-                               bandpass=imdict['bandpass'], 
-                                seed=rng_seed,
-                                cps_conv=1, unit_factor=(1 * u.MJy / u.sr),
-                               metadata=metadata,
-                               ignore_distant_sources=100,
+                               bandpass=imdict['bandpass'], seed=rng_seed,
+                               cps_conv=1, unit_factor=(1 * u.MJy / u.sr),
+                               metadata=metadata, ignore_distant_sources=100,
                                )
-    
+
     # Create filter data simulation
     im2, extras2 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, graycat,
                                psf=imdict['impsfgray'],
                                cps_conv=1, unit_factor=(1 * u.MJy / u.sr),
-                            seed=rng_seed,
-                               metadata=metadata,
+                               seed=rng_seed, metadata=metadata,
                                ignore_distant_sources=100,
                                )
 

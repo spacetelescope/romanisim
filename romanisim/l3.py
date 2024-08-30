@@ -7,7 +7,7 @@ for most of the real work.
 import numpy as np
 import galsim
 
-from . import parameters, log
+from . import log
 import romanisim.catalog
 import romanisim.wcs
 import romanisim.l1
@@ -15,6 +15,7 @@ import romanisim.bandpass
 import romanisim.psf
 import romanisim.image
 import romanisim.persistence
+import romanisim.parameters
 import roman_datamodels.datamodels as rdm
 from roman_datamodels.stnode import WfiMosaic
 import astropy.units as u
@@ -44,6 +45,12 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
         Factor to convert data to cps
     unit_factor: float
         Factor to convert counts data to MJy / sr
+    filter_name : str
+        Filter to use to select appropriate flux from objlist. This is only
+        used when achromatic PSFs and sources are being rendered.
+    bandpass : galsim.Bandpass
+        Bandpass in which mosaic is being rendered. This is used only in cases
+        where chromatic profiles & PSFs are being used.
     coords_unit : string
         units of coords
     wcs : galsim.GSFitsWCS
@@ -72,7 +79,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos=None, ypos=None, coords
 
     # Create PSF (if needed)
     if psf is None:
-        psf = romanisim.psf.make_psf(filter_name=filter_name, sca=parameters.default_sca, chromatic=False, webbpsf=True)
+        psf = romanisim.psf.make_psf(filter_name=filter_name, sca=romanisim.parameters.default_sca, chromatic=False, webbpsf=True)
 
     # Create Image canvas to add objects to
     if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
@@ -155,42 +162,44 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
 
     Parameters
     ----------
+    shape : tuple
+        Array shape of mosaic to simulate.
+    wcs : galsim.GSFitsWCS
+        WCS corresponding to image
+    efftimes : np.ndarray or float
+        Effective exposure time of reach pixel in mosaic.
+        If an array, shape must match shape parameter.
+    filter : str
+        Filter to use to select appropriate flux from objlist. This is only
+        used when achromatic PSFs and sources are being rendered.
+    catalog : list[CatalogObject] or Table
+        List of catalog objects to add to l3_mos
     metadata : dict
-        metadata structure for Roman asdf file, including information about
-
-        * pointing: metadata['wcsinfo']['ra_ref'],
-          metadata['wcsinfo']['dec_ref']
-        * date: metadata['exposure']['start_time']
-        * sca: metadata['instrument']['detector']
-        * bandpass: metadata['instrument']['optical_detector']
-        * ma_table_number: metadata['exposure']['ma_table_number']
-        * read_pattern: metadata['exposure']['read_pattern']
-
-    objlist : list[CatalogObject] or Table
-        List of objects in the field to simulate
-    usecrds : bool
-        use CRDS to get distortion maps
-    webbpsf : bool
-        use webbpsf to generate PSF
-    level : int
-        0, 1 or 2, specifying level 1 or level 2 image
-        0 makes a special idealized 'counts' image
-    persistence : romanisim.persistence.Persistence
-        persistence object to use; None for no persistence
-    crparam : dict
-        Parameters for cosmic ray simulations.  None for no cosmic rays.
-        Empty dictionary for default parameters.
+        Metadata structure for Roman asdf file.
+    effreadnoise : float
+        Effective read noise for mosaic.
+    sky : float or array_like
+        Image or constant with the counts / pix / sec from sky.
+    psf : galsim.Profile
+        PSF for image
+    coords_unit : string
+        units of coords
+    cps_conv : float
+        Factor to convert data to cps
+    unit_factor: float
+        Factor to convert counts data to MJy / sr
+    bandpass : galsim.Bandpass
+        Bandpass in which mosaic is being rendered. This is used only in cases
+        where chromatic profiles & PSFs are being used.
     rng : galsim.BaseDeviate
-        Random number generator to use
+        random number generator to use
     seed : int
-        Seed for populating RNG.  Only used if rng is None.
-    psf_keywords : dict
-        Keywords passed to the PSF generation routine
+        seed to use for random number generator
 
     Returns
     -------
-    image : roman_datamodels model
-        simulated image
+    mosaic_mdl : roman_datamodels model
+        simulated mosaic
     extras : dict
         Dictionary of additionally valuable quantities.  Includes at least
         simcatobj, the image positions and fluxes of simulated objects.  It may
@@ -199,24 +208,21 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
 
     # Create metadata object
     meta = maker_utils.mk_mosaic_meta()
-
-    for key in parameters.default_mosaic_parameters_dictionary.keys():
-        meta[key].update(parameters.default_mosaic_parameters_dictionary[key])
-
+    for key in romanisim.parameters.default_mosaic_parameters_dictionary.keys():
+        meta[key].update(romanisim.parameters.default_mosaic_parameters_dictionary[key])
     meta['wcs'] = wcs
     meta['basic']['optical_element'] = filter
-
     for key in metadata.keys():
         if key not in meta:
             meta[key] = metadata[key]
         else:
             meta[key].update(metadata[key])
-
     # May need an equivalent of this this for L3?
     # util.add_more_metadata(meta)
 
     log.info('Simulating filter {0}...'.format(filter))
 
+    # Get filter and bandpass
     galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter]
     if bandpass is None:
         bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
@@ -224,6 +230,7 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
     # Create initial galsim image (x & y are flipped)
     image = galsim.ImageF(shape[1], shape[0], wcs=wcs, xmin=0, ymin=0)
 
+    # Create sky for this mosaic, if not provided (in cps)
     if sky is None:
         date = meta['basic']['time_mean_mjd']
         if not isinstance(date, astropy.time.Time):
@@ -247,13 +254,13 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
     # Unit factor
     if unit_factor is None:
         unit_factor = ((3631 * u.Jy) / (romanisim.bandpass.get_abflux(filter) * 10e6
-                                    * parameters.reference_data['photom']["pixelareasr"][filter])).to(u.MJy / u.sr)
+                                    * romanisim.parameters.reference_data['photom']["pixelareasr"][filter])).to(u.MJy / u.sr)
 
     # Set effective read noise
     if effreadnoise is None:
-        effreadnoise = efftimes / parameters.read_time
+        effreadnoise = efftimes / romanisim.parameters.read_time
 
-    # Simulate mosaic
+    # Simulate mosaic cps
     mosaic, simcatobj = simulate_cps(
         image, meta, efftimes, objlist=catalog, psf=psf, 
         sky=sky,
@@ -261,17 +268,19 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
         bandpass=bandpass, 
         wcs=wcs, rng=rng, seed=seed, unit_factor=unit_factor,
         **kwargs)
-    
+
+    # Set poisson variance
     if "var_poisson" in simcatobj:
         var_poisson = simcatobj["var_poisson"]
     else:
         var_poisson = None
 
+    # Set read noise variance
     if "var_readnoise" in simcatobj:
         var_readnoise = simcatobj["var_readnoise"].value
     else:
         var_readnoise = None
-    
+
     # Create Mosaic Model
     mosaic_mdl = make_l3(mosaic, metadata, efftimes, unit_factor=unit_factor,
                          var_poisson=var_poisson, var_readnoise=var_readnoise)
@@ -288,98 +297,60 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
 
 def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
                          wcs=None, xpos=None, ypos=None, coord=None, sky=0,
-                         effreadnoise=None, cps_conv=1, bandpass=None, coords_unit='rad',
-                         flat=None, rng=None, seed=None, unit_factor=1.0 * (u.MJy / u.sr),
-                         ignore_distant_sources=10,):
-    """Simulate total counts in a single SCA.
-
-    This gives the total counts in an idealized instrument with no systematics;
-    it includes only distortion & PSF convolution.
-
-    Add some simulated counts to an image.
-
-    No Roman specific code allowed!  To do this, we need to have an image
-    to start with with an attached WCS.  We also need an exposure time
-    and potentially a zpflux so we know how to translate between the catalog
-    fluxes and the counts entering the image.  For chromatic rendering, this
-    role instead is played by the bandpass, though the exposure time is still
-    needed to handle that part of the conversion from flux to counts.
-
-    Then there are a few of individual components that can be added on to
-    an image:
-
-    * objlist: a list of CatalogObjects to render, or a Table.  Can be chromatic
-      or not.  This will have all your normal PSF and galaxy profiles.
-    * sky: a sky background model.  This is different from a dark in that
-      it is sensitive to the flat field.
-    * dark: a dark model.
-    * flat: a flat field for modulating the object and sky counts
+                         effreadnoise=None, cps_conv=1, unit_factor=1.0 * (u.MJy / u.sr),
+                         bandpass=None, coords_unit='rad',
+                         rng=None, seed=None, ignore_distant_sources=10,):
+    """Simulate average MegaJankies per steradian in a single SCA.
 
     Parameters
     ----------
     image : galsim.Image
         Image onto which other effects should be added, with associated WCS.
-    exptime : float
-        Exposure time
+    metadata : dict
+        Metadata structure for Roman asdf file.
+    efftimes : np.ndarray or float
+        Effective exposure time of reach pixel in mosaic. 
+        If an array, shape must match shape parameter.
     objlist : list[CatalogObject], Table, or None
         Sources to render
     psf : galsim.Profile
         PSF to use when rendering sources
-    zpflux : float
-        For non-chromatic profiles, the factor converting flux to counts / s.
-    sky : float or array_like
-        Image or constant with the counts / pix / sec from sky.
-    dark : float or array_like
-        Image or constant with the counts / pix / sec from dark current.
-    flat : array_like
-        Image giving the relative QE of different pixels.
+    wcs : galsim.GSFitsWCS
+        WCS corresponding to image
     xpos, ypos : array_like (float)
         x, y positions of each source in objlist
-    ignore_distant_sources : int
-        Ignore sources more than this distance off image.
+    coord : array_like (float)
+        ra, dec positions of each source in objlist
+    sky : float or array_like
+        Image or constant with the counts / pix / sec from sky.
+    effreadnoise : float
+        Effective read noise for mosaic.
+    cps_conv : float
+        Factor to convert data to cps
+    unit_factor: float
+        Factor to convert counts data to MJy / sr
     bandpass : galsim.Bandpass
         bandpass to use for rendering chromatic objects
-    filter_name : str
-        name of filter (used to look up flux in achromatic case)
+    coords_unit : string
+        units of coords
     rng : galsim.BaseDeviate
         random number generator
     seed : int
         seed for random number generator
+    ignore_distant_sources : int
+        Ignore sources more than this distance off image.
 
     Returns
     -------
     objinfo : np.ndarray
         Information on position and flux of each rendered source.
 
-    Parameters
-    ----------
-    metadata : dict
-        CRDS metadata dictionary
-    objlist : list[CatalogObject] or Table
-        Objects to simulate
-    rng : galsim.BaseDeviate
-        Random number generator to use
-    seed : int
-        Seed for populating RNG.  Only used if rng is None.
-    ignore_distant_sources : float
-        do not render sources more than this many pixels off edge of detector
-    usecrds : bool
-        use CRDS distortion map
-    darkrate : float or np.ndarray[float]
-        dark rate image to use (electrons / s)
-    flat : float or np.ndarray[float]
-        flat field to use
-    psf_keywords : dict
-        keywords passed to PSF generation routine
-
     Returns
     -------
     image : galsim.Image
-        idealized image of scene as seen by Roman, giving total electron counts
-        from rate sources (astronomical objects; backgrounds; dark current) in
-        each pixel.
-    simcatobj : np.ndarray
-        catalog of simulated objects in image
+        Idealized image of scene as seen by Roman
+    extras : dict
+        catalog of simulated objects in image, noise, and misc. debug
     """
 
     if rng is None and seed is None:
@@ -445,19 +416,20 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
             src_exptimes[offedge] = avg_exptime
 
     else:
-        src_exptimes = []    
+        src_exptimes = []   
 
     # Generate GWCS compatible wcs
-    sipwcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=image.array.shape, xpos=xpos, ypos=ypos, coord=coord)
-    image.wcs = sipwcs
+    if wcs is None:
+        wcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=image.array.shape, xpos=xpos, ypos=ypos, coord=coord)
+    image.wcs = wcs
 
+    # Add objects to mosaic
     if len(src_exptimes) > 0:
-        # Add objects to mosaic
         objinfokeep = add_objects_to_l3(
-            image, objlist, src_exptimes, wcs=sipwcs, xpos=xpos, ypos=ypos,
+            image, objlist, src_exptimes, wcs=wcs, xpos=xpos, ypos=ypos,
             filter_name=metadata['basic']['optical_element'], bandpass=bandpass, psf=psf, rng=rng,
-            cps_conv=cps_conv, unit_factor=unit_factor)  
-        
+            cps_conv=cps_conv, unit_factor=unit_factor)
+
     # Add object info artifacts
     objinfo = {}
     objinfo['array'] = np.zeros(
@@ -475,6 +447,7 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
 
     # Noise
     im_no_noise = image.array.copy()
+
     # add Poisson noise if we made a noiseless, not-photon-shooting
     # image.
     poisson_noise = galsim.PoissonNoise(rng)
@@ -504,8 +477,9 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
 
     extras['var_poisson'] = np.abs(image.array - (im_no_noise + sky_arr))
 
+    # Add readnoise
     if effreadnoise is not None:
-        # This works in ADU, so need to convert back to coutns first.. add this, then convert back
+        # This works in ADU, so need to convert back to counts first.. add this, then convert back
         readnoise = np.zeros(image.array.shape, dtype='f4')
         rn_rng = galsim.GaussianDeviate(seed)
         rn_rng.generate(readnoise)
@@ -517,6 +491,7 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
 
         extras['var_readnoise'] = (rn_rng.sigma * (effreadnoise / np.sqrt(efftimes)) * (unit_factor / efftimes))**2
 
+    # Return image and artifacts
     return image, extras
 
 
@@ -524,37 +499,44 @@ def make_l3(image, metadata, efftimes, rng=None, seed=None, var_poisson=None,
             var_flat=None, var_readnoise=None, context=None,
             unit_factor=(1.0 * u.MJy / u.sr)):
     """
-    Simulate an image in a filter given resultants.
-
-    This routine does idealized ramp fitting on a set of resultants.
-
+    Create and populate MosaicModel of image and noises.
+    
     Parameters
     ----------
-    resultants : np.ndarray[nresultants, nx, ny]
-        resultants array
-    read_pattern : list[list] (int)
-        list of list of indices of reads entering each resultant
-    read_noise : np.ndarray[nx, ny] (float)
-        read_noise image to use.  If None, use galsim.roman.read_noise.
-    flat : np.ndarray[nx, ny] (float)
-        flat field to use
-    linearity : romanisim.nonlinearity.NL object or None
-        non-linearity correction to use.
-    darkrate : np.ndarray[nx, ny] (float)
-        dark rate image to subtract from ramps (electron / s)
-    dq : np.ndarray[nresultants, nx, ny] (int)
-        DQ image corresponding to resultants
+    image : galsim.Image
+        Image containing mosaic data.
+    metadata : dict
+        Metadata structure for Roman asdf file.
+    efftimes : np.ndarray or float
+        Effective exposure time of reach pixel in mosaic.
+        If an array, shape must match shape parameter.
+    rng : galsim.BaseDeviate
+        Random number generator.
+    seed : int
+        Seed for random number generator.
+    var_poisson : np.ndarray
+        Poisson variance for each pixel
+    var_flat : np.ndarray
+        Flat variance for each pixel
+    var_readnoise : np.ndarray
+        Read Noise variance for each pixel
+    context : np.ndarray
+        File number(s) for each pixel
+    unit_factor: float
+        Factor to convert counts data to MJy / sr
 
     Returns
     -------
-    im : np.ndarray
-        best fitting slopes
-    var_rnoise : np.ndarray
-        variance in slopes from read noise
-    var_poisson : np.ndarray
-        variance in slopes from source noise
+    objinfo : np.ndarray
+        Information on position and flux of each rendered source.
+
+    Returns
+    -------
+    image : rdm.MosaicModel
+        Mosaic model object containing the data, metadata, variances, weight, and context.
     """
 
+    # Create mosaic data object
     mosaic = image.array.copy()
 
     # Set rng for creating readnoise, flat noise
@@ -582,7 +564,7 @@ def make_l3(image, metadata, efftimes, rng=None, seed=None, var_poisson=None,
         mosaic_node.var_poisson = (unit_factor**2 / efftimes_arr**2).astype(np.float32)
     else:
         mosaic_node.var_poisson = u.Quantity(var_poisson.astype(np.float32), unit_factor.unit ** 2)
-   
+
     # Read noise variance
     if var_readnoise is None:
         mosaic_node.var_rnoise = u.Quantity(np.zeros(mosaic.shape, dtype=np.float32), unit_factor.unit ** 2)
