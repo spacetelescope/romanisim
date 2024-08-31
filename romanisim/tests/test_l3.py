@@ -3,7 +3,6 @@
 """
 
 import os
-import copy
 from copy import deepcopy
 import math
 import numpy as np
@@ -29,7 +28,7 @@ def test_inject_sources_into_mosaic():
     # Set constants and metadata
     galsim.roman.n_pix = 200
     rng_seed = 42
-    metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
+    metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
     metadata['basic']['optical_element'] = filter_name
 
@@ -159,7 +158,7 @@ def test_sim_mosaic():
     dec_ref = parameters.default_mosaic_parameters_dictionary['wcsinfo']['dec_ref']
 
     # Set metadata and capture filter
-    metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
+    metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = metadata['basic']['optical_element']
 
     # Set exposure time
@@ -296,7 +295,7 @@ def test_simulate_vs_cps():
     # Create metadata
     meta = util.default_image_meta(filter_name='F158')
     wcs.fill_in_parameters(meta, coord)
-    metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
+    metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
     metadata['basic']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
@@ -369,7 +368,7 @@ def test_simulate_cps():
     exptime = 100
 
     # Create metadata
-    metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
+    metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
     metadata['basic']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
@@ -467,7 +466,7 @@ def test_exptime_array():
     # Create metadata
     meta = util.default_image_meta(filter_name='F158')
     wcs.fill_in_parameters(meta, coord)
-    metadata = copy.deepcopy(parameters.default_mosaic_parameters_dictionary)
+    metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
     metadata['basic']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
