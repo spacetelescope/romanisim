@@ -119,6 +119,7 @@ def generate_mosaic_geometry():
     """
     pass
 
+
 def generate_exptime_array(cat, meta):
     """ To be updated.
     Function to ascertain / set exposure time in each pixel
@@ -130,7 +131,7 @@ def generate_exptime_array(cat, meta):
 
     # Obtain sky positions for objects
     coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
-                        for o in cat])
+                       for o in cat])
 
     # Calculate x,y positions for objects
     allx, ally = twcs.radecToxy(coords[:, 0], coords[:, 1], 'rad')
@@ -154,7 +155,7 @@ def generate_exptime_array(cat, meta):
     return context
 
 
-def simulate(shape, wcs, efftimes, filter, catalog, metadata={}, 
+def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
              effreadnoise=None, sky=None, psf=None, coords_unit='rad',
              cps_conv=None, unit_factor=None,
              bandpass=None, seed=None, rng=None,
@@ -255,7 +256,7 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
     # Unit factor
     if unit_factor is None:
         unit_factor = ((3631 * u.Jy) / (romanisim.bandpass.get_abflux(filter) * 10e6
-                                    * romanisim.parameters.reference_data['photom']["pixelareasr"][filter])).to(u.MJy / u.sr)
+                        * romanisim.parameters.reference_data['photom']["pixelareasr"][filter])).to(u.MJy / u.sr)
 
     # Set effective read noise
     if effreadnoise is None:
@@ -310,7 +311,7 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
     metadata : dict
         Metadata structure for Roman asdf file.
     efftimes : np.ndarray or float
-        Effective exposure time of reach pixel in mosaic. 
+        Effective exposure time of reach pixel in mosaic.
         If an array, shape must match shape parameter.
     objlist : list[CatalogObject], Table, or None
         Sources to render
@@ -406,7 +407,7 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
         offedge = romanisim.image.in_bounds(xpos, ypos, image.bounds, 0)
         # Set exposure time per source
         if isinstance(efftimes, np.ndarray):
-            src_exptimes = [efftimes[y,x] for x,y in zip(xpos_idx, ypos_idx)]
+            src_exptimes = [efftimes[y, x] for x, y in zip(xpos_idx, ypos_idx)]
         else:
             src_exptimes = [efftimes] * len(xpos)
         src_exptimes = np.array(src_exptimes)
@@ -417,7 +418,7 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
             src_exptimes[offedge] = avg_exptime
 
     else:
-        src_exptimes = []   
+        src_exptimes = []
 
     # Generate GWCS compatible wcs
     if wcs is None:
@@ -472,7 +473,7 @@ def simulate_cps(image, metadata, efftimes, objlist=None, psf=None,
         workim.addNoise(poisson_noise)
 
         image += (workim * unit_factor.value / efftimes)
-        
+
     else:
         sky_arr = np.zeros(image.array.shape, dtype=float)
 
@@ -501,7 +502,7 @@ def make_l3(image, metadata, efftimes, rng=None, seed=None, var_poisson=None,
             unit_factor=(1.0 * u.MJy / u.sr)):
     """
     Create and populate MosaicModel of image and noises.
-    
+
     Parameters
     ----------
     image : galsim.Image

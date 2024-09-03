@@ -222,6 +222,16 @@ def test_sim_mosaic():
     assert np.abs(np.log(expectedflux) / np.log(totflux) - 1) < 0.1
 
     # Add log entries and artifacts
+    log.info('DMS219 successfully created mosaic file with sources rendered '
+             'at correct locations with matching flux and added noise.')
+
+    artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
+    if artifactdir is not None:
+        af = asdf.AsdfFile()
+        af.tree = {'l3_mosaic': mosaic,
+                   'source_cat_table': cat,
+                   }
+        af.write_to(os.path.join(artifactdir, 'dms219.asdf'))
 
 
 def set_up_image_rendering_things():
