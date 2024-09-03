@@ -596,7 +596,5 @@ def make_l3(image, metadata, efftimes, rng=None, seed=None, var_poisson=None,
     else:
         mosaic_node.context = context
 
-    # Set mosaic to be a mosaic model
-    wfi_mosaic = rdm.MosaicModel(mosaic_node)
-
-    return wfi_mosaic
+    # Return mosaic
+    return mosaic_node
