@@ -181,7 +181,9 @@ def simulate(shape, wcs, efftimes, filter, catalog, metadata={},
     effreadnoise : float
         Effective read noise for mosaic.
     sky : float or array_like
-        Image or constant with the counts / pix / sec from sky.
+        Image or constant with the counts / pix / sec from sky. If None, then
+        sky will be generated from galsim's getSkyLevel for Roman for the
+        date provided in metadata[basic][time_mean_mjd].
     psf : galsim.Profile
         PSF for image
     coords_unit : string

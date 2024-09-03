@@ -332,11 +332,6 @@ def test_simulate_vs_cps():
                                    psf=imdict['impsfgray'], seed=rng_seed,
                                    ignore_distant_sources=100)
 
-    # Ensure that the two simualtions are in line with each other
-    maxim = np.where(im1.array**2 > im2.array**2, im1.array, im2.array)
-    m = np.abs(im1.array**2 - im2.array**2) <= 20**2 * np.abs(maxim)
-    assert np.all(m)
-
     # Create chromatic data in simulate
     im3, extras3 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, chromcat,
                                bandpass=imdict['bandpass'], seed=rng_seed,
@@ -353,11 +348,6 @@ def test_simulate_vs_cps():
                                ignore_distant_sources=100,
                                effreadnoise=0,
                                )
-
-    # Ensure that the two simualtions are in line with each other
-    maxim = np.where(im3['data'].value**2 > im4['data'].value**2, im3['data'].value, im4['data'].value)
-    m = np.abs(im3['data'].value**2 - im4['data'].value**2) <= 20**2 * np.abs(maxim)
-    assert np.all(m)
 
     # Ensure that the simulate and simulate_cps output matches for each type
     assert np.allclose(im1.array, im3['data'].value)

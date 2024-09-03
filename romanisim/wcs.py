@@ -418,7 +418,7 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
     - if xpos, ypos, and coords are provided, then a GWCS compatible object will be created (and meta updated with it)
     - if not, a functional CelestialWCS is created [useful for quick computation,
-       but GWCS needed for validation of a final simulation]
+    but GWCS needed for validation of a final simulation]
 
     Parameters
     ----------
