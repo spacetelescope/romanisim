@@ -420,16 +420,16 @@ def decode_context_times(context, exptimes):
 
     total_exptimes = np.zeros(context.shape[1:])
 
-    for x in range(total_exptimes.shape[0]):
-        for y in range(total_exptimes.shape[1]):
-            files = [v & (1 << k) for v in context[:, x, y] for k in range(nbits)]
+    for y in range(total_exptimes.shape[0]):
+        for x in range(total_exptimes.shape[1]):
+            files = [v & (1 << k) for v in context[:, y, x] for k in range(nbits)]
             tot_time = 0
             files = [file for file in files if (file != 0)]
 
             for im_idx in files:
                 tot_time += exptimes[im_idx - 1]
 
-            total_exptimes[x][y] = tot_time
+            total_exptimes[y,x] = tot_time
 
     def sum_times(x):
         tot_time = 0

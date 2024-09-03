@@ -414,13 +414,22 @@ def convert_wcs_to_gwcs(wcs):
         return wcs_from_fits_header(wcs.header.header)
 
 
-def get_mosaic_wcs(mosaic, shape=None):
+def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
     """Get a WCS object for a given sca or set of CRDS parameters.
+    - if xpos, ypos, and coords are provided, then a GWCS compatible object will be created (and meta updated with it)
+    - if not, a functional CelestialWCS is created [useful for quick computation,
+    but GWCS needed for validation of a final simulation]
 
     Parameters
     ----------
     mosaic : roman_datamodels.datamodels.MosaicModel or dict
         Mosaic model or dictionary containing WCS parameters.
+    shape: list
+        Length of dimensions of mosaic
+    xpos, ypos : array_like (float)
+        x, y positions of each source in objlist
+    coord : array_like (float)
+        ra, dec positions of each source in objlist
 
     Returns
     -------
@@ -434,11 +443,10 @@ def get_mosaic_wcs(mosaic, shape=None):
         else:
             mosaic_node = maker_utils.mk_level3_mosaic(shape=shape)
         for key in mosaic.keys():
-            if isinstance(mosaic[key], dict):
+            if isinstance(mosaic[key], dict) and key in mosaic_node['meta'].keys():
                 mosaic_node['meta'][key].update(mosaic[key])
             else:
                 mosaic_node['meta'][key] = mosaic[key]
-        # mosaic_node = roman_datamodels.datamodels.MosaicModel(mosaic_node)
     else:
         mosaic_node = mosaic
 
@@ -449,15 +457,22 @@ def get_mosaic_wcs(mosaic, shape=None):
     if shape is None:
         shape = (mosaic_node.data.shape[0],
                  mosaic_node.data.shape[1])
+        shape = mosaic_node.data.shape
 
-    # Create a tangent plane WCS for the mosaic
-    # The affine parameters below should be reviewed and updated
-    affine = galsim.AffineTransform(
-        0.1, 0, 0, 0.1, origin=galsim.PositionI(math.ceil(shape[0] / 2.0), math.ceil(shape[1] / 2.0)),
-        world_origin=galsim.PositionD(0, 0))
-    wcs = galsim.TanWCS(affine,
-                        util.celestialcoord(world_pos))
-
+    if (elem is None for elem in [xpos,ypos,coord]):
+        # Create a tangent plane WCS for the mosaic
+        # The affine parameters below should be reviewed and updated
+        affine = galsim.fitswcs.AffineTransform(
+            romanisim.parameters.pixel_scale, 0, 0, romanisim.parameters.pixel_scale, origin=galsim.PositionI(x=math.ceil(shape[1] / 2.0), y=math.ceil(shape[0] / 2.0)),
+            world_origin=galsim.PositionD(0, 0))
+        wcs = galsim.fitswcs.TanWCS(affine,
+                            util.celestialcoord(world_pos))
+    else:
+        # Create GWCS compatible tangent plane WCS
+        header = {}
+        wcs = galsim.FittedSIPWCS(xpos, ypos, coord[:, 0], coord[:, 1], wcs_type='TAN', center=util.celestialcoord(world_pos))
+        wcs._writeHeader(header, galsim.BoundsI(0, shape[0], 0, shape[1]))
+        # metadata['wcs'] = romanisim.wcs.wcs_from_fits_header(header)
     return wcs
 
 

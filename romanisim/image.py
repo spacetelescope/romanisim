@@ -206,7 +206,7 @@ def trim_objlist(objlist, image):
 
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
                          flux_to_counts_factor, convtimes=None,
-                         bandpass=None, filter_name=None,
+                         bandpass=None, filter_name=None, add_noise=False,
                          rng=None, seed=None):
     """Add sources to an image.
 
@@ -287,6 +287,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             stamp = final.drawImage(
                 bandpass, center=image_pos, wcs=pwcs,
                 method='phot', rng=rng)
+            if add_noise:
+                stamp.addNoise(galsim.PoissonNoise(rng))
         else:
             try:
                 stamp = final.drawImage(center=image_pos,
@@ -314,7 +316,8 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
                             sky=None, dark=None,
                             flat=None, xpos=None, ypos=None,
                             ignore_distant_sources=10, bandpass=None,
-                            filter_name=None, rng=None, seed=None):
+                            filter_name=None, rng=None, seed=None,
+                            **kwargs):
     """Add some simulated counts to an image.
 
     No Roman specific code allowed!  To do this, we need to have an image
