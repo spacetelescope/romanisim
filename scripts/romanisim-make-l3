@@ -28,7 +28,6 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument('--date', type=str, default=None,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
-    parser.add_argument('--nobj', type=int, default=1000)
     parser.add_argument('--radec', type=float, nargs=2,
                         help='ra and dec (deg)', default=None)
     parser.add_argument('--npix', type=int, default=4000,

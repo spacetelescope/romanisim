@@ -16,4 +16,16 @@ This is a fairly faithful representation of how level two image construction wor
 * We have a simplistic saturation treatment, just clipping resultants that exceed
   the saturation level to the saturation level and throwing a flag.
 
+
+L2 source injection
+===================
+We support L2 source injection through :meth:`romanisim.image.inject_sources_into_l2`.  This routine is intended for cases when existing L2 images are available, and a small number of sources need to be added on top of those images.  The L2 source injection is intended to be a fairly faithful simulation of the process.  It includes the following steps:
+* The model WCS is used to generate the pixel locations for sources.
+* The number of additional electrons in each pixel is simulated.
+* A virtual ramp is created that evenly apportions the original L2 flux along the ramp.
+* The new counts are apportioned randomly along the ramp following a Poisson distribution in the same way as for the usual L1 simulations.
+* The new ramp is then fit using the ramp fitting code, and the new fit replaces the old fit in the L2 file.
+
+Note that this procedure does not include any new cosmic rays, or any special treatment of pixels that had cosmic rays in them and now have additional source flux.  It is hard to do this right since we do not know which pixel the cosmic ray landed in on the basis of the L2 file.  If you need more accuracy than this you probably need to directly inject sources into the L1 file.
+
 .. automodapi:: romanisim.ramp

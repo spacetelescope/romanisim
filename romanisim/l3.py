@@ -227,10 +227,11 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     The challenge here is that the L3 PSF has gone through drizzling which
     broadens the PSF relative to the native PSF.  We treat this here by doing
     the following:
-    - we start with the native PSF for the appropriate bandpass for SCA 2
+
+    * we start with the native PSF for the appropriate bandpass for SCA 2
       (no pixel convolution)
-    - we convolve that with a box of size sqrt(1-scale**2) pixel
-    - we return the result
+    * we convolve that with a box of size sqrt(1-scale**2) pixel
+    * we return the result
 
     So for a very small scale you still get a convolution by the full
     native pixel scaling (since the image was ultimately observed with the
@@ -498,11 +499,6 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
 
     Returns
     -------
-    objinfo : np.ndarray
-        Information on position and flux of each rendered source.
-
-    Returns
-    -------
     image : galsim.Image
         Idealized image of scene as seen by Roman (MJy / sr)
     extras : dict
@@ -659,13 +655,8 @@ def make_l3(image, metadata, efftimes, var_poisson=None,
 
     Returns
     -------
-    objinfo : np.ndarray
-        Information on position and flux of each rendered source.
-
-    Returns
-    -------
-    image : rdm.MosaicModel
-        Mosaic model object containing the data, metadata, variances, weight, and context.
+    image : roman_datamodels.datamodels.MosaicModel
+        Mosaic datamodel
     """
 
     # Create mosaic data object

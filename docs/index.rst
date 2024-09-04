@@ -19,6 +19,7 @@ Contents
    romanisim/image
    romanisim/l1
    romanisim/l2
+   romanisim/l3
    romanisim/refs
 
    romanisim/catalog
