@@ -367,7 +367,6 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         image.wcs.makeSkyImage(sky_mosaic, sky_level)
         sky_mosaic += roman.thermal_backgrounds[galsim_filter_name]
         sky = sky_mosaic
-        print('need to think here about pixel fractions and effective times.')
     else:
         sky = sky / etomjysr  # convert to electrons / s / nominal pix
         # note that we might be making different pixel scales in the
