@@ -12,6 +12,7 @@ from astropy import constants
 from astropy.table import Table
 from astropy import units as u
 import functools
+from romanisim import parameters
 
 # to go from calibrated fluxes in maggies to counts in the Roman bands
 # we need to multiply by a constant determined by the AB magnitude
@@ -181,3 +182,26 @@ def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=Non
     # per second
 
     return zpflux
+
+
+def etomjysr(bandpass):
+    """Compute factor converting e/s/pix to MJy/sr.
+
+    Assumes a pixel scale of 0.11" (romanisim.parameters.pixel_scale)
+
+    Parameters
+    ----------
+    bandpass : str
+        the name of the bandpass
+
+    Returns
+    -------
+    float
+        the factor F such that MJy / sr = F * DN/s
+    """
+
+    abflux = get_abflux(bandpass)  # e/s corresponding to 3631 Jy
+    srpix = ((parameters.pixel_scale * u.arcsec) ** 2).to(u.sr).value
+    mjysr = 1 / abflux * 3631 / 10 ** 6 / srpix  # should be ~0.3
+    return mjysr
+    

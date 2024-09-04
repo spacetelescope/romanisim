@@ -205,7 +205,7 @@ def trim_objlist(objlist, image):
 
 
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
-                         flux_to_counts_factor, convtimes=None,
+                         flux_to_counts_factor, outputunit_to_electrons=None,
                          bandpass=None, filter_name=None, add_noise=False,
                          rng=None, seed=None):
     """Add sources to an image.
@@ -227,8 +227,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total counts in the
         image
-    convtimes: array_like
-        Exposure times with unit scaling to convert to output rate units
+    outputunit_to_electrons : array_like
+        One output image unit corresponds to this many electrons.  If None,
+        leave as electrons.
     bandpass : galsim.Bandpass
         bandpass in which image is being rendered.  This is used only in cases
         where chromatic profiles & PSFs are being used.
@@ -287,17 +288,17 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             stamp = final.drawImage(
                 bandpass, center=image_pos, wcs=pwcs,
                 method='phot', rng=rng)
-            if add_noise:
-                stamp.addNoise(galsim.PoissonNoise(rng))
         else:
             try:
                 stamp = final.drawImage(center=image_pos,
                                         wcs=pwcs)
+                if add_noise:
+                    stamp.addNoise(galsim.PoissonNoise(rng))
             except galsim.GalSimFFTSizeError:
                 log.warning(f'Skipping source {i} due to too '
                             f'large FFT needed for desired accuracy.')
-        if convtimes is not None:
-            stamp /= convtimes[i]
+        if outputunit_to_electrons is not None:
+            stamp /= outputunit_to_electrons[i]
 
         bounds = stamp.bounds & image.bounds
         if bounds.area() > 0:
@@ -599,7 +600,8 @@ def gather_reference_data(image_mod, usecrds=False):
     """
 
     reffiles = {k: v for k, v in parameters.reference_data.items()}
-    reffiles.pop('photom')
+    if 'photom' in reffiles:
+        reffiles.pop('photom')
 
     out = dict(**reffiles)
     if usecrds:

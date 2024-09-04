@@ -24,7 +24,7 @@ from romanisim import log
 
 
 def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
-                 chromatic=False, oversample=4, **kw):
+                 chromatic=False, oversample=4, extra_convolution=None, **kw):
     """Make a PSF profile for Roman at a specific detector location.
 
     Can construct both PSFs using galsim's built-in galsim.roman.roman_psfs
@@ -43,6 +43,8 @@ def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
         pixel location of PSF on focal plane
     oversample : int
         oversampling with which to sample WebbPSF PSF
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to PSF
     **kw : dict
         Additional keywords passed to galsim.roman.getPSF or webbpsf.calc_psf,
         depending on whether webbpsf is set.
@@ -67,8 +69,11 @@ def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
             filter_name = None
         defaultkw.update(**kw)
         scapos = galsim.PositionD(*pix) if pix is not None else None
-        return roman.getPSF(sca, filter_name, wcs=wcs, SCA_pos=scapos,
-                            wavelength=bandpass, **defaultkw)
+        res = roman.getPSF(sca, filter_name, wcs=wcs, SCA_pos=scapos,
+                           wavelength=bandpass, **defaultkw)
+        if extra_convolution is not None:
+            res = galsim.Convolve(res, extra_convolution)
+        return res
     if chromatic:
         log.warning('romanisim does not yet support chromatic PSFs '
                     'with webbpsf')
@@ -115,11 +120,15 @@ def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     centroid = None
     intimg = galsim.InterpolatedImage(
         gimg, normalization='flux', use_true_center=True, offset=centroid)
+
+    if extra_convolution is not None:
+        intimg = galsim.Convolve(intimg, extra_convolution)
+
     return intimg
 
 
 def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
-             chromatic=False, variable=False, **kw):
+             chromatic=False, variable=False, extra_convolution=None, **kw):
     """Make a PSF profile for Roman.
 
     Optionally supports spatially variable PSFs via interpolation between
@@ -138,6 +147,8 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
         pixel location of PSF on focal plane
     variable : bool
         True if a variable PSF object is desired
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to PSF profiles
     **kw : dict
         Additional keywords passed to make_one_psf
 
@@ -149,7 +160,8 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     """
     if not variable:
         return make_one_psf(sca, filter_name, wcs=wcs, webbpsf=webbpsf,
-                            pix=pix, chromatic=chromatic, **kw)
+                            pix=pix, chromatic=chromatic,
+                            extra_convolution=extra_convolution, **kw)
     elif pix is not None:
         raise ValueError('cannot set both pix and variable')
     buf = 49
@@ -162,7 +174,8 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     psfs = dict()
     for corner, pix in corners.items():
         psfs[corner] = make_one_psf(sca, filter_name, wcs=wcs, webbpsf=webbpsf,
-                                    pix=pix, chromatic=chromatic, **kw)
+                                    pix=pix, chromatic=chromatic,
+                                    extra_convolution=extra_convolution, **kw)
     return VariablePSF(corners, psfs)
 
 
