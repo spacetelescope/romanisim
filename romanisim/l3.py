@@ -550,7 +550,10 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         keep = romanisim.image.in_bounds(xpos, ypos, image.bounds,
                                          ignore_distant_sources)
 
-        objlist = np.array(objlist)[keep].tolist()
+        if isinstance(objlist, astropy.table.Table):
+            objlist = objlist[keep]
+        else:
+            objlist = [o for (o, k) in zip(objlist, keep) if k]
         xpos = xpos[keep]
         ypos = ypos[keep]
         # Pixelized object locations
@@ -574,7 +577,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         src_exptimes = []
 
     if isinstance(objlist, astropy.table.Table):
-        objlist = romanisim.catalog.table_to_catalog(objlist)
+        objlist = romanisim.catalog.table_to_catalog(objlist, [filter_name])
 
     # Add objects to mosaic
     if len(src_exptimes) > 0:
@@ -619,7 +622,8 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         effreadnoise = 0
     extras['var_rnoise'] = effreadnoise
 
-    extras['var_poisson'] = image.array / etomjysr * efftimes * etomjysr ** 2
+    extras['var_poisson'] = (np.clip(image.array, 0, np.inf) /
+                             etomjysr * efftimes * etomjysr ** 2)
     # goofy game with etomjysr: image / etomjysr * efftimes
     # the number of electrons in each pixel
     # then we interpret this as a variance (since mean = variance for a

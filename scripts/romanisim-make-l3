@@ -33,7 +33,7 @@ if __name__ == '__main__':
                         help='ra and dec (deg)', default=None)
     parser.add_argument('--npix', type=int, default=4000,
                         help='number of pixels across image')
-    parser.add_argument('--pixscale', type=float, default=1.0,
+    parser.add_argument('--pixscalefrac', type=float, default=1.0,
                         help='pixel scale as fraction of original')
     parser.add_argument('--exptime', type=float, default=100.0,
                         help='total effective exposure time per pixel; '
@@ -57,7 +57,7 @@ if __name__ == '__main__':
                 "packages like galsim's roman package or STIPS may better "
                 "serve such purposes.")
 
-    pixscale = args.pixscale * parameters.pixel_scale
+    pixscale = args.pixscalefrac * parameters.pixel_scale
     midpoint = (args.npix - 1) / 2
     r, d = args.radec
     center = util.celestialcoord(SkyCoord(ra=r * u.deg, dec=d * u.deg))
