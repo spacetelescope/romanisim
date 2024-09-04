@@ -504,8 +504,8 @@ def test_exptime_array():
                                )
 
     # Ensure that the poisson variance scales with exposure time difference
-    assert np.isclose((np.median(im1['var_poisson'][0:50, :].value) / np.median(im1['var_poisson'][50:, :].value)), 1 / expfactor, rtol=0.02)
-    assert np.isclose((np.median(im2['var_poisson'][0:50, :].value) / np.median(im2['var_poisson'][50:, :].value)), 1 / expfactor, rtol=0.02)
+    assert np.isclose((np.median(im1['var_poisson'][0:50, :].value) / np.median(im1['var_poisson'][50:, :].value)), expfactor, rtol=0.02)
+    assert np.isclose((np.median(im2['var_poisson'][0:50, :].value) / np.median(im2['var_poisson'][50:, :].value)), expfactor, rtol=0.02)
 
     # Ensure that the data remains consistent across the exposure times
     assert np.isclose(np.median(im1['data'][0:50, :].value), np.median(im1['data'][50:, :].value), rtol=0.02)

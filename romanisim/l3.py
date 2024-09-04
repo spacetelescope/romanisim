@@ -617,13 +617,16 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         effreadnoise = 0
     extras['var_rnoise'] = effreadnoise
 
-    extras['var_poisson'] = (np.clip(image.array, 0, np.inf) /
-                             etomjysr * efftimes * etomjysr ** 2)
-    # goofy game with etomjysr: image / etomjysr * efftimes
-    # the number of electrons in each pixel
+    var_poisson_factor = (efftimes / etomjysr) * etomjysr ** 2 / efftimes ** 2
+    # goofy game with etomjysr: image * (efftimes / etomjysr * efftimes)
+    # -> number of photons entering each pixel
     # then we interpret this as a variance (since mean = variance for a
     # Poisson distribution), and convert the variance image
-    # to the final units with two factors of etomjysr
+    # to the final units with two factors of etomjysr and the effective time
+
+    extras['var_poisson'] = (
+        np.clip(image.array, 0, np.inf) /
+        etomjysr * efftimes * etomjysr ** 2 / efftimes ** 2)
 
     # Return image and artifacts
     return image, extras
