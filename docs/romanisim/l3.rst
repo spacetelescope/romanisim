@@ -1,0 +1,60 @@
+L3 images
+=========
+
+We also simulate L3 images, also known as coadded images or mosaics; these terms are used equivalently here.  In contrast to L1 and L2 images, L3 images do not do a full simulation of the individual reads entering each resultant and the following ramp fitting.  Accordingly, they also do not include most systematic effects---for example, cosmic rays and non-linearity are not simulated.  Instead, the L3 simulations conceptually are more closely related to the initial idealized :doc:`count images </romanisim/image>` than they are to L1 or L2 images.  They differ from these idealized images in that we attempt to change the PSF in order to account for non-native pixel scales that are possible in coadded images.
+
+The simulation of L3 images is simplified relative to true L3 images.  First, as above, we do not do the full L2 simulations.  Second, we do not have a notion of a series of images that are being coadded---we are instead just saying that one could produce a mosaic that has a particular pixel scale, effective read noise, and effective exposure time per pixel.  We do not attempt to simulate the drizzle process used for typical L3 images in Roman, and accordingly do not include any drizzle-induced covariances among the pixels.  Similarly, because we don't really have a notion of a series of input L2 images, the L3 PSF is not a combination of the PSF of the input images, but is instead taken as the PSF evaluated at the center of the WFI02 detector, and then additionally convolved depending on the output pixel grid scale.
+
+The L3 PSF aims to include the convolution with the native scale that Roman necessarily includes, but to also support oversampled images where the L3 pixel scale can be significantly finer than the native pixel scale.  In these cases we include an additional square convolution to "make up the difference" between the L3 pixel scale and the L2 pixel scale; see the :meth:`romanisim.l3.l3_psf` method for more details.
+
+The ``romanisim-make-l3`` command-line interface can be used to make L3 files.  
+
+L3 source injection
+===================
+
+We support injecting sources into L3 files.  L3 source injection is very similar to L3 image creation, except we do not need to invent effective read noises or exposure times or WCSes.  Instead we only change the Poisson noise, since we are only adding additional new sources.
+
+Conceptually we just add more sources to the image in the same way as in L3 image creation.  The primary challenge is picking the correct exposure time so that the Poisson noise in the simulation is correct; we (optionally) simulate individual photons and so the conversion between calibrated units and electrons is still relevant in the L3 files.  We do this by using the relationship between the calibrated flux and corresponding Poisson variance to figure out the effective calibrated-flux-to-electron relationship, and then simulate the appropriate number of electrons and convert back.
+
+The function :meth:`romanisim.l3.inject_sources_into_l3` is the intended entry point for L3 simulations.  Invocations look like::
+
+    romanisim-make-l3 --bandpass F158 --radec 270 66 --npix 2000 --pixscalefrac 0.9 --exptime 1000 l3.asdf gaia-270-66-2027-06-01.ecsv
+
+which would make an F158 image with 2000x2000 pixels, slightly oversampled, corresponding to 1000 seconds, using the given catalog and output filename.
+
+There are a number of possible input arguments::
+
+    romanisim-make-l3 -h
+    usage: romanisim-make-l3 [-h] [--bandpass BANDPASS] [--config CONFIG] [--date DATE] [--nobj NOBJ] [--radec RADEC RADEC] [--npix NPIX]
+			     [--pixscalefrac PIXSCALEFRAC] [--exptime EXPTIME] [--effreadnoise EFFREADNOISE] [--nexposures NEXPOSURES]
+			     [--rng_seed RNG_SEED]
+			     filename catalog
+
+    Make an L3 image.
+
+    positional arguments:
+      filename              output image (asdf)
+      catalog               input catalog (ecsv)
+
+    options:
+      -h, --help            show this help message and exit
+      --bandpass BANDPASS   bandpass to simulate (default: F087)
+      --config CONFIG       input parameter override file (yaml) (default: None)
+      --date DATE           UTC Date and Time of observation to simulate in ISOT format. (default: None)
+      --radec RADEC RADEC   ra and dec (deg) (default: None)
+      --npix NPIX           number of pixels across image (default: 4000)
+      --pixscalefrac PIXSCALEFRAC
+			    pixel scale as fraction of original (default: 1.0)
+      --exptime EXPTIME     total effective exposure time per pixel; roughly time per exposure times number of exposures times pixscale**2 (default:
+			    100.0)
+      --effreadnoise EFFREADNOISE
+			    effective readnoise per pixel in MJy/sr. If None, a pessimistic estimate is computed. (default: None)
+      --nexposures NEXPOSURES
+			    number of exposures on field. Used only to compute the effective read noise. (default: 1)
+      --rng_seed RNG_SEED
+
+    EXAMPLE: romanisim-make-l3 output_image.asdf catalog.ecsv
+
+The arguments control things like the filter used, the date of observation (used to estimate the sky background), the right ascension and declination of the center of the mosaic, the number of pixels in the mosaic, and the degree of oversampling of the output mosaic.  Parameters also control the effective depth of the mosaic, though the exposure time, effective read noise, and number of exposures.
+
+.. automodapi:: romanisim.l3
