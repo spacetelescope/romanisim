@@ -613,8 +613,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     # to the final units with two factors of etomjysr and the effective time
 
     extras['var_poisson'] = (
-        np.clip(image.array, 0, np.inf) /
-        etomjysr * efftimes * etomjysr ** 2 / efftimes ** 2)
+        np.clip(image.array, 0, np.inf) * var_poisson_factor)
 
     # Return image and artifacts
     return image, extras
@@ -753,7 +752,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['wcsinfo']['y_ref'] = yref
     metadata['wcsinfo']['rotation_matrix'] = [[1, 0], [0, 1]]
     metadata['wcsinfo']['pixel_scale'] = pscale.to(u.arcsec).value
-    metadata['wcsinfo']['pixel_scale_local'] = metadata['wcsinfo'].pixel_scale
+    metadata['wcsinfo']['pixel_scale_local'] = metadata['wcsinfo']['pixel_scale']
     metadata['wcsinfo']['s_region'] = romanisim.wcs.create_s_region(wcs, shape)
     metadata['wcsinfo']['pixel_shape'] = shape
     metadata['wcsinfo']['ra_center'] = c1.ra.to(u.degree).value
