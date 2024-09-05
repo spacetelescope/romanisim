@@ -346,8 +346,8 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     if bandpass is None:
         bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
 
-    # Create initial galsim image
-    image = galsim.ImageF(shape[0], shape[1], wcs=romanisim.wcs.GWCS(wcs),
+    # Create initial galsim image; galsim wants x/y instead of normal shape
+    image = galsim.ImageF(shape[1], shape[0], wcs=romanisim.wcs.GWCS(wcs),
                           xmin=0, ymin=0)
 
     etomjysr = romanisim.bandpass.etomjysr(filter_name)
@@ -421,7 +421,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     var_poisson = extras.pop('var_poisson')
     var_rnoise = extras.pop('var_rnoise')
     context = np.ones((1,) + mosaic.array.shape, dtype=np.uint32)
-    mosaic_mdl = make_l3(mosaic, metadata, efftimes, var_poisson=var_poisson,
+    mosaic_mdl = make_l3(mosaic, meta, efftimes, var_poisson=var_poisson,
                          var_rnoise=var_rnoise, context=context)
 
     log.info('Simulation complete.')
@@ -577,24 +577,11 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     # Add objects to mosaic
     if len(src_exptimes) > 0:
         maggytoes0 = maggytoes if not objlist[0].profile.spectral else 1
-        objinfokeep = add_objects_to_l3(
+        objinfo = add_objects_to_l3(
             image, objlist, src_exptimes, xpos=xpos, ypos=ypos,
             filter_name=filter_name, psf=psf, bandpass=bandpass, rng=rng,
             maggytoes=maggytoes0, etomjysr=etomjysr)
 
-    # Add object info artifacts
-    objinfo = {}
-    objinfo['array'] = np.zeros(
-        len(objlist),
-        dtype=[('x', 'f4'), ('y', 'f4'), ('counts', 'f4'), ('time', 'f4')])
-    if len(objlist) > 0:
-        objinfo['x'] = xpos
-        objinfo['y'] = ypos
-        objinfo['counts'] = objinfokeep['counts']
-        objinfo['time'] = objinfokeep['time']
-    else:
-        objinfo['counts'] = np.array([])
-        objinfo['time'] = np.array([])
     extras['objinfo'] = objinfo
 
     if sky is not None:
@@ -672,7 +659,8 @@ def make_l3(image, metadata, efftimes, var_poisson=None,
 
     # Set mosaic to be a mosaic node
     mosaic_node = maker_utils.mk_level3_mosaic(
-        shape=mosaic.shape, metadata=metadata)
+        shape=mosaic.shape, meta=metadata)
+    mosaic_node.meta.wcs = metadata['wcs']
 
     # Set data
     mosaic_node.data = mosaic

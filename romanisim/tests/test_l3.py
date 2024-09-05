@@ -163,13 +163,10 @@ def test_sim_mosaic():
     cat = catalog.make_dummy_table_catalog(cen, radius=0.02, nobj=100, seed=rng_seed)
     # Make the first 10 bright for tests
     cat[filter_name][0:10] *= 1e4
-    source_cat = catalog.table_to_catalog(cat, [filter_name])
 
     # Create bounds from the object list
     twcs = romanisim.wcs.get_mosaic_wcs(metadata)
-    coords = np.array([[o.sky_pos.ra.deg, o.sky_pos.dec.deg]
-                       for o in source_cat])
-    allx, ally = twcs.world_to_pixel(coords[:, 0], coords[:, 1])
+    allx, ally = twcs.world_to_pixel(cat['ra'], cat['dec'])
 
     # Obtain the sample extremums
     xmin = min(allx)
@@ -192,21 +189,22 @@ def test_sim_mosaic():
 
     # Simulate mosaic
     mosaic, extras = l3.simulate(context.shape[1:], moswcs, exptimes[0],
-                                 filter_name, source_cat, metadata=metadata,
+                                 filter_name, cat, metadata=metadata,
                                  seed=rng_seed)
 
+    # Did all sources get simulated?
+    assert len(extras['objinfo']) == len(cat)
+
     # Ensure center pixel of bright objects is bright
-    x_all, y_all = moswcs.world_to_pixel(coords[:10, 0], coords[:10, 1])
+    x_all, y_all = moswcs.world_to_pixel(cat['ra'][:10], cat['dec'][:10])
     for x, y in zip(x_all, y_all):
         x = int(x)
         y = int(y)
         assert mosaic.data.value[y, x] > (np.median(mosaic.data.value) * 5)
 
     # Did we get all the flux?
-    # Convert to CPS for comparison
-    # Unit factor
-    unit_factor = romanisim.bandpass.etomjysr(filter_name)
-    totflux = np.sum(mosaic.data.value - np.median(mosaic.data.value)) / unit_factor
+    etomjysr = romanisim.bandpass.etomjysr(filter_name)
+    totflux = np.sum(mosaic.data.value - np.median(mosaic.data.value)) / etomjysr
 
     # Flux to counts
     cps_conv = romanisim.bandpass.get_abflux(filter_name)
@@ -425,7 +423,7 @@ def test_simulate_cps():
         xpos=[50, 50], ypos=[50, 50], seed=rng_seed)
 
     assert np.sum(im3.array) > 0  # at least verify that we added some sources...
-    assert len(objinfo['objinfo']['array']) == 2  # two sources were added
+    assert len(objinfo['objinfo']) == 2  # two sources were added
 
     im4 = im.copy()
     _, objinfo = l3.simulate_cps(
@@ -434,7 +432,7 @@ def test_simulate_cps():
         seed=rng_seed,
         psf=imdict['impsfchromatic'], bandpass=imdict['bandpass'])
     assert np.sum(im4.array) > 0  # at least verify that we added some sources...
-    assert len(objinfo['objinfo']['array']) == 2  # two sources were added
+    assert len(objinfo['objinfo']) == 2  # two sources were added
 
     im5 = im.copy()
     _, objinfo = l3.simulate_cps(
