@@ -67,13 +67,6 @@ default_mosaic_parameters_dictionary = {
               },
     'wcsinfo': {'ra_ref': 270.0,
                 'dec_ref': 66.0,
-                'v2_ref': 0,
-                'v3_ref': 0,
-                'roll_ref': 0,
-                'vparity': -1,
-                'v3yangle': -60.0,
-                # I don't know what vparity and v3yangle should really be,
-                # but they are always -1 and -60 in existing files.
                 },
 }
 

@@ -24,6 +24,7 @@ import roman_datamodels.maker_utils as maker_utils
 import astropy
 from galsim import roman
 from astropy import table
+import astropy.coordinates
 
 
 def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
@@ -328,16 +329,17 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     # Create metadata object
     meta = maker_utils.mk_mosaic_meta()
     for key in romanisim.parameters.default_mosaic_parameters_dictionary.keys():
-        meta[key].update(romanisim.parameters.default_mosaic_parameters_dictionary[key])
+        meta[key].update(
+            romanisim.parameters.default_mosaic_parameters_dictionary[key])
     meta['wcs'] = wcs
     meta['basic']['optical_element'] = filter_name
     for key in metadata.keys():
-        if key not in meta:
+        if key not in meta or not isinstance(meta[key], dict):
             meta[key] = metadata[key]
         else:
             meta[key].update(metadata[key])
-    # May need an equivalent of this this for L3?
-    # util.add_more_metadata(meta)
+
+    add_more_metadata(meta, efftimes, filter_name, wcs, shape, nexposures)
 
     log.info('Simulating filter {0}...'.format(filter_name))
 
@@ -581,8 +583,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
             image, objlist, src_exptimes, xpos=xpos, ypos=ypos,
             filter_name=filter_name, psf=psf, bandpass=bandpass, rng=rng,
             maggytoes=maggytoes0, etomjysr=etomjysr)
-
-    extras['objinfo'] = objinfo
+        extras['objinfo'] = objinfo
 
     if sky is not None:
         # in e / s
@@ -684,3 +685,84 @@ def make_l3(image, metadata, efftimes, var_poisson=None,
     mosaic_node.weight = efftimes_arr.astype(np.float32)
 
     return mosaic_node
+
+
+def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
+    """Fill in the L3 metadata for simulations.
+
+    Updates the 'metadata' array in place.  Touches a number of fields in
+    metadata.basic, metadata.photometry, metadata.resample, metadata.wcsinfo
+    and the metadata root.
+
+    Parameters
+    ----------
+    metadata
+        metadata to update
+    efftimes : np.ndarray
+        exposure time on each pixel
+    filter_name : str
+        name of filter
+    wcs : gwcs.wcs.WCS
+        WCS for mosaic
+    shape : tuple[2]
+        shape of mosaic
+    nexposures : int
+        number of exposures contributing to mosaic
+    """
+    maxtime = np.max(efftimes)
+    meantime = metadata['basic']['time_mean_mjd']
+    meanexptime = (efftimes if np.isscalar(efftimes) else
+                   np.mean(efftimes[efftimes > 0]))
+    # guesses at the first and last times; do not really make sense
+    # for this kind of simulation
+    metadata['basic']['time_first_mjd'] = meantime - maxtime / 24 / 60 / 60 / 2
+    metadata['basic']['time_last_mjd'] = meantime + maxtime / 24 / 60 / 60 / 2
+    metadata['basic']['max_exposure_time'] = maxtime
+    metadata['basic']['mean_exposure_time'] = meanexptime
+    for step in ['flux', 'outlier_detection', 'skymatch', 'resample']:
+        metadata['cal_step'][step] = 'COMPLETE'
+    metadata['basic']['individual_image_meta'] = None
+    metadata['model_type'] = 'MosaicModel'  # WfiMosaic ??
+    metadata['photometry']['conversion_microjanskys'] = (
+        (1e12 * (u.rad / u.arcsec) ** 2).to(u.dimensionless_unscaled) *
+        u.uJy / u.arcsec ** 2)
+    metadata['photometry']['conversion_megajanskys'] = 1 * u.MJy / u.sr
+
+    cenx, ceny = ((shape[1] - 1) / 2, (shape[0] - 1) / 2)
+    c1 = wcs.pixel_to_world(cenx, ceny)
+    c2 = wcs.pixel_to_world(cenx + 1, ceny)
+    pscale = c1.separation(c2)
+
+    metadata['photometry']['pixelarea_steradians'] = (pscale ** 2).to(u.sr)
+    metadata['photometry']['pixelarea_arcsecsq'] = (
+        pscale.to(u.arcsec) ** 2)
+    metadata['photometry']['conversion_microjanskys_uncertainty'] = (
+        0 * u.uJy / u.arcsec ** 2)
+    metadata['photometry']['conversion_megajanskys_uncertainty'] = (
+        0 * u.MJy / u.sr)
+    metadata['resample']['pixel_scale_ratio'] = (
+        pscale.to(u.arcsec).value / romanisim.parameters.pixel_scale)
+    metadata['resample']['pixfrac'] = 0
+    # our simulations sort of imply idealized 0 droplet size
+    metadata['resample']['pointings'] = nexposures
+    metadata['resample']['product_exposure_time'] = (
+        metadata['basic']['max_exposure_time'])
+    xref, yref = wcs.world_to_pixel(
+        metadata['wcsinfo']['ra_ref'], metadata['wcsinfo']['dec_ref'])
+    metadata['wcsinfo']['x_ref'] = xref
+    metadata['wcsinfo']['y_ref'] = yref
+    metadata['wcsinfo']['rotation_matrix'] = [[1, 0], [0, 1]]
+    metadata['wcsinfo']['pixel_scale'] = pscale.to(u.arcsec).value
+    metadata['wcsinfo']['pixel_scale_local'] = metadata['wcsinfo'].pixel_scale
+    metadata['wcsinfo']['s_region'] = romanisim.wcs.create_s_region(wcs, shape)
+    metadata['wcsinfo']['pixel_shape'] = shape
+    metadata['wcsinfo']['ra_center'] = c1.ra.to(u.degree).value
+    metadata['wcsinfo']['dec_center'] = c1.dec.to(u.degree).value
+    xcorn, ycorn = [[0, shape[1] - 1, shape[1] - 1, 0],
+                    [0, 0, shape[0] - 1, shape[0] - 1]]
+    ccorn = wcs.pixel_to_world(xcorn, ycorn)
+    for i, corn in enumerate(ccorn):
+        metadata['wcsinfo']['ra_corn{i+1}'] = corn.ra.to(u.degree).value
+        metadata['wcsinfo']['dec_corn{i+1}'] = corn.dec.to(u.degree).value
+    metadata['wcsinfo']['orientat_local'] = 0
+    metadata['wcsinfo']['orientat'] = 0
