@@ -440,7 +440,7 @@ def test_simulate_cps():
         psf=imdict['impsfchromatic'], xpos=[1000, 1000],
         seed=rng_seed,
         ypos=[1000, 1000])
-    assert np.sum(objinfo['objinfo']['counts'] > 0) == 0
+    assert 'objinfo' not in objinfo
     # these sources should be out of bounds
 
 

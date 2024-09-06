@@ -537,13 +537,10 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
                              for o in objlist])
         xpos, ypos = image.wcs.radecToxy(coord[:, 0], coord[:, 1], 'deg')
 
-    if xpos is not None:
-        xpos = np.array(xpos)
-    if ypos is not None:
-        ypos = np.array(ypos)
-
     # Check for objects outside the image boundary (+ consideration)
     if len(objlist) > 0:
+        xpos = np.array(xpos)
+        ypos = np.array(ypos)
         keep = romanisim.image.in_bounds(xpos, ypos, image.bounds,
                                          ignore_distant_sources)
 
@@ -553,36 +550,41 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
             objlist = [o for (o, k) in zip(objlist, keep) if k]
         xpos = xpos[keep]
         ypos = ypos[keep]
+
+    if len(objlist) > 0:
         # Pixelized object locations
-        xpos_idx = [round(x) for x in xpos]
-        ypos_idx = [round(y) for y in ypos]
+        xpos_idx = np.round(xpos).astype('i4')
+        ypos_idx = np.round(ypos).astype('i4')
 
         offedge = romanisim.image.in_bounds(xpos, ypos, image.bounds, 0)
         # Set exposure time per source
         if isinstance(efftimes, np.ndarray):
-            src_exptimes = [efftimes[y, x] for x, y in zip(xpos_idx, ypos_idx)]
+            src_exptimes = [
+                efftimes[y, x] if onframe else -1
+                for x, y, onframe in zip(xpos_idx, ypos_idx, ~offedge)]
         else:
             src_exptimes = [efftimes] * len(xpos)
         src_exptimes = np.array(src_exptimes)
+        avg_exptime = np.average(src_exptimes[src_exptimes > 0])
+        src_exptimes[src_exptimes == -1] = avg_exptime
 
-        # Set the average exposure time to objects lacking one
-        if True in offedge:
-            avg_exptime = np.average(src_exptimes)
-            src_exptimes[offedge] = avg_exptime
+        if isinstance(objlist, astropy.table.Table):
+            objlist = romanisim.catalog.table_to_catalog(objlist, [filter_name])
 
-    else:
-        src_exptimes = []
-
-    if isinstance(objlist, astropy.table.Table):
-        objlist = romanisim.catalog.table_to_catalog(objlist, [filter_name])
-
-    # Add objects to mosaic
-    if len(src_exptimes) > 0:
-        maggytoes0 = maggytoes if not objlist[0].profile.spectral else 1
-        objinfo = add_objects_to_l3(
+        # Add objects to mosaic
+        chromatic = objlist[0].profile.spectral
+        maggytoes0 = maggytoes if not chromatic else 1
+        objinfo0 = add_objects_to_l3(
             image, objlist, src_exptimes, xpos=xpos, ypos=ypos,
             filter_name=filter_name, psf=psf, bandpass=bandpass, rng=rng,
             maggytoes=maggytoes0, etomjysr=etomjysr)
+        objinfo = np.zeros(
+            len(objlist),
+            dtype=[('x', 'f4'), ('y', 'f4'), ('counts', 'f4'), ('time', 'f4')])
+        objinfo['x'] = xpos
+        objinfo['y'] = ypos
+        objinfo['counts'] = objinfo0['counts']
+        objinfo['time'] = objinfo0['time']
         extras['objinfo'] = objinfo
 
     if sky is not None:
