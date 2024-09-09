@@ -544,3 +544,31 @@ def update_photom_keywords(im, gain=None):
         0 * u.MJy / u.sr)
     im['meta']['photometry']['conversion_microjanskys_uncertainty'] = (
         0 * u.uJy / u.arcsec ** 2)
+
+
+def merge_dicts(a, b):
+    """Merge two dictionaries, replacing values in a with values in b.
+
+    When both a & b have overlapping dictionaries, this recursively
+    merges their contents.  If a key does not correspond to a dictionary
+    in both a & b, then the content of a is overwritten with the content
+    of b.
+
+    Parameters
+    ----------
+    a : dict
+        Dictionary to update
+
+    b : dict
+        Dictionary to use to update a.
+
+    Returns
+    -------
+    a, mutated to contain keys from b.
+    """
+    for key in b:
+        if key in a and isinstance(a[key], dict) and isinstance(b[key], dict):
+            merge_dicts(a[key], b[key])
+        else:
+            a[key] = b[key]
+    return a

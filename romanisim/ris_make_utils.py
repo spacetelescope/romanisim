@@ -18,7 +18,7 @@ from romanisim import catalog, image, wcs
 from romanisim import parameters, log
 import romanisim
 
-NMAP = {'apt':'{http://www.stsci.edu/Roman/APT}'}
+NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}
 
 def merge_nested_dicts(dict1, dict2):
     """
@@ -182,26 +182,23 @@ def parse_filename(filename):
     """
 
     # format is:
-    # r + PPPPPCCAAASSSOOOVVV_ggsaa_eeee_DET_suffix.asdf
+    # r + PPPPPCCAAASSSOOOVVV_eeee_DET_suffix.asdf
     # PPPPP = program
     # CC = execution plan number
     # AAA = pass number
     # SSS = segment number
     # OOO = observation number
     # VVV = visit number
-    # gg = group identifier
-    # s = sequence identifier
-    # aa = activity identifier
     # eeee = exposure number
-    # rPPPPPCCAAASSSOOOVVV_ggsaa_eeee
-    # 0123456789012345678901234567890
+    # rPPPPPCCAAASSSOOOVVV_eeee
+    # 0123456789012345678901234
     if len(filename) < 31:
         return None
 
     regex = (r'r(\d{5})(\d{2})(\d{3})(\d{3})(\d{3})(\d{3})'
-              '_(\d{2})(\d{1})([a-zA-Z0-9]{2})_(\d{4})')
+             r'_(\d{4})')
     pattern = re.compile(regex)
-    filename = filename[:31]
+    filename = filename[:25]
     match = pattern.match(filename)
     if match is None:
         return None
@@ -213,10 +210,7 @@ def parse_filename(filename):
                segment=int(match.group(4)),
                observation=int(match.group(5)),
                visit=int(match.group(6)),
-               visit_file_group=int(match.group(7)),
-               visit_file_sequence=int(match.group(8)),
-               visit_file_activity=match.group(9),  # this one is a string
-               exposure=int(match.group(10)))
+               exposure=int(match.group(7)))
     out['pass'] = int(match.group(3))
     # not done above because pass is a reserved python keyword
     return out
@@ -279,79 +273,60 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     af.write_to(open(args.filename, 'wb'))
 
 
-def parse_apt_file(filename, csv_exposures):
+def parse_apt_file(filename):
     """
-    Pry program / pass / visit / ... information out of the apt file.
+    Extract metadata from apt file and put it into our preferred structure.
 
     Parameters
     ----------
     filename : str
         filename of apt to parse
 
-    csv_exposures : int
-        number of exposures specified by the apt file
-
     Returns
     -------
-    list of name prefixes
+    dictionary of metadata
     """
 
-    # format is:
-    # r + PPPPPCCAAASSSOOOVVV_ggsaa_eeee_DET_suffix.asdf
-    # PPPPP = program
-    # CC = execution plan number
-    # AAA = pass number
-    # SSS = segment number
-    # OOO = observation number
-    # VVV = visit number
-    # gg = group identifier
-    # s = sequence identifier
-    # aa = activity identifier
-    # eeee = exposure number
-    # rPPPPPCCAAASSSOOOVVV_ggsaa_eeee
+    metadata = dict()
 
-    # Parse the xml
-    apt_tree = defusedxml.ElementTree.parse(filename)
-    program = apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text \
-        if apt_tree.find('.//{*}ProgramID', namespaces=NMAP).text else 1
+    keys = [(('ProgramInformation', 'Title'), ('program', 'title')),
+            (('ProgramInformation', 'PrincipalInvestigator',
+                  'InvestigatorAddress', 'LastName'),
+                 ('program', 'pi_name')),
+            (('ProgramInformation', 'ProgramCategory'),
+                 ('program', 'category')),
+            (('ProgramInformation', 'ProgramCategorySubtype'),
+                 ('program', 'subcategory')),
+            (('ProgramInformation', 'ProgramID'), ('observation', 'program'))]
 
-    execution_plan = 1
-    pass_plan_tree = apt_tree.find('.//{*}PassPlans', namespaces=NMAP)
-    pass_plans = pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) \
-        if pass_plan_tree.findall('.//{*}PassPlan', namespaces=NMAP) else [-1]
+    def get_apt_key(tree, keypath):
+        element = tree.find('apt:' + keypath[0], namespaces=NMAP)
+        for key in keypath[1:]:
+            element = element.find('apt:' + key, namespaces=NMAP)
+        if element is not None:
+            out = element.text
+        else:
+            out = ''
+            log.info('Could not find key in apt file: ' + str(keypath))
+        return out
 
-    total_apt_exposures = 0
-    for exp in apt_tree.findall('.//{*}NumberOfExposures', namespaces=NMAP):
-        total_apt_exposures += int(exp.text)
+    def update_metadata(metadata, keypath, value):
+        d = metadata
+        for key in keypath[:-1]:
+            if key not in metadata:
+                metadata[key] = dict()
+            d = metadata[key]
+        d[keypath[-1]] = value
 
-    # Account for extra exposures due to dither pattern
-    if csv_exposures > total_apt_exposures:
-        avg_visits = int(csv_exposures / total_apt_exposures)
-    else:
-        avg_visits = 1
+    tree = defusedxml.ElementTree.parse(filename)
 
-    name_prefix_lst = []
+    for aptkey, metadatakey in keys:
+        value = get_apt_key(tree, aptkey)
+        update_metadata(metadata, metadatakey, value)
+        # only works because these are all strings at present
 
-    # Set defaults
-    segment = 1
-    group = 1
-    sequence = 1
-    activity = 1
+    metadata['observation']['program'] = (
+        f'{int(metadata["observation"]["program"]):05d}')
+    # hack to get the program to have the 0 prefixes.
 
-    for pn in pass_plans:
-        pass_number = pn.get('Number')
-        obs_num = 0      
-
-        for on in pn.findall('.//{*}Observation', namespaces=NMAP):
-            obs_num += 1
-            exp_num = int(on.find('.//{*}NumberOfExposures', namespaces=NMAP).text)
-
-            for vn in range(avg_visits):
-                for en in range(exp_num):
-                    # Can make the Programmatic observation identifier list now
-                    prefix = "r" + str(program).zfill(5) + str(execution_plan).zfill(2) + str(pass_number).zfill(3) +\
-                             str(segment).zfill(3) + str(obs_num).zfill(3) + str(vn+1).zfill(3) + "_" +\
-                             str(group).zfill(2) + str(sequence).zfill(1) + str(activity).zfill(2) + "_" + str(en+1).zfill(4)
-                    name_prefix_lst.append(prefix)
-    
-    return name_prefix_lst
+    return metadata
