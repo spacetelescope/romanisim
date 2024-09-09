@@ -132,3 +132,21 @@ extend-ignore = [
 
 [tool.cibuildwheel.macos]
 before-build = "brew install eigen fftw"
+
+[tool.towncrier]
+filename = "CHANGES.rst"
+directory = "changes"
+package = "romanisim"
+title_format = "{version} ({project_date})"
+ignore = [".gitkeep"]
+wrap = true
+issue_format = "`#{issue} <https://github.com/spacetelescope/romanisim/issues/{issue}>`_"
+
+[tool.towncrier.fragment.apichange]
+name = "Changes to API"
+
+[tool.towncrier.fragment.bugfix]
+name = "Bug Fixes"
+
+[tool.towncrier.fragment.general]
+name = "General"
