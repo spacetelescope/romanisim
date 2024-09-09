@@ -27,7 +27,6 @@ import asdf
 import webbpsf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
-from metrics_logger.decorators import metrics_logger
 from romanisim import log
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 import romanisim.bandpass
@@ -160,7 +159,6 @@ def central_stamp(im, sz):
               center - szo2: center + szo2 + 1]
 
 
-@metrics_logger("DMS214", "DMS215")
 @pytest.mark.soctests
 def test_image_rendering():
     """Tests for image rendering routines.  This is demonstrates:
@@ -276,7 +274,6 @@ def test_image_rendering():
     # Poisson errors and containing 100k counts.
 
 
-@metrics_logger("DMS218")
 def test_add_objects():
     """Test adding objects to images.
     Demonstrates profile sensitivity to distortion component of DMS218.
@@ -321,7 +318,6 @@ def test_add_objects():
     # the actual ratio was 42.
 
 
-@metrics_logger("DMS230")
 def test_simulate_counts_generic():
     """Test adding poisson noise to images.
     Demonstrates DMS230: poisson noise
@@ -446,7 +442,6 @@ def test_simulate_counts():
     assert np.all(m)
 
 
-@metrics_logger("DMS216", "DMS218", "DMS221", "DMS224")
 @pytest.mark.soctests
 def test_simulate():
     """Test convolved image generation and L2 simulation framework.
@@ -631,7 +626,6 @@ def test_reference_file_crds_match(level):
         assert (type(im) is WfiImage)
 
 
-@metrics_logger("DMS231")
 @pytest.mark.soctests
 def test_inject_source_into_image():
     """Inject a source into an image.
@@ -688,7 +682,6 @@ def test_inject_source_into_image():
         af.write_to(os.path.join(artifactdir, 'dms231.asdf'))
 
 
-@metrics_logger("DMS228")
 @pytest.mark.soctests
 def test_image_input(tmpdir):
     # make some simple example images

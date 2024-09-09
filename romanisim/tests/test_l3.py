@@ -13,14 +13,12 @@ from astropy import table
 from astropy.stats import mad_std
 import asdf
 import pytest
-from metrics_logger.decorators import metrics_logger
 import roman_datamodels.maker_utils as maker_utils
 import romanisim.bandpass
 from galsim import roman
 from astropy.coordinates import SkyCoord
 
 
-@metrics_logger("DMS232")
 @pytest.mark.soctests
 def test_inject_sources_into_mosaic():
     """Inject sources into a mosaic.
@@ -132,7 +130,6 @@ def test_inject_sources_into_mosaic():
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
 
 
-@metrics_logger("DMS219")
 @pytest.mark.soctests
 def test_sim_mosaic():
     """Generating mosaic from catalog file.
