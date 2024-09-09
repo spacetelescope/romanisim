@@ -7,16 +7,7 @@ The simulation of L3 images is simplified relative to true L3 images.  First, as
 
 The L3 PSF aims to include the convolution with the native scale that Roman necessarily includes, but to also support oversampled images where the L3 pixel scale can be significantly finer than the native pixel scale.  In these cases we include an additional square convolution to "make up the difference" between the L3 pixel scale and the L2 pixel scale; see the :meth:`romanisim.l3.l3_psf` method for more details.
 
-The ``romanisim-make-l3`` command-line interface can be used to make L3 files.  
-
-L3 source injection
-===================
-
-We support injecting sources into L3 files.  L3 source injection is very similar to L3 image creation, except we do not need to invent effective read noises or exposure times or WCSes.  Instead we only change the Poisson noise, since we are only adding additional new sources.
-
-Conceptually we just add more sources to the image in the same way as in L3 image creation.  The primary challenge is picking the correct exposure time so that the Poisson noise in the simulation is correct; we (optionally) simulate individual photons and so the conversion between calibrated units and electrons is still relevant in the L3 files.  We do this by using the relationship between the calibrated flux and corresponding Poisson variance to figure out the effective calibrated-flux-to-electron relationship, and then simulate the appropriate number of electrons and convert back.
-
-The function :meth:`romanisim.l3.inject_sources_into_l3` is the intended entry point for L3 simulations.  Invocations look like::
+The ``romanisim-make-l3`` command-line interface can be used to make L3 files.  Invocations look like::
 
     romanisim-make-l3 --bandpass F158 --radec 270 66 --npix 2000 --pixscalefrac 0.9 --exptime 1000 l3.asdf gaia-270-66-2027-06-01.ecsv
 
@@ -56,5 +47,14 @@ There are a number of possible input arguments::
     EXAMPLE: romanisim-make-l3 output_image.asdf catalog.ecsv
 
 The arguments control things like the filter used, the date of observation (used to estimate the sky background), the right ascension and declination of the center of the mosaic, the number of pixels in the mosaic, and the degree of oversampling of the output mosaic.  Parameters also control the effective depth of the mosaic, though the exposure time, effective read noise, and number of exposures.
+
+L3 source injection
+===================
+
+We support injecting sources into L3 files.  L3 source injection is very similar to L3 image creation, except we do not need to invent effective read noises or exposure times or WCSes.  Instead we only change the Poisson noise, since we are only adding additional new sources.
+
+Conceptually we just add more sources to the image in the same way as in L3 image creation.  The primary challenge is picking the correct exposure time so that the Poisson noise in the simulation is correct; we (optionally) simulate individual photons and so the conversion between calibrated units and electrons is still relevant in the L3 files.  We do this by using the relationship between the calibrated flux and corresponding Poisson variance to figure out the effective calibrated-flux-to-electron relationship, and then simulate the appropriate number of electrons and convert back.
+
+The function :meth:`romanisim.l3.inject_sources_into_l3` is the intended entry point for L3 source injection; see its documentation for more details about how to add sources to an L3 image.
 
 .. automodapi:: romanisim.l3

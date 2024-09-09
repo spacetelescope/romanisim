@@ -919,7 +919,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     This routine allows sources to be injected onto an existing L2 image.
     Source injection into an L2 image relies on knowing the objects'
     x and y locations, the PSF, and the image gain; if these are not provided,
-    reasonable defaults are generated.
+    reasonable defaults are generated from the input model.
 
     The simulation proceeds by (optionally) using the model WCS to generate the
     x & y locations, grabbing the gain from
