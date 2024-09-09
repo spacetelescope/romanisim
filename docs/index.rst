@@ -32,6 +32,7 @@ Contents
    romanisim/parameters
    romanisim/util
 
+   romanisim/changes
 
 Indices and tables
 ==================
