@@ -565,7 +565,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         else:
             src_exptimes = [efftimes] * len(xpos)
         src_exptimes = np.array(src_exptimes)
-        avg_exptime = np.average(src_exptimes[src_exptimes > 0])
+        avg_exptime = np.average(efftimes[efftimes > 0])
         src_exptimes[src_exptimes == -1] = avg_exptime
 
         if isinstance(objlist, astropy.table.Table):
