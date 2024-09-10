@@ -609,7 +609,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         image += readnoise
     else:
         effreadnoise = 0
-    extras['var_rnoise'] = effreadnoise
+    extras['var_rnoise'] = effreadnoise ** 2
 
     var_poisson_factor = (efftimes / etomjysr) * etomjysr ** 2 / efftimes ** 2
     # goofy game with etomjysr: image * (efftimes / etomjysr)

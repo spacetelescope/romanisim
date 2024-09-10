@@ -10,6 +10,7 @@ import galsim
 from romanisim import parameters, catalog, wcs, l3, psf, util, log
 from astropy import units as u
 from astropy import table
+from astropy.stats import mad_std
 import asdf
 import pytest
 from metrics_logger.decorators import metrics_logger
@@ -204,6 +205,14 @@ def test_sim_mosaic():
 
     # Ensure that the measured flux is close to the expected flux
     assert np.abs(np.log(expectedflux) / np.log(totflux) - 1) < 0.1
+
+    # Is the noise about right?
+    assert np.abs(
+        mad_std(mosaic.data.value) / np.median(mosaic.err.value) - 1) < 0.5
+    # note large ~50% error bar there; value in initial test run is 0.25
+    # a substantial number of source pixels have flux, so the simple medians
+    # and mads aren't terribly right.
+    # if I repeat this after only including the first source I get 1.004.
 
     # Add log entries and artifacts
     log.info('DMS219 successfully created mosaic file with sources rendered '
@@ -532,7 +541,6 @@ def test_scaling():
     assert np.abs(skyfracdiff) < 0.1
 
     # check that uncertainties match observed standard deviations
-    from astropy.stats import mad_std
     err1fracdiff = mad_std(im1.data.value) / np.median(im1.err.value) - 1
     err2fracdiff = mad_std(im2.data.value) / np.median(im2.err.value) - 1
     log.info(f'err1fracdiff: {err1fracdiff:.3f}, '
