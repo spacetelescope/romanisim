@@ -592,7 +592,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         extras['objinfo'] = objinfo
 
     if sky is not None:
-        # in e / s / nominal pix
+        # in e / s / output pixel
         poisson_noise = galsim.PoissonNoise(rng)
         workim = image * 0
         workim += sky * efftimes
