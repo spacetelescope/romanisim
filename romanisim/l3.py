@@ -148,14 +148,14 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     cat = romanisim.catalog.table_to_catalog(cat, [filter_name])
 
     wcs = romanisim.wcs.GWCS(model.meta.wcs)
+    pixscalefrac = get_pixscalefrac(wcs, model.data.shape)
     if psf is None:
-        pixscalefrac = get_pixscalefrac(wcs, model.data.shape)
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
         psf = l3_psf(filter_name, pixscalefrac, webbpsf=True, chromatic=False)
 
     maggytoes = romanisim.bandpass.get_abflux(filter_name)
-    etomjysr = romanisim.bandpass.etomjysr(filter_name)
+    etomjysr = romanisim.bandpass.etomjysr(filter_name) / pixscalefrac ** 2
 
     Ct = []
     for idx, (x0, y0) in enumerate(zip(x, y)):
