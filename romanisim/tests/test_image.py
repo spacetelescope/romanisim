@@ -30,7 +30,6 @@ import pytest
 from metrics_logger.decorators import metrics_logger
 from romanisim import log
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
-from roman_datamodels import datamodels
 import romanisim.bandpass
 
 
