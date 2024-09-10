@@ -459,21 +459,46 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
                  mosaic_node.data.shape[1])
         shape = mosaic_node.data.shape
 
-    if (elem is None for elem in [xpos,ypos,coord]):
-        # Create a tangent plane WCS for the mosaic
-        # The affine parameters below should be reviewed and updated
-        affine = galsim.fitswcs.AffineTransform(
-            romanisim.parameters.pixel_scale, 0, 0, romanisim.parameters.pixel_scale, origin=galsim.PositionI(x=math.ceil(shape[1] / 2.0), y=math.ceil(shape[0] / 2.0)),
-            world_origin=galsim.PositionD(0, 0))
-        wcs = galsim.fitswcs.TanWCS(affine,
-                            util.celestialcoord(world_pos))
-    else:
-        # Create GWCS compatible tangent plane WCS
-        header = {}
-        wcs = galsim.FittedSIPWCS(xpos, ypos, coord[:, 0], coord[:, 1], wcs_type='TAN', center=util.celestialcoord(world_pos))
-        wcs._writeHeader(header, galsim.BoundsI(0, shape[0], 0, shape[1]))
-        # metadata['wcs'] = romanisim.wcs.wcs_from_fits_header(header)
+    xcen = math.ceil(shape[1] / 2.0)
+    ycen = math.ceil(shape[0] / 2.0)
+    wcs = create_tangent_plane_gwcs(
+        (xcen, ycen), romanisim.parameters.pixel_scale, world_pos)
     return wcs
+
+
+def create_tangent_plane_gwcs(center, scale, center_coord):
+    """Create a tangent plane GWCS object.
+
+    Parameters
+    ----------
+    center : (float, float)
+        pixel coordinates of center
+    scale : float
+        pixel scale (arcsec)
+    center_coord : SkyCoord or CelestialCoord
+        coordinates of center pixel
+    
+    Returns
+    -------
+    GWCS object corresponding to tangent plane projection
+    """
+
+    center_coord = util.skycoord(center_coord)
+    pixelshift = models.Shift(-center[0]) & models.Shift(-center[1])
+    pixelscale = models.Scale(scale / 3600.) & models.Scale(scale / 3600.)
+    tangent_projection = models.Pix2Sky_TAN()
+    celestial_rotation = models.RotateNative2Celestial(
+        center_coord.ra.to(u.deg).value,
+        center_coord.dec.to(u.deg).value, 180.)
+    det2sky = pixelshift | pixelscale | tangent_projection | celestial_rotation
+    detector_frame = cf.Frame2D(name="detector", axes_names=("x", "y"),
+                                unit=(u.pix, u.pix))
+    sky_frame = cf.CelestialFrame(
+        reference_frame=astropy.coordinates.ICRS(), name='icrs',
+        unit=(u.deg, u.deg))
+    wcsobj = gwcs.wcs.WCS([(detector_frame, det2sky),
+                          (sky_frame, None)])
+    return wcsobj
 
 
 def create_s_region(wcs, shape=None):

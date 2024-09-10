@@ -14,4 +14,19 @@ The parsed metadata is used to make a ``counts`` image that is an idealized imag
 These idealized count images are then used to either make a level 2 image or a level 1 image, which are intended to include
 the effects of these complications.  The construction of L1 images is described :doc:`here </romanisim/l1>`, and the construction of L2 images is described :doc:`here </romanisim/l2>`.
 
+L2 source injection
+-------------------
+
+We support injecting sources into L2 files.  L2 source injection follows many of the same steps as L1 creation, with some short cuts.  The simulation creates an idealized image of the total number of counts deposited into each pixel, using the provided catalog, exposure time, filter, WCS, and PSF from the provided image.  A virtual ramp is generated for the existing L2 file by evenly apportioning the L2 flux among the resultants.  Additional counts from the injected source are added to each resultant in the virtual ramp using the same code as for the L1 simulations.  The resulting virtual ramp is fit to get the new flux per pixel, and we replace the values in the original L2 model with the new slope measurements.
+
+This makes some shortcuts:
+
+* The L2 files don't include information about which pixels contain CR hits.  Sources injected into pixels with CR hits get re-fit as if there were no CR.
+* Non-linearity is not included; the ramp is refit without any non-linearity.
+* The ramp is refit without persistence, but any persistence which was included in the initial ramp slope is still included.
+
+The function :meth:`romanisim.image.inject_sources_into_l2` is the intended entry point for L2 source injection; see its documentation for more details about how to add sources to an L2 image.
+
+
+
 .. automodapi:: romanisim.image

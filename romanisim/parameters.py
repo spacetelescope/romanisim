@@ -5,8 +5,6 @@ import numpy as np
 from astropy.time import Time
 from astropy import units as u
 
-pixel_scale = 0.11
-
 read_pattern = {1: [[1 + x for x in range(8)],
                     [9 + x for x in range(8)],
                     [17 + x for x in range(8)],
@@ -67,13 +65,6 @@ default_mosaic_parameters_dictionary = {
               },
     'wcsinfo': {'ra_ref': 270.0,
                 'dec_ref': 66.0,
-                'v2_ref': 0,
-                'v3_ref': 0,
-                'roll_ref': 0,
-                'vparity': -1,
-                'v3yangle': -60.0,
-                # I don't know what vparity and v3yangle should really be,
-                # but they are always -1 and -60 in existing files.
                 },
 }
 
@@ -86,17 +77,6 @@ reference_data = {
     "linearity": None,
     "readnoise": 5.0 * u.DN,
     "saturation": 55000 * u.DN,
-    # Taken from roman_wfi_photom_0046.asdf
-    "photom": {"pixelareasr": {"F062": 2.640600009241359e-13 * u.sr,
-                               "F087": 2.640600009241359e-13 * u.sr,
-                               "F106": 2.640600009241359e-13 * u.sr,
-                               "F129": 2.640600009241359e-13 * u.sr,
-                               "F146": 2.640600009241359e-13 * u.sr,
-                               "F158": 2.640600009241359e-13 * u.sr,
-                               "F184": 2.640600009241359e-13 * u.sr,
-                               "F213": 2.640600009241359e-13 * u.sr,
-                               }
-               }
 }
 
 nborder = 4  # number of border pixels used for reference pixels.
@@ -172,3 +152,6 @@ persistence = {
 
 # angle of V3 relative to +Y
 V3IdlYAngle = -60
+
+# fiducial WFI pixel scale in arcseconds
+pixel_scale = 0.11
