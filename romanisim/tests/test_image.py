@@ -654,7 +654,6 @@ def test_inject_source_into_image():
         meta, cat, usecrds=False, webbpsf=True, level=2,
         rng=rng, psf_keywords=dict(nlambda=1),
         crparam=None)
-    im = datamodels.ImageModel(im)
 
     # Create catalog with one source for injection
     xpos, ypos = 10, 10

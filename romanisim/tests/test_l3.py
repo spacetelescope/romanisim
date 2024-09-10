@@ -102,14 +102,6 @@ def test_inject_sources_into_mosaic():
     _ = l3.inject_sources_into_l3(
         l3_mos, sc_table, seed=rng_seed)
 
-    # Create overall scaling factor map
-    Ct_all = np.divide(l3_mos_orig.data.value, l3_mos_orig.var_poisson.value,
-                       out=np.ones(l3_mos_orig.data.shape),
-                       where=l3_mos_orig.var_poisson.value != 0)
-
-    # Set new poisson variance
-    l3_mos.var_poisson = (l3_mos.data.value / Ct_all) * l3_mos.var_poisson.unit
-
     # Ensure that every data pixel value has increased or
     # remained the same with the new sources injected
     assert np.all(l3_mos.data.value >= l3_mos_orig.data.value)
@@ -535,27 +527,39 @@ def test_scaling():
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on pixel scale (in calibrated units!)
-    assert np.abs(np.median(im1.data.value) / np.median(im2.data.value) - 1) < 0.1
+    skyfracdiff = np.median(im1.data.value) / np.median(im2.data.value) - 1
+    log.info(f'skyfracdiff: {skyfracdiff:.3f}')
+    assert np.abs(skyfracdiff) < 0.1
 
     # check that uncertainties match observed standard deviations
     from astropy.stats import mad_std
-    assert np.abs(mad_std(im1.data.value) / np.median(im1.err.value) - 1) < 0.1
-    assert np.abs(mad_std(im2.data.value) / np.median(im2.err.value) - 1) < 0.1
+    err1fracdiff = mad_std(im1.data.value) / np.median(im1.err.value) - 1
+    err2fracdiff = mad_std(im2.data.value) / np.median(im2.err.value) - 1
+    log.info(f'err1fracdiff: {err1fracdiff:.3f}, '
+             f'err2fracdiff: {err2fracdiff:.3f}')
+    assert np.abs(err1fracdiff) < 0.1
+    assert np.abs(err2fracdiff) < 0.1
 
     # doubled exposure time
     im3, extras3 = l3.simulate(
-        (npix, npix), twcs1, exptime * 2, imdict['filter_name'],
+        (npix, npix), twcs1, exptime * 10, imdict['filter_name'],
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on exposure time (in calibrated units!)
-    assert np.abs(np.median(im1.data.value) / np.median(im3.data.value) - 1) < 0.1
+    sky3fracdiff = np.median(im1.data.value) / np.median(im3.data.value) - 1
+    log.info(f'sky3fracdiff: {sky3fracdiff:.4f}')
+    assert np.abs(sky3fracdiff) < 0.1
 
     # check that variances still work out
-    assert np.abs(mad_std(im3.data.value) / np.median(im3.err.value) - 1) < 0.1
+    err3fracdiff = mad_std(im3.data.value) / np.median(im3.err.value) - 1
+    log.info(f'err3fracdiff: {err3fracdiff:.3f}')
+    assert np.abs(err3fracdiff) < 0.1
 
     # check that new variances are smaller than old ones by an appropriate factor
-    assert np.abs(
-        np.median(im1.err.value) / np.median(im3.err.value) - np.sqrt(2)) < 0.1
+    errfracdiff = (
+        np.median(im1.err.value) / np.median(im3.err.value) - np.sqrt(10))
+    log.info(f'err3 ratio diff from 1/sqrt(10) err1: {errfracdiff:0.3f}')
+    assert np.abs(errfracdiff) < 0.1
 
     # check that fluxes match
     # pixel scales are different by a factor of two.
@@ -573,4 +577,9 @@ def test_scaling():
         # are a factor of 4 smaller in the second integral
     # fluxes must match
     for flux in fluxes[1:]:
-        assert np.abs(fluxes[0] / flux - 1) < 0.1
+        fluxfracdiff = flux / fluxes[0] - 1
+        log.info(f'fluxfracdiff: {fluxfracdiff:.5f}')
+        assert np.abs(fluxfracdiff) < 0.1
+
+    # these all match to a few percent; worst case in initial test run
+    # was err3fracdiff of 0.039.

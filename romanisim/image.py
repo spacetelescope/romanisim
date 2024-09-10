@@ -1038,7 +1038,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         newramp[:, m], read_pattern,
         gain=gain, flat=1, darkrate=0)
 
-    res = model.copy()
+    res = copy.deepcopy(model)
     res.data[m] = newimage
     res.var_rnoise[m] = readvar
     res.var_poisson[m] = poissonvar
