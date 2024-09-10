@@ -43,12 +43,12 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
         Exposure times to scale back to rate units
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
-    coords : array_like
-        ra & dec positions of sources (deg) at which sources should be added
-    maggytoes : float
-        Factor to convert maggies to e/s
+    psf : galsim.Profile
+        PSF to use
     etomjysr: float
         Factor to convert electrons to MJy / sr
+    maggytoes : float
+        Factor to convert maggies to e/s
     filter_name : str
         Filter to use to select appropriate flux from objlist. This is only
         used when achromatic PSFs and sources are being rendered.
@@ -93,7 +93,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
 
 
 def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
-                           gain=None, webbpsf=True, exptimes=None, seed=None):
+                           webbpsf=True, exptimes=None, seed=None):
     """Inject sources into an L3 image.
 
     This routine allows sources to be injected onto an existing L3 image.
@@ -242,14 +242,17 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     the limit that the output pixel scale is 1, this does nothing, but
     provides undersampled output.
 
-    Extra arguments are passed to romanisim.psf.make_psf .
+    Extra arguments are passed to romanisim.psf.make_psf.
 
     Parameters
     ----------
-    pixscale : float
+    scale : float
         The output mosaic pixel scale.  Must be between 0 and 1.
     bandpass : str
         The filter to use
+    chromatic : bool
+        if True, generate a chromatic PSF rather than an achromatic PSF.
+        This is intended for use with galsim chromatic sources.
 
     Returns
     -------
@@ -360,15 +363,19 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         if not isinstance(date, astropy.time.Time):
             date = astropy.time.Time(date, format='mjd')
 
-        # Examine this in more detail to ensure it is correct
-        # Create base sky level
         mos_cent_pos = image.wcs.toWorld(image.true_center)
         sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos, exptime=1)
         sky_level *= (1.0 + roman.stray_light_fraction)
-        sky_mosaic = image * 0
-        image.wcs.makeSkyImage(sky_mosaic, sky_level)
-        sky_mosaic += roman.thermal_backgrounds[galsim_filter_name]
-        sky = sky_mosaic
+        sky = image * 0
+        image.wcs.makeSkyImage(sky, 1)
+        # image has 1 / pixel area in arcsec
+        sky += roman.thermal_backgrounds[galsim_filter_name]
+        # per native pixel quantity
+        # AOEU FIXME need to do stuff here.
+        # We want these units to be per _native_ 0.11" pixel.
+        # somewhere before the thermal backgrounds we need to multiply
+        # by sky_level and some factor relating the nominal scale
+        # to the actual scale.
     else:
         sky = sky / etomjysr  # convert to electrons / s / nominal pix
         # note that we might be making different pixel scales in the
@@ -724,7 +731,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     for step in ['flux', 'outlier_detection', 'skymatch', 'resample']:
         metadata['cal_step'][step] = 'COMPLETE'
     metadata['basic']['individual_image_meta'] = None
-    metadata['model_type'] = 'MosaicModel'  # WfiMosaic ??
+    metadata['model_type'] = 'WfiMosaic'
     metadata['photometry']['conversion_microjanskys'] = (
         (1e12 * (u.rad / u.arcsec) ** 2).to(u.dimensionless_unscaled) *
         u.uJy / u.arcsec ** 2)

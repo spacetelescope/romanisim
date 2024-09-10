@@ -15,7 +15,7 @@ These idealized count images are then used to either make a level 2 image or a l
 the effects of these complications.  The construction of L1 images is described :doc:`here </romanisim/l1>`, and the construction of L2 images is described :doc:`here </romanisim/l2>`.
 
 L2 source injection
-===================
+-------------------
 
 We support injecting sources into L2 files.  L2 source injection follows many of the same steps as L1 creation, with some short cuts.  The simulation creates an idealized image of the total number of counts deposited into each pixel, using the provided catalog, exposure time, filter, WCS, and PSF from the provided image.  A virtual ramp is generated for the existing L2 file by evenly apportioning the L2 flux among the resultants.  Additional counts from the injected source are added to each resultant in the virtual ramp using the same code as for the L1 simulations.  The resulting virtual ramp is fit to get the new flux per pixel, and we replace the values in the original L2 model with the new slope measurements.
 

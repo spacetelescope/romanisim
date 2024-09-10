@@ -46,10 +46,10 @@ There are a number of possible input arguments::
 
     EXAMPLE: romanisim-make-l3 output_image.asdf catalog.ecsv
 
-The arguments control things like the filter used, the date of observation (used to estimate the sky background), the right ascension and declination of the center of the mosaic, the number of pixels in the mosaic, and the degree of oversampling of the output mosaic.  Parameters also control the effective depth of the mosaic, though the exposure time, effective read noise, and number of exposures.
+The arguments control things like the filter used, the date of observation (used to estimate the sky background), the right ascension and declination of the center of the mosaic, the number of pixels in the mosaic, and the degree of oversampling of the output mosaic.  Parameters also control the effective depth of the mosaic, through the exposure time, effective read noise, and number of exposures.
 
 L3 source injection
-===================
+-------------------
 
 We support injecting sources into L3 files.  L3 source injection is very similar to L3 image creation, except we do not need to invent effective read noises or exposure times or WCSes.  Instead we only change the Poisson noise, since we are only adding additional new sources.
 
