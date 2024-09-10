@@ -3,7 +3,7 @@ L3 images
 
 We also simulate L3 images, also known as coadded images or mosaics; these terms are used equivalently here.  In contrast to L1 and L2 images, L3 images do not do a full simulation of the individual reads entering each resultant and the following ramp fitting.  Accordingly, they also do not include most systematic effects---for example, cosmic rays and non-linearity are not simulated.  Instead, the L3 simulations conceptually are more closely related to the initial idealized :doc:`count images </romanisim/image>` than they are to L1 or L2 images.  They differ from these idealized images in that we attempt to change the PSF in order to account for non-native pixel scales that are possible in coadded images.
 
-The simulation of L3 images is simplified relative to true L3 images.  First, as above, we do not do the full L2 simulations.  Second, we do not have a notion of a series of images that are being coadded---we are instead just saying that one could produce a mosaic that has a particular pixel scale, effective read noise, and effective exposure time per pixel.  We do not attempt to simulate the drizzle process used for typical L3 images in Roman, and accordingly do not include any drizzle-induced covariances among the pixels.  Similarly, because we don't really have a notion of a series of input L2 images, the L3 PSF is not a combination of the PSF of the input images, but is instead taken as the PSF evaluated at the center of the WFI02 detector, and then additionally convolved depending on the output pixel grid scale.
+The simulation of L3 images is simplified relative to true L3 images.  First, as above, we do not do the full L2 simulations.  Second, we do not have a notion of a series of images that are being coadded---we are instead just saying that one could produce a mosaic that has a particular pixel scale, effective read noise, and exposure time.  We do not attempt to simulate the drizzle process used for typical L3 images in Roman, and accordingly do not include any drizzle-induced covariances among the pixels.  Similarly, because we don't really have a notion of a series of input L2 images, the L3 PSF is not a combination of the PSF of the input images, but is instead taken as the PSF evaluated at the center of the WFI02 detector, and then additionally convolved depending on the output pixel grid scale.
 
 The L3 PSF aims to include the convolution with the native scale that Roman necessarily includes, but to also support oversampled images where the L3 pixel scale can be significantly finer than the native pixel scale.  In these cases we include an additional square convolution to "make up the difference" between the L3 pixel scale and the L2 pixel scale; see the :meth:`romanisim.l3.l3_psf` method for more details.
 
@@ -36,8 +36,7 @@ There are a number of possible input arguments::
       --npix NPIX           number of pixels across image (default: 4000)
       --pixscalefrac PIXSCALEFRAC
 			    pixel scale as fraction of original (default: 1.0)
-      --exptime EXPTIME     total effective exposure time per pixel; roughly time per exposure times number of exposures times pixscale**2 (default:
-			    100.0)
+      --exptime EXPTIME     total exposure time on field; roughly time per exposure times number of exposures (default: 100.0)
       --effreadnoise EFFREADNOISE
 			    effective readnoise per pixel in MJy/sr. If None, a pessimistic estimate is computed. (default: None)
       --nexposures NEXPOSURES

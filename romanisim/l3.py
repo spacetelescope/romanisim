@@ -289,7 +289,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     wcs : gwcs.wcs.WCS
         WCS corresponding to image.  Will only work well with square pixels.
     efftimes : np.ndarray or float
-        Effective exposure time of reach pixel in mosaic.
+        Time Roman spent observing each part of the sky.
         If an array, shape must match shape parameter.
     filter_name : str
         Filter to use to select appropriate flux from objlist. This is only
@@ -355,7 +355,11 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     image = galsim.ImageF(shape[1], shape[0], wcs=romanisim.wcs.GWCS(wcs),
                           xmin=0, ymin=0)
 
-    etomjysr = romanisim.bandpass.etomjysr(filter_name)
+    pixscalefrac = get_pixscalefrac(image.wcs, shape)
+    etomjysr = romanisim.bandpass.etomjysr(filter_name) / pixscalefrac ** 2
+    # this should really be per-pixel to deal with small distortions,
+    # but these are 0.01% 1 degree away in a tangent plane projection,
+    # and we ignore them.
 
     # Create sky for this mosaic, if not provided (in cps)
     if sky is None:
@@ -367,21 +371,11 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos, exptime=1)
         sky_level *= (1.0 + roman.stray_light_fraction)
         sky = image * 0
-        image.wcs.makeSkyImage(sky, 1)
-        # image has 1 / pixel area in arcsec
-        sky += roman.thermal_backgrounds[galsim_filter_name]
-        # per native pixel quantity
-        # AOEU FIXME need to do stuff here.
-        # We want these units to be per _native_ 0.11" pixel.
-        # somewhere before the thermal backgrounds we need to multiply
-        # by sky_level and some factor relating the nominal scale
-        # to the actual scale.
+        image.wcs.makeSkyImage(sky, sky_level)
+        sky += roman.thermal_backgrounds[galsim_filter_name] * pixscalefrac ** 2
     else:
-        sky = sky / etomjysr  # convert to electrons / s / nominal pix
-        # note that we might be making different pixel scales in the
-        # output, with correspondingly less sky.  We choose to see this
-        # as those pixels having lower exposure time, and keep this in
-        # units of electron / s / nominal pixel.
+        sky = sky * pixscalefrac ** 2 / etomjysr
+        # convert to electrons / s / output pixel
 
     # Flux in AB mags to electrons
     maggytoes = romanisim.bandpass.get_abflux(filter_name)
@@ -393,8 +387,11 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         effreadnoise = (
             np.sqrt(2) * readnoise * gain)
         # sqrt(2) from subtracting one read from another
-        effreadnoise /= (np.median(efftimes) / nexposures)
+        effreadnoise /= (np.median(efftimes * pixscalefrac ** 2) / nexposures)
         # divided by the typical exposure length
+        # the efftimes are multiplied by the square of the pixscalefrac
+        # to reflect the fact that if pixscalefrac < 1, each output pixel
+        # sees less of the total exposure time than the input pixels.
         effreadnoise /= np.sqrt(nexposures)
         # averaging down like the sqrt of the number of exposures
         # note that we are ignoring all of the individual reads, which also
@@ -411,7 +408,6 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         chromatic = True
 
     if psf is None:
-        pixscalefrac = get_pixscalefrac(image.wcs, shape)
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
         psf = l3_psf(filter_name, pixscalefrac, webbpsf=webbpsf,
@@ -476,7 +472,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     filter_name : str
         filter to simulate
     efftimes : np.ndarray or float
-        Effective exposure time of reach pixel in mosaic.
+        Time Roman spent observing each part of the sky.
         If an array, shape must match shape parameter.
     objlist : list[CatalogObject], Table, or None
         Sources to render
@@ -596,7 +592,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         extras['objinfo'] = objinfo
 
     if sky is not None:
-        # in e / s
+        # in e / s / nominal pix
         poisson_noise = galsim.PoissonNoise(rng)
         workim = image * 0
         workim += sky * efftimes
@@ -616,7 +612,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     extras['var_rnoise'] = effreadnoise
 
     var_poisson_factor = (efftimes / etomjysr) * etomjysr ** 2 / efftimes ** 2
-    # goofy game with etomjysr: image * (efftimes / etomjysr * efftimes)
+    # goofy game with etomjysr: image * (efftimes / etomjysr)
     # -> number of photons entering each pixel
     # then we interpret this as a variance (since mean = variance for a
     # Poisson distribution), and convert the variance image
@@ -641,7 +637,7 @@ def make_l3(image, metadata, efftimes, var_poisson=None,
     metadata : dict
         Metadata structure for Roman asdf file.
     efftimes : np.ndarray or float
-        Effective exposure time of reach pixel in mosaic.
+        Time Roman spent observing each part of the sky.
         If an array, shape must match shape parameter.
     var_poisson : np.ndarray
         Poisson variance for each pixel
@@ -691,6 +687,7 @@ def make_l3(image, metadata, efftimes, var_poisson=None,
 
     # Weight
     # Use exptime weight
+    # could scale this down by pixfrac ** 2
     mosaic_node.weight = efftimes_arr.astype(np.float32)
 
     return mosaic_node

@@ -509,4 +509,68 @@ def test_exptime_array():
     assert np.isclose(np.median(im1['data'][0:50, :].value), np.median(im1['data'][50:, :].value), rtol=0.02)
     assert np.isclose(np.median(im2['data'][0:50, :].value), np.median(im2['data'][50:, :].value), rtol=0.02)
 
-# TBD: Test of geometry construction
+
+def test_scaling():
+    npix = 200
+    imdict = set_up_image_rendering_things()
+    rng_seed = 1
+    exptime = 400
+    pscale = 0.1
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+
+    # Set WCS
+    twcs1 = romanisim.wcs.create_tangent_plane_gwcs(
+        (npix / 2, npix / 2), pscale, coord)
+    twcs2 = romanisim.wcs.create_tangent_plane_gwcs(
+        (npix / 2, npix / 2), pscale / 2, coord)
+
+    im1, extras1 = l3.simulate(
+        (npix, npix), twcs1, exptime, imdict['filter_name'],
+        imdict['tabcatalog'], seed=rng_seed, effreadnoise=0,
+        )
+
+    # half pixel scale
+    im2, extras2 = l3.simulate(
+        (npix * 2, npix * 2), twcs2, exptime, imdict['filter_name'],
+        imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
+
+    # check that sky level doesn't depend on pixel scale (in calibrated units!)
+    assert np.abs(np.median(im1.data.value) / np.median(im2.data.value) - 1) < 0.1
+
+    # check that uncertainties match observed standard deviations
+    from astropy.stats import mad_std
+    assert np.abs(mad_std(im1.data.value) / np.median(im1.err.value) - 1) < 0.1
+    assert np.abs(mad_std(im2.data.value) / np.median(im2.err.value) - 1) < 0.1
+
+    # doubled exposure time
+    im3, extras3 = l3.simulate(
+        (npix, npix), twcs1, exptime * 2, imdict['filter_name'],
+        imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
+
+    # check that sky level doesn't depend on exposure time (in calibrated units!)
+    assert np.abs(np.median(im1.data.value) / np.median(im3.data.value) - 1) < 0.1
+
+    # check that variances still work out
+    assert np.abs(mad_std(im3.data.value) / np.median(im3.err.value) - 1) < 0.1
+
+    # check that new variances are smaller than old ones by an appropriate factor
+    assert np.abs(
+        np.median(im1.err.value) / np.median(im3.err.value) - np.sqrt(2)) < 0.1
+
+    # check that fluxes match
+    # pixel scales are different by a factor of two.
+    fluxes = []
+    for im, fac in zip((im1, im2, im3), (1, 2, 1)):
+        pix = im.meta.wcs.world_to_pixel(
+            imdict['tabcatalog']['ra'][0], imdict['tabcatalog']['dec'][0])
+        pind = [int(x) for x in pix]
+        margin = 30 * fac
+        flux = np.sum(im.data.value[pind[1] - margin: pind[1] + margin,
+                                    pind[0] - margin: pind[0] + margin])
+        fluxes.append(flux / fac ** 2)
+        # division by fac ** 2 accounts for different pixel scale
+        # i.e., we should be doing an integral here, and the pixels
+        # are a factor of 4 smaller in the second integral
+    # fluxes must match
+    for flux in fluxes[1:]:
+        assert np.abs(fluxes[0] / flux - 1) < 0.1

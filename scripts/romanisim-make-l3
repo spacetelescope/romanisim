@@ -37,9 +37,8 @@ if __name__ == '__main__':
     parser.add_argument('--pixscalefrac', type=float, default=1.0,
                         help='pixel scale as fraction of original')
     parser.add_argument('--exptime', type=float, default=100.0,
-                        help='total effective exposure time per pixel; '
-                        'roughly time per exposure times number of exposures '
-                        'times pixscale**2')
+                        help='total exposure time on field; '
+                        'roughly time per exposure times number of exposures')
     parser.add_argument('--effreadnoise', type=float, default=None,
                         help='effective readnoise per pixel in MJy/sr.  If '
                         'None, a pessimistic estimate is computed.')
