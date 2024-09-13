@@ -12,6 +12,3 @@ scipy>=0.0.dev0
 # Roman upstream packages
 git+https://github.com/spacetelescope/roman_datamodels
 git+https://github.com/spacetelescope/rad
-
-# Testing upstream packages
-git+https://github.com/spacetelescope/metrics_logger

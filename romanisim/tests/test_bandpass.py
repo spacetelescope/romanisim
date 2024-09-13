@@ -8,7 +8,6 @@ Unit tests for bandpass functions.  Tested routines:
 import os
 import pytest
 import asdf
-from metrics_logger.decorators import metrics_logger
 import numpy as np
 from romanisim import bandpass
 from astropy import constants
@@ -81,7 +80,6 @@ def test_get_abflux(filter, value):
     assert np.isclose(bandpass.get_abflux(filter), value, rtol=1.0e-1)
 
 
-@metrics_logger("DMS233")
 @pytest.mark.soctests
 def test_convert_flux_to_counts():
     # Define dirac delta wavelength
