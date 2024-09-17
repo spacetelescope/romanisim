@@ -23,7 +23,7 @@ described by catalogs of sources.  The simulation includes:
 The simulator is based on galsim and most of these features directly invoke the
 equivalents in the galsim.roman package.  The chief additions of this package
 on top of the galsim.roman implementation are using "official" webbpsf
-PSFs, and many reference files from the Roman `CRDS <https://roman-crds.stsci.edu`_ CRDS.  This
+PSFs, and many reference files from the Roman `CRDS <https://roman-crds.stsci.edu>`_ CRDS.  This
 package also implements WFI up-the-ramp sampled and averaged images like those
 that will be downlinked from the telescope, and the official Roman WFI file
 format (asdf).
