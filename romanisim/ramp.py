@@ -196,7 +196,7 @@ def ki_and_variance_grid(read_pattern, flux_on_readvar_pts):
     flux_on_readvar.
 
     The :math:`k` and corresponding covariances needed to do ramp fitting
-    form essentially a one dimensional family in the flux in the ramp divided
+    essentially form a one dimensional family in the flux in the ramp divided
     by the square of the read noise.  This function constructs these quantities
     for a large number of different flux / read_noise^2 to be used in
     interpolation.
@@ -247,10 +247,10 @@ class RampFitInterpolator:
     pixels, the ramp fitting parameters are just a linear combination of the
     resultants.  The weights of this linear combination are a single parameter
     family in the flux in the ramp divided by the read variance.  So rather than
-    explicitly calculating those weights for each pixel, we can up front calculate
-    them over a grid in the flux over the read variance, and interpolate off that
-    grid for each point.  That can all be done in a vectorized way, allowing one
-    to avoid doing something like a matrix inverse for each of a 16 million pixels.
+    explicitly calculating those weights for each pixel, they can be calculated
+    up front over a grid in the flux over the read variance.  Then
+    we can interpolate among these precomputed values to avoid needing to perform
+    a matrix inverse for each of the 16 million pixels.
 
     The tool pre-calculates the grid and interpolators it needs at initialization,
     and then uses the results of that calculation when invoked to get the weights
@@ -364,7 +364,7 @@ class RampFitInterpolator:
 
         Parameters
         ----------
-        resultants : np.ndarray[n_resultants, nx, ny] (numeric)
+        resultants : np.ndarray[n_resultants, ny, nx] (numeric)
             Resultants to fit
         read_noise : float or array_like like resultants
             read noise in array
@@ -375,10 +375,10 @@ class RampFitInterpolator:
 
         Returns
         -------
-        par : np.ndarray[nx, ny, 2] (float)
+        par : np.ndarray[ny, nx, 2] (float)
             the best fit pedestal and slope for each pixel
 
-        var : np.ndarray[nx, ny, 3, 2, 2] (float)
+        var : np.ndarray[ny, nx, 3, 2, 2] (float)
             the covariance matrix of par, for each of three noise terms:
             the read noise, Poisson source noise, and total noise.
         """
@@ -400,18 +400,18 @@ class RampFitInterpolator:
 def resultants_to_differences(resultants):
     """Convert resultants to their finite differences.
 
-    This is essentially np.diff(...), but retains the first
+    This essentially is np.diff(...), but retains the first
     resultant.  The resulting structure has tri-diagonal covariance,
     which can be a little useful.
 
     Parameters
     ----------
-    resultants : np.ndarray[n_resultant, nx, ny] (float)
+    resultants : np.ndarray[n_resultant, ny, nx] (float)
         The resultants
 
     Returns
     -------
-    differences : np.ndarray[n_resultant, nx, ny] (float)
+    differences : np.ndarray[n_resultant, ny, nx] (float)
         Differences of resultants
     """
     return np.vstack([resultants[0][None, :],
@@ -467,7 +467,7 @@ def simulate_many_ramps(ntrial=100, flux=100, readnoise=5, read_pattern=None):
 
 
 def fit_ramps_casertano(resultants, dq, read_noise, read_pattern):
-    """Fit ramps following Casertano+2022, including averaging partial ramps.
+    """Fit ramps following Casertano (2022), including averaging partial ramps.
 
     Ramps are broken where dq != 0, and fits are performed on each sub-ramp.
     Resultants containing multiple ramps have their ramp fits averaged using
@@ -561,7 +561,7 @@ def fit_ramps_casertano(resultants, dq, read_noise, read_pattern):
 
 
 def fit_ramps_casertano_no_dq(resultants, read_noise, read_pattern):
-    """Fit ramps following Casertano+2022, only using full ramps.
+    """Fit ramps following Casertano (2022), only using full ramps.
 
     This is a simpler implementation of fit_ramps_casertano, which doesn't
     address the case of partial ramps broken by CRs.  This case is easier
@@ -579,9 +579,9 @@ def fit_ramps_casertano_no_dq(resultants, read_noise, read_pattern):
 
     Returns
     -------
-    par : np.ndarray[nx, ny, 2] (float)
+    par : np.ndarray[ny, nx, 2] (float)
         the best fit pedestal and slope for each pixel
-    var : np.ndarray[nx, ny, 3, 2, 2] (float)
+    var : np.ndarray[ny, nx, 3, 2, 2] (float)
         the covariance matrix of par, for each of three noise terms:
         the read noise, Poisson source noise, and total noise.
     """

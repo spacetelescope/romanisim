@@ -1,19 +1,17 @@
-"""Roman PSF interface for galsim.
+"""Roman point spread function (PSF) interface for galsim.
 
-galsim.roman has an implementation of Roman's PSF based on the aperture and
-some estimates for the wavefront errors over the aperture as described by
-amplitudes of various Zernicke modes.  This seems like a very good approach,
-but we want to add here a mode using the official PSFs coming out of
+galsim.roman has an implementation of Roman's point spread function (PSF) based on
+the aperture and some estimates for the wavefront errors over the aperture as
+described by amplitudes of various Zernicke modes.  This seems like a very good
+approach, but we want to add here a mode using the official PSFs coming out of
 webbpsf, which takes a very similar overall approach.
 
 galsim's InterpolatedImage class makes this straightforward.  Future work
 should consider the following:
 
-* how do we want to deal with the dependence of the PSF on the source SED?
-  It's possible I can just subclass ChromaticObject and implement
-  evaluateAtWavelength, possibly also stealing the _shoot code from
-  ChromaticOpticalPSF?
-
+* How do we want to deal with the dependence of the PSF on the source SED?
+  It's possible we can just subclass ChromaticObject and implement
+  evaluateAtWavelength, using the _shoot code from ChromaticOpticalPSF.
 """
 
 import numpy as np
@@ -132,7 +130,7 @@ def make_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     """Make a PSF profile for Roman.
 
     Optionally supports spatially variable PSFs via interpolation between
-    the four corners.
+    the four corners of an SCA.
 
     Parameters
     ----------

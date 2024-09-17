@@ -1,6 +1,6 @@
 """Roman bandpass routines
 
-The primary purpose of this module is to provide the number of counts
+The primary purpose of this module is to provide the number of electrons
 per second expected for sources observed by Roman given a source with
 the nominal flat AB spectrum of 3631 Jy.  The ultimate source of this
 information is https://roman.gsfc.nasa.gov/science/WFI_technical.html .
@@ -70,7 +70,7 @@ def read_gsfc_effarea(filename=None):
 def compute_abflux(effarea=None):
     """Compute the AB zero point fluxes for each filter.
 
-    How many photons would a zeroth magnitude AB star deposit in
+    How many electrons would a zeroth magnitude AB star deposit in
     Roman's detectors in a second?
 
     Parameters
@@ -81,7 +81,7 @@ def compute_abflux(effarea=None):
     Returns
     -------
     dict[str] : float
-        lookup table of zero point fluxes for each filter (photons / s)
+        lookup table of zero point fluxes for each filter (electrons / s)
     """
 
     if effarea is None:
@@ -112,7 +112,7 @@ def get_abflux(bandpass):
     Returns
     -------
     float
-        the zero point flux (photons / s)
+        the zero point flux (electrons / s)
     """
     bandpass = galsim2roman_bandpass.get(bandpass, bandpass)
 
@@ -128,7 +128,7 @@ def get_abflux(bandpass):
 def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=None):
     """Compute the count rate in a given filter, for a specified SED.
 
-    How many photons would an object with SED given by
+    How many electrons would an object with SED given by
     flux deposit in Roman's detectors in a second?
 
     Parameters
@@ -147,7 +147,7 @@ def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=Non
     Returns
     -------
     float
-        the total bandpass flux (photons / s)
+        the total bandpass flux (electrons / s)
     """
     # Read in default Roman effective areas from Goddard, if areas not supplied
     if effarea is None:

@@ -174,8 +174,9 @@ def make_galaxies(coord,
     index : int
         power law index of magnitudes
     faintmag : float
-        faintest AB magnitude for which to generate sources
-        Note this magnitude is in a "fiducial" band which is not observed.
+        Faintest AB magnitude for which to generate sources.
+
+        Note this magnitude is in a "fiducial" band that is not observed.
         Actual requested bandpasses are equal to this fiducial band plus
         1 mag of Gaussian noise.
     hlr_at_faintmag : float
@@ -273,6 +274,7 @@ def make_stars(coord,
         implies 3/5.
     faintmag : float
         faintest AB magnitude for which to generate sources
+
         Note this magnitude is in a "fiducial" band which is not observed.
         Actual requested bandpasses are equal to this fiducial band plus
         1 mag of Gaussian noise.
@@ -336,14 +338,14 @@ def make_stars(coord,
 
 
 def image_table_to_catalog(table, bandpasses):
-    """Read a astropy Table into a list of CatalogObjects.
+    """Read an astropy Table into a list of CatalogObjects.
 
     We want to read in an image catalog and make a list of CatalogObjects.
     The image catalog indicates that specific galaxies stored as images in a
     RealGalaxyCatalog should be rendered at specific locations in the images,
-    for example, if one had postage stamps of galaxies from a hydro sim and
-    wanted to render them in a Roman simulation.  The table must have the
-    following columns:
+    for example, if one had postage stamps of galaxies from a hydrodynamical
+    simulation and wanted to render them in a Roman simulation.  The table
+    must have the following columns:
 
     * ra : float, right ascension in degrees
     * dec : float, declination in degrees
@@ -413,7 +415,7 @@ def make_image_catalog(image_filenames, psf, out_base_filename,
     inserted into output images.  This function makes it easy to produce a
     set of files that can be used as a GalSim RealGalaxyCatalog from a list of
     fits input images.  These input images can come from anywhere, but are
-    expected to come from either real imaging or from hydro simulations.
+    expected to come from either real imaging or from hydrodynamical simulations.
 
     This routine assumes that all images share a common PSF, which is given as the
     PSF argument.  This PSF is deconvolved before reconvolving with the
@@ -435,10 +437,6 @@ def make_image_catalog(image_filenames, psf, out_base_filename,
         output filename to use for RealGalaxyCatalog files output here
     pixel_scale : float
         pixel scale of PSF and images
-
-    Returns
-    -------
-    None - this routine only writes files to out_base_filename
     """
     outdtype = [('ident', 'i4'), ('gal_filename', 'U200'), ('psf_filename', 'U200'),
                 ('noise_file_name', 'U200'), ('gal_hdu', 'i4'), ('psf_hdu', 'i4'),
@@ -469,7 +467,7 @@ def make_image_catalog(image_filenames, psf, out_base_filename,
 
 
 def table_to_catalog(table, bandpasses):
-    """Read a astropy Table into a list of CatalogObjects.
+    """Read an astropy Table into a list of CatalogObjects.
 
     We want to read in a catalog and make a list of CatalogObjects.  The table
     must have the following columns:

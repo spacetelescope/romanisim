@@ -1,7 +1,7 @@
 """Roman WCS interface for galsim.
 
 galsim.roman has an implementation of Roman's WCS based on some SIP
-coefficients for each SCA.  This is presumably plenty good, but here
+coefficients for each SCA.  This could presumably be adequate, but here
 we take the alternative approach of using the distortion functions
 provided in CRDS.  These naturally are handled by the gWCS library,
 but galsim only naturally supports astropy WCSes via the ~legacy
@@ -41,18 +41,19 @@ def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
     Parameters
     ----------
     parameters : dict
-        Metadata dictionary
-        Dictionaries like pointing, aperture, and wcsinfo may be modified
+        Metadata dictionary.  Dictionaries like pointing, aperture, and
+        wcsinfo may be modified
 
     coord : astropy.coordinates.SkyCoord or galsim.CelestialCoord
-        world coordinates at V2 / V3 ref (boresight or center of WFI CCDs)
+        world coordinates at V2 / V3 ref (boresight or center of WFI SCAs)
 
     pa_aper : float
-        position angle (North to YIdl) at the aperture V2Ref/V3Ref
+        position angle (North relative to the idealized Y axis) at the aperture
+        V2Ref/V3Ref
 
     boresight : bool
         whether coord is the telescope boresight (V2 = V3 = 0) or the center of
-        the WFI CCD array
+        the WFI SCA array
     """
     coord = util.skycoord(coord)
 
@@ -91,7 +92,7 @@ def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
 
 
 def get_wcs(image, usecrds=True, distortion=None):
-    """Get a WCS object for a given sca or set of CRDS parameters.
+    """Get a WCS object for a given SCA or set of CRDS parameters.
 
     Parameters
     ----------
@@ -415,7 +416,7 @@ def convert_wcs_to_gwcs(wcs):
 
 
 def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
-    """Get a WCS object for a given sca or set of CRDS parameters.
+    """Get a WCS object for a given SCA or set of CRDS parameters.
     - if xpos, ypos, and coords are provided, then a GWCS compatible object will be created (and meta updated with it)
     - if not, a functional CelestialWCS is created [useful for quick computation,
     but GWCS needed for validation of a final simulation]

@@ -4,11 +4,12 @@ Overview
 romanisim simulates Roman Wide-Field Imager images of astronomical scenes
 described by catalogs of sources.  The simulation includes:
 
-* convolution of the sources by the Roman point spread function
+* convolution of the sources by the Roman point spread function (PSF)
 * optical distortion
 * sky background
-* level 1 image support (3D image stack of up-the-ramp samples)
-* level 2 image support (2D image after calibration & ramp fitting)
+* level 1 image support (L1, 3D image stack of up-the-ramp samples)
+* level 2 image support (L2, 2D image after calibration & ramp fitting)
+* level 3 image support (L3, approximate coadded images)
 * point sources and analytic galaxy profiles
 * expected system throughput
 * dark current
@@ -22,19 +23,10 @@ described by catalogs of sources.  The simulation includes:
 The simulator is based on galsim and most of these features directly invoke the
 equivalents in the galsim.roman package.  The chief additions of this package
 on top of the galsim.roman implementation are using "official" webbpsf
-PSF, and distortion and reference files from the Roman CRDS (not yet
-public!).  This
+PSFs, and many reference files from the Roman `CRDS <https://roman-crds.stsci.edu`_ CRDS.  This
 package also implements WFI up-the-ramp sampled and averaged images like those
 that will be downlinked from the telescope, and the official Roman WFI file
 format (asdf).
-
-Future expected features include:
-
-* frame zero effects
-* L3 image simulations
-* "image-based" simulation inputs (i.e., provide an input image based
-  on a galaxy hydro sim; romanisim applies the Roman PSF &
-  instrumental effects on top to produce a detailed instrumental simulation)
 
 The best way to interact with romanisim is to make an image.  Running ::
 
@@ -48,7 +40,7 @@ being made.  A more complete invocation would be ::
     romanisim-make-image --catalog input.ecsv --radec 270 66 --bandpass F087 --sca 7 --date 2026 1 1 --level 1 out.asdf
 
 where ``input.ecsv`` includes a list of sources in the scene, the
-telescope boresight is pointing to (r, d) = (270, 66), the desired
+telescope boresight is pointing to (RA, dec) = (270, 66), the desired
 bandpass is F087, the sensor is WFI07, the date is Jan 1, 2026, and a
 level 1 image (3D cube of samples up the ramp) is requested.
 
@@ -72,7 +64,7 @@ adds an additional top-level branch to the asdf tree with the name
       └─webbpsf (bool): True
 
 These fields are simply the arguments to ``romanisim-make-image``,
-plus an additional ``simcatobj`` field with contains the ``x``, ``y``,
+plus an additional ``simcatobj`` field which contains the ``x``, ``y``,
 and number of photons of each simulated source.
 
 Features not included so far:

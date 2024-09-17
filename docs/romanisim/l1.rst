@@ -1,13 +1,13 @@
 Making L1 images
 ================
 
-An L1 (level 1) image is a "raw" image received from the detectors.  The actual measurements made on the spacecraft consist of a number of non-destructive reads of the pixels of the H4RG detectors.  These reads have independent read noise but because the pixels count the total number of photons having entered each pixel, the Poisson noise in different reads of the same pixel is correlated.
+An L1 (level 1) image is a "raw" image received from the detectors.  The actual measurements made on the spacecraft consist of a number of non-destructive reads of the pixels of the H4RG detectors.  These reads have independent read noise but because the pixels count the total number of electrons having entered each pixel, the Poisson noise in different reads of the same pixel is correlated.
 
 Because the telescope has limited bandwidth, every read is not transferred to ground stations.  Instead, reads are averaged into "resultants" according to a specification called a MultiAccum table, and these resultants are transferred, archived, and analyzed.  These resultants make up an L1 image, which romanisim simulates.
 
-L1 images are created using an idealized ``counts`` image described :doc:`here </romanisim/image>`, which contains the number of photons each pixel of the detector would receive absent any instrumental systematics.  To transform this into an L1 image, these counts must be apportioned into reads and averaged into resultants, and instrumental effects must be added.
+L1 images are created starting with an idealized ``counts`` image described :doc:`here </romanisim/image>`, which contains the number of electrons each pixel of the detector would receive in the absence of any instrumental systematics.  To transform this into an L1 image, these electrons must be apportioned into reads and averaged into resultants, and instrumental effects must be added.
 
-This process proceeds by simulating each read, drawing the appropriate number of photons from the total number of photons for each read following a binomial distribution.  These photons are added to a running sum that is then averaged into a resultant according to the MultiAccum table specification.  This process requires drawing random numbers from the binomial distribution for every read of every pixel, and so can take on the order of a minute, but it allows detailed simulation of the statistics of the noise in each resultant together with their correlations.  It also makes it straightforward to add various instrumental effects into the simulation accurately, since these usually apply to individual reads rather than to resultants (e.g., cosmic rays affect individual reads, and their affect on a resultant depends on the read in the resultant to which they apply).
+This process proceeds by simulating each read, drawing the appropriate number of electrons from the total number of electrons for each read following a binomial distribution.  These electrons are added to a running sum that is then averaged into a resultant according to the MultiAccum table specification.  This process requires drawing random numbers from the binomial distribution for every read of every pixel, and so can take on the order of a minute, but it allows detailed simulation of the statistics of the noise in each resultant together with their correlations.  It also makes it straightforward to add various instrumental effects into the simulation accurately, since these usually apply to individual reads rather than to resultants (e.g., cosmic rays affect individual reads, and their affect on a resultant depends on the read in the resultant to which they apply).
 
 After apportioning counts to resultants, systematic effects are added to the resultants.  Presently only read noise is added.  The read noise is averaged down like :math:`1/\sqrt{N}`, where :math:`N` is the number of reads contributing to the resultant.
 
@@ -24,7 +24,7 @@ Interpixel Capacitance
 
 Interpixel capacitance (IPC) is added following non-linearity and before read-out.  Read noise remains independent among different pixels but the Poisson noise is correlated between pixels by the IPC.  We simply convolve the resultants by a 3x3 kernel after apportioning counts to resultants and applying non-linearity but before adding read noise.
 
-This is slightly different than including IPC in the PSF kernel because including IPC in the PSF kernel leaves the Poisson noise uncorrelated.
+This is slightly different than including IPC in the PSF kernel because including IPC in the PSF kernel leaves the Poisson noise uncorrelated between pixels.
 
 Persistence
 -----------
@@ -33,15 +33,15 @@ the Fermi description of persistence implemented in GalSim, where the flux in el
 
 .. math:: P(t) = A \frac{1}{1+\exp\left(\frac{-(x-x_0)}{\delta x}\right)} \left(\frac{x}{x_0}\right)^\alpha \left(\frac{t}{1000 \mathrm{s}}\right)^\gamma \, .
 
-Here :math:`P(x, t)` is the rate in electrons per second that the pixel records :math:`t` seconds following receiving a total number of electrons :math:`x`.  The parameters :math:`A`, :math:`x_0`, :math:`\delta x`, :math:`\alpha`, :math:`\gamma` may vary from pixel to pixel, though are presently fixed to global constants.  This equation for the rate only applies to pixels which were illuminated more than to fill more than their half-well.  We follow GalSim and linearly increase the persistence from 0 to the half-well value for illuminations between 0 and half-well.
+Here :math:`P(x, t)` is the rate in electrons per second that the pixel records :math:`t` seconds following receiving a total number of electrons :math:`x`.  The parameters :math:`A`, :math:`x_0`, :math:`\delta x`, :math:`\alpha`, :math:`\gamma` may vary from pixel to pixel, though are presently fixed to global constants.  This equation for the rate only applies to pixels that were illuminated more than to fill more than their half-well.  We follow GalSim and linearly increase the persistence from 0 to the half-well value for illuminations between 0 and half-well.
 
 This persistence rate is sampled with a Poisson distribution and added to each pixel read-by-read and incorporated into the resultants in the L1 images.
 
-Persistence-affected pixels are expected to be rare, and are tracked sparsely via a list of the indices of affected pixels, the amount of the illumination, and the times of their illumination.  Pixels are dropped from persistence tracking when their persistence rate is less than one electron per 100 seconds.  If the same pixel is receives large fluxes multiple times, these are treated as two independent events and the resulting persistence flux is handled by summing the persistence rates given above over each event.
+Persistence-affected pixels are expected to be rare, and are tracked sparsely via a list of the indices of affected pixels, the amount of the illumination, and the times of their illumination.  Pixels are dropped from persistence tracking when their persistence rate is less than one electron per 100 seconds.  If the same pixel receives large fluxes multiple times in past exposures, these are treated as independent events and the resulting persistence flux is handled by summing the persistence rates for each past event.
 
 Cosmic rays
 -----------
-Cosmic rays are added to the simulation read-by-read.  The cosmic ray parameters follow Wu et al. (2023).  The locations of cosmic rays are chosen at random to sample the focal plane uniformly.  Lengths are chosen according to a power law distribution :math:`p(l) \\sim l^{-4.33}`, with lengths between 10 and 10,000 microns.  Charge deposition rates per micron are selected from a Moyal distribution located at 120 electrons per micron with a width of 50 electrons per micron.  An idealized charge is computed for each pixel in a read according to the product of the deposition rate per micron and the length of the cosmic ray's path within that pixel.  This idealized charge is Poisson sampled and added to the relevant pixels in a read.
+Cosmic rays are added to the simulation read-by-read.  The cosmic ray parameters follow Wu et al. (2023).  The locations of cosmic rays are chosen at random to sample the focal plane uniformly.  Lengths are chosen according to a power law distribution :math:`p(l) \propto l^{-4.33}`, with lengths between 10 and 10,000 microns.  Charge deposition rates per micron are selected from a Moyal distribution located at 120 electrons per micron with a width of 50 electrons per micron.  An idealized charge is computed for each pixel in a read according to the product of the deposition rate per micron and the length of the cosmic ray's path within that pixel.  This idealized charge is Poisson sampled and added to the relevant pixels in a read.
 
 Gain
 ----

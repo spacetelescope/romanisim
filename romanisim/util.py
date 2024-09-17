@@ -22,7 +22,7 @@ def skycoord(celestial):
 
     Returns
     -------
-    astropy.coordinates.SkyCoord
+    coord: astropy.coordinates.SkyCoord
         SkyCoord corresponding to celestial
     """
     if isinstance(celestial, SkyCoord):
@@ -39,11 +39,11 @@ def celestialcoord(sky):
     Parameters
     ----------
     sky : astropy.coordinates.SkyCoord
-        astropy.coordinates.SkyCoord to transform into an galsim.CelestialCoord
+        astropy.coordinates.SkyCoord to transform into a galsim.CelestialCoord
 
     Returns
     -------
-    galsim.CelestialCoord
+    coord: galsim.CelestialCoord
         CelestialCoord corresponding to skycoord
     """
     if isinstance(sky, galsim.CelestialCoord):
@@ -65,7 +65,7 @@ def scalergb(rgb, scales=None, lumrange=None):
 
     Parameters
     ----------
-    rgb : np.ndarray[npix, npix, 3]
+    rgb : np.ndarray[ny, nx, 3]
         the RGB images to scale
     scales : list[float] (must contain 3 floats)
         rescale each image by this amount
@@ -74,7 +74,7 @@ def scalergb(rgb, scales=None, lumrange=None):
 
     Returns
     -------
-    im : np.ndarray[npix, npix, 3]
+    im : np.ndarray[ny, nx, 3]
         scaled RGB image suitable for displaying
     """
 
@@ -109,7 +109,8 @@ def random_points_in_cap(coord, radius, nobj, rng=None):
 
     Returns
     -------
-    astropy.coordinates.SkyCoord
+    coords : astropy.coordinates.SkyCoord
+        Coordinates selected at random in cap.
     """
     if rng is None:
         rng = galsim.UniformDeviate()
@@ -138,7 +139,8 @@ def random_points_in_king(coord, rc, rt, nobj, rng=None):
 
     Returns
     -------
-    astropy.coordinates.SkyCoord
+    coords : astropy.coordinates.SkyCoord
+        sample coordinates selected
     """
     distances = sample_king_distances(rt, rt, nobj, rng=rng) * u.deg
     return random_points_at_radii(coord, distances, rng=rng)
@@ -158,8 +160,8 @@ def random_points_at_radii(coord, radii, rng=None):
 
     Returns
     -------
-    astropy.coordinates.SkyCoord
-
+    coords : astropy.coordinates.SkyCoord
+        random coordinates selected
     """
     if rng is None:
         rng = galsim.UniformDeviate()
@@ -264,8 +266,8 @@ def add_more_metadata(metadata):
 def update_aperture_and_wcsinfo_metadata(metadata, gwcs):
     """Update aperture and wcsinfo keywords to use the aperture for this SCA.
 
-    Updates metadata in place, setting v2v3ref to be equal to the v2 and v3 of
-    the center of the detector, and radecref accordingly.  Also updates the
+    Updates metadata in place, setting v2/v3_ref to be equal to the V2 and V3 of
+    the center of the detector, and ra/dec_ref accordingly.  Also updates the
     aperture to refer to this SCA.
 
     No updates are  performed if gwcs is not a gWCS object or if aperture and
@@ -314,7 +316,7 @@ def update_aperture_and_wcsinfo_metadata(metadata, gwcs):
 
 
 def king_profile(r, rc, rt):
-    """Compute the King (1962) profile.
+    """Compute the King profile.
 
     Parameters
     ----------
@@ -327,13 +329,14 @@ def king_profile(r, rc, rt):
 
     Returns
     -------
+    rho : np.ndarray[float]
         2D number density of stars at r.
     """
     return (1 / np.sqrt(1 + (r / rc)**2) - 1 / np.sqrt(1 + (rt / rc)**2))**2
 
 
 def sample_king_distances(rc, rt, npts, rng=None):
-    """Sample distances from a King (1962) profile.
+    """Sample distances from a King profile.
 
     Parameters
     ----------
@@ -371,7 +374,7 @@ def decode_context_times(context, exptimes):
     Parameters
     ----------
     context: numpy.ndarray
-        A 3D `~numpy.ndarray` of integral data type.
+        A 3D numpy.ndarray of integral data type.
 
     exptimes: list of floats
         Exposure times for each component image.
@@ -379,7 +382,7 @@ def decode_context_times(context, exptimes):
 
     Returns
     -------
-    total_exptimes: numpy.ndarray
+    total_exptimes : numpy.ndarray
         A 2D array of total exposure time for each pixel.
     """
 
@@ -466,7 +469,8 @@ def default_image_meta(time=None, ma_table=1, filter_name='F087',
 
     Returns
     -------
-    Metadata dictionary corresponding to input parameters.
+    meta : dict
+        Metadata dictionary corresponding to input parameters.
     """
 
     if time is None:
@@ -564,7 +568,8 @@ def merge_dicts(a, b):
 
     Returns
     -------
-    a, mutated to contain keys from b.
+    a : dict
+        a, mutated to contain keys from b.
     """
     for key in b:
         if key in a and isinstance(a[key], dict) and isinstance(b[key], dict):
