@@ -211,14 +211,15 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     """Add sources to an image.
 
     Note: this includes Poisson noise when photon shooting is used
-    (i.e., for chromatic source profiles), and otherwise is noise free.
+    (i.e., for chromatic source profiles), and otherwise is noise free, unless
+    add_noise is set to True.
 
     Parameters
     ----------
     image : galsim.Image
         Image to which to add sources with associated WCS. Updated in place.
     objlist : list[CatalogObject]
-        Objects to add to image
+        Objects to add to image.  These may be chromatic or achromatic.
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
     psf : galsim.Profile
@@ -236,6 +237,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     filter_name : str
         filter to use to select appropriate flux from objlist.  This is only
         used when achromatic PSFs and sources are being rendered.
+    add_noise : bool
+        if True, add Poisson noise to noiseless FFT simulated images produced
+        when achromatic profiles are used.
     rng : galsim.BaseDeviate
         random number generator to use
     seed : int
