@@ -118,7 +118,8 @@ class Persistence:
 
         Returns
         -------
-        Current in electron / s in pixels due to past persistence events.
+        current
+             current in electron / s in pixels due to past persistence events.
         """
         if np.ndim(self.t) > 0 and len(self.t) > 0 and (tnow < np.min(self.t)):
             raise ValueError(
@@ -161,7 +162,8 @@ class Persistence:
 
         Returns
         -------
-        dictionary representing persistence object.
+        crdict : dict
+            dictionary representing persistence object.
         """
         return dict(x=self.x, t=self.t, index=self.index, A=self.A,
                     x0=self.x0, dx=self.dx, alpha=self.alpha, gamma=self.gamma)
@@ -177,7 +179,8 @@ class Persistence:
 
         Returns
         -------
-        Persistence object represented by d.
+        persistence : Persistence
+            Persistence object represented by d.
         """
         return Persistence(**d)
 
@@ -192,7 +195,8 @@ class Persistence:
 
         Returns
         -------
-        Persistence object stored in filename.
+        persistence : Persistence
+            Persistence object stored in filename.
         """
         af = asdf.open(filename)
         persistdict = af['romanisim']['persistence']
@@ -215,7 +219,7 @@ def fermi(x, dt, A, x0, dx, alpha, gamma):
     """
     The Fermi model for persistence:
     A * (x/x0)**alpha * (t/1000.)**(-gamma) / (exp(-(x-x0)/dx) + 1)
-    For influence level below the half well, the persistence is linear in x.
+    For fluence level below the half well, the persistence is linear in x.
 
     Parameters
     ----------
@@ -236,8 +240,9 @@ def fermi(x, dt, A, x0, dx, alpha, gamma):
 
     Returns
     -------
-    The persistence signal at the current time for the persistence-affected pixels
-    described by persistence.
+    persistence
+        The persistence signal at the current time for the persistence-affected
+        pixels described by persistence.
     """
     scalar = np.isscalar(x)
     x = np.atleast_1d(x)

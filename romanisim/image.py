@@ -61,19 +61,19 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     Parameters
     ----------
-    resultants : np.ndarray[nresultants, nx, ny]
+    resultants : np.ndarray[nresultants, ny, nx]
         resultants array
     read_pattern : list[list] (int)
-        list of list of indices of reads entering each resultant
-    read_noise : np.ndarray[nx, ny] (float)
+        list of lists of indices of reads entering each resultant
+    read_noise : np.ndarray[ny, nx] (float)
         read_noise image to use.  If None, use galsim.roman.read_noise.
-    flat : np.ndarray[nx, ny] (float)
+    flat : np.ndarray[ny, nx] (float)
         flat field to use
     linearity : romanisim.nonlinearity.NL object or None
         non-linearity correction to use.
-    darkrate : np.ndarray[nx, ny] (float)
+    darkrate : np.ndarray[ny, nx] (float)
         dark rate image to subtract from ramps (electron / s)
-    dq : np.ndarray[nresultants, nx, ny] (int)
+    dq : np.ndarray[nresultants, ny, nx] (int)
         DQ image corresponding to resultants
 
     Returns
@@ -146,7 +146,7 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
 
 def in_bounds(xx, yy, imbd, margin):
-    """Filter sources to those landing on an image.
+    """Filter sources to those landing near an image.
 
     Parameters
     ----------
@@ -155,12 +155,12 @@ def in_bounds(xx, yy, imbd, margin):
     imbd : galsim.Image.Bounds
         bounds of image
     margin : int
-        keep sources up to margin outside of bounds
+        keep sources within this number of pixels of the image edge
 
     Returns
     -------
     keep : np.ndarray (bool)
-        whether each source lands near the image (True) or not (False)
+        whether each source's center lands near the image (True) or not (False)
     """
 
     keep = ((xx > imbd.xmin - margin) & (xx < imbd.xmax + margin) & (
@@ -169,14 +169,14 @@ def in_bounds(xx, yy, imbd, margin):
 
 
 def trim_objlist(objlist, image):
-    """Trim a Table of objects down to those falling near an image.
+    """Trim objects down to those falling near an image.
 
     Objects must fall in a circle centered at the center of the image with
     radius 1.1 times the separation between the center and corner of the image.
 
     In contrast to in_bounds, this doesn't require the x and y coordinates of
-    the sources, and just uses the ra/dec directly without needing to do the
-    WCS transformation.
+    the individual sources, and just uses the source celestial coordinates
+    directly.
 
     Parameters
     ----------
@@ -211,21 +211,22 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     """Add sources to an image.
 
     Note: this includes Poisson noise when photon shooting is used
-    (i.e., for chromatic source profiles), and otherwise is noise free.
+    (i.e., for chromatic source profiles), and otherwise is noise free, unless
+    add_noise is set to True.
 
     Parameters
     ----------
     image : galsim.Image
         Image to which to add sources with associated WCS. Updated in place.
     objlist : list[CatalogObject]
-        Objects to add to image
+        Objects to add to image.  These may be chromatic or achromatic.
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
     psf : galsim.Profile
         PSF for image
     flux_to_counts_factor : float or list
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
-        should be multiplied by this factor to convert to total counts in the
+        should be multiplied by this factor to convert to total electrons in the
         image
     outputunit_to_electrons : array_like
         One output image unit corresponds to this many electrons.  If None,
@@ -236,6 +237,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     filter_name : str
         filter to use to select appropriate flux from objlist.  This is only
         used when achromatic PSFs and sources are being rendered.
+    add_noise : bool
+        if True, add Poisson noise to noiseless FFT simulated images produced
+        when achromatic profiles are used.
     rng : galsim.BaseDeviate
         random number generator to use
     seed : int
@@ -245,7 +249,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     -------
     outinfo : np.ndarray
         Array structure containing rows for each source.  The columns give
-        the total number of counts from the source entering the image and
+        the total number of electrons from the source entering the image and
         the time taken to render the source.
     """
     if rng is None and seed is None:
@@ -321,14 +325,15 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
                             **kwargs):
     """Add some simulated counts to an image.
 
-    No Roman specific code allowed!  To do this, we need to have an image
+    This routine intends to need to know nothing about Roman specifically.
+    To do this, we need to have an image
     to start with with an attached WCS.  We also need an exposure time
     and potentially a zpflux so we know how to translate between the catalog
-    fluxes and the counts entering the image.  For chromatic rendering, this
-    role instead is played by the bandpass, though the exposure time is still
-    needed to handle that part of the conversion from flux to counts.
+    fluxes and the electrons entering the image.  For chromatic rendering, this
+    role is instead played by the bandpass, though the exposure time is still
+    needed to handle that part of the conversion from flux to electrons.
 
-    Then there are a few of individual components that can be added on to
+    Then there are a few individual components that can be added on to
     an image:
 
     * objlist: a list of CatalogObjects to render, or a Table.  Can be chromatic
@@ -336,7 +341,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     * sky: a sky background model.  This is different from a dark in that
       it is sensitive to the flat field.
     * dark: a dark model.
-    * flat: a flat field for modulating the object and sky counts
+    * flat: a flat field for modulating the object and sky electrons
 
     Parameters
     ----------
@@ -349,11 +354,11 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     psf : galsim.Profile
         PSF to use when rendering sources
     zpflux : float
-        For non-chromatic profiles, the factor converting flux to counts / s.
+        For non-chromatic profiles, the factor converting flux to electrons / s.
     sky : float or array_like
-        Image or constant with the counts / pix / sec from sky.
+        Image or constant with the electrons / pix / sec from sky.
     dark : float or array_like
-        Image or constant with the counts / pix / sec from dark current.
+        Image or constant with the electrons / pix / sec from dark current.
     flat : array_like
         Image giving the relative QE of different pixels.
     xpos, ypos : array_like (float)
@@ -483,10 +488,11 @@ def simulate_counts(metadata, objlist,
                     webbpsf=True,
                     darkrate=None, flat=None,
                     psf_keywords=dict()):
-    """Simulate total counts in a single SCA.
+    """Simulate total electrons in a single SCA.
 
-    This gives the total counts in an idealized instrument with no systematics;
-    it includes only distortion & PSF convolution.
+    This gives the total electrons recorded in an idealized instrument with no systematics;
+    it includes only distortion & PSF convolution.  This total includes an appropriate amount
+    of Poisson noise.
 
     Parameters
     ----------
@@ -577,10 +583,6 @@ def gather_reference_data(image_mod, usecrds=False):
     are used instead of CRDS files when the reference_data are None.  If
     all CRDS files should be used, parameters.reference_data must contain
     only Nones.
-
-    This functionality is intended to allow users to specify different
-    levels via a configuration file and not have them be overwritten
-    by the CRDS defaults, but it's not terribly clean.
 
     The input metadata is updated with CRDS software versions if CRDS
     is used.
@@ -707,12 +709,13 @@ def simulate(metadata, objlist,
     objlist : list[CatalogObject] or Table
         List of objects in the field to simulate
     usecrds : bool
-        use CRDS to get distortion maps
+        use CRDS to get reference files
     webbpsf : bool
         use webbpsf to generate PSF
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
-        0 makes a special idealized 'counts' image
+        0 makes a special idealized total electrons image; these are only
+        intended for testing purposes and are not supported.
     persistence : romanisim.persistence.Persistence
         persistence object to use; None for no persistence
     crparam : dict
@@ -830,7 +833,8 @@ def simulate(metadata, objlist,
 def make_test_catalog_and_images(
         seed=12345, sca=7, filters=None, nobj=1000,
         usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
-    """This routine kicks the tires on everything in this module."""
+    """This is a test routine that exercises many options but is not intended for
+    general use."""
     log.info('Making catalog...')
     if filters is None:
         filters = ['Y106', 'J129', 'H158']
@@ -916,7 +920,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
                            gain=None, webbpsf=True):
     """Inject sources into an L2 image.
 
-    This routine allows sources to be injected onto an existing L2 image.
+    This routine allows sources to be injected into an existing L2 image.
     Source injection into an L2 image relies on knowing the objects'
     x and y locations, the PSF, and the image gain; if these are not provided,
     reasonable defaults are generated from the input model.

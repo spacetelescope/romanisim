@@ -7,11 +7,11 @@ the command line interface::
     romanisim-make-image out.asdf
 
 The combination of ``romanisim-make-image`` and various user-generated
-input catalogs allows most simulator functionality to be exercised [#chromatic]_.
+input catalogs allows most of the simulator functionality to be exercised [#chromatic]_.
 
 .. highlight:: none
 
-The ``romanisim-make-image`` CLI has a number of arguments to support
+The ``romanisim-make-image`` command line interface (CLI) has a number of arguments to support
 this functionality::
 
     romanisim-make-image -h
@@ -49,15 +49,16 @@ this functionality::
 
 Expected arguments controlling things like the input :doc:`here </romanisim/catalog>` to
 simulate, the right ascension and declination of the telescope
-[#boresight]_, the :doc:`bandpass </romanisim/bandpass>`, the SCA to
+[#boresight]_, the :doc:`bandpass </romanisim/bandpass>`, the Sensor
+Chip Assembly (SCA) to
 simulate, the level of the image to simulate (:doc:`L1 </romanisim/l1>`
 or :doc:`L2 </romanisim/l2>`), the MA table to use, and the time of
 the observation.
 
 Additional arguments control some details of the simulation.  The
 ``--usecrds`` argument indicates that reference files should be pulled
-from the Roman CRDS server; this is the recommended option when CRDS
-is available.  The ``--webbpsf`` argument indicates that the `WebbPSF
+from the Roman CRDS server, and is recommended.  The ``--webbpsf``
+argument indicates that the `WebbPSF
 <https://webbpsf.readthedocs.io>`_ package should be used to simulate
 the PSF; note that this presently disables chromatic PSF rendering.
 

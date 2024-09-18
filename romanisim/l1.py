@@ -1,16 +1,20 @@
-"""Convert images into L1 images, with ramps.
+"""This module contains routines that convert total electron images into L1 images.
 
-We imagine starting with an image that gives the total number of counts from
-all Poisson processes (at least: sky, sources, dark current).  We then need
-to redistribute these counts over the resultants of an L1 image.
+We imagine starting with an image that gives the total number of electrons from
+all Poisson processes (at least: sky, sources, dark current).  One then needs
+to redistribute these electrons over the resultants of an L1 image.
 
-The easiest thing to do, and probably where I should start, is to sample the
+The remainder of this module-level discussion covers some of the philosophical
+choices taken in this module and the consequences thereof.  It is more
+colloquial than much of the documentantion and may be ignored.
+
+The easiest approach is to sample the
 image read-by-read with a binomial draw from the total counts weighted by the
-chance that each count landed in this particular time window.  Then gather
+chance that each count landed in this particular time window, and then gather
 those for each resultant and average, as done on the spacecraft.
 
 It's tempting to go straight to making the appropriate resultants.  Following
-Casertano (2022?), the variance in each resultant is:
+Casertano (2022), the variance in each resultant is:
 
 .. math:: V = \\sigma_{read}^2/N + f \\tau
 
@@ -28,82 +32,74 @@ For uniformly spaced reads,
 where t_0 is the time of the first read in the resultant and d is the spacing
 of the reads.
 
-So that gives the variance from Poisson counts in resultant.  But how should
-we draw random numbers to get that variance and the right mean?  I can
+That gives the variance from Poisson counts in the resultants.  But how should
+we draw random numbers to get that variance and the right mean?  One can
 separately control the mean and variance by scaling the Poisson distribution,
-but I'm not sure that's doing the right thing with the higher order moments.
+but that will not do the the right thing with the higher order moments.
 
-It probably isn't that expensive to just work out all of the reads,
-individually, which will also allow more natural incorporation of
-cosmic rays down the road.  So let's take that approach instead for
-the moment.
+It isn't that expensive to just work out all of the reads,
+individually, which also allows more natural incorporation of
+cosmic rays.  So we take that approach.
 
-How do we want to specify an L1 image?  An L1 image is defined by a
-total count image and a list of lists :math:`t_{i, j}`, where
+What is the input for constructing an L1 image?  An L1 image is defined by a
+total electron image and a list of lists :math:`t_{i, j}`, where
 :math:`t_{i, j}` is the time at which the jth read in the ith
 resultant is made.  We demand :math:`t_{i, j} > t_{k, l}`
 whenever i > k or whenever i = k and j > l.
 
-Things this doesn't allow neatly:
+This approach doesn't allow for some effects, for example:
 
 * jitter in telescope pointing: the rate image is the same for each read/resultant
 * weird non-linear systematics in darks?
 
 Some systematics need to be applied to the individual reads, rather than to
-the final image.  Currently linearity, persistenc, and CRs are implemented at
-individual read time.  I need to think about when in the chain
-things like IPC, etc., come in.  But it still seems correct to first generate the total
-number of counts that an ideal detector would measure from sources, and then apply
-these effects read-by-read as we build up the resultants---i.e., I expect the current
-framework will be able to handle this without major issue.
+the final image.  Currently linearity, persistence, and CRs are implemented at
+individual read time.
 
 This approach is not super fast.  For a high latitude set of resultants,
 generating all of the random numbers to determine the apportionment takes
-43 s on the machine I'm currently using; this will scale linearly with the
+43 s on a 2020 Mac laptop; this will scale linearly with the
 number of reads.  That's longer than the actual image production for the
 dummy scene I'm using (though only ~2x longer).
 
-I don't have a good way to speed this up.  Explicitly doing the Poisson
+It's unclear how to speed this up.  Explicitly doing the Poisson
 noise on each read from a rate image (rather than the apportionment of an
 image that already has Poisson noise) is 2x slower---generating billions
 of random numbers just takes a little while.
 
-Plausibly I could figure out how to draw numbers directly from what a
+Plausibly one could figure out how to draw numbers directly from what a
 resultant is rather than looking at each read individually.  That would
 likely bring a ~10x speed-up.  The read noise there is easy.  The
-poisson noise is a sum of scaled Poisson variables:
+Poisson noise is a sum of scaled Poisson variables:
 
 .. math:: \\sum_{i=0, ..., N-1} (N-i) c_i \\, ,
 
 where :math:`c_i` is a Poisson-distributed variable.
 The sum of Poisson-distributed variables is Poisson-distributed, but I wasn't
-immediately able to find anything about the sum of scaled Poisson-distributed
-variables.  The result is clearly not Poisson-distributed, but maybe there's
-some special way to sample from that directly.
+able to find an easy distribution to use for the sum of scaled Poisson-distributed
+quantities.
 
-If we did sample from that directly, we'd still also need to get the sum
-of the counts in the reads comprising the resultant.  So I think you'd need
-a separate draw for that, conditional on the number you got for the resultant.
-Or, reversing that, you might want to draw the total number of counts first,
-e.g., via the binomial distribution, and then you'd want to draw a number
+If one did sample from that directly, we'd still also need to get the sum
+of the counts in the reads comprising the resultant.  So one would need
+a separate draw for that, conditional on the average obtained for the resultant.
+Or, reversing that, one could draw the total number of counts first,
+e.g., via the binomial distribution, and then would draw the number
 for what the average number of counts was among the reads comprising the
 resultant, conditional on the total number of counts.  Then
 
 .. math:: \\sum_{i=0, ..., N-1} (N-i) c_i
 
-is some kind of statistic of the multinomial distribution.  That sounds a
-little more tractable?
+is some kind of statistic of the multinomial distribution.  That looks more tractable:
 
 .. math:: c_i \\sim \\mathrm{multinomial}(\\mathrm{total}, [1/N, ..., 1/N])
 
-We want to draw from :math:`\\sum (N-i) c_i`.
-I think the probabilities are always :math:`1/N`, with the possible small but
+We need to draw from :math:`\\sum (N-i) c_i`.
+The probabilities are always :math:`1/N`, with the possible small but
 important
 exception of 'skipped' or 'dropped' reads, in which case the first read would
-be more like :math:`2/(N+1)` and all the others :math:`1/(N+1)`.  If the probabilities
-were always 1/N, this looks vaguely like it could have a nice analytic
-solution.  Otherwise, I don't immediately see a route forward.  So I am not
-going to pursue this avenue further.
+be more like :math:`2/(N+1)` and all the others :math:`1/(N+1)`.  If the
+probabilities were always 1/N, this looks vaguely like it could have a nice analytic
+solution.  We don't pursue this avenue further here.
 """
 
 import numpy as np
@@ -117,12 +113,12 @@ from . import cr
 
 
 def validate_times(tij):
-    """Verify that a set of times tij for a valid resultant.
+    """Verify that a set of times tij is ascending.
 
     Parameters
     ----------
     tij : list[list[float]]
-        a list of list of times at which each read in a resultant is performed
+        a list of lists of times at which each read in a resultant is performed
 
     Returns
     -------
@@ -139,7 +135,7 @@ def tij_to_pij(tij, remaining=False):
     The probabilities are those needed for sampling from a binomial
     distribution for each read.  These are delta_t / sum(delta_t), the
     fraction of time in each read over the total time, when `remaining` is
-    False.  When remaining is true, we scale these probabilities not by
+    False.  When remaining is true, these probabilities are scaled not by
     the total time but by the remaining time, so that subsequent reads get
     subsequent reads get scaled up so that each pij is
     delta_t / time_remaining, and the last read always has pij = 1.
@@ -147,7 +143,7 @@ def tij_to_pij(tij, remaining=False):
     Parameters
     ----------
     tij : list[list[float]]
-        list of list of readout times for each read entering a resultant
+        list of lists of readout times for each read entering a resultant
     remaining : bool
         scale by remaining time rather than total time
 
@@ -181,19 +177,13 @@ def apportion_counts_to_resultants(
         tstart=None, rng=None, seed=None):
     """Apportion counts to resultants given read times.
 
-    This finds a statistically appropriate assignment of counts to each
+    This finds a statistically appropriate assignment of electrons to each
     read composing a resultant, and averages the reads together to make
     the resultants.
 
-    There's an alternative approach where you have a count rate image and
-    need to do Poisson draws from it.  That's easier, and isn't this function.
-    On some systems I've used Poisson draws have been slower than binomial
-    draws, so it's not clear that approach offers any advantages, either---
-    though I've had mixed experience there.
-
     We loop over the reads, each time sampling from the counts image according
     to the probability that a photon lands in that particular read.  This
-    is just np.random.binomial(number of counts left, p/p_left)
+    is implemented via np.random.binomial(number of counts left, p/p_left) .
 
     We then average the reads together to get a resultant.
 
@@ -207,14 +197,14 @@ def apportion_counts_to_resultants(
 
     Parameters
     ----------
-    counts : np.ndarray[nx, ny] (int)
+    counts : np.ndarray[ny, nx] (int)
         The number of counts in each pixel from sources in the final image
         This final image should be a ~conceptual image of the scene observed
         by an idealized instrument seeing only backgrounds and sources and
         observing until the end of the last read; no instrumental effects are
         included beyond PSF & distortion.
     tij : list[list[float]]
-        list of list of readout times for each read entering a resultant
+        list of lists of readout times for each read entering a resultant
     inv_linearity : romanisim.nonlinearity.NL or None
         Object implementing inverse non-linearity correction
     crparam : dict
@@ -341,11 +331,11 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
 
     Parameters
     ----------
-    resultants : np.ndarray[n_resultant, nx, ny] (float)
+    resultants : np.ndarray[n_resultant, ny, nx] (float)
         resultants array, giving each of n_resultant resultant images
     tij : list[list[float]]
-        list of list of readout times for each read entering a resultant
-    read_noise : float or np.ndarray[nx, ny] (float)
+        list of lists of readout times for each read entering a resultant
+    read_noise : float or np.ndarray[ny, nx] (float)
         read noise or read noise image for adding to resultants
     rng : galsim.BaseDeviate
         Random number generator to use
@@ -357,7 +347,7 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
 
     Returns
     -------
-    np.ndarray[n_resultant, nx, ny] (float)
+    np.ndarray[n_resultant, ny, nx] (float)
         resultants with added read noise
     """
     if rng is None and seed is None:
@@ -402,11 +392,11 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
 
     Parameters
     ----------
-    resultants : np.ndarray[n_resultant, nx, ny] (float)
+    resultants : np.ndarray[n_resultant, ny, nx] (float)
         resultants array, giving each of n_resultant resultant images
     filepath : str
         if not None, path of asdf file to L1 image into
-    dq : np.ndarray[n_resultant, nx, ny] (int)
+    dq : np.ndarray[n_resultant, ny, nx] (int)
         dq array flagging saturated / CR hit pixels
 
     Returns
@@ -452,7 +442,7 @@ def read_pattern_to_tij(read_pattern):
     Returns
     -------
     list[list[float]]
-        list of list of readout times for each read entering a resultant
+        list of lists of readout times for each read entering a resultant
     """
     if isinstance(read_pattern, int):
         read_pattern = parameters.read_pattern[read_pattern]
@@ -465,12 +455,12 @@ def add_ipc(resultants, ipc_kernel=None):
 
     Parameters
     ----------
-    resultants : np.ndarray[n_resultant, nx, ny]
-        resultants describing scene
+    resultants : np.ndarray[n_resultant, ny, nx]
+        resultants describing a scene
 
     Returns
     -------
-    np.ndarray[n_resultant, nx, ny]
+    np.ndarray[n_resultant, ny, nx]
         resultants with IPC
     """
     # add in IPC
@@ -490,28 +480,28 @@ def make_l1(counts, read_pattern,
             rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None):
-    """Make an L1 image from a counts image.
+    """Make an L1 image from a total electrons image.
 
-    This apportions the total counts among the different resultants and adds
+    This apportions the total electrons among the different resultants and adds
     some instrumental effects (linearity, IPC, CRs, persistence, ...).
 
     Parameters
     ----------
     counts : galsim.Image
-        total counts delivered to each pixel
+        total electrons delivered to each pixel
     read_pattern : int or list[list]
         MA table number or list of lists giving indices of reads entering each
         resultant.
-    read_noise : np.ndarray[nx, ny] (float) or float
+    read_noise : np.ndarray[ny, nx] (float) or float
         Read noise entering into each read
-    pedestal_extra_noise : np.ndarray[nx, ny] (float) or float
+    pedestal_extra_noise : np.ndarray[ny, nx] (float) or float
         Extra noise entering into each pixel (i.e., degenerate with pedestal)
     rng : galsim.BaseDeviate
         Random number generator to use
     seed : int
         Seed for populating RNG.  Only used if rng is None.
     gain : float or np.ndarray[float]
-        Gain (electrons / count) for converting counts to electrons
+        Gain (electrons / DN) for converting DN to electrons
     inv_linearity : romanisim.nonlinearity.NL or None
         Object describing the inverse non-linearity corrections.
     crparam : dict
@@ -525,14 +515,14 @@ def make_l1(counts, read_pattern,
     Returns
     -------
     l1, dq
-    l1: np.ndarray[n_resultant, nx, ny]
+    l1: np.ndarray[n_resultant, ny, nx]
         resultants image array including systematic effects
-    dq: np.ndarray[n_resultant, nx, ny]
+    dq: np.ndarray[n_resultant, ny, nx]
         DQ array marking saturated pixels and cosmic rays
     """
 
     tij = read_pattern_to_tij(read_pattern)
-    log.info('Apportioning counts to resultants...')
+    log.info('Apportioning electrons to resultants...')
     resultants, dq = apportion_counts_to_resultants(
         counts.array, tij, inv_linearity=inv_linearity, crparam=crparam,
         persistence=persistence, tstart=tstart,

@@ -1,7 +1,7 @@
 Image Input
 ===========
 
-The simulator can alternatively take as input a catalog that references a separate list of images of sources.  The format of the catalog is described below, and the underlying "list of images" is described by a ``RealGalaxyCatalog``; see :ref:`constructing-a-rgc`.  The concept here is that users may have noiseless images of galaxies from, for example, hydro simulations, and may wish to inject those into simulated images at specific locations.  Or users may have reference images from, for example, the COSMOS field, which could be used as truth images for simulations.
+The simulator can alternatively take as input a catalog that references a separate list of images of sources.  The format of the catalog is described below, and the underlying "list of images" is described by a ``RealGalaxyCatalog``; see :ref:`constructing-a-rgc`.  The concept here is that users may have noiseless images of galaxies from, for example, hydrodynamical simulations, and may wish to inject those into simulated images at specific locations.  Or users may have reference images from, for example, the COSMOS field, which could be used as truth images for simulations.
 
 The simulator leverages GalSim's ``RealGalaxyCatalog`` framework to support this use case.  There are a handful of existing catalogs of images in the appropriate format for use with the ``RealGalaxyCatalog``---in particular, `GalSim's COSMOS reference catalog <https://galsim-developers.github.io/GalSim/_build/html/real_gal.html#downloading-the-cosmos-catalog>`_ .
 
@@ -26,7 +26,7 @@ For image input, the simulator takes a catalog with the following structure::
    269.9    66.1     1     6.91   109.7     0.5      0.4  2.5e-07 
    269.9    66.0     0    12.04    44.2     0.6      0.1  2.7e-07
 
-Moreover, the table metadata must include the keyword ``real_galaxy_catalog_filename`` specifying the location of the ``RealGalaxyCatalog`` catalog file.  The ``ident`` keyword then specifies the id of the galaxy image to use from the RealGalaxyCatalog, which is rendered at the specified location (ra, dec) and is optionally rotated (rotate), sheared (shear_pa, shear_ba), and dilated (dilate).  Finally, total fluxes in maggies (see the catalog :doc:`docs </romanisim/catalog>`) in specified bandpasses are given.
+Moreover, the table metadata must include the keyword ``real_galaxy_catalog_filename`` specifying the location of the ``RealGalaxyCatalog`` catalog file.  The ``ident`` keyword then specifies the ID of the galaxy image to use from the RealGalaxyCatalog, which is rendered at the specified location (ra, dec) and is optionally rotated (rotate), sheared (shear_pa, shear_ba), and dilated (dilate).  Finally, total fluxes in maggies (see the catalog :doc:`docs </romanisim/catalog>`) in specified bandpasses are given.
 
 The following fields must be specified for each source:
 

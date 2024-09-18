@@ -10,16 +10,16 @@ def create_sampler(pdf, x):
     Parameters
     ----------
     pdf : callable
-        A function or empirical set of tabulated values which can
+        A function or empirical set of tabulated values that can
         be used to call or evaluate `x`.
-    x : 1-d array of floats
+    x : 1D array of floats
         A grid of values where the pdf should be evaluated.
 
     Returns
     -------
     inverse_cdf : callable
         Callable that gives the cumulative distribution function
-        which allows sampling from the `pdf` distribution within
+        that allows sampling from the `pdf` distribution within
         the bounds described by the grid `x`.
     """
 
@@ -37,16 +37,17 @@ def moyal_distribution(x, location=120, scale=50):
 
     Parameters
     ----------
-    x : 1-d array
+    x : 1D array
         An array of dE/dx values (units: eV/micron) that forms the
         grid on which the Moyal distribution will be evaluated.
     location : float
         The peak location of the distribution, units of eV / micron.
     scale : float
         A width parameter for the distribution, units of eV / micron.
+
     Returns
     -------
-    moyal : 1-d array of floats
+    moyal : 1D array of floats
         Moyal distribution (pdf) evaluated on `x` grid of points.
     """
     xs = (x - location) / scale
@@ -60,7 +61,7 @@ def power_law_distribution(x, slope=-4.33):
 
     Parameters
     ----------
-    x : 1-d array of floats
+    x : 1D array of floats
         An array of cosmic ray path lengths (units: micron).
     slope : float
         The log-log slope of the distribution, default based on
@@ -68,7 +69,7 @@ def power_law_distribution(x, slope=-4.33):
 
     Returns
     -------
-    power_law : 1-d array of floats
+    power_law : 1D array of floats
         Power-law distribution (pdf) evaluated on `x` grid of points.
     """
     power_law = np.power(x, slope)
@@ -173,10 +174,10 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
     ----------
     trail_start : (float, float)
         The starting coordinates in (i, j) of the cosmic ray trail,
-        in units of pix.
+        in units of pixels.
     trail_end : (float, float)
         The ending coordinates in (i, j) of the cosmic ray trail, in
-        units of pix.
+        units of pixels.
     N_i : int
         Number of pixels along i-axis of detector
     N_j : int
@@ -187,11 +188,11 @@ def traverse(trail_start, trail_end, N_i=4096, N_j=4096, eps=1e-10):
     Returns
     -------
     ii : np.ndarray[int]
-        i-axis positions of traversed trail, in units of pix.
+        i-axis positions of traversed trail, in units of pixels.
     jj : np.ndarray[int]
-        j-axis positions of traversed trail, in units of pix.
+        j-axis positions of traversed trail, in units of pixels.
     lengths : np.ndarray[float]
-        Chord lengths for each traversed pixel, in units of pix.
+        Chord lengths for each traversed pixel, in units of pixels.
     """
 
     # increase in i-direction
@@ -287,7 +288,7 @@ def simulate_crs(
 
     Parameters
     ----------
-    image : 2-d array of floats
+    image : 1D array of floats
         The detector image with values in units of electrons.
     time : float
         The exposure time, units of s.
@@ -310,7 +311,7 @@ def simulate_crs(
 
     Returns
     -------
-    image : 2-d array of floats
+    image : 2D array of floats
         The detector image, in units of electrons, updated to include
         all of the generated cosmic ray hits.
     """

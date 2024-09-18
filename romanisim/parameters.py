@@ -1,4 +1,4 @@
-"""Parameters class storing a few useful constants for Roman simulations.
+"""Parameters class storing useful constants for Roman simulations.
 """
 
 import numpy as np
