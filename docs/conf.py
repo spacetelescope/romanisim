@@ -67,7 +67,9 @@ html_theme = "sphinx_rtd_theme"
 html_theme_options = {
     "collapse_navigation": True
 }
-html_theme_path = [stsci_rtd_theme.get_html_theme_path()]
+# html_theme_path = [stsci_rtd_theme.get_html_theme_path()]
+# the internet reports that this can cause problems with searching,
+# which was hanging at readthedocs.
 html_domain_indices = True
 html_sidebars = {"**": ["globaltoc.html", "relations.html", "searchbox.html"]}
 html_use_index = True

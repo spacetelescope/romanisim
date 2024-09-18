@@ -44,6 +44,7 @@ def moyal_distribution(x, location=120, scale=50):
         The peak location of the distribution, units of eV / micron.
     scale : float
         A width parameter for the distribution, units of eV / micron.
+
     Returns
     -------
     moyal : 1D array of floats
