@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import stsci_rtd_theme
+# import stsci_rtd_theme
 if sys.version_info < (3, 11):
     import tomli as tomllib
 else:
@@ -46,6 +46,7 @@ extensions = [
     "sphinx_automodapi.automodapi",
     "sphinx_automodapi.smart_resolver",
     "sphinx.ext.intersphinx",
+    "sphinx_rtd_theme",
 ]
 
 autosummary_generate = True
