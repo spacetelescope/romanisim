@@ -143,7 +143,8 @@ def get_wcs(image, usecrds=True, distortion=None):
         wcs = make_wcs(util.skycoord(world_pos), distortion,
                        v2_ref=image_mod.meta.wcsinfo.v2_ref,
                        v3_ref=image_mod.meta.wcsinfo.v3_ref,
-                       roll_ref=image_mod.meta.wcsinfo.roll_ref)
+                       roll_ref=image_mod.meta.wcsinfo.roll_ref,
+                       scale_factor=image_mod.meta.velocity_aberration.scale_factor)
         shape = image_mod.data.shape
         wcs.bounding_box = ((-0.5, shape[-1] - 0.5), (-0.5, shape[-2] - 0.5))
         wcs = GWCS(wcs)
