@@ -33,6 +33,7 @@ from galsim import roman
 from . import util
 import romanisim.parameters
 import roman_datamodels.maker_utils as maker_utils
+from romancal.assign_wcs.pointing import dva_corr_model
 
 
 def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
@@ -165,6 +166,7 @@ def make_wcs(targ_pos,
              v3_ref=0,
              wrap_v2_at=180,
              wrap_lon_at=360,
+             scale_factor=1.0,
              ):
     """Create a gWCS from a target position, a roll, and a distortion map.
 
@@ -187,6 +189,9 @@ def make_wcs(targ_pos,
 
     v3_ref : float
         The v3 coordinate (arcsec) corresponding to targ_pos
+
+    scale_factor : float
+        The scale factor induced by velocity aberration
 
     Returns
     -------
@@ -223,11 +228,21 @@ def make_wcs(targ_pos,
                           unit=(u.pix, u.pix))
     v2v3 = cf.Frame2D(name="v2v3", axes_order=(0, 1),
                       axes_names=("v2", "v3"), unit=(u.arcsec, u.arcsec))
+    v2v3vacorr = cf.Frame2D(name='v2v3vacorr', axes_order=(0, 1),
+                            axes_names=('v2', 'v3'), unit=(u.arcsec, u.arcsec))
     world = cf.CelestialFrame(reference_frame=astropy.coordinates.ICRS(),
                               name='world')
 
+    # Compute differential velocity aberration (DVA) correction:
+    va_corr = dva_corr_model(
+        va_scale=scale_factor,
+        v2_ref=v2_ref,
+        v3_ref=v3_ref
+    )
+
     pipeline = [gwcs.wcs.Step(detector, distortion),
-                gwcs.wcs.Step(v2v3, tel2sky),
+                gwcs.wcs.Step(v2v3, va_corr),
+                gwcs.wcs.Step(v2v3vacorr, tel2sky),
                 gwcs.wcs.Step(world, None)]
     return gwcs.wcs.WCS(pipeline)
 
