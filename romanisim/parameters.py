@@ -181,6 +181,10 @@ default_parameters_dictionary = {
                 # I don't know what vparity and v3yangle should really be,
                 # but they are always -1 and -60 in existing files.
                 },
+    'aperture': {'name': 'WFI_CEN',
+                 'position_angle': 0
+                 },
+    'velocity_aberration': {'scale_factor': 1.0},
 }
 
 # Default metadata for level 3 mosaics

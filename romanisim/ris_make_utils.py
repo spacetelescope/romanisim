@@ -46,7 +46,7 @@ def merge_nested_dicts(dict1, dict2):
 
 
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
-                 ma_table_number=4, truncate=None):
+                 ma_table_number=4, truncate=None, scale_factor=1.0):
     """
     Set / Update metadata parameters
 
@@ -62,6 +62,8 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
         Integer identifier of the detector to simulate (starting at 1)
     ma_table_number : int
         Integer specifying which MA Table entry to use
+    scale_factor : float
+        Velocity aberration-induced scale factor
 
     Returns
     -------
@@ -89,6 +91,9 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
         meta['exposure']['truncated'] = True
     else:
         meta['exposure']['truncated'] = False
+
+    # Velocity aberration
+    meta['velocity_aberration']['scale_factor'] = scale_factor
 
     return meta
 
