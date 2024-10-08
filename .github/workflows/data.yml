@@ -36,7 +36,7 @@ jobs:
           mv ./galsim_data/* ${{ env.GALSIM_PATH }}
       - run: echo GALSIM_CAT_PATH=${{ env.GALSIM_PATH }}real_galaxy_catalog_23.5_example.fits >> $GITHUB_ENV
       - name: retrieve cached WebbPSF data
-        uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9  # v4.0.2
+        uses: actions/cache/restore@3624ceb22c1c5a301c8db4169662070a689d9ea8  # v4.1.1
         with:
           path: ${{ needs.download_webbpsf_data.outputs.cache_path }}
           key: ${{ needs.download_webbpsf_data.outputs.cache_key }}
@@ -44,7 +44,7 @@ jobs:
       - run: echo WEBBPSF_PATH=/tmp/data/webbpsf-data/ >> $GITHUB_ENV
       # save a new cache to the same generalized data directory, combined with extra data
       - name: save a single combined data cache
-        uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9  # v4.0.2
+        uses: actions/cache/save@3624ceb22c1c5a301c8db4169662070a689d9ea8  # v4.1.1
         with:
           path: /tmp/data/
           key: data-${{ needs.download_webbpsf_data.outputs.cache_key }}-galsim-data-${{ steps.galsim_data.outputs.hash }}
