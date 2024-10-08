@@ -532,22 +532,18 @@ def update_photom_keywords(im, gain=None):
                  cc[0].position_angle(cc[2]))
         area = (cc[0].separation(cc[1]) * cc[0].separation(cc[2])
                 * np.sin(angle.to(u.rad).value))
-        im['meta']['photometry']['pixelarea_steradians'] = area.to(u.sr)
+        im['meta']['photometry']['pixelarea_steradians'] = area.to(u.sr).value
         im['meta']['photometry']['pixelarea_arcsecsq'] = (
-            area.to(u.arcsec ** 2))
-        im['meta']['photometry']['conversion_megajanskys'] = gain * (
-            3631 /
-            bandpass.get_abflux(im.meta['instrument']['optical_element']) /
-            10 ** 6 /
-            im['meta']['photometry']['pixelarea_steradians']) * u.MJy
+            area.to(u.arcsec ** 2)).value
+        val = (gain * (3631 / bandpass.get_abflux(
+            im.meta['instrument']['optical_element']) /
+            10 ** 6 / im['meta']['photometry']['pixelarea_steradians']))
+        im['meta']['photometry']['conversion_megajanskys'] = val
         im['meta']['photometry']['conversion_microjanskys'] = (
-            im['meta']['photometry']['conversion_megajanskys'].to(
-                u.uJy / u.arcsec ** 2))
+            val * u.MJy / u.sr).to(u.uJy / u.arcsec ** 2).value
 
-    im['meta']['photometry']['conversion_megajanskys_uncertainty'] = (
-        0 * u.MJy / u.sr)
-    im['meta']['photometry']['conversion_microjanskys_uncertainty'] = (
-        0 * u.uJy / u.arcsec ** 2)
+    im['meta']['photometry']['conversion_megajanskys_uncertainty'] = 0
+    im['meta']['photometry']['conversion_microjanskys_uncertainty'] = 0
 
 
 def merge_dicts(a, b):
