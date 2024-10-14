@@ -56,6 +56,7 @@ default_parameters_dictionary = {
     'aperture': {'name': 'WFI_CEN',
                  'position_angle': 0
                  },
+    'velocity_aberration': {'scale_factor': 1.0},
 }
 
 # Default metadata for level 3 mosaics

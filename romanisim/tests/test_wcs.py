@@ -149,3 +149,25 @@ def test_wcs_crds_match():
 
     # Expect a GWCS object as opposed to a dictionary
     assert type(twcs) is wcs.GWCS
+
+
+def test_scale_factor():
+    """Test that specifying a scale factor actually calculates a new wcs"""
+
+    # Truth aiming for.
+    cc = SkyCoord(ra=0 * u.deg, dec=0 * u.deg)
+    scale_factor = 1.1
+    truth = SkyCoord([(0.        , 0.        ), (0.03361111, 0.0336111 ),
+                      (0.0672222 , 0.06722216), (0.10083325, 0.10083312),
+                      (0.13444424, 0.13444393)],
+                     unit='deg')
+
+    # Make a simple grid of pixel coordinates to calculate sky for
+    grid = range(0, 4096, 1000)
+
+    # Create the wcs and generate results
+    distortion = make_fake_distortion_function()
+    gwcs = wcs.make_wcs(cc, distortion, scale_factor=scale_factor)
+    sky = gwcs.pixel_to_world(grid, grid)
+
+    assert all(truth.separation(sky).to(u.arcsec).value < 1e-3)
