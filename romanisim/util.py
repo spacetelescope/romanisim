@@ -217,6 +217,9 @@ def add_more_metadata(metadata):
             metadata['guide_star']['window_xstart'])
         metadata['guide_star']['window_ystop'] = (
             metadata['guide_star']['window_ystart'])
+    if 'visit' not in metadata.keys():
+        metadata['visit'] = dict()
+    metadata['visit']['status'] = 'SUCCESSFUL'
 
 
 def update_pointing_and_wcsinfo_metadata(metadata, gwcs):
@@ -497,13 +500,12 @@ def update_photom_keywords(im, gain=None):
                  cc[0].position_angle(cc[2]))
         area = (cc[0].separation(cc[1]) * cc[0].separation(cc[2])
                 * np.sin(angle.to(u.rad).value))
-        im['meta']['photometry']['pixelarea_steradians'] = area.to(u.sr).value
-        im['meta']['photometry']['pixelarea_arcsecsq'] = (
-            area.to(u.arcsec ** 2)).value
-        val = (gain * (3631 / bandpass.get_abflux(
-            im.meta['instrument']['optical_element']) /
-            10 ** 6 / im['meta']['photometry']['pixelarea_steradians']))
-        im['meta']['photometry']['conversion_megajanskys'] = val
+        im['meta']['photometry']['pixel_area'] = area.to(u.sr).value
+        im['meta']['photometry']['conversion_megajanskys'] = (gain *
+            3631 /
+            bandpass.get_abflux(im.meta['instrument']['optical_element']) /
+            10 ** 6 /
+            im['meta']['photometry']['pixel_area'])
         im['meta']['photometry']['conversion_microjanskys'] = (
             val * u.MJy / u.sr).to(u.uJy / u.arcsec ** 2).value
 

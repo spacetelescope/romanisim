@@ -202,9 +202,9 @@ def parse_filename(filename):
     match = pattern.match(filename)
     if match is None:
         return None
-    out = dict(obs_id=filename.replace('_', '')[1:],
+    out = dict(observation_id=filename.replace('_', '')[1:],
                visit_id=filename[1:20],
-               program=match.group(1),  # this one is a string
+               program=int(match.group(1)),  # this one is a string
                execution_plan=int(match.group(2)),
                # pass = int(match.group(3))
                segment=int(match.group(4)),
