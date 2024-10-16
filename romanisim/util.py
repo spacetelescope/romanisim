@@ -210,8 +210,8 @@ def add_more_metadata(metadata):
     effexptime = parameters.read_time * (
         np.mean(read_pattern[-1]) - np.mean(read_pattern[0]))
     metadata['exposure']['effective_exposure_time'] = effexptime
-    metadata['guide_star']['window_xstart'] = 16
-    metadata['guide_star']['window_ystart'] = 16
+    metadata['guide_star']['window_xsize'] = 16
+    metadata['guide_star']['window_ysize'] = 16
     if 'window_xstart' in metadata['guide_star']:
         metadata['guide_star']['window_xstop'] = (
             metadata['guide_star']['window_xstart'])
