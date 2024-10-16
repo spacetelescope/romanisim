@@ -791,7 +791,7 @@ def simulate(metadata, objlist,
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
         webbpsf=webbpsf, flat=flat, psf_keywords=psf_keywords)
-    util.update_aperture_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
+    util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
     if level == 0:
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:

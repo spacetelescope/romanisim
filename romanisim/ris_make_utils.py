@@ -259,8 +259,8 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
             'WFI_' + args.pretend_spectral.upper())
         im['meta']['instrument']['optical_element'] = (
             args.pretend_spectral.upper())
-        im['meta']['guidestar']['gw_window_xsize'] = 170
-        im['meta']['guidestar']['gw_window_ysize'] = 24
+        im['meta']['guide_star']['window_xsize'] = 170
+        im['meta']['guide_star']['window_ysize'] = 24
 
     drop_extra_dq = getattr(args, 'drop_extra_dq', False)
     if drop_extra_dq and ('dq' in romanisimdict):

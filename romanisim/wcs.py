@@ -59,20 +59,14 @@ def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
 
     if 'pointing' not in parameters.keys():
         parameters['pointing'] = {}
-
-    parameters['pointing']['ra_v1'] = coord.ra.to(u.deg).value
-
     if 'wcsinfo' not in parameters.keys():
         parameters['wcsinfo'] = {}
-    if 'aperture' not in parameters.keys():
-        parameters['aperture'] = {}
 
-    parameters['wcsinfo']['ra_ref'] = (
-        parameters['pointing']['ra_v1'])
+    parameters['pointing']['target_ra'] = coord.ra.to(u.deg).value
+    parameters['wcsinfo']['ra_ref'] = parameters['pointing']['target_ra']
 
-    parameters['pointing']['dec_v1'] = coord.dec.to(u.deg).value
-    parameters['wcsinfo']['dec_ref'] = (
-        parameters['pointing']['dec_v1'])
+    parameters['pointing']['target_dec'] = coord.dec.to(u.deg).value
+    parameters['wcsinfo']['dec_ref'] = parameters['pointing']['target_dec']
 
     # Romanisim uses ROLL_REF = PA_APER - V3IdlYAngle
     parameters['wcsinfo']['roll_ref'] = (
@@ -81,14 +75,16 @@ def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
     if boresight:
         parameters['wcsinfo']['v2_ref'] = 0
         parameters['wcsinfo']['v3_ref'] = 0
-        parameters['aperture']['name'] = 'BORESIGHT'
+        parameters['wcsinfo']['aperture_name'] = 'BORESIGHT'
+        parameters['pointing']['target_aperture'] = 'BORESIGHT'
     else:
         from .parameters import v2v3_wficen
         parameters['wcsinfo']['v2_ref'] = v2v3_wficen[0]
         parameters['wcsinfo']['v3_ref'] = v2v3_wficen[1]
-        parameters['aperture']['name'] = 'WFI_CEN'
+        parameters['wcsinfo']['aperture_name'] = 'WFI_CEN'
+        parameters['pointing']['target_aperture'] = 'WFI_CEN'
 
-    parameters['aperture']['position_angle'] = pa_aper
+    parameters['wcsinfo']['pa_aperture'] = pa_aper
 
 
 def get_wcs(image, usecrds=True, distortion=None):
