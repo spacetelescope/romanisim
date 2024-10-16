@@ -1,12 +1,12 @@
-# r0000101001001001001_0001_WFI01 - default for most steps
-# r0000201001001001001_0001_WFI01 - equivalent for spectroscopic data
-# r0000101001001001001_0002_WFI01 - a second resample exposure, only cal step needed
-# r0000101001001001001_0003_WFI01 - for ramp fitting; truncated image
-# r0000201001001001001_0003_WFI01 - for ramp fitting; truncated spectroscopic
+# r0000101001001001001_0001_wfi01 - default for most steps
+# r0000201001001001001_0001_wfi01 - equivalent for spectroscopic data
+# r0000101001001001001_0002_wfi01 - a second resample exposure, only cal step needed
+# r0000101001001001001_0003_wfi01 - for ramp fitting; truncated image
+# r0000201001001001001_0003_wfi01 - for ramp fitting; truncated spectroscopic
 #                                         we need only darkcurrent & ramp fit for these
 #
-# r0000101001001001001_0004_WFI01 - 16 resultant file, ma_table 110
-# r0000201001001001001_0004_WFI01 - 16 resultant spectroscopic file, ma_table 110
+# r0000101001001001001_0004_wfi01 - 16 resultant file, ma_table 110
+# r0000201001001001001_0004_wfi01 - 16 resultant spectroscopic file, ma_table 110
 
 # note that the "spectroscopic" files are really imaging files where the only
 # thing that has been updated is the optical_element and exposure.type.

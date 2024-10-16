@@ -30,9 +30,9 @@ def go(args):
         origprevious = copy(args.previous)
         for i in range(1, 19):
             args.sca = i
-            args.filename = origfilename.format(f'WFI{args.sca:02d}')
+            args.filename = origfilename.format(f'wfi{args.sca:02d}')
             if origprevious is not None:
-                args.previous = origprevious.format(f'WFI{args.sca:02d}')
+                args.previous = origprevious.format(f'wfi{args.sca:02d}')
             go(args)
         return
 
