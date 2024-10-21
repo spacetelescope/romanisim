@@ -2,7 +2,7 @@
 name = "romanisim"
 description = "Nancy Grace Roman Space Telescope WFI Simulator"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10"
 authors = [
     { name = "STScI", email = "help@stsci.edu" },
 ]
