@@ -72,7 +72,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
     # Create Image canvas to add objects to
     if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
         sourcecountsall = galsim.ImageF(
-            l3_mos.data.value, wcs=romanisim.wcs.GWCS(l3_mos.meta.wcs),
+            l3_mos.data, wcs=romanisim.wcs.GWCS(l3_mos.meta.wcs),
             xmin=0, ymin=0)
     else:
         sourcecountsall = l3_mos
@@ -87,7 +87,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
 
     # Save array with added sources
     if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
-        l3_mos.data = sourcecountsall.array * l3_mos.data.unit
+        l3_mos.data = sourcecountsall.array
 
     return outinfo
 
@@ -162,18 +162,18 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         # Set scaling factor for injected sources
         # Flux / sigma_p^2
         xidx, yidx = int(np.round(x0)), int(np.round(y0))
-        if model.var_poisson[yidx, xidx].value != 0:
+        if model.var_poisson[yidx, xidx] != 0:
             Ct.append(math.fabs(
-                model.data[yidx, xidx].value /
-                model.var_poisson[yidx, xidx].value))
+                model.data[yidx, xidx] /
+                model.var_poisson[yidx, xidx]))
         else:
             Ct.append(1.0)
     Ct = np.array(Ct)
     # etomjysr = 1/C; C converts fluxes to electrons
     exptimes = Ct * etomjysr
 
-    Ct_all = (model.data.value /
-              (model.var_poisson.value + (model.var_poisson.value == 0)))
+    Ct_all = (model.data /
+              (model.var_poisson + (model.var_poisson == 0)))
 
     # compute the total number of counts we got from the source
     res = add_objects_to_l3(
@@ -181,7 +181,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         maggytoes=maggytoes, filter_name=filter_name, bandpass=None,
         rng=rng)
 
-    model.var_poisson = (model.data.value / Ct_all) * model.var_poisson.unit
+    model.var_poisson = (model.data / Ct_all)
 
     return res
 
@@ -655,7 +655,7 @@ def make_l3(image, metadata, efftimes, var_poisson=None,
     """
 
     # Create mosaic data object
-    mosaic = image.array.copy() * u.MJy / u.sr
+    mosaic = image.array.copy()
 
     # Ensure that effective times are an array
     if isinstance(efftimes, np.ndarray):
@@ -677,11 +677,11 @@ def make_l3(image, metadata, efftimes, var_poisson=None,
     context = (np.ones((1,) + mosaic.shape, dtype=np.uint32)
                if context is None else context)
     
-    mosaic_node.var_poisson[...] = var_poisson * mosaic.unit ** 2
-    mosaic_node.var_rnoise[...] = var_rnoise * mosaic.unit ** 2
-    mosaic_node.var_flat[...] = var_flat * mosaic.unit ** 2
+    mosaic_node.var_poisson[...] = var_poisson
+    mosaic_node.var_rnoise[...] = var_rnoise
+    mosaic_node.var_flat[...] = var_flat
     mosaic_node.err[...] = np.sqrt(
-        var_poisson + var_rnoise + var_flat) * mosaic.unit
+        var_poisson + var_rnoise + var_flat)
     mosaic_node.context = context
     
 

@@ -416,7 +416,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     if metadata is not None:
         out['meta'].update(metadata)
     extras = dict()
-    out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
+    out['data'][:, nborder:-nborder, nborder:-nborder] = resultants.value
     if dq is not None:
         extras['dq'] = np.zeros(out['data'].shape, dtype='i4')
         extras['dq'][:, nborder:-nborder, nborder:-nborder] = dq

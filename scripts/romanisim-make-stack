@@ -186,7 +186,7 @@ def main():
             output_file_name = (
                 f'r{program}{plan:02d}{passno:03d}{segment:03d}'
                 f'{observation:03d}{visit:03d}_{exposure:04d}'
-                f'_WFI{sca:02d}_{suffix}.asdf')
+                f'_wfi{sca:02d}_{suffix}.asdf')
 
             log.debug(f"output_file_name = {output_file_name}")
 

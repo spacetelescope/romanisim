@@ -860,8 +860,6 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
               filepath=None, persistence=None, dq=None, imwcs=None,
               gain=None):
     """Wrap a galsim simulated image with ASDF/roman_datamodel metadata.
-
-    Eventually this needs to get enough info to reconstruct a refit WCS.
     """
 
     out = maker_utils.mk_level2_image(
@@ -898,13 +896,13 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
 
     util.update_photom_keywords(out, gain=gain)
 
-    out['data'] = slope
+    out['data'] = slope.value
     out['dq'] = np.zeros(slope.shape, dtype='u4')
     if dq is not None:
         out['dq'][:, :] = dq
-    out['var_poisson'] = slopevar_poisson
-    out['var_rnoise'] = slopevar_rn
-    out['var_flat'] = slopevar_rn * 0
+    out['var_poisson'] = slopevar_poisson.value
+    out['var_rnoise'] = slopevar_rn.value
+    out['var_flat'] = slopevar_rn.value * 0
     out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
     extras = dict()
     if persistence is not None:
@@ -1030,10 +1028,10 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     # create injected source ramp resultants
     resultants, dq = romanisim.l1.apportion_counts_to_resultants(
         sourcecounts.array[m], tij, rng=rng)
-    resultants *= u.electron
+    resultants = resultants * u.electron
 
     # Inject source to original image
-    newramp = model.data[None, :] * tbar[:, None, None] * u.s
+    newramp = model.data[None, :] * tbar[:, None, None] * u.DN
     newramp[:, m] += resultants / gain
     # newramp has units of DN
 

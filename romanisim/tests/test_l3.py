@@ -67,16 +67,16 @@ def test_inject_sources_into_mosaic():
     unit_factor = romanisim.bandpass.etomjysr(filter_name)
 
     # Populate the mosaic data array with gaussian noise from generators
-    g1.generate(l3_mos.data.value[0:100, 0:100])
-    g2.generate(l3_mos.data.value[0:100, 100:200])
-    g3.generate(l3_mos.data.value[100:200, 0:100])
-    g4.generate(l3_mos.data.value[100:200, 100:200])
+    g1.generate(l3_mos.data[0:100, 0:100])
+    g2.generate(l3_mos.data[0:100, 100:200])
+    g3.generate(l3_mos.data[100:200, 0:100])
+    g4.generate(l3_mos.data[100:200, 100:200])
 
     # Define Poisson Noise of mosaic
-    l3_mos.var_poisson.value[0:100, 0:100] = 0.01**2 * meanflux**2
-    l3_mos.var_poisson.value[0:100, 100:200] = 0.02**2 * meanflux**2
-    l3_mos.var_poisson.value[100:200, 0:100] = 0.05**2 * meanflux**2
-    l3_mos.var_poisson.value[100:200, 100:200] = 0.1**2 * meanflux**2
+    l3_mos.var_poisson[0:100, 0:100] = 0.01**2 * meanflux**2
+    l3_mos.var_poisson[0:100, 100:200] = 0.02**2 * meanflux**2
+    l3_mos.var_poisson[100:200, 0:100] = 0.05**2 * meanflux**2
+    l3_mos.var_poisson[100:200, 100:200] = 0.1**2 * meanflux**2
 
     # Create normalized psf source catalog (same source in each quadrant)
     mag_flux = 1e-9
@@ -103,18 +103,18 @@ def test_inject_sources_into_mosaic():
 
     # Ensure that every data pixel value has increased or
     # remained the same with the new sources injected
-    assert np.all(l3_mos.data.value >= l3_mos_orig.data.value)
+    assert np.all(l3_mos.data >= l3_mos_orig.data)
 
     # Ensure that every pixel's poisson variance has increased or
     # remained the same with the new sources injected
     # Numpy isclose is needed to determine equality, due to float precision issues
-    close_mask = np.isclose(l3_mos.var_poisson.value, l3_mos_orig.var_poisson.value, rtol=1e-06)
+    close_mask = np.isclose(l3_mos.var_poisson, l3_mos_orig.var_poisson, rtol=1e-06)
     assert False in close_mask
-    assert np.all(l3_mos.var_poisson.value[~close_mask] > l3_mos_orig.var_poisson.value[~close_mask])
+    assert np.all(l3_mos.var_poisson[~close_mask] > l3_mos_orig.var_poisson[~close_mask])
 
     # Ensure total added flux matches expected added flux
     total_rec_flux = np.sum(l3_mos.data - l3_mos_orig.data)  # MJy / sr
-    total_theo_flux = 4 * mag_flux * cps_conv * unit_factor * u.MJy / u.sr
+    total_theo_flux = 4 * mag_flux * cps_conv * unit_factor  # u.MJy / u.sr
     assert np.isclose(total_rec_flux, total_theo_flux, rtol=4e-02)
 
     # Create log entry and artifacts
@@ -190,11 +190,11 @@ def test_sim_mosaic():
     for x, y in zip(x_all, y_all):
         x = int(x)
         y = int(y)
-        assert mosaic.data.value[y, x] > (np.median(mosaic.data.value) * 5)
+        assert mosaic.data[y, x] > (np.median(mosaic.data) * 5)
 
     # Did we get all the flux?
     etomjysr = romanisim.bandpass.etomjysr(filter_name)
-    totflux = np.sum(mosaic.data.value - np.median(mosaic.data.value)) / etomjysr
+    totflux = np.sum(mosaic.data - np.median(mosaic.data)) / etomjysr
 
     # Flux to counts
     cps_conv = romanisim.bandpass.get_abflux(filter_name)
@@ -205,7 +205,7 @@ def test_sim_mosaic():
 
     # Is the noise about right?
     assert np.abs(
-        mad_std(mosaic.data.value) / np.median(mosaic.err.value) - 1) < 0.5
+        mad_std(mosaic.data) / np.median(mosaic.err) - 1) < 0.5
     # note large ~50% error bar there; value in initial test run is 0.25
     # a substantial number of source pixels have flux, so the simple medians
     # and mads aren't terribly right.
@@ -351,8 +351,8 @@ def test_simulate_vs_cps():
                                )
 
     # Ensure that the simulate and simulate_cps output matches for each type
-    assert np.allclose(im1.array, im3['data'].value)
-    assert np.allclose(im2.array, im4['data'].value)
+    assert np.allclose(im1.array, im3['data'])
+    assert np.allclose(im2.array, im4['data'])
 
 
 def test_simulate_cps():
@@ -500,12 +500,12 @@ def test_exptime_array():
                                )
 
     # Ensure that the poisson variance scales with exposure time difference
-    assert np.isclose((np.median(im1['var_poisson'][0:50, :].value) / np.median(im1['var_poisson'][50:, :].value)), expfactor, rtol=0.02)
-    assert np.isclose((np.median(im2['var_poisson'][0:50, :].value) / np.median(im2['var_poisson'][50:, :].value)), expfactor, rtol=0.02)
+    assert np.isclose((np.median(im1['var_poisson'][0:50, :]) / np.median(im1['var_poisson'][50:, :])), expfactor, rtol=0.02)
+    assert np.isclose((np.median(im2['var_poisson'][0:50, :]) / np.median(im2['var_poisson'][50:, :])), expfactor, rtol=0.02)
 
     # Ensure that the data remains consistent across the exposure times
-    assert np.isclose(np.median(im1['data'][0:50, :].value), np.median(im1['data'][50:, :].value), rtol=0.02)
-    assert np.isclose(np.median(im2['data'][0:50, :].value), np.median(im2['data'][50:, :].value), rtol=0.02)
+    assert np.isclose(np.median(im1['data'][0:50, :]), np.median(im1['data'][50:, :]), rtol=0.02)
+    assert np.isclose(np.median(im2['data'][0:50, :]), np.median(im2['data'][50:, :]), rtol=0.02)
 
 
 def test_scaling():
@@ -533,13 +533,13 @@ def test_scaling():
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on pixel scale (in calibrated units!)
-    skyfracdiff = np.median(im1.data.value) / np.median(im2.data.value) - 1
+    skyfracdiff = np.median(im1.data) / np.median(im2.data) - 1
     log.info(f'skyfracdiff: {skyfracdiff:.3f}')
     assert np.abs(skyfracdiff) < 0.1
 
     # check that uncertainties match observed standard deviations
-    err1fracdiff = mad_std(im1.data.value) / np.median(im1.err.value) - 1
-    err2fracdiff = mad_std(im2.data.value) / np.median(im2.err.value) - 1
+    err1fracdiff = mad_std(im1.data) / np.median(im1.err) - 1
+    err2fracdiff = mad_std(im2.data) / np.median(im2.err) - 1
     log.info(f'err1fracdiff: {err1fracdiff:.3f}, '
              f'err2fracdiff: {err2fracdiff:.3f}')
     assert np.abs(err1fracdiff) < 0.1
@@ -551,18 +551,18 @@ def test_scaling():
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on exposure time (in calibrated units!)
-    sky3fracdiff = np.median(im1.data.value) / np.median(im3.data.value) - 1
+    sky3fracdiff = np.median(im1.data) / np.median(im3.data) - 1
     log.info(f'sky3fracdiff: {sky3fracdiff:.4f}')
     assert np.abs(sky3fracdiff) < 0.1
 
     # check that variances still work out
-    err3fracdiff = mad_std(im3.data.value) / np.median(im3.err.value) - 1
+    err3fracdiff = mad_std(im3.data) / np.median(im3.err) - 1
     log.info(f'err3fracdiff: {err3fracdiff:.3f}')
     assert np.abs(err3fracdiff) < 0.1
 
     # check that new variances are smaller than old ones by an appropriate factor
     errfracdiff = (
-        np.median(im1.err.value) / np.median(im3.err.value) - np.sqrt(10))
+        np.median(im1.err) / np.median(im3.err) - np.sqrt(10))
     log.info(f'err3 ratio diff from 1/sqrt(10) err1: {errfracdiff:0.3f}')
     assert np.abs(errfracdiff) < 0.1
 
@@ -574,7 +574,7 @@ def test_scaling():
             imdict['tabcatalog']['ra'][0], imdict['tabcatalog']['dec'][0])
         pind = [int(x) for x in pix]
         margin = 30 * fac
-        flux = np.sum(im.data.value[pind[1] - margin: pind[1] + margin,
+        flux = np.sum(im.data[pind[1] - margin: pind[1] + margin,
                                     pind[0] - margin: pind[0] + margin])
         fluxes.append(flux / fac ** 2)
         # division by fac ** 2 accounts for different pixel scale
