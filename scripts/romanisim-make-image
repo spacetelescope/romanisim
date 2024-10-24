@@ -92,7 +92,9 @@ if __name__ == '__main__':
     parser.add_argument('--rng_seed', type=int, default=None)
     parser.add_argument('--roll', type=float, default=0,
                         help='Position angle (North towards YIdl) measured at the V2Ref/V3Ref of the aperture used.')
-    parser.add_argument('--sca', type=int, default=7, help='SCA to simulate. Use -1 to generate images for all SCAs.')
+    parser.add_argument('--sca', type=int, default=7, help=(
+        'SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this mode '
+        'to indicate where the SCA number should be filled, e.g. l1_wfi{}.asdf'))
     parser.add_argument('--usecrds', action='store_true',
                         help='Use CRDS for distortion map')
     parser.add_argument('--webbpsf', action='store_true',
