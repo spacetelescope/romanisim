@@ -15,37 +15,45 @@ The ``romanisim-make-image`` command line interface (CLI) has a number of argume
 this functionality::
 
     romanisim-make-image -h
-    usage: romanisim-make-image [-h] [--catalog CATALOG] [--radec RADEC RADEC] [--bandpass BANDPASS]
-                                [--sca SCA] [--usecrds] [--webbpsf] [--date DATE [DATE ...]]
-                                [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER] [--seed SEED]
-                                [--nobj NOBJ] [--boresight] [--previous PREVIOUS]
-                                filename
-    
+    usage: romanisim-make-image [-h] [--bandpass BANDPASS] [--boresight] [--catalog CATALOG] [--config CONFIG]
+				[--date DATE] [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER] [--nobj NOBJ]
+				[--previous PREVIOUS] [--radec RADEC RADEC] [--rng_seed RNG_SEED] [--roll ROLL]
+				[--sca SCA] [--usecrds] [--webbpsf] [--truncate TRUNCATE]
+				[--pretend-spectral PRETEND_SPECTRAL] [--drop-extra-dq]
+				filename
+
     Make a demo image.
-    
+
     positional arguments:
-      filename              output image (fits)
-    
-    optional arguments:
+      filename              output image (asdf)
+
+    options:
       -h, --help            show this help message and exit
-      --catalog CATALOG     input catalog (csv) (default: None)
-      --radec RADEC RADEC   ra and dec (deg) (default: None)
       --bandpass BANDPASS   bandpass to simulate (default: F087)
-      --sca SCA             SCA to simulate (default: 7). Use -1 to generate images for all SCAs.
-      --usecrds             Use CRDS for distortion map (default: False)
-      --webbpsf             Use webbpsf for PSF (default: False)
-      --date DATE [DATE ...]
-                            Date of observation to simulate: year month day hour minute second
-                            microsecond (default: None)
+      --boresight           radec specifies location of boresight, not center of WFI. (default: False)
+      --catalog CATALOG     input catalog (ecsv) (default: None)
+      --config CONFIG       input parameter override file (yaml) (default: None)
+      --date DATE           UTC Date and Time of observation to simulate in ISOT format. (default: None)
       --level LEVEL         1 or 2, for L1 or L2 output (default: 2)
       --ma_table_number MA_TABLE_NUMBER
-      --rng_seed SEED
       --nobj NOBJ
-      --boresight           radec specifies location of boresight, not center of WFI. (default: False)
-      --previous PREVIOUS   previous simulated file in chronological order used for persistence modeling.
-                            (default: None)
-    
-    EXAMPLE: romanisim-make-image output_image.fits
+      --previous PREVIOUS   previous simulated file in chronological order used for persistence modeling. (default:
+			    None)
+      --radec RADEC RADEC   ra and dec (deg) (default: None)
+      --rng_seed RNG_SEED
+      --roll ROLL           Position angle (North towards YIdl) measured at the V2Ref/V3Ref of the aperture used.
+			    (default: 0)
+      --sca SCA             SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this
+			    mode to indicate where the SCA number should be filled, e.g. l1_wfi{}.asdf (default: 7)
+      --usecrds             Use CRDS for distortion map (default: False)
+      --webbpsf             Use webbpsf for PSF (default: False)
+      --truncate TRUNCATE   If set, truncate the MA table at given number of resultants. (default: None)
+      --pretend-spectral PRETEND_SPECTRAL
+			    Pretend the image is spectral. exposure.type and instrument.element are updated to be
+			    grism / prism. (default: None)
+      --drop-extra-dq       Do not store the optional simulated dq array. (default: False)
+
+    EXAMPLE: romanisim-make-image output_image.asdf
 
 Expected arguments controlling things like the input :doc:`here </romanisim/catalog>` to
 simulate, the right ascension and declination of the telescope

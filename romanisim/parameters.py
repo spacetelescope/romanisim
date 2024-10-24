@@ -40,8 +40,9 @@ default_parameters_dictionary = {
                  'ma_table_number': 1,
                  'read_pattern': read_pattern[1],
                  },
-    'pointing': {'ra_v1': 270.0,
-                 'dec_v1': 66.0,
+    'pointing': {'target_ra': 270.0,
+                 'target_dec': 66.0,
+                 'target_aperture': 'WFI_CEN',
                  },
     'wcsinfo': {'ra_ref': 270.0,
                 'dec_ref': 66.0,
@@ -53,9 +54,6 @@ default_parameters_dictionary = {
                 # I don't know what vparity and v3yangle should really be,
                 # but they are always -1 and -60 in existing files.
                 },
-    'aperture': {'name': 'WFI_CEN',
-                 'position_angle': 0
-                 },
 }
 
 # Default metadata for level 3 mosaics
