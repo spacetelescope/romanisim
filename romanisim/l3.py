@@ -534,6 +534,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         objlist = []
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
+            objlist = romanisim.image.trim_objlist(objlist, image)
             coord = np.array([[o['ra'], o['dec']] for o in objlist])
         else:
             coord = np.array([[o.sky_pos.ra.deg, o.sky_pos.dec.deg]

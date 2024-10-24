@@ -259,7 +259,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
-    log.info('Adding sources to image...')
+    log.info(f'Adding {len(objlist)} sources to image...')
     nrender = 0
 
     chromatic = False

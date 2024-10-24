@@ -63,11 +63,11 @@ if __name__ == '__main__':
     center = util.celestialcoord(SkyCoord(ra=r * u.deg, dec=d * u.deg))
     twcs = wcs.create_tangent_plane_gwcs(
         (midpoint, midpoint), pixscale, center)
-    cat = Table.read(args.catalog)
+    cat = ris.create_catalog(catalog_name=args.catalog)
 
     metadata = dict()
     if args.date is not None:
-        metadata['basic'] = dict(time_mean_mjd=Time(args.date, format='isot'))
+        metadata['basic'] = dict(time_mean_mjd=Time(args.date, format='isot').mjd)
     metadata['filename'] = os.path.basename(args.filename)
 
     im, extras = l3.simulate(
