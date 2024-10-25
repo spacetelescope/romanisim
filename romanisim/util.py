@@ -252,7 +252,7 @@ def update_pointing_and_wcsinfo_metadata(metadata, gwcs):
     v2v3 = distortion(*center)
     radec = gwcs(*center)
     t2sky = gwcs.get_transform('v2v3', 'world')
-    radecn = t2sky(v2v3[0], v2v3[1] + 1)
+    radecn = t2sky(v2v3[0], v2v3[1] + 100)
     roll_ref = (
         SkyCoord(radec[0] * u.deg, radec[1] * u.deg).position_angle(
         SkyCoord(radecn[0] * u.deg, radecn[1] * u.deg)))
