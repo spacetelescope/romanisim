@@ -189,8 +189,8 @@ def add_more_metadata(metadata):
 
     if 'exposure' not in metadata.keys():
         metadata['exposure'] = {}
-    if 'guidestar' not in metadata.keys():
-        metadata['guidestar'] = {}
+    if 'guide_star' not in metadata.keys():
+        metadata['guide_star'] = {}
     read_pattern = metadata['exposure'].get(
         'read_pattern',
         parameters.read_pattern[metadata['exposure']['ma_table_number']])
@@ -204,73 +204,32 @@ def add_more_metadata(metadata):
     for prefix, offset in offsets.items():
         metadata['exposure'][f'{prefix}_time'] = Time((
             starttime + offset).isot)
-        metadata['exposure'][f'{prefix}_time_mjd'] = (
-            starttime + offset).mjd
-        metadata['exposure'][f'{prefix}_time_tdb'] = (
-            starttime + offset).tdb.mjd
-    metadata['exposure']['ngroups'] = len(read_pattern)
-    metadata['exposure']['sca_number'] = (
-        int(metadata['instrument']['detector'][-2:]))
-    metadata['exposure']['integration_time'] = openshuttertime
-    metadata['exposure']['elapsed_exposure_time'] = openshuttertime
-    # ???
-    metadata['exposure']['groupgap'] = 0
+    metadata['exposure']['nresultants'] = len(read_pattern)
     metadata['exposure']['frame_time'] = parameters.read_time
     metadata['exposure']['exposure_time'] = openshuttertime
-    metadata['exposure']['effective_exposure_time'] = openshuttertime
-    metadata['exposure']['duration'] = openshuttertime
-    metadata['guidestar']['gw_window_xsize'] = 16
-    metadata['guidestar']['gw_window_ysize'] = 16
-    if 'gw_window_xstart' in metadata['guidestar']:
-        metadata['guidestar']['gw_window_xstop'] = (
-            metadata['guidestar']['gw_window_xstart'])
-        metadata['guidestar']['gw_window_ystop'] = (
-            metadata['guidestar']['gw_window_ystart'])
-    # integration_start?  integration_end?  nints = 1?  ...
-
-    if 'target' not in metadata.keys():
-        metadata['target'] = {}
-    target = metadata['target']
-    target['type'] = 'FIXED'
-    if 'wcsinfo' in metadata.keys():
-        target['ra'] = metadata['wcsinfo']['ra_ref']
-        target['dec'] = metadata['wcsinfo']['dec_ref']
-        target['proposer_ra'] = target['ra']
-        target['proposer_dec'] = target['dec']
-    target['ra_uncertainty'] = 0
-    target['dec_uncertainty'] = 0
-    target['proper_motion_ra'] = 0
-    target['proper_motion_dec'] = 0
-    target['proper_motion_epoch'] = 'J2000'
-    target['source_type'] = 'EXTENDED'
-
-    # there are a few metadata keywords that have problematic, too-long
-    # defaults in RDM.
-    # program.category
-    # ephemeris.ephemeris_reference_frame
-    # guidestar.gs_epoch
-    # this truncates these to the maximum allowed characters.  Alternative
-    # solutions would include doing things like:
-    #   making the roman_datamodels defaults archivable
-    #   making the roman_datamodels validation check lengths of strings
-    if 'program' in metadata:
-        metadata['program']['category'] = metadata['program']['category'][:6]
-    if 'ephemeris' in metadata:
-        metadata['ephemeris']['ephemeris_reference_frame'] = (
-            metadata['ephemeris']['ephemeris_reference_frame'][:10])
-    if 'guidestar' in metadata and 'gs_epoch' in metadata['guidestar']:
-        metadata['guidestar']['gs_epoch'] = (
-            metadata['guidestar']['gs_epoch'][:10])
+    effexptime = parameters.read_time * (
+        np.mean(read_pattern[-1]) - np.mean(read_pattern[0]))
+    metadata['exposure']['effective_exposure_time'] = effexptime
+    metadata['guide_star']['window_xsize'] = 16
+    metadata['guide_star']['window_ysize'] = 16
+    if 'window_xstart' in metadata['guide_star']:
+        metadata['guide_star']['window_xstop'] = (
+            metadata['guide_star']['window_xstart'])
+        metadata['guide_star']['window_ystop'] = (
+            metadata['guide_star']['window_ystart'])
+    if 'visit' not in metadata.keys():
+        metadata['visit'] = dict()
+    metadata['visit']['status'] = 'SUCCESSFUL'
 
 
-def update_aperture_and_wcsinfo_metadata(metadata, gwcs):
-    """Update aperture and wcsinfo keywords to use the aperture for this SCA.
+def update_pointing_and_wcsinfo_metadata(metadata, gwcs):
+    """Update pointing and wcsinfo keywords to use the aperture for this SCA.
 
     Updates metadata in place, setting v2/v3_ref to be equal to the V2 and V3 of
     the center of the detector, and ra/dec_ref accordingly.  Also updates the
-    aperture to refer to this SCA.
+    pointing to refer to this SCA and ra/dec_v1 to point along the boresight.
 
-    No updates are  performed if gwcs is not a gWCS object or if aperture and
+    No updates are  performed if gwcs is not a gWCS object or if pointing and
     wcsinfo are not present in metadata.
 
     Parameters
@@ -280,15 +239,14 @@ def update_aperture_and_wcsinfo_metadata(metadata, gwcs):
     gwcs : WCS object
         image WCS
     """
-    if 'aperture' not in metadata or 'wcsinfo' not in metadata:
+    if 'pointing' not in metadata or 'wcsinfo' not in metadata:
         return
     if isinstance(gwcs, wcs.GWCS):
         gwcs = gwcs.wcs
     if not isinstance(gwcs, gwcsmod.wcs.WCS):
         return
-    metadata['aperture']['name'] = (
-        metadata['instrument']['detector'][:3] + '_'
-        + metadata['instrument']['detector'][3:] + '_FULL')
+    metadata['wcsinfo']['aperture_name'] = (
+        metadata['instrument']['detector'] + '_FULL')
     distortion = gwcs.get_transform('detector', 'v2v3')
     center = (galsim.roman.n_pix / 2 - 0.5, galsim.roman.n_pix / 2 - 0.5)
     v2v3 = distortion(*center)
@@ -313,6 +271,16 @@ def update_aperture_and_wcsinfo_metadata(metadata, gwcs):
     metadata['wcsinfo']['v2_ref'] = v2v3[0]
     metadata['wcsinfo']['v3_ref'] = v2v3[1]
     metadata['wcsinfo']['roll_ref'] = roll_ref
+
+    boresight = t2sky(0, 0)
+    metadata['pointing']['ra_v1'] = boresight[0]
+    metadata['pointing']['dec_v1'] = boresight[1]
+    boresightn = t2sky(0, 1)
+    pa_v3 = (
+        SkyCoord(boresight[0] * u.deg, boresight[1] * u.deg).position_angle(
+        SkyCoord(boresightn[0] * u.deg, boresightn[1] * u.deg)))
+    pa_v3 = pa_v3.to(u.deg).value
+    metadata['pointing']['pa_v3'] = pa_v3
 
 
 def king_profile(r, rc, rt):
@@ -532,12 +500,10 @@ def update_photom_keywords(im, gain=None):
                  cc[0].position_angle(cc[2]))
         area = (cc[0].separation(cc[1]) * cc[0].separation(cc[2])
                 * np.sin(angle.to(u.rad).value))
-        im['meta']['photometry']['pixelarea_steradians'] = area.to(u.sr).value
-        im['meta']['photometry']['pixelarea_arcsecsq'] = (
-            area.to(u.arcsec ** 2)).value
+        im['meta']['photometry']['pixel_area'] = area.to(u.sr).value
         val = (gain * (3631 / bandpass.get_abflux(
-            im.meta['instrument']['optical_element']) /
-            10 ** 6 / im['meta']['photometry']['pixelarea_steradians']))
+             im.meta['instrument']['optical_element']) /
+             10 ** 6 / im['meta']['photometry']['pixel_area']))
         im['meta']['photometry']['conversion_megajanskys'] = val
         im['meta']['photometry']['conversion_microjanskys'] = (
             val * u.MJy / u.sr).to(u.uJy / u.arcsec ** 2).value

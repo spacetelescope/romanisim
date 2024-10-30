@@ -202,9 +202,9 @@ def parse_filename(filename):
     match = pattern.match(filename)
     if match is None:
         return None
-    out = dict(obs_id=filename.replace('_', '')[1:],
+    out = dict(observation_id=filename.replace('_', '')[1:],
                visit_id=filename[1:20],
-               program=match.group(1),  # this one is a string
+               program=int(match.group(1)),  # this one is a string
                execution_plan=int(match.group(2)),
                # pass = int(match.group(3))
                segment=int(match.group(4)),
@@ -259,8 +259,8 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
             'WFI_' + args.pretend_spectral.upper())
         im['meta']['instrument']['optical_element'] = (
             args.pretend_spectral.upper())
-        im['meta']['guidestar']['gw_window_xsize'] = 170
-        im['meta']['guidestar']['gw_window_ysize'] = 24
+        im['meta']['guide_star']['window_xsize'] = 170
+        im['meta']['guide_star']['window_ysize'] = 24
 
     drop_extra_dq = getattr(args, 'drop_extra_dq', False)
     if drop_extra_dq and ('dq' in romanisimdict):

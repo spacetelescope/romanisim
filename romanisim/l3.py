@@ -534,6 +534,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         objlist = []
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
+            objlist = romanisim.image.trim_objlist(objlist, image)
             coord = np.array([[o['ra'], o['dec']] for o in objlist])
         else:
             coord = np.array([[o.sky_pos.ra.deg, o.sky_pos.dec.deg]
@@ -730,9 +731,8 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['basic']['individual_image_meta'] = None
     metadata['model_type'] = 'WfiMosaic'
     metadata['photometry']['conversion_microjanskys'] = (
-        (1e12 * (u.rad / u.arcsec) ** 2).to(u.dimensionless_unscaled) *
-        u.uJy / u.arcsec ** 2)
-    metadata['photometry']['conversion_megajanskys'] = 1 * u.MJy / u.sr
+        (1e12 * (u.rad / u.arcsec) ** 2).to(u.dimensionless_unscaled))
+    metadata['photometry']['conversion_megajanskys'] = 1
 
     cenx, ceny = ((shape[1] - 1) / 2, (shape[0] - 1) / 2)
     c1 = wcs.pixel_to_world(cenx, ceny)
@@ -742,10 +742,8 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['photometry']['pixelarea_steradians'] = (pscale ** 2).to(u.sr)
     metadata['photometry']['pixelarea_arcsecsq'] = (
         pscale.to(u.arcsec) ** 2)
-    metadata['photometry']['conversion_microjanskys_uncertainty'] = (
-        0 * u.uJy / u.arcsec ** 2)
-    metadata['photometry']['conversion_megajanskys_uncertainty'] = (
-        0 * u.MJy / u.sr)
+    metadata['photometry']['conversion_microjanskys_uncertainty'] = 0
+    metadata['photometry']['conversion_megajanskys_uncertainty'] = 0
     metadata['resample']['pixel_scale_ratio'] = (
         pscale.to(u.arcsec).value / romanisim.parameters.pixel_scale)
     metadata['resample']['pixfrac'] = 0
