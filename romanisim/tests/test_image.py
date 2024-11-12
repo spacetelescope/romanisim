@@ -617,7 +617,7 @@ def test_reference_file_crds_match(level):
         rng=rng, psf_keywords=dict(nlambda=1))
 
     # Confirm that CRDS keyword was updated
-    assert im.meta.ref_file.crds.sw_version != '12.3.1'
+    assert im.meta.ref_file.crds.version != '12.3.1'
 
     if (level == 1):
         assert (type(im) is WfiScienceRaw)

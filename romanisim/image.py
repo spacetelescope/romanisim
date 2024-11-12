@@ -635,8 +635,8 @@ def gather_reference_data(image_mod, usecrds=False):
                 log.warning('Could not find flat; using 1')
                 flat = 1
             out['flat'] = flat
-        image_mod.meta.ref_file.crds.sw_version = crds.__version__
-        image_mod.meta.ref_file.crds.context_used = crds.get_context_name(
+        image_mod.meta.ref_file.crds.version = crds.__version__
+        image_mod.meta.ref_file.crds.context = crds.get_context_name(
             observatory=image_mod.crds_observatory)
 
     # reffiles has all of the reference files / values we know about
