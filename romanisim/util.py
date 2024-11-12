@@ -2,13 +2,14 @@
 """
 
 import numpy as np
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, get_body_barycentric_posvel
 from astropy import units as u
 from astropy.time import Time
 import galsim
 import gwcs as gwcsmod
 
 from romanisim import parameters, wcs, bandpass
+from romanisim.velocity_aberration import compute_va_effects
 from scipy import integrate
 
 
@@ -539,3 +540,32 @@ def merge_dicts(a, b):
         else:
             a[key] = b[key]
     return a
+
+
+def calc_scale_factor(date, ra, dec):
+    """Calculate velocity aberration scale factor
+
+    The L2 orbit is just a delta on the Earth's orbit. At the moment, there is no ephemeris for
+    Roman yet, the Earth's barycentric velocity is used to calculate velocity aberration.
+
+    Parameters
+    ----------
+    date : str or astropy.Time
+        The date at which to calculate the velocity.
+
+    ra, dec: float
+        The right ascension and declination of the target (or some other
+        point, such as the center of a detector) in the barycentric coordinate
+        system.  The equator and equinox should be the same as the coordinate
+        system for the velocity. In degrees.
+
+    Returns
+    -------
+    scale_factor : float
+        The velocity aberration scale factor
+    """
+    _, velocity = get_body_barycentric_posvel('earth', date)
+    xyz_velocity = velocity.xyz.to(u.km / u.s)
+    scale_factor, _, _ = compute_va_effects(*xyz_velocity.value, ra, dec)
+
+    return scale_factor

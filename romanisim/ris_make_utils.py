@@ -16,6 +16,7 @@ import roman_datamodels
 from roman_datamodels import stnode
 from romanisim import catalog, image, wcs
 from romanisim import parameters, log
+from romanisim.util import calc_scale_factor
 import romanisim
 
 NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}
@@ -93,6 +94,8 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
         meta['exposure']['truncated'] = False
 
     # Velocity aberration
+    if scale_factor <= 0.:
+        scale_factor = calc_scale_factor(meta['exposure']['start_time'], meta['wcsinfo']['ra_ref'], meta['wcsinfo']['dec_ref'])
     meta['velocity_aberration']['scale_factor'] = scale_factor
 
     return meta
