@@ -8,7 +8,7 @@ from astropy.modeling import rotations, projections, models
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
-from romanisim import wcs, util, parameters
+from romanisim import velocity_aberration, wcs, util, parameters
 import galsim
 import pytest
 
@@ -98,7 +98,7 @@ def test_wcs():
     # should be close to the reference v2 & v3 offset.
     assert np.abs(cc3.separation(cc4).to(u.arcsec).value
                   - np.hypot(*parameters.v2v3_wficen)) < 1
-    metadata = dict(pointing=dict(), instrument=dict(), wcsinfo=dict())
+    metadata = dict(pointing=dict(), instrument=dict(), wcsinfo=dict(), velocity_aberration=dict())
     metadata['instrument']['detector'] = 'WFI01'
     util.update_pointing_and_wcsinfo_metadata(metadata, wcs.GWCS(gwcs))
     assert metadata['wcsinfo']['aperture_name'] == 'WFI01_FULL'

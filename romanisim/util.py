@@ -283,6 +283,10 @@ def update_pointing_and_wcsinfo_metadata(metadata, gwcs):
     pa_v3 = pa_v3.to(u.deg).value
     metadata['pointing']['pa_v3'] = pa_v3
 
+    # Update velocity aberration meta for the reference point
+    metadata['velocity_aberration']['ra_reference'] = radec[0]
+    metadata['velocity_aberration']['dec_reference'] = radec[1]
+
 
 def king_profile(r, rc, rt):
     """Compute the King profile.
