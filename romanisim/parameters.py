@@ -171,7 +171,9 @@ default_parameters_dictionary = {
                  'target_dec': 66.0,
                  'target_aperture': 'WFI_CEN',
                  },
-    'wcsinfo': {'ra_ref': 270.0,
+    'wcsinfo': {'aperture_name': 'WFI_CEN',
+                'pa_aperture': 0.,
+                'ra_ref': 270.0,
                 'dec_ref': 66.0,
                 'v2_ref': 0,
                 'v3_ref': 0,
@@ -181,9 +183,6 @@ default_parameters_dictionary = {
                 # I don't know what vparity and v3yangle should really be,
                 # but they are always -1 and -60 in existing files.
                 },
-    'aperture': {'name': 'WFI_CEN',
-                 'position_angle': 0
-                 },
     'velocity_aberration': {'scale_factor': 1.0},
 }
 
