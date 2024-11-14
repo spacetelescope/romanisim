@@ -17,6 +17,7 @@ import romanisim.psf
 import romanisim.image
 import romanisim.persistence
 import romanisim.parameters
+import romanisim.util
 import roman_datamodels.datamodels as rdm
 from roman_datamodels.stnode import WfiMosaic
 import astropy.units as u
@@ -330,19 +331,19 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     """
 
     # Create metadata object
-    meta = maker_utils.mk_mosaic_meta()
+    meta = maker_utils.mk_mosaic_meta()  # all dummy values
+
+    # add romanisim defaults
     for key in romanisim.parameters.default_mosaic_parameters_dictionary.keys():
         meta[key].update(
             romanisim.parameters.default_mosaic_parameters_dictionary[key])
-    meta['wcs'] = wcs
-    meta['basic']['optical_element'] = filter_name
-    for key in metadata.keys():
-        if key not in meta or not isinstance(meta[key], dict):
-            meta[key] = metadata[key]
-        else:
-            meta[key].update(metadata[key])
+
+    # add user-specified metadta
+    romanisim.util.merge_dicts(meta, metadata)
 
     add_more_metadata(meta, efftimes, filter_name, wcs, shape, nexposures)
+    meta['wcs'] = wcs
+    meta['basic']['optical_element'] = filter_name
 
     log.info('Simulating filter {0}...'.format(filter_name))
 
