@@ -47,7 +47,24 @@ Gain
 ----
 L1 files are in units of DN.  We convert from photons to DN using gains from CRDS or a default values of 2 electron per DN, treating electrons and photons as equivalent.  This neglects the possibility that the quantum yield may be different from 1 at certain wavelengths, in particular in the blue, where `Givans+2022 <https://iopscience.iop.org/article/10.1088/1538-3873/ac46ba>`_ find a quantum field of up to 1.05.
 
+Velocity Aberration
+-------------------
+
+Velocity (or stellar) aberration is the amount of change in an object's apparent
+location on the sky due to motion of the observer in relation to the object. For
+observers orbiting the Sun at approximately 1 AU, the absolute correction can be
+up to 26 arcsec. For Roman, this absolute difference will be handled by
+spacecraft operations. However, this is true for only the target; the aberration
+changes across the FOV, varying in both position and time. This differential
+aberration is implemented as a scale factor from the reference point of each
+detector. For Roman, this scale is approximately one-fifth of an arcsec at the
+corners.
+
+For simulation, since the Roman orbit is undefined and would be dominated by the
+Earth's motion anyways, Earth barycentric velocity is used.
+
 .. automodapi:: romanisim.l1
 .. automodapi:: romanisim.nonlinearity
 .. automodapi:: romanisim.persistence
-.. automodapi:: romanisim.cr 
+.. automodapi:: romanisim.cr
+.. automodapi:: romanisim.velocity_aberration
