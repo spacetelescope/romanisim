@@ -879,10 +879,6 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     # ref_file: conceptually sound when we work from crds reference
     #     files
     # target: can push forward from APT file
-    # velocity_aberration:  I guess to first order,
-    #     ignore the detailed orbit around L2 and just project
-    #     the earth out to L2, and use that for the velocity
-    #     aberration?  Don't do until someone asks.
     # visit: start_time, end_time, total_exposures, ...?
     # wcsinfo: v2_ref, v3_ref, vparity, v3yangle, ra_ref, dec_ref
     #     roll_ref, s_region

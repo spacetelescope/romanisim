@@ -10,6 +10,7 @@ import asdf
 from astropy import table
 from astropy import time
 from astropy import coordinates
+from astropy import units as u
 import galsim
 from galsim import roman
 import roman_datamodels
@@ -97,6 +98,18 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     if scale_factor <= 0.:
         scale_factor = calc_scale_factor(meta['exposure']['start_time'], meta['wcsinfo']['ra_ref'], meta['wcsinfo']['dec_ref'])
     meta['velocity_aberration']['scale_factor'] = scale_factor
+
+    # Fill out some ephemeris information, presuming all is earth.
+    position, velocity = coordinates.get_body_barycentric_posvel('earth', meta['exposure']['start_time'])
+    position = position.xyz.to(u.km)
+    velocity = velocity.xyz.to(u.km / u.s)
+    meta['ephemeris']['time'] = meta['exposure']['start_time'].mjd
+    meta['ephemeris']['spatial_x'] = position.value[0]
+    meta['ephemeris']['spatial_y'] = position.value[1]
+    meta['ephemeris']['spatial_z'] = position.value[2]
+    meta['ephemeris']['velocity_x'] = velocity.value[0]
+    meta['ephemeris']['velocity_y'] = velocity.value[1]
+    meta['ephemeris']['velocity_z'] = velocity.value[2]
 
     return meta
 

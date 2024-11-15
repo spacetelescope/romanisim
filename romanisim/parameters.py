@@ -161,6 +161,14 @@ default_parameters_dictionary = {
                    'detector': 'WFI07',
                    'optical_element': 'F184',
                    },
+    'ephemeris': {'time': Time('2026-01-01').mjd,
+                  'spatial_x': 0.,
+                  'spatial_y': 0.,
+                  'spatial_z': 0.,
+                  'velocity_x': 0.,
+                  'velocity_y': 0.,
+                  'velocity_z': 0.
+                  },
     'exposure': {'start_time': Time('2026-01-01T00:00:00'),
                  'type': 'WFI_IMAGE',
                  'ma_table_number': 4,
@@ -171,6 +179,7 @@ default_parameters_dictionary = {
                  'target_dec': 66.0,
                  'target_aperture': 'WFI_CEN',
                  },
+    'velocity_aberration': {'scale_factor': 1.0},
     'wcsinfo': {'aperture_name': 'WFI_CEN',
                 'pa_aperture': 0.,
                 'ra_ref': 270.0,
@@ -183,7 +192,6 @@ default_parameters_dictionary = {
                 # I don't know what vparity and v3yangle should really be,
                 # but they are always -1 and -60 in existing files.
                 },
-    'velocity_aberration': {'scale_factor': 1.0},
 }
 
 # Default metadata for level 3 mosaics
