@@ -8,7 +8,7 @@ from astropy.modeling import rotations, projections, models
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
-from romanisim import velocity_aberration, wcs, util, parameters
+from romanisim import wcs, util, parameters
 import galsim
 import pytest
 
