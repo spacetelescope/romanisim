@@ -18,6 +18,26 @@ from romanisim import parameters, wcs, bandpass
 from scipy import integrate
 
 
+__all__ = [
+    "skycoord",
+    "celestialcoord",
+    "scalergb",
+    "random_points_in_cap",
+    "random_points_in_king",
+    "random_points_at_radii",
+    "add_more_metadata",
+    "update_pointing_and_wcsinfo_metadata",
+    "king_profile",
+    "sample_king_distances",
+    "decode_context_times",
+    "default_image_meta",
+    "update_photom_keywords",
+    "merge_dicts",
+    "import_webbpsf",
+    "get_galsim_data_path",
+]
+
+
 def skycoord(celestial):
     """Turn a CelestialCoord into a SkyCoord.
 

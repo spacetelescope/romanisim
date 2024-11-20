@@ -21,6 +21,12 @@ from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
 from .util import import_webbpsf
 from romanisim import log
 
+__all__ = [
+    "make_one_psf",
+    "make_psf",
+    "VariablePSF",
+]
+
 
 def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
                  chromatic=False, oversample=4, extra_convolution=None, **kw):
