@@ -2,6 +2,11 @@ name: retrieve latest data cache key
 
 on:
   workflow_call:
+    inputs:
+      cache_path:
+        type: string
+        required: false
+        default: ""
     outputs:
       cache_key:
         value: ${{ jobs.retrieve_cache.outputs.cache_key }}
@@ -13,6 +18,8 @@ jobs:
     name: retrieve latest data cache key
     runs-on: ubuntu-latest
     steps:
+      - id: cache_path
+        run: echo cache_path=${{ inputs.cache_path != '' && inputs.cache_path || format('{0}/data', runner.temp) }} >> $GITHUB_OUTPUT
       - name: retrieve latest data cache key
         id: latest_cache_key
         run: |
@@ -24,8 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - run: echo cache_key=${{ steps.latest_cache_key.outputs.cache_key }}
-      - id: cache_path
-        run: echo cache_path=/tmp/data/ >> $GITHUB_OUTPUT
+      - run: echo cache_path=${{ steps.cache_path.outputs.cache_path }}
     outputs:
       cache_key: ${{ steps.latest_cache_key.outputs.cache_key }}
       cache_path: ${{ steps.cache_path.outputs.cache_path }}
