@@ -25,6 +25,11 @@ on:
         type: boolean
         required: false
         default: true
+      cache_path:
+        description: path to which to download the data
+        type: string
+        required: false
+        default: "/tmp/data"
 
 jobs:
   download_webbpsf_data:
