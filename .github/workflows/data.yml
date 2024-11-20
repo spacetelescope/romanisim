@@ -39,7 +39,7 @@ jobs:
       GALSIM_DATA_URL: https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/
     steps:
       - id: cache_path
-        run: echo cache_path=${{ inputs.cache_path != '' && inputs.cache_path || format('{0}/data', runner.temp) }} >> $GITHUB_OUTPUT
+        run: echo cache_path=${{ inputs.cache_path != '' && inputs.cache_path || github.event_name == 'schedule' && '/tmp/data' || format('{0}/data', runner.temp) }} >> $GITHUB_OUTPUT
       - name: download GalSim data    
         run: |
           mkdir galsim_data
