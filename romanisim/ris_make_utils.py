@@ -46,7 +46,7 @@ def merge_nested_dicts(dict1, dict2):
 
 
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
-                 ma_table_number=1, truncate=None):
+                 ma_table_number=4, truncate=None):
     """
     Set / Update metadata parameters
 

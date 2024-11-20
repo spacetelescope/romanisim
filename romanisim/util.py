@@ -418,7 +418,7 @@ def decode_context_times(context, exptimes):
     return total_exptimes
 
 
-def default_image_meta(time=None, ma_table=1, filter_name='F087',
+def default_image_meta(time=None, ma_table=4, filter_name='F087',
                        detector='WFI01', coord=None):
     """Return some simple default metadata for input to image.simulate
 
@@ -449,7 +449,7 @@ def default_image_meta(time=None, ma_table=1, filter_name='F087',
     meta = {
         'exposure': {
             'start_time': time,
-            'ma_table_number': 1,
+            'ma_table_number': 4,
         },
         'instrument': {
             'optical_element': filter_name,

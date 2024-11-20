@@ -601,7 +601,7 @@ def test_reference_file_crds_match(level):
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     metadata['instrument']['detector'] = 'WFI07'
     metadata['instrument']['optical_element'] = 'F158'
-    metadata['exposure']['ma_table_number'] = 1
+    metadata['exposure']['ma_table_number'] = 4
 
     twcs = wcs.get_wcs(metadata, usecrds=True)
     rd_sca = twcs.toWorld(galsim.PositionD(
@@ -637,7 +637,7 @@ def test_inject_source_into_image():
     coord = SkyCoord(ra=270 * u.deg, dec=66 * u.deg)
     filt = 'F158'
     meta = util.default_image_meta(coord=coord, filter_name=filt,
-                                   detector='WFI07', ma_table=1)
+                                   detector='WFI07', ma_table=4)
     rng_seed = 42
     rng = galsim.UniformDeviate(rng_seed)
     cat = catalog.make_dummy_table_catalog(coord, radius=0.1, bandpasses=[filt],

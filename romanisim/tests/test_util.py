@@ -89,7 +89,7 @@ def test_add_more_metadata():
     metadata = {'exposure':
                 {
                     'start_time': Time('2026-01-01T00:00:00'),
-                    'ma_table_number': 1,
+                    'ma_table_number': 4,
                 },
                 'instrument':
                 {
