@@ -18,6 +18,7 @@ import numpy as np
 import galsim
 from galsim import roman
 from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
+from .util import import_webbpsf
 from romanisim import log
 
 
@@ -75,7 +76,7 @@ def make_one_psf(sca, filter_name, wcs=None, webbpsf=True, pix=None,
     if chromatic:
         log.warning('romanisim does not yet support chromatic PSFs '
                     'with webbpsf')
-    import webbpsf as wpsf
+    wpsf = import_webbpsf()
     filter_name = galsim2roman_bandpass[filter_name]
     wfi = wpsf.WFI()
     wfi.detector = f'SCA{sca:02d}'

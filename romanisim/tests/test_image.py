@@ -24,12 +24,14 @@ from astropy import units as u
 from astropy.time import Time
 from astropy import table
 import asdf
-import webbpsf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
+from romanisim.util import import_webbpsf
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 import romanisim.bandpass
+
+webbpsf = import_webbpsf()
 
 
 def test_in_bounds():

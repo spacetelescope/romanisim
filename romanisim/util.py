@@ -1,5 +1,11 @@
 """Miscellaneous utility routines.
 """
+import os
+import tarfile
+import warnings
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from urllib.request import urlretrieve
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -539,3 +545,48 @@ def merge_dicts(a, b):
         else:
             a[key] = b[key]
     return a
+
+
+def import_webbpsf():
+    """
+    Import webbpsf and download the latest data files if necessary.
+
+    Returns
+    -------
+    webbpsf : module
+        webbpsf module
+    """
+    # Grab the path to the WEBBPSF data files from the environment
+    # or use the default location in the user's home directory.
+    path = os.getenv("WEBBPSF_PATH") or Path.home() / "data" / "webbpsf-data"
+    path = Path(path)
+
+    # Make sure the directory exists
+    path.mkdir(parents=True, exist_ok=True)
+
+    # Set the environment variable so that webbpsf can find the data files
+    os.environ["WEBBPSF_PATH"] = str(path)
+
+    # download the data files if necessary
+    if not any(path.iterdir()):
+        # Download the data files to a temporary directory
+        warnings.warn("Downloading WEBBPSF data files. This may take a few minutes...")
+
+        with TemporaryDirectory() as tmpdir:
+            # This is the URL for the latest data files according to the WEBBPSF documentation
+            url = "https://stsci.box.com/shared/static/qxpiaxsjwo15ml6m4pkhtk36c9jgj70k.gz"
+            filename = Path(tmpdir) / "webbpsf-data-LATEST.tar.gz"
+            urlretrieve(url, filename)  # download the tarball
+
+            # Extract the tarball
+            with tarfile.open(filename) as tar:
+                tar.extractall(path.parent, filter="fully_trusted")
+
+            if not any(path.iterdir()):
+                raise ImportError("Failed to download WEBBPSF data files")
+
+    # Import webbpsf and return it
+    import webbpsf
+
+    return webbpsf
+
