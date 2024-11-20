@@ -590,3 +590,23 @@ def import_webbpsf():
 
     return webbpsf
 
+
+def get_galsim_data_path():
+    path = os.environ.get("GALSIM_CAT_PATH") or Path.home() / "data" / "galsim-data"
+    path.mkdir(parents=True, exist_ok=True)
+    os.environ["GALSIM_CAT_PATH"] = str(path)
+
+    url = "https://github.com/GalSim-developers/GalSim/raw/releases/2.4/examples/data/"
+
+    data_files = (
+        "real_galaxy_catalog_23.5_example.fits",
+        "real_galaxy_catalog_23.5_example_selection.fits",
+        "real_galaxy_catalog_23.5_example_fits.fits",
+    )
+
+    for filename in data_files:
+        if not (path / filename).exists():
+            warnings.warn(f"Downloading {filename}...")
+            urlretrieve(url + filename, path / filename)
+
+    return path / data_files[0]

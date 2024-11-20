@@ -6,6 +6,7 @@ import os
 import numpy as np
 import galsim
 from romanisim import catalog
+from romanisim.util import get_galsim_data_path
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from romanisim import log
@@ -16,7 +17,7 @@ def test_make_dummy_catalog():
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.2
     nobj = 100
-    fn = os.environ.get('GALSIM_CAT_PATH', None)
+    fn = get_galsim_data_path()
     if fn is not None:
         fn = str(fn)
     cat = catalog.make_dummy_catalog(

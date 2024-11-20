@@ -27,7 +27,7 @@ import asdf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
-from romanisim.util import import_webbpsf
+from romanisim.util import import_webbpsf, get_galsim_data_path
 from roman_datamodels.stnode import WfiScienceRaw, WfiImage
 import romanisim.bandpass
 
@@ -575,7 +575,7 @@ def test_make_test_catalog_and_images():
     # public interface, and may be removed.  We'll settle for just
     # testing that it runs.
     roman.n_pix = 100
-    fn = os.environ.get('GALSIM_CAT_PATH', None)
+    fn = get_galsim_data_path()
     if fn is not None:
         fn = str(fn)
     res = image.make_test_catalog_and_images(usecrds=False,
