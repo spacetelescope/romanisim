@@ -489,7 +489,7 @@ def create_tangent_plane_gwcs(center, scale, center_coord):
         pixel scale (arcsec)
     center_coord : SkyCoord or CelestialCoord
         coordinates of center pixel
-    
+
     Returns
     -------
     GWCS object corresponding to tangent plane projection
