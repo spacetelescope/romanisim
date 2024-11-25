@@ -106,7 +106,7 @@ if __name__ == '__main__':
         'are updated to be grism / prism.'))
     parser.add_argument('--drop-extra-dq', default=False, action='store_true',
                         help=('Do not store the optional simulated dq array.'))
-    parser.add_argument('--scale-factor', type=float, default=-1.,
+    parser.add_argument('--scale-factor', type=float, default=1.,
                         help=('Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris.'))
 
     args = parser.parse_args()
