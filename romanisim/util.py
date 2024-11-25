@@ -567,7 +567,8 @@ def calc_scale_factor(date, ra, dec):
     """Calculate velocity aberration scale factor
 
     The L2 orbit is just a delta on the Earth's orbit. At the moment, there is no ephemeris for
-    Roman yet, the Earth's barycentric velocity is used to calculate velocity aberration.
+    Roman yet, the Earth's barycentric velocity is used to calculate velocity aberration. A scale
+    of 1.01 is applied to the velocity to scale, approximately, to what would be Roman's velocity.
 
     Parameters
     ----------
@@ -586,6 +587,7 @@ def calc_scale_factor(date, ra, dec):
         The velocity aberration scale factor
     """
     _, velocity = get_body_barycentric_posvel('earth', date)
+    velocity = 1.01 * velocity
     xyz_velocity = velocity.xyz.to(u.km / u.s)
     scale_factor, _, _ = compute_va_effects(*xyz_velocity.value, ra, dec)
 
