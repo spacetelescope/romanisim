@@ -587,7 +587,7 @@ def calc_scale_factor(date, ra, dec):
         The velocity aberration scale factor
     """
     _, velocity = get_body_barycentric_posvel('earth', date)
-    velocity = 1.01 * velocity
+    velocity = 1.01 * velocity  # Move from earth to Roman.
     xyz_velocity = velocity.xyz.to(u.km / u.s)
     scale_factor, _, _ = compute_va_effects(*xyz_velocity.value, ra, dec)
 
