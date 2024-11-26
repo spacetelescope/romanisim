@@ -47,6 +47,8 @@ Gain
 ----
 L1 files are in units of DN.  We convert from photons to DN using gains from CRDS or a default values of 2 electron per DN, treating electrons and photons as equivalent.  This neglects the possibility that the quantum yield may be different from 1 at certain wavelengths, in particular in the blue, where `Givans+2022 <https://iopscience.iop.org/article/10.1088/1538-3873/ac46ba>`_ find a quantum field of up to 1.05.
 
+.. _velocity-aberration:
+
 Velocity Aberration
 -------------------
 
