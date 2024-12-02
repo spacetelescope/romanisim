@@ -31,8 +31,8 @@ def test_read_gsfc_effarea(tmpdir_factory, sca=1):
     data_table['Dwarf Planet'] = ['Eris', 'Pluto', 'Makemake', 'Haumeua']
     data_table.write(table_file)
 
-    with open(table_file, 'r') as tmp_file:
-        file_data = tmp_file.read()
+    # with open(table_file, 'r') as tmp_file:
+    #     file_data = tmp_file.read()
     # Removing the followings as the ECSV files should start with the ECSV version    
     # with open(table_file, 'w') as tmp_file:
     #     tmp_file.write("Header Comment line \n" + file_data)
