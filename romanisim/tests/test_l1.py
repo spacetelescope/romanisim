@@ -238,7 +238,7 @@ def test_ipc():
 
 
 def test_read_pattern_to_tij():
-    tij = l1.read_pattern_to_tij(1)
+    tij = l1.read_pattern_to_tij(4)
     assert l1.validate_times(tij)
     for read_pattern in read_pattern_list:
         tij = l1.read_pattern_to_tij(read_pattern)
