@@ -9,10 +9,8 @@ import numpy as np
 from importlib import resources
 from scipy import integrate
 from astropy import constants
-from astropy.table import Table
 from astropy.io import ascii
 from astropy import units as u
-import functools
 from romanisim import parameters
 
 # to go from calibrated fluxes in maggies to counts in the Roman bands
