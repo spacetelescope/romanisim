@@ -95,6 +95,9 @@ def compute_abflux(sca, effarea=None):
     out = dict()
     for bandpass in filter_names:
         out[bandpass] = compute_count_rate(flux=abfv, bandpass=bandpass, sca=sca, effarea=effarea)
+
+    # Saving the SCA information to use the correct throughput curves for each detector. 
+    out = {f'SCA{sca:02}':out}  
     return out
 
 
