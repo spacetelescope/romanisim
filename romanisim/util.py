@@ -502,7 +502,7 @@ def update_photom_keywords(im, gain=None):
                 * np.sin(angle.to(u.rad).value))
         im['meta']['photometry']['pixel_area'] = area.to(u.sr).value
         val = (gain * (3631 / bandpass.get_abflux(
-             im.meta['instrument']['optical_element']) /
+             im.meta['instrument']['optical_element'], int(im.meta['instrument']['detector'][-2:])) /
              10 ** 6 / im['meta']['photometry']['pixel_area']))
         im['meta']['photometry']['conversion_megajanskys'] = val
         im['meta']['photometry']['conversion_microjanskys'] = (

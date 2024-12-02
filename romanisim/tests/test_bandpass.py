@@ -23,9 +23,9 @@ IFILTLIST = ['F062', 'F087', 'F106', 'F129', 'F158', 'F184', 'F213', 'F146']
 FILTERLIST = ['F062', 'F158', 'F213']
 ABVLIST = [4.938e10, 4.0225e10, 2.55e10]
 
-
-def test_read_gsfc_effarea(tmpdir_factory):
-    table_file = str(tmpdir_factory.mktemp("ndata").join("table.csv"))
+# Testing with SCA = 1
+def test_read_gsfc_effarea(tmpdir_factory, sca=1):
+    table_file = str(tmpdir_factory.mktemp("ndata").join("table.ecsv")) # Writing the table_file as ecsv to match the extension of the throughput file
     data_table = Table()
     data_table['Planet'] = ['Saturn', 'Mars', 'Venus', 'Mercury']
     data_table['Dwarf Planet'] = ['Eris', 'Pluto', 'Makemake', 'Haumeua']
@@ -33,21 +33,23 @@ def test_read_gsfc_effarea(tmpdir_factory):
 
     with open(table_file, 'r') as tmp_file:
         file_data = tmp_file.read()
-    with open(table_file, 'w') as tmp_file:
-        tmp_file.write("Header Comment line \n" + file_data)
+    # Removing the followings as the ECSV files should start with the ECSV version    
+    # with open(table_file, 'w') as tmp_file:
+    #     tmp_file.write("Header Comment line \n" + file_data)
 
     # Test default table
-    read_table = bandpass.read_gsfc_effarea()
-    assert read_table['F062'][13] == 0.0052
+    read_table = bandpass.read_gsfc_effarea(sca)
+    assert read_table['F062'][13] == 0.0 # Updating the value to match the new table. 0.0052 is the old table value
+
 
     # Test imported file
-    read_table = bandpass.read_gsfc_effarea(table_file)
+    read_table = bandpass.read_gsfc_effarea(sca, table_file)
     assert read_table['Planet'][1] == 'Mars'
     assert read_table['Dwarf Planet'][2] == 'Makemake'
 
 
 @pytest.mark.parametrize("filter", IFILTLIST)
-def test_compute_abflux(filter):
+def test_compute_abflux(filter, sca=1):
     # Test calculated abfluxes vs analytical values
 
     # Define AB zero flux, filter area, and wavelength
@@ -68,25 +70,25 @@ def test_compute_abflux(filter):
     data_table[filter] = thru
 
     # Computed flux
-    gauss_flux = bandpass.compute_abflux(data_table)
+    gauss_flux = bandpass.compute_abflux(sca, data_table)
 
     # Comparing both fluxes as magnitudes
-    assert np.isclose(np.log10(theo_flux.value), np.log10(gauss_flux[filter]), rtol=1.0e-6)
+    assert np.isclose(np.log10(theo_flux.value), np.log10(gauss_flux[f'SCA{sca:02}'][filter]), rtol=1.0e-6)
 
 
 @pytest.mark.parametrize("filter, value", zip(FILTERLIST, ABVLIST))
-def test_get_abflux(filter, value):
+def test_get_abflux(filter, value, sca=1):
     # Test that proper results (within 10%) are returned for select bands.
-    assert np.isclose(bandpass.get_abflux(filter), value, rtol=1.0e-1)
+    assert np.isclose(bandpass.get_abflux(filter, sca), value, rtol=1.0e-1)
 
 
 @pytest.mark.soctests
-def test_convert_flux_to_counts():
+def test_convert_flux_to_counts(sca=1):
     # Define dirac delta wavelength
     dd_wavel = 1.290 * u.micron
 
     # Define effective area table
-    effarea = bandpass.read_gsfc_effarea()
+    effarea = bandpass.read_gsfc_effarea(sca)
 
     # Define wavelength distribution
     dd_wavedist = effarea['Wave'] * u.micron
@@ -113,21 +115,21 @@ def test_convert_flux_to_counts():
 
     for filter in IFILTLIST:
         # Define filter area
-        area = bandpass.read_gsfc_effarea()[filter] * u.m ** 2
+        area = bandpass.read_gsfc_effarea(sca)[filter] * u.m ** 2
 
         # Define pedestal flux
         flux_AB_ratio = ((100.0e-35 * u.erg / (u.s * u.cm ** 2 * u.hertz))
                          / (3631e-23 * u.erg / (u.s * u.cm ** 2 * u.hertz)))
-        theoretical_flux[filter] = bandpass.get_abflux(filter) * flux_AB_ratio / u.s
+        theoretical_flux[filter] = bandpass.get_abflux(filter, sca) * flux_AB_ratio / u.s
 
         # Add delta function flux
         dd_flux = (1.0e-35 * u.erg / (u.s * u.cm ** 2 * u.hertz * constants.h.to(u.erg * u.s))
-                   * np.interp(1.29, bandpass.read_gsfc_effarea()['Wave'], area) * area.unit).to(1 / u.s)
+                   * np.interp(1.29, bandpass.read_gsfc_effarea(sca)['Wave'], area) * area.unit).to(1 / u.s)
 
         theoretical_flux[filter] = theoretical_flux[filter] + dd_flux
 
         # Computed flux
-        computed_flux[filter] = bandpass.compute_count_rate(flux, filter) / u.s
+        computed_flux[filter] = bandpass.compute_count_rate(flux, filter, sca) / u.s
 
         # Test that proper results (within 0.2%) are returned for select bands.
         assert np.isclose(theoretical_flux[filter].value, computed_flux[filter].value, rtol=2.0e-03)
@@ -150,22 +152,22 @@ def test_convert_flux_to_counts():
 
 
 @pytest.mark.parametrize("filter", ['F062', 'F087', 'F106', 'F129', 'F158', 'F184', 'F213', 'F146'])
-def test_AB_convert_flux_to_counts(filter):
+def test_AB_convert_flux_to_counts(filter, sca=1):
     # AB Zero Test
     abfv = 3631e-23 * u.erg / (u.s * u.cm ** 2 * u.hertz)
 
-    effarea = bandpass.read_gsfc_effarea()
+    effarea = bandpass.read_gsfc_effarea(sca)
     wavedist = effarea['Wave'] * u.micron
 
     flux = abfv * np.ones(len(wavedist))
-    computed_flux = bandpass.compute_count_rate(flux, filter)
+    computed_flux = bandpass.compute_count_rate(flux, filter, sca)
 
-    assert np.isclose(bandpass.get_abflux(filter), computed_flux, rtol=1.0e-6)
+    assert np.isclose(bandpass.get_abflux(filter, sca), computed_flux, rtol=1.0e-6)
 
 
-def test_unevenly_sampled_wavelengths_flux_to_counts():
+def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
     # Get filter response table for theoretical curve
-    effarea = bandpass.read_gsfc_effarea()
+    effarea = bandpass.read_gsfc_effarea(sca)
 
     # Define default wavelength distribution
     wavedist = effarea['Wave'] * u.micron
@@ -239,7 +241,7 @@ def test_unevenly_sampled_wavelengths_flux_to_counts():
         an_counts_sum = np.sum(an_counts)
 
         # Computed flux
-        computed_flux = bandpass.compute_count_rate(flux=total_flux, bandpass=filter, wavedist=total_wavedist)
+        computed_flux = bandpass.compute_count_rate(flux=total_flux, bandpass=filter, sca=sca, wavedist=total_wavedist)
 
         # Test that proper results (within 4%) are returned for select bands.
         assert np.isclose(an_counts_sum.value, computed_flux, rtol=4.0e-2)
