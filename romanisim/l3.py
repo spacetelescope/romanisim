@@ -276,7 +276,7 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     return psf
 
 
-def simulate(shape, wcs, efftimes, filter_name, sca, catalog, nexposures=1,
+def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
              metadata={}, 
              effreadnoise=None, sky=None, psf=None,
              bandpass=None, seed=None, rng=None, webbpsf=True,
@@ -356,6 +356,8 @@ def simulate(shape, wcs, efftimes, filter_name, sca, catalog, nexposures=1,
     image = galsim.ImageF(shape[1], shape[0], wcs=romanisim.wcs.GWCS(wcs),
                           xmin=0, ymin=0)
 
+    # Using the default SCA
+    sca = int(romanisim.parameters.default_parameters_dictionary['instrument']['detector'][3:])
     pixscalefrac = get_pixscalefrac(image.wcs, shape)
     etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
     # this should really be per-pixel to deal with small distortions,
@@ -460,7 +462,7 @@ def get_pixscalefrac(wcs, shape):
     return pixscale
 
 
-def simulate_cps(image, filter_name, sca, efftimes, objlist=None, psf=None,
+def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
                  xpos=None, ypos=None, coord=None, sky=0, bandpass=None,
                  effreadnoise=None, maggytoes=None, etomjysr=None,
                  rng=None, seed=None, ignore_distant_sources=10,):
@@ -509,6 +511,8 @@ def simulate_cps(image, filter_name, sca, efftimes, objlist=None, psf=None,
     extras : dict
         catalog of simulated objects in image, noise, and misc. debug
     """
+    # Using the default SCA
+    sca = int(romanisim.parameters.default_parameters_dictionary['instrument']['detector'][3:])
 
     if rng is None and seed is None:
         seed = 144

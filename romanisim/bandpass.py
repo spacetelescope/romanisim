@@ -45,6 +45,8 @@ def read_gsfc_effarea(sca, filename=None):
 
     Parameters
     ----------
+    sca : int
+        the name of the detector. A number between 1-18. 
     filename : str
         filename to read in
 
@@ -72,6 +74,8 @@ def compute_abflux(sca, effarea=None):
 
     Parameters
     ----------
+    sca : int
+        the name of the detector. A number between 1-18. 
     effarea : astropy.Table.table
         Table from GSFC with effective areas for each filter.
 
@@ -108,7 +112,8 @@ def get_abflux(bandpass, sca):
     ----------
     bandpass : str
         the name of the bandpass
-
+    sca : int
+        the name of the detector. A number between 1-18. 
     Returns
     -------
     float
@@ -137,6 +142,8 @@ def compute_count_rate(flux, bandpass, sca, filename=None, effarea=None, wavedis
         Spectral flux density in units of ergs per second * hertz * cm^2
     bandpass : str
         the name of the bandpass
+    sca : int
+        the name of the detector. A number between 1-18. 
     filename : str
         filename to read in
     effarea : astropy.Table.table
@@ -193,7 +200,8 @@ def etomjysr(bandpass, sca):
     ----------
     bandpass : str
         the name of the bandpass
-
+    sca : int
+        the name of the detector. A number between 1-18. 
     Returns
     -------
     float
