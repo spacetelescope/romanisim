@@ -186,7 +186,7 @@ def compute_count_rate(flux, bandpass, sca, filename=None, effarea=None, wavedis
     return zpflux
 
 
-def etomjysr(bandpas, sca):
+def etomjysr(bandpass, sca):
     """Compute factor converting e/s/pix to MJy/sr.
 
     Assumes a pixel scale of 0.11" (romanisim.parameters.pixel_scale)
