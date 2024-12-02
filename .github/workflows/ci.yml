@@ -25,12 +25,7 @@ jobs:
     with:
       envs: |
         - linux: check-style
-  latest_data_cache:
-    uses: ./.github/workflows/retrieve_cache.yml
-    with:
-      cache_path: /tmp/data
   test:
-    needs: [ latest_data_cache ]
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@924441154cf3053034c6513d5e06c69d262fb9a6  # v1.13.0
     with:
       libraries: |
@@ -38,11 +33,8 @@ jobs:
           - eigen
           - fftw
       setenv: |
-        WEBBPSF_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}/webbpsf-data/
-        GALSIM_CAT_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}/galsim_data/real_galaxy_catalog_23.5_example.fits
         FFTW_DIR: /opt/homebrew/opt/fftw/lib/
-      cache-path: ${{ needs.latest_data_cache.outputs.cache_path }}
-      cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}
+
       envs: |
         - linux: py310-oldestdeps-cov-xdist
         - linux: py310-xdist
