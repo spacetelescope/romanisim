@@ -1,13 +1,9 @@
 """Calculate velocity aberration based on velocities"""
-
-import logging
 import numpy as np
 from gwcs.geometry import SphericalToCartesian, CartesianToSpherical
 from scipy.constants import speed_of_light
 
-# Configure logging
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
+from romanisim import log
 
 SPEED_OF_LIGHT = speed_of_light / 1000  # km / s
 
@@ -42,7 +38,7 @@ def compute_va_effects_vector(velocity_x, velocity_y, velocity_z, u):
     beta = np.array([velocity_x, velocity_y, velocity_z]) / SPEED_OF_LIGHT
     beta2 = np.dot(beta, beta)  # |beta|^2
     if beta2 == 0.0:
-        logger.warning('Observatory speed is zero. Setting VA scale to 1.0')
+        log.warning('Observatory speed is zero. Setting VA scale to 1.0')
         return 1.0, u
 
     u_beta = np.dot(u, beta)
