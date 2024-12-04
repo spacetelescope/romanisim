@@ -385,7 +385,6 @@ def test_simulate_cps():
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     wcs.fill_in_parameters(metadata, coord)
     metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
-    sca = int(metadata['basic']['detector'][3:])
 
     # Test empty image
     l3.simulate_cps(
@@ -484,7 +483,6 @@ def test_exptime_array():
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
     metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
-    sca = int(metadata['basic']['detector'][3:])
 
     # Set variable exposure time array
     exptime = np.ones((roman.n_pix, roman.n_pix))

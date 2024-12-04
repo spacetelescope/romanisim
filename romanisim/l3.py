@@ -418,7 +418,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
 
     # Simulate mosaic cps
     mosaic, extras = simulate_cps(
-        image, filter_name, sca, efftimes, objlist=catalog, psf=psf, 
+        image, filter_name, efftimes, objlist=catalog, psf=psf, 
         sky=sky,
         effreadnoise=effreadnoise, bandpass=bandpass,
         rng=rng, seed=seed,
