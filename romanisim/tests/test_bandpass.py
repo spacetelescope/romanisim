@@ -231,6 +231,8 @@ def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
     # Add spectral flux density units
     total_flux *= u.erg / (u.s * u.cm ** 2 * u.hertz)
     an_flux *= u.erg / (u.s * u.cm ** 2 * u.hertz)
+    import pdb
+    pdb.set_trace()
 
     for filter in IFILTLIST:
         # Define filter area
@@ -245,6 +247,9 @@ def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
 
         # Computed flux
         computed_flux = bandpass.compute_count_rate(flux=total_flux, bandpass=filter, sca=sca, wavedist=total_wavedist)
+        print(filter)
+        print(an_counts_sum.value, computed_flux)
+        print(np.isclose(an_counts_sum.value, computed_flux, rtol=4.0e-2))
 
         # Test that proper results (within 4%) are returned for select bands.
         assert np.isclose(an_counts_sum.value, computed_flux, rtol=4.0e-2)

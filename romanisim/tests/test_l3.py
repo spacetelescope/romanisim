@@ -310,7 +310,8 @@ def test_simulate_vs_cps():
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
     # Adding the detector information as the simulations now support all 18 detectors with their own throughput curves
-    sca = int(meta['instrument']['detector'][3:])
+    # Using the default detector from the default_parameters_dictionary as all sca arguments are set to it within l3.py
+    sca = int(romanisim.parameters.default_parameters_dictionary['instrument']['detector'][3:])
 
     # Set up blank image
     im = imdict['im'].copy()
