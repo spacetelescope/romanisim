@@ -533,13 +533,13 @@ def test_scaling():
         (npix / 2, npix / 2), pscale / 2, coord)
 
     im1, extras1 = l3.simulate(
-        (npix, npix), twcs1, exptime, imdict['filter_name'], imdict['sca'],
+        (npix, npix), twcs1, exptime, imdict['filter_name'], 
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0,
         )
 
     # half pixel scale
     im2, extras2 = l3.simulate(
-        (npix * 2, npix * 2), twcs2, exptime, imdict['filter_name'], imdict['sca'],
+        (npix * 2, npix * 2), twcs2, exptime, imdict['filter_name'], 
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on pixel scale (in calibrated units!)
@@ -557,7 +557,7 @@ def test_scaling():
 
     # doubled exposure time
     im3, extras3 = l3.simulate(
-        (npix, npix), twcs1, exptime * 10, imdict['filter_name'], imdict['sca'],
+        (npix, npix), twcs1, exptime * 10, imdict['filter_name'], 
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on exposure time (in calibrated units!)

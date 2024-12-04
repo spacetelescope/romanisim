@@ -21,7 +21,9 @@ IFILTLIST = ['F062', 'F087', 'F106', 'F129', 'F158', 'F184', 'F213', 'F146']
 
 # List of select filters with calculated AB fluxes for AB Flux test
 FILTERLIST = ['F062', 'F158', 'F213']
-ABVLIST = [4.938e10, 4.0225e10, 2.55e10]
+# ABVLIST = [4.938e10, 4.0225e10, 2.55e10]
+ABVLIST = [4.268e10, 3.3809e10, 2.12e10]   # AB fluxes changed by 14-17% with the new throughput files.  
+
 
 # Testing with SCA = 1
 def test_read_gsfc_effarea(tmpdir_factory, sca=1):
