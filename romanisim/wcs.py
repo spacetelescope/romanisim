@@ -34,6 +34,8 @@ from . import util
 import romanisim.parameters
 import roman_datamodels.maker_utils as maker_utils
 
+from romanisim import log
+
 
 def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
     """Add WCS info to parameters dictionary.
@@ -574,7 +576,9 @@ def dva_corr_model(va_scale, v2_ref, v3_ref):
         return models.Identity(2)
 
     if va_scale <= 0:
-        raise ValueError("'Velocity aberration scale must be a positive number.")
+        log.warning("Velocity aberration scale must be a positive number: %s", va_scale)
+        log.warning("Defaulting to scale of 1.0")
+        va_scale = 1.0
 
     va_corr = models.Scale(va_scale, name="dva_scale_v2") & models.Scale(
         va_scale, name="dva_scale_v3"

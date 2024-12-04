@@ -171,3 +171,25 @@ def test_scale_factor():
     sky = gwcs.pixel_to_world(grid, grid)
 
     assert all(truth.separation(sky).to(u.arcsec).value < 1e-3)
+
+
+def test_scale_factor_negative():
+    """Test that specifying a scale factor actually calculates a new wcs"""
+
+    # Truth aiming for.
+    cc = SkyCoord(ra=0 * u.deg, dec=0 * u.deg)
+    scale_factor = -99999
+    truth = SkyCoord([(0.        , 0.        ), (0.03055555, 0.03055555),
+                      (0.06111109, 0.06111105), (0.09166659, 0.09166647),
+                      (0.12222204, 0.12222176)],
+                     unit='deg')
+
+    # Make a simple grid of pixel coordinates to calculate sky for
+    grid = range(0, 4096, 1000)
+
+    # Create the wcs and generate results
+    distortion = make_fake_distortion_function()
+    gwcs = wcs.make_wcs(cc, distortion, scale_factor=scale_factor)
+    sky = gwcs.pixel_to_world(grid, grid)
+
+    assert all(truth.separation(sky).to(u.arcsec).value < 1e-3)
