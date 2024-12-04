@@ -21,7 +21,7 @@ IFILTLIST = ['F062', 'F087', 'F106', 'F129', 'F158', 'F184', 'F213', 'F146']
 
 # List of select filters with calculated AB fluxes for AB Flux test
 FILTERLIST = ['F062', 'F158', 'F213']
-# ABVLIST = [4.938e10, 4.0225e10, 2.55e10]
+# ABVLIST = [4.938e10, 4.0225e10, 2.55e10]  # Old value
 ABVLIST = [4.268e10, 3.3809e10, 2.12e10]   # AB fluxes changed by 14-17% with the new throughput files.  
 
 
@@ -231,8 +231,6 @@ def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
     # Add spectral flux density units
     total_flux *= u.erg / (u.s * u.cm ** 2 * u.hertz)
     an_flux *= u.erg / (u.s * u.cm ** 2 * u.hertz)
-    import pdb
-    pdb.set_trace()
 
     for filter in IFILTLIST:
         # Define filter area
