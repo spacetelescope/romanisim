@@ -63,7 +63,7 @@ def test_inject_sources_into_mosaic():
 
     # Obtain unit conversion factors
     # maggies to counts (large number)
-    sca = int(metadata['basic']['detector'][3:])
+    sca = parameters.default_sca
     cps_conv = romanisim.bandpass.get_abflux(filter_name, sca)
     # electrons to mjysr (roughly order unity in scale)
     unit_factor = romanisim.bandpass.etomjysr(filter_name, sca)
@@ -148,7 +148,7 @@ def test_sim_mosaic():
     filter_name = metadata['basic']['optical_element']
 
     # Setting the SCA for proper flux calculations
-    sca = int(parameters.default_parameters_dictionary['instrument']['detector'][3:])
+    sca = parameters.default_sca
 
     # Set exposure time
     exptimes = [600]
@@ -311,7 +311,7 @@ def test_simulate_vs_cps():
     metadata['wcsinfo']['dec_ref'] = 66
     # Adding the detector information as the simulations now support all 18 detectors with their own throughput curves
     # Using the default detector from the default_parameters_dictionary as all sca arguments are set to it within l3.py
-    sca = int(romanisim.parameters.default_parameters_dictionary['instrument']['detector'][3:])
+    sca = parameters.default_sca
 
     # Set up blank image
     im = imdict['im'].copy()
