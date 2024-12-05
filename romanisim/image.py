@@ -563,7 +563,7 @@ def simulate_counts(metadata, objlist,
     sky_image = image * 0
     imwcs.makeSkyImage(sky_image, sky_level)
     sky_image += roman.thermal_backgrounds[galsim_filter_name]
-    abflux = romanisim.bandpass.get_abflux(filter_name)
+    abflux = romanisim.bandpass.get_abflux(filter_name, sca)
 
     simcatobj = simulate_counts_generic(
         image, exptime, objlist=objlist, psf=psf, zpflux=abflux, sky=sky_image,
@@ -969,6 +969,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
 
     filter_name = model.meta.instrument.optical_element
     cat = catalog.table_to_catalog(cat, [filter_name])
+    sca = int(model.meta.instrument.detector[-2:])
 
     # are we doing photon shooting?
     chromatic = False
@@ -978,7 +979,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     wcs = romanisim.wcs.GWCS(model.meta.wcs)
     if psf is None:
         psf = romanisim.psf.make_psf(
-            int(model.meta.instrument.detector[-2:]), filter_name, wcs=wcs,
+            sca, filter_name, wcs=wcs,
             chromatic=False, webbpsf=webbpsf)
 
     if gain is None:
@@ -989,7 +990,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
                                  wcs=wcs, xmin=0, ymin=0)
     galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
     bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
-    abflux = romanisim.bandpass.get_abflux(filter_name)
+    abflux = romanisim.bandpass.get_abflux(filter_name, sca)
     read_pattern = model.meta.exposure.read_pattern
     exptime = parameters.read_time * read_pattern[-1][-1]
     tij = romanisim.l1.read_pattern_to_tij(read_pattern)
