@@ -94,20 +94,32 @@ def test_convert_flux_to_counts(sca=1):
     effarea = bandpass.read_gsfc_effarea(sca)
 
     # Define wavelength distribution
-    dd_wavedist = effarea['Wave'] * u.micron
+    wave = effarea['Wave'] * u.micron
 
     # Check that the wavelength spacing is constant
-    assert np.all(np.isclose(np.diff(dd_wavedist), np.diff(dd_wavedist)[0], rtol=1.0e-6))
-    wave_bin_width = np.diff(dd_wavedist)[0]
+    assert np.all(np.isclose(np.diff(wave), np.diff(wave)[0], rtol=1.0e-6))
+    wave_bin_width = np.diff(wave)[0]
 
-    # Create dirac-delta-like distribution
-    flux = norm.pdf(dd_wavedist, dd_wavel.value, 0.001)
-
+    flux = np.zeros(len(effarea), dtype='f4')
     # Add constant flux
-    flux += 100
+    pedestal = 1
+    flux += pedestal
 
     # Rescale
-    flux *= 1.0e-35
+    scale = 1e-35
+    flux *= scale
+
+    # Create dirac-delta-like distribution
+    # amplitude is made up but chosen to dominate the pedestal in filters
+    # including the delta function.
+    amp = 1e15 * scale
+    dd_fluxdist = norm.pdf(wave.value, dd_wavel.value, 0.005) * amp  # 5 nm
+    # this is an input F(lamba), but we want F(frequency); we need to multiply by
+    # lam^2 / c.
+    # note that the amplitude has units of erg / cm^s / s, but the
+    # flux distribution has units of erg / cm^2 / s / micron
+    dd_fluxdist *= (wave ** 2 / constants.c).to(u.um / u.hertz).value
+    flux += dd_fluxdist
 
     # Add spectral flux density units
     flux *= u.erg / (u.s * u.cm ** 2 * u.hertz)
@@ -118,16 +130,17 @@ def test_convert_flux_to_counts(sca=1):
 
     for filter in IFILTLIST:
         # Define filter area
-        area = bandpass.read_gsfc_effarea(sca)[filter] * u.m ** 2
+        area = bandpass.read_gsfc_effarea(sca)
 
         # Define pedestal flux
-        flux_AB_ratio = ((100.0e-35 * u.erg / (u.s * u.cm ** 2 * u.hertz))
+        flux_AB_ratio = ((pedestal * scale * u.erg / (u.s * u.cm ** 2 * u.hertz))
                          / (3631e-23 * u.erg / (u.s * u.cm ** 2 * u.hertz)))
         theoretical_flux[filter] = bandpass.get_abflux(filter, sca) * flux_AB_ratio / u.s
 
         # Add delta function flux
-        dd_flux = (1.0e-35 * u.erg / (u.s * u.cm ** 2 * u.hertz * constants.h.to(u.erg * u.s))
-                   * np.interp(1.29, bandpass.read_gsfc_effarea(sca)['Wave'], area) * area.unit).to(1 / u.s)
+        area_at_delta_function = np.interp(dd_wavel.value, area['Wave'], area[filter]) * u.m ** 2
+        dd_flux = (amp * area_at_delta_function * u.erg / u.cm ** 2 / u.s
+                       / constants.h / constants.c * dd_wavel)
 
         theoretical_flux[filter] = theoretical_flux[filter] + dd_flux
 
@@ -138,8 +151,8 @@ def test_convert_flux_to_counts(sca=1):
         assert np.isclose(theoretical_flux[filter].value, computed_flux[filter].value, rtol=2.0e-03)
 
         # Flux distribution for artifacts
-        flux_distro[filter] = (wave_bin_width * (np.divide(np.multiply(area, flux),
-                               dd_wavedist) / constants.h.to(u.erg * u.s))).to(1 / u.s)
+        flux_distro[filter] = (wave_bin_width * (np.divide(np.multiply(area[filter] * u.m ** 2, flux),
+                               wave) / constants.h.to(u.erg * u.s))).to(1 / u.s)
 
     # Create log entry and artifacts
     log.info('DMS233: integrated over an input spectra in physical units to derive the number of photons / s.')
@@ -184,7 +197,7 @@ def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
     # Pedestal 1
     flux_flat1 = np.array([0.66, 0.66])
     # Dirac Delta function
-    wavedist_dd = np.linspace(2.13 - 0.001, 2.13 + 0.001, 1000)
+    wavedist_dd = np.linspace(2.13 - 0.01, 2.13 + 0.01, 1000)
     flux_dd = norm.pdf(wavedist_dd, 2.13, 0.001)
     # Pedestal 2
     flux_flat2 = np.array([0.33, 0.33])
@@ -211,7 +224,7 @@ def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
     # Pedestal from 2000nm to 2130nm
     dd_loc = np.where(wavedist.value == 2.13)[0][0] + 1
     total_flux = np.append(total_flux, flux_flat1)
-    total_wavedist = np.append(total_wavedist, np.array([2.0, 2.13 - 0.001]))
+    total_wavedist = np.append(total_wavedist, np.array([2.0, 2.13 - 0.01]))
     an_flux[arg_stop + 1:dd_loc] = flux_flat1[0]
 
     # Delta function at 2130nm
@@ -221,7 +234,7 @@ def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
 
     # Pedestal from 2130nm to 2600nm
     total_flux = np.append(total_flux, flux_flat2)
-    total_wavedist = np.append(total_wavedist, np.array([2.13 + 0.001, 2.6]))
+    total_wavedist = np.append(total_wavedist, np.array([2.13 + 0.01, 2.6]))
     an_flux[dd_loc + 1:] = flux_flat2[0]
 
     # Rescale both spectra
