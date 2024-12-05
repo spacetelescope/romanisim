@@ -154,7 +154,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
         psf = l3_psf(filter_name, pixscalefrac, webbpsf=True, chromatic=False)
-    sca = int(model.meta.basic.detector[-2:])
+    sca = romanisim.parameters.default_sca
     maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
     etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
 
@@ -357,7 +357,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
                           xmin=0, ymin=0)
 
     # Using the default SCA
-    sca = int(romanisim.parameters.default_parameters_dictionary['instrument']['detector'][3:])
+    sca = romanisim.parameters.default_sca
     pixscalefrac = get_pixscalefrac(image.wcs, shape)
     etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
     # this should really be per-pixel to deal with small distortions,
@@ -512,7 +512,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         catalog of simulated objects in image, noise, and misc. debug
     """
     # Using the default SCA
-    sca = int(romanisim.parameters.default_parameters_dictionary['instrument']['detector'][3:])
+    sca = romanisim.parameters.default_sca
 
     if rng is None and seed is None:
         seed = 144
