@@ -470,7 +470,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         rng_numpy_seed = rng.raw()
         rng_numpy = np.random.default_rng(rng_numpy_seed)
         image.array[:, :] = rng_numpy.binomial(
-            image.array.astype('i4'), flat / maxflat)
+            np.clip(image.array, 0, 2**31 - 1).astype('i4'), flat / maxflat)
 
     if dark is not None:
         workim = image * 0
