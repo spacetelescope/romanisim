@@ -39,7 +39,7 @@ def go(args):
     metadata = ris.set_metadata(
         date=args.date, bandpass=args.bandpass,
         sca=args.sca, ma_table_number=args.ma_table_number,
-        truncate=args.truncate)
+        truncate=args.truncate, scale_factor=args.scale_factor)
 
     if args.radec is not None:
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
     parser.add_argument('--level', type=int, default=2,
                         help='1 or 2, for L1 or L2 output')
-    parser.add_argument('--ma_table_number', type=int, default=1)
+    parser.add_argument('--ma_table_number', type=int, default=4)
     parser.add_argument('--nobj', type=int, default=1000)
     parser.add_argument('--previous', default=None, type=str,
                         help=('previous simulated file in chronological order '
@@ -106,6 +106,8 @@ if __name__ == '__main__':
         'are updated to be grism / prism.'))
     parser.add_argument('--drop-extra-dq', default=False, action='store_true',
                         help=('Do not store the optional simulated dq array.'))
+    parser.add_argument('--scale-factor', type=float, default=-1.,
+                        help=('Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris.'))
 
     args = parser.parse_args()
 

@@ -154,9 +154,9 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
         psf = l3_psf(filter_name, pixscalefrac, webbpsf=True, chromatic=False)
-
-    maggytoes = romanisim.bandpass.get_abflux(filter_name)
-    etomjysr = romanisim.bandpass.etomjysr(filter_name) / pixscalefrac ** 2
+    sca = romanisim.parameters.default_sca
+    maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
+    etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
 
     Ct = []
     for idx, (x0, y0) in enumerate(zip(x, y)):
@@ -356,8 +356,10 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     image = galsim.ImageF(shape[1], shape[0], wcs=romanisim.wcs.GWCS(wcs),
                           xmin=0, ymin=0)
 
+    # Using the default SCA
+    sca = romanisim.parameters.default_sca
     pixscalefrac = get_pixscalefrac(image.wcs, shape)
-    etomjysr = romanisim.bandpass.etomjysr(filter_name) / pixscalefrac ** 2
+    etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
     # this should really be per-pixel to deal with small distortions,
     # but these are 0.01% 1 degree away in a tangent plane projection,
     # and we ignore them.
@@ -379,7 +381,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         # convert to electrons / s / output pixel
 
     # Flux in AB mags to electrons
-    maggytoes = romanisim.bandpass.get_abflux(filter_name)
+    maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
 
     # Set effective read noise
     if effreadnoise is None:
@@ -509,6 +511,8 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     extras : dict
         catalog of simulated objects in image, noise, and misc. debug
     """
+    # Using the default SCA
+    sca = romanisim.parameters.default_sca
 
     if rng is None and seed is None:
         seed = 144
@@ -518,10 +522,10 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         rng = galsim.UniformDeviate(seed)
 
     if etomjysr is None:
-        etomjysr = romanisim.bandpass.etomjysr(filter_name)
+        etomjysr = romanisim.bandpass.etomjysr(filter_name, sca)
 
     if maggytoes is None:
-        maggytoes = romanisim.bandpass.get_abflux(filter_name)
+        maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
 
     # Dictionary to hold simulation artifacts
     extras = {}

@@ -15,12 +15,7 @@ The ``romanisim-make-image`` command line interface (CLI) has a number of argume
 this functionality::
 
     romanisim-make-image -h
-    usage: romanisim-make-image [-h] [--bandpass BANDPASS] [--boresight] [--catalog CATALOG] [--config CONFIG]
-				[--date DATE] [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER] [--nobj NOBJ]
-				[--previous PREVIOUS] [--radec RADEC RADEC] [--rng_seed RNG_SEED] [--roll ROLL]
-				[--sca SCA] [--usecrds] [--webbpsf] [--truncate TRUNCATE]
-				[--pretend-spectral PRETEND_SPECTRAL] [--drop-extra-dq]
-				filename
+    usage: romanisim-make-image [-h] [--bandpass BANDPASS] [--boresight] [--catalog CATALOG] [--config CONFIG] [--date DATE] [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER] [--nobj NOBJ] [--previous PREVIOUS] [--radec RADEC RADEC] [--rng_seed RNG_SEED] [--roll ROLL] [--sca SCA] [--usecrds] [--webbpsf] [--truncate TRUNCATE] [--pretend-spectral PRETEND_SPECTRAL] [--drop-extra-dq] [--scale-factor SCALE_FACTOR] filename
 
     Make a demo image.
 
@@ -37,21 +32,20 @@ this functionality::
       --level LEVEL         1 or 2, for L1 or L2 output (default: 2)
       --ma_table_number MA_TABLE_NUMBER
       --nobj NOBJ
-      --previous PREVIOUS   previous simulated file in chronological order used for persistence modeling. (default:
-			    None)
+      --previous PREVIOUS   previous simulated file in chronological order used for persistence modeling. (default: None)
       --radec RADEC RADEC   ra and dec (deg) (default: None)
       --rng_seed RNG_SEED
-      --roll ROLL           Position angle (North towards YIdl) measured at the V2Ref/V3Ref of the aperture used.
-			    (default: 0)
-      --sca SCA             SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this
-			    mode to indicate where the SCA number should be filled, e.g. l1_wfi{}.asdf (default: 7)
+      --roll ROLL           Position angle (North towards YIdl) measured at the V2Ref/V3Ref of the aperture used. (default: 0)
+      --sca SCA             SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this mode to indicate where the SCA number should be filled, e.g.
+                            l1_wfi{}.asdf (default: 7)
       --usecrds             Use CRDS for distortion map (default: False)
       --webbpsf             Use webbpsf for PSF (default: False)
       --truncate TRUNCATE   If set, truncate the MA table at given number of resultants. (default: None)
       --pretend-spectral PRETEND_SPECTRAL
-			    Pretend the image is spectral. exposure.type and instrument.element are updated to be
-			    grism / prism. (default: None)
+                            Pretend the image is spectral. exposure.type and instrument.element are updated to be grism / prism. (default: None)
       --drop-extra-dq       Do not store the optional simulated dq array. (default: False)
+      --scale-factor SCALE_FACTOR
+                            Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris. (default: -1.0)
 
     EXAMPLE: romanisim-make-image output_image.asdf
 

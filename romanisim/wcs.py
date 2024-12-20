@@ -34,6 +34,8 @@ from . import util
 import romanisim.parameters
 import roman_datamodels.maker_utils as maker_utils
 
+from romanisim import log
+
 
 def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
     """Add WCS info to parameters dictionary.
@@ -142,7 +144,8 @@ def get_wcs(image, usecrds=True, distortion=None):
         wcs = make_wcs(util.skycoord(world_pos), distortion,
                        v2_ref=image_mod.meta.wcsinfo.v2_ref,
                        v3_ref=image_mod.meta.wcsinfo.v3_ref,
-                       roll_ref=image_mod.meta.wcsinfo.roll_ref)
+                       roll_ref=image_mod.meta.wcsinfo.roll_ref,
+                       scale_factor=image_mod.meta.velocity_aberration.scale_factor)
         shape = image_mod.data.shape
         wcs.bounding_box = ((-0.5, shape[-1] - 0.5), (-0.5, shape[-2] - 0.5))
         wcs = GWCS(wcs)
@@ -165,6 +168,7 @@ def make_wcs(targ_pos,
              v3_ref=0,
              wrap_v2_at=180,
              wrap_lon_at=360,
+             scale_factor=1.0,
              ):
     """Create a gWCS from a target position, a roll, and a distortion map.
 
@@ -187,6 +191,9 @@ def make_wcs(targ_pos,
 
     v3_ref : float
         The v3 coordinate (arcsec) corresponding to targ_pos
+
+    scale_factor : float
+        The scale factor induced by velocity aberration
 
     Returns
     -------
@@ -223,11 +230,21 @@ def make_wcs(targ_pos,
                           unit=(u.pix, u.pix))
     v2v3 = cf.Frame2D(name="v2v3", axes_order=(0, 1),
                       axes_names=("v2", "v3"), unit=(u.arcsec, u.arcsec))
+    v2v3vacorr = cf.Frame2D(name='v2v3vacorr', axes_order=(0, 1),
+                            axes_names=('v2', 'v3'), unit=(u.arcsec, u.arcsec))
     world = cf.CelestialFrame(reference_frame=astropy.coordinates.ICRS(),
                               name='world')
 
+    # Compute differential velocity aberration (DVA) correction:
+    va_corr = dva_corr_model(
+        va_scale=scale_factor,
+        v2_ref=v2_ref,
+        v3_ref=v3_ref
+    )
+
     pipeline = [gwcs.wcs.Step(detector, distortion),
-                gwcs.wcs.Step(v2v3, tel2sky),
+                gwcs.wcs.Step(v2v3, va_corr),
+                gwcs.wcs.Step(v2v3vacorr, tel2sky),
                 gwcs.wcs.Step(world, None)]
     return gwcs.wcs.WCS(pipeline)
 
@@ -474,7 +491,7 @@ def create_tangent_plane_gwcs(center, scale, center_coord):
         pixel scale (arcsec)
     center_coord : SkyCoord or CelestialCoord
         coordinates of center pixel
-    
+
     Returns
     -------
     GWCS object corresponding to tangent plane projection
@@ -526,3 +543,64 @@ def create_s_region(wcs, shape=None):
     rd = np.array([[r, d] for r, d in zip(racorn, deccorn)])
     s_region = "POLYGON ICRS " + " ".join([str(x) for x in rd.ravel()])
     return s_region
+
+
+def dva_corr_model(va_scale, v2_ref, v3_ref):
+    """
+    Create transformation that accounts for differential velocity aberration
+    (scale).
+
+    Parameters
+    ----------
+    va_scale : float, None
+        Ratio of the apparent plate scale to the true plate scale. When
+        ``va_scale`` is `None`, it is assumed to be identical to ``1`` and
+        an ``astropy.modeling.models.Identity`` model will be returned.
+
+    v2_ref : float, None
+        Telescope ``v2`` coordinate of the reference point in ``arcsec``. When
+        ``v2_ref`` is `None`, it is assumed to be identical to ``0``.
+
+    v3_ref : float, None
+        Telescope ``v3`` coordinate of the reference point in ``arcsec``. When
+        ``v3_ref`` is `None`, it is assumed to be identical to ``0``.
+
+    Returns
+    -------
+    va_corr : astropy.modeling.CompoundModel, astropy.modeling.models.Identity
+        A 2D compound model that corrects DVA. If ``va_scale`` is `None` or 1
+        then `astropy.modeling.models.Identity` will be returned.
+
+    """
+    if va_scale is None or va_scale == 1:
+        return models.Identity(2)
+
+    if va_scale <= 0:
+        log.warning("Velocity aberration scale must be a positive number: %s", va_scale)
+        log.warning("Defaulting to scale of 1.0")
+        va_scale = 1.0
+
+    va_corr = models.Scale(va_scale, name="dva_scale_v2") & models.Scale(
+        va_scale, name="dva_scale_v3"
+    )
+
+    if v2_ref is None:
+        v2_ref = 0
+
+    if v3_ref is None:
+        v3_ref = 0
+
+    if v2_ref == 0 and v3_ref == 0:
+        return va_corr
+
+    # NOTE: it is assumed that v2, v3 angles and va scale are small enough
+    # so that for expected scale factors the issue of angle wrapping
+    # (180 degrees) can be neglected.
+    v2_shift = (1 - va_scale) * v2_ref
+    v3_shift = (1 - va_scale) * v3_ref
+
+    va_corr |= models.Shift(v2_shift, name="dva_v2_shift") & models.Shift(
+        v3_shift, name="dva_v3_shift"
+    )
+    va_corr.name = "DVA_Correction"
+    return va_corr

@@ -2,14 +2,32 @@
 """
 
 import numpy as np
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, get_body_barycentric_posvel
 from astropy import units as u
 from astropy.time import Time
 import galsim
 import gwcs as gwcsmod
 
 from romanisim import parameters, wcs, bandpass
+from romanisim.velocity_aberration import compute_va_effects
 from scipy import integrate
+
+__all__ = ["skycoord",
+           "celestialcoord",
+           "scalergb",
+           "random_points_in_cap",
+           "random_points_in_king",
+           "random_points_at_radii",
+           "add_more_metadata",
+           "update_pointing_and_wcsinfo_metadata",
+           "king_profile",
+           "sample_king_distances",
+           "decode_context_times",
+           "default_image_meta",
+           "update_photom_keywords",
+           "merge_dicts",
+           "calc_scale_factor",
+]
 
 
 def skycoord(celestial):
@@ -252,7 +270,7 @@ def update_pointing_and_wcsinfo_metadata(metadata, gwcs):
     v2v3 = distortion(*center)
     radec = gwcs(*center)
     t2sky = gwcs.get_transform('v2v3', 'world')
-    radecn = t2sky(v2v3[0], v2v3[1] + 1)
+    radecn = t2sky(v2v3[0], v2v3[1] + 100)
     roll_ref = (
         SkyCoord(radec[0] * u.deg, radec[1] * u.deg).position_angle(
         SkyCoord(radecn[0] * u.deg, radecn[1] * u.deg)))
@@ -281,6 +299,10 @@ def update_pointing_and_wcsinfo_metadata(metadata, gwcs):
         SkyCoord(boresightn[0] * u.deg, boresightn[1] * u.deg)))
     pa_v3 = pa_v3.to(u.deg).value
     metadata['pointing']['pa_v3'] = pa_v3
+
+    # Update velocity aberration meta for the reference point
+    metadata['velocity_aberration']['ra_reference'] = radec[0]
+    metadata['velocity_aberration']['dec_reference'] = radec[1]
 
 
 def king_profile(r, rc, rt):
@@ -502,7 +524,7 @@ def update_photom_keywords(im, gain=None):
                 * np.sin(angle.to(u.rad).value))
         im['meta']['photometry']['pixel_area'] = area.to(u.sr).value
         val = (gain * (3631 / bandpass.get_abflux(
-             im.meta['instrument']['optical_element']) /
+             im.meta['instrument']['optical_element'], int(im.meta['instrument']['detector'][-2:])) /
              10 ** 6 / im['meta']['photometry']['pixel_area']))
         im['meta']['photometry']['conversion_megajanskys'] = val
         im['meta']['photometry']['conversion_microjanskys'] = (
@@ -539,3 +561,34 @@ def merge_dicts(a, b):
         else:
             a[key] = b[key]
     return a
+
+
+def calc_scale_factor(date, ra, dec):
+    """Calculate velocity aberration scale factor
+
+    The L2 orbit is just a delta on the Earth's orbit. At the moment, there is no ephemeris for
+    Roman yet, the Earth's barycentric velocity is used to calculate velocity aberration. A scale
+    of 1.01 is applied to the velocity to scale, approximately, to what would be Roman's velocity.
+
+    Parameters
+    ----------
+    date : str or astropy.Time
+        The date at which to calculate the velocity.
+
+    ra, dec: float
+        The right ascension and declination of the target (or some other
+        point, such as the center of a detector) in the barycentric coordinate
+        system.  The equator and equinox should be the same as the coordinate
+        system for the velocity. In degrees.
+
+    Returns
+    -------
+    scale_factor : float
+        The velocity aberration scale factor
+    """
+    _, velocity = get_body_barycentric_posvel('earth', date)
+    velocity = 1.01 * velocity  # Move from earth to Roman.
+    xyz_velocity = velocity.xyz.to(u.km / u.s)
+    scale_factor, _, _ = compute_va_effects(*xyz_velocity.value, ra, dec)
+
+    return scale_factor

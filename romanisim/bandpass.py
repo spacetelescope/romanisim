@@ -9,9 +9,8 @@ import numpy as np
 from importlib import resources
 from scipy import integrate
 from astropy import constants
-from astropy.table import Table
+from astropy.io import ascii
 from astropy import units as u
-import functools
 from romanisim import parameters
 
 # to go from calibrated fluxes in maggies to counts in the Roman bands
@@ -38,14 +37,16 @@ roman2galsim_bandpass.update(**{k: k for k in galsim_bandpasses})
 ABZeroSpFluxDens = 3631e-23 * u.erg / (u.s * u.cm**2 * u.hertz)
 
 
-def read_gsfc_effarea(filename=None):
+def read_gsfc_effarea(sca, filename=None):
     """Read an effective area file from Roman.
 
     This just puts together the right invocation to get an Excel-converted
-    CSV file into memory.
+    ECSV file into memory.
 
     Parameters
     ----------
+    sca : int
+        the name of the detector. A number between 1-18. 
     filename : str
         filename to read in
 
@@ -55,19 +56,17 @@ def read_gsfc_effarea(filename=None):
         table with effective areas for different Roman bandpasses.
     """
 
-    reader = functools.partial(Table.read, format='csv', delimiter=',',
-                               header_start=1, data_start=2)
+    # The throughput files come as ECSV from March 2024 so the invocation changed to properly read the ECSVs. 
     if filename is None:
-        ref = (resources.files('romanisim') / 'data'
-               / 'Roman_effarea_20201130.csv')
-        with resources.as_file(ref) as filename:
-            out = reader(filename)
+        filename = str(resources.files('romanisim') / 'data' / 'Roman_effarea_tables_20240327' 
+               / f'Roman_effarea_v8_SCA{sca:02}_20240301.ecsv')
+        out = ascii.read(filename)
     else:
-        out = reader(filename)
+        out = ascii.read(filename)
     return out
 
 
-def compute_abflux(effarea=None):
+def compute_abflux(sca, effarea=None):
     """Compute the AB zero point fluxes for each filter.
 
     How many electrons would a zeroth magnitude AB star deposit in
@@ -75,6 +74,8 @@ def compute_abflux(effarea=None):
 
     Parameters
     ----------
+    sca : int
+        the name of the detector. A number between 1-18. 
     effarea : astropy.Table.table
         Table from GSFC with effective areas for each filter.
 
@@ -85,7 +86,7 @@ def compute_abflux(effarea=None):
     """
 
     if effarea is None:
-        effarea = read_gsfc_effarea()
+        effarea = read_gsfc_effarea(sca)
 
     # get the filter names.  This is a bit ugly since there's also
     # a wavelength column 'Wave', and Excel appends a column to each line
@@ -95,11 +96,14 @@ def compute_abflux(effarea=None):
     abfv = ABZeroSpFluxDens
     out = dict()
     for bandpass in filter_names:
-        out[bandpass] = compute_count_rate(flux=abfv, bandpass=bandpass, effarea=effarea)
+        out[bandpass] = compute_count_rate(flux=abfv, bandpass=bandpass, sca=sca, effarea=effarea)
+
+    # Saving the SCA information to use the correct throughput curves for each detector. 
+    out = {f'SCA{sca:02}':out}  
     return out
 
 
-def get_abflux(bandpass):
+def get_abflux(bandpass, sca):
     """Get the zero point flux for a particular bandpass.
 
     This is a simple wrapper for compute_abflux, caching the results.
@@ -108,7 +112,8 @@ def get_abflux(bandpass):
     ----------
     bandpass : str
         the name of the bandpass
-
+    sca : int
+        the name of the detector. A number between 1-18. 
     Returns
     -------
     float
@@ -116,16 +121,16 @@ def get_abflux(bandpass):
     """
     bandpass = galsim2roman_bandpass.get(bandpass, bandpass)
 
-    # If abflux for this bandpass has been calculated, return the calculated
+    # If abflux for this bandpass for the specified SCA has been calculated, return the calculated
     # value instead of rerunning an expensive calculation
     abflux = getattr(get_abflux, 'abflux', None)
-    if abflux is None:
-        abflux = compute_abflux()
+    if (abflux is None) or (f'SCA{sca:02}' not in abflux):
+        abflux = compute_abflux(sca)
         get_abflux.abflux = abflux
-    return abflux[bandpass]
+    return abflux[f'SCA{sca:02}'][bandpass]
 
 
-def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=None):
+def compute_count_rate(flux, bandpass, sca, filename=None, effarea=None, wavedist=None):
     """Compute the count rate in a given filter, for a specified SED.
 
     How many electrons would an object with SED given by
@@ -137,6 +142,8 @@ def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=Non
         Spectral flux density in units of ergs per second * hertz * cm^2
     bandpass : str
         the name of the bandpass
+    sca : int
+        the name of the detector. A number between 1-18. 
     filename : str
         filename to read in
     effarea : astropy.Table.table
@@ -151,7 +158,7 @@ def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=Non
     """
     # Read in default Roman effective areas from Goddard, if areas not supplied
     if effarea is None:
-        effarea = read_gsfc_effarea(filename)
+        effarea = read_gsfc_effarea(sca, filename)
 
     # If wavelength distribution is supplied, interpolate flux and area
     # over it and the effective area table layout
@@ -184,7 +191,7 @@ def compute_count_rate(flux, bandpass, filename=None, effarea=None, wavedist=Non
     return zpflux
 
 
-def etomjysr(bandpass):
+def etomjysr(bandpass, sca):
     """Compute factor converting e/s/pix to MJy/sr.
 
     Assumes a pixel scale of 0.11" (romanisim.parameters.pixel_scale)
@@ -193,14 +200,15 @@ def etomjysr(bandpass):
     ----------
     bandpass : str
         the name of the bandpass
-
+    sca : int
+        the name of the detector. A number between 1-18. 
     Returns
     -------
     float
         the factor F such that MJy / sr = F * DN/s
     """
 
-    abflux = get_abflux(bandpass)  # e/s corresponding to 3631 Jy
+    abflux = get_abflux(bandpass, sca)  # e/s corresponding to 3631 Jy
     srpix = ((parameters.pixel_scale * u.arcsec) ** 2).to(u.sr).value
     mjysr = 1 / abflux * 3631 / 10 ** 6 / srpix  # should be ~0.3
     return mjysr

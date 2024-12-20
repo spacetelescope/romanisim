@@ -30,6 +30,7 @@ def test_inject_sources_into_mosaic():
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
     metadata['basic']['optical_element'] = filter_name
+    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
 
     # Create WCS
     twcs = wcs.GWCS(wcs.get_mosaic_wcs(
@@ -62,9 +63,10 @@ def test_inject_sources_into_mosaic():
 
     # Obtain unit conversion factors
     # maggies to counts (large number)
-    cps_conv = romanisim.bandpass.get_abflux(filter_name)
+    sca = parameters.default_sca
+    cps_conv = romanisim.bandpass.get_abflux(filter_name, sca)
     # electrons to mjysr (roughly order unity in scale)
-    unit_factor = romanisim.bandpass.etomjysr(filter_name)
+    unit_factor = romanisim.bandpass.etomjysr(filter_name, sca)
 
     # Populate the mosaic data array with gaussian noise from generators
     g1.generate(l3_mos.data[0:100, 0:100])
@@ -145,6 +147,9 @@ def test_sim_mosaic():
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = metadata['basic']['optical_element']
 
+    # Setting the SCA for proper flux calculations
+    sca = parameters.default_sca
+
     # Set exposure time
     exptimes = [600]
 
@@ -193,11 +198,11 @@ def test_sim_mosaic():
         assert mosaic.data[y, x] > (np.median(mosaic.data) * 5)
 
     # Did we get all the flux?
-    etomjysr = romanisim.bandpass.etomjysr(filter_name)
+    etomjysr = romanisim.bandpass.etomjysr(filter_name, sca)
     totflux = np.sum(mosaic.data - np.median(mosaic.data)) / etomjysr
 
     # Flux to counts
-    cps_conv = romanisim.bandpass.get_abflux(filter_name)
+    cps_conv = romanisim.bandpass.get_abflux(filter_name, sca)
     expectedflux = np.sum(cat[filter_name]) * cps_conv
 
     # Ensure that the measured flux is close to the expected flux
@@ -230,13 +235,14 @@ def set_up_image_rendering_things():
     # Create sample image, filter, etc.
     im = galsim.ImageF(100, 100, scale=0.11, xmin=0, ymin=0)
     filter_name = 'F158'
-    impsfgray = psf.make_psf(1, filter_name, webbpsf=True, chromatic=False,
+    sca = 1
+    impsfgray = psf.make_psf(sca, filter_name, webbpsf=True, chromatic=False,
                              nlambda=1)  # nlambda = 1 speeds tests
-    impsfchromatic = psf.make_psf(1, filter_name, webbpsf=False,
+    impsfchromatic = psf.make_psf(sca, filter_name, webbpsf=False,
                                   chromatic=True)
     bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
-    maggiestoe = romanisim.bandpass.get_abflux(filter_name)
+    maggiestoe = romanisim.bandpass.get_abflux(filter_name, sca)
     fluxdict = {filter_name: counts}
     fluxdictgray = {filter_name: counts / maggiestoe}
 
@@ -269,7 +275,7 @@ def set_up_image_rendering_things():
                 impsfchromatic=impsfchromatic,
                 bandpass=bandpass, counts=counts, fluxdict=fluxdict,
                 graycatalog=graycatalog,
-                chromcatalog=chromcatalog, filter_name=filter_name,
+                chromcatalog=chromcatalog, filter_name=filter_name, sca=sca,
                 tabcatalog=tabcat)
 
 
@@ -303,13 +309,16 @@ def test_simulate_vs_cps():
     metadata['basic']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
+    # Adding the detector information as the simulations now support all 18 detectors with their own throughput curves
+    # Using the default detector from the default_parameters_dictionary as all sca arguments are set to it within l3.py
+    sca = parameters.default_sca
 
     # Set up blank image
     im = imdict['im'].copy()
     im.array[:] = 0
 
-    maggytoes = romanisim.bandpass.get_abflux(filter_name)
-    etomjysr = romanisim.bandpass.etomjysr(filter_name)
+    maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
+    etomjysr = romanisim.bandpass.etomjysr(filter_name, sca)
 
     twcs = wcs.get_mosaic_wcs(meta, shape=im.array.shape)
     im.wcs = wcs.GWCS(twcs)
@@ -376,6 +385,7 @@ def test_simulate_cps():
     metadata['wcsinfo']['dec_ref'] = 66
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     wcs.fill_in_parameters(metadata, coord)
+    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
 
     # Test empty image
     l3.simulate_cps(
@@ -473,6 +483,7 @@ def test_exptime_array():
     metadata['basic']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
+    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
 
     # Set variable exposure time array
     exptime = np.ones((roman.n_pix, roman.n_pix))
@@ -523,13 +534,13 @@ def test_scaling():
         (npix / 2, npix / 2), pscale / 2, coord)
 
     im1, extras1 = l3.simulate(
-        (npix, npix), twcs1, exptime, imdict['filter_name'],
+        (npix, npix), twcs1, exptime, imdict['filter_name'], 
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0,
         )
 
     # half pixel scale
     im2, extras2 = l3.simulate(
-        (npix * 2, npix * 2), twcs2, exptime, imdict['filter_name'],
+        (npix * 2, npix * 2), twcs2, exptime, imdict['filter_name'], 
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on pixel scale (in calibrated units!)
@@ -547,7 +558,7 @@ def test_scaling():
 
     # doubled exposure time
     im3, extras3 = l3.simulate(
-        (npix, npix), twcs1, exptime * 10, imdict['filter_name'],
+        (npix, npix), twcs1, exptime * 10, imdict['filter_name'], 
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on exposure time (in calibrated units!)
