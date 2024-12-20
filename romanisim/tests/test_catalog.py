@@ -3,9 +3,10 @@ Unit tests for catalog functions.
 """
 
 import os
+import copy
 import numpy as np
 import galsim
-from romanisim import catalog
+from romanisim import catalog, image, parameters
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from romanisim import log
@@ -150,3 +151,87 @@ def test_table_catalog(tmp_path):
 
     log.info('DMS217: successfully generated parametric distributions of '
              'sources with different magnitudes and sizes.')
+
+def test_cosmos_table_catalog(tmp_path):
+    cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
+    radius = 0.2
+    nobj = 200
+    bands = ['F087'] #, 'F184']
+
+    metadata = copy.deepcopy(parameters.default_parameters_dictionary)
+    metadata['instrument']['detector'] = 'WFI07'
+    metadata['instrument']['optical_element'] = 'F158'
+    metadata['exposure']['ma_table_number'] = 4
+
+    cat = catalog.make_cosmos_galaxies(cen, radius=0.01, bandpasses=bands)
+
+    cat_old = catalog.make_galaxies(
+        cen, n=156, radius=0.01, index=1, faintmag=28,
+        bandpasses=bands, hlr_at_faintmag=1)
+    
+    cat2 = catalog.make_dummy_table_catalog(cen, radius=0.01, bandpasses=bands,
+                                           nobj=2000)
+
+    # print(f"cat_old[F087] = {cat_old['F087']}")
+    # print(f"cat[F087] = {cat['F087']}")
+
+    # rng = galsim.UniformDeviate(None)
+    # im, simcatobj = image.simulate(
+    #     metadata, cat, usecrds=True,
+    #     webbpsf=True, level=2,
+    #     rng=rng, psf_keywords=dict(nlambda=1))
+    
+    # print(f"cat[F087] = {cat['F087']}")
+    # print(f"cat_old[F087] = {cat_old['F087']}")
+    # print(f"cat2[F087] = {cat2['F087']}")
+    
+    # import plotly.express as px
+
+    # fig1 = px.imshow(np.nan_to_num(np.log(np.nan_to_num(im.data, nan=1))), title='COSMOS Galaxies (log)', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # fig1.show()
+
+    # fig2 = px.imshow(np.nan_to_num(im.data, nan=1), title='COSMOS Galaxies', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # fig2.show()
+
+    # # fig122 = px.imshow(np.log(np.nan_to_num(np.log(np.nan_to_num(im.data, nan=1)))[]), title='COSMOS Galaxies (log(log))', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # # fig122.show()
+
+    # im_old, simcatobj_old = image.simulate(
+    #     metadata, cat_old, usecrds=True,
+    #     webbpsf=True, level=2,
+    #     rng=rng, psf_keywords=dict(nlambda=1))
+
+    # fig3 = px.imshow(np.nan_to_num(np.log(np.nan_to_num(im_old.data, nan=1))), title='SIM Galaxies (log)', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # fig3.show()
+
+    # fig4 = px.imshow(np.nan_to_num(im_old.data, nan=1), title='SIM Galaxies', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # fig4.show()
+
+    # im_2, simcatobj_2 = image.simulate(
+    #     metadata, cat2, usecrds=True,
+    #     webbpsf=True, level=2,
+    #     rng=rng, psf_keywords=dict(nlambda=1))
+    
+    # fig5 = px.imshow(np.nan_to_num(np.log(np.nan_to_num(im_2.data, nan=1))), title='IM 2 Galaxies (log)', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # fig5.show()
+
+    # fig6 = px.imshow(im_2.data, title='IM 2 Galaxies', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # fig6.show()
+
+    # data_tmp = im_2.data.copy()
+    # # data_tmp[im_2.data < 1] = 1
+    # data_tmp[im_2.data < 1] = 1
+
+    # fig7 = px.imshow(np.log(np.nan_to_num(data_tmp)), title='IM 2 Galaxies Capped (log)', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # fig7.show()
+
+    # data_costmp = im.data.copy()
+    # # data_tmp[im_2.data < 1] = 1
+    # data_costmp[data_costmp < 1] = 1
+
+    # fig9 = px.imshow(np.nan_to_num(np.log(np.nan_to_num(data_costmp, nan=1))), title='COSMOS Galaxies Capped (log)', labels={'color': 'Brightness', 'x':'y axis', 'y':'x axis'})
+    # fig9.show()
+
+    # # print(f"cat[F087] = {cat['F087']}")
+    # # print(f"cat_old[F087] = {cat_old['F087']}")
+    # # print(f"cat2[F087] = {cat2['F087']}")
