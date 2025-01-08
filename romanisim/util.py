@@ -516,7 +516,7 @@ def update_photom_keywords(im, gain=None):
     if 'wcs' in im['meta']:
         wcs = im['meta']['wcs']
         cenpix = (im.data.shape[0] // 2, im.data.shape[1] // 2)
-        cc = wcs.pixel_to_world_values(
+        cc = wcs.pixel_to_world(
             (cenpix[0], cenpix[0], cenpix[0] + 1),
             (cenpix[1], cenpix[1] + 1, cenpix[1]))
         angle = (cc[0].position_angle(cc[1]) -

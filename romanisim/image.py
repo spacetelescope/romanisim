@@ -964,8 +964,8 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         rng = galsim.UniformDeviate(123)
 
     if x is None or y is None:
-        x, y = model.meta.wcs.numerical_inverse(cat['ra'], cat['dec'],
-                                                with_bounding_box=False)
+        x, y = model.meta.wcs.numerical_inverse(
+            cat['ra'].value, cat['dec'].value, with_bounding_box=False)
 
     filter_name = model.meta.instrument.optical_element
     cat = catalog.table_to_catalog(cat, [filter_name])

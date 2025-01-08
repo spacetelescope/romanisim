@@ -161,7 +161,7 @@ def test_sim_mosaic():
 
     # Create bounds from the object list
     twcs = romanisim.wcs.get_mosaic_wcs(metadata)
-    allx, ally = twcs.world_to_pixel_values(cat['ra'], cat['dec'])
+    allx, ally = twcs.world_to_pixel_values(cat['ra'].value, cat['dec'].value)
 
     # Obtain the sample extremums
     xmin = min(allx)
@@ -191,7 +191,8 @@ def test_sim_mosaic():
     assert len(extras['objinfo']) == len(cat)
 
     # Ensure center pixel of bright objects is bright
-    x_all, y_all = moswcs.world_to_pixel_values(cat['ra'][:10], cat['dec'][:10])
+    x_all, y_all = moswcs.world_to_pixel_values(cat['ra'][:10].value,
+                                                cat['dec'][:10].value)
     for x, y in zip(x_all, y_all):
         x = int(x)
         y = int(y)

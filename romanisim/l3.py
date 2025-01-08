@@ -142,7 +142,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         rng = galsim.UniformDeviate(seed)
 
     if x is None or y is None:
-        x, y = model.meta.wcs.numerical_inverse(cat['ra'], cat['dec'],
+        x, y = model.meta.wcs.numerical_inverse(cat['ra'].value, cat['dec'].value,
                                                 with_bounding_box=False)
 
     filter_name = model.meta.basic.optical_element
@@ -740,8 +740,8 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['photometry']['conversion_megajanskys'] = 1
 
     cenx, ceny = ((shape[1] - 1) / 2, (shape[0] - 1) / 2)
-    c1 = wcs.pixel_to_world_values(cenx, ceny)
-    c2 = wcs.pixel_to_world_values(cenx + 1, ceny)
+    c1 = wcs.pixel_to_world(cenx, ceny)
+    c2 = wcs.pixel_to_world(cenx + 1, ceny)
     pscale = c1.separation(c2)
 
     metadata['photometry']['pixelarea_steradians'] = (pscale ** 2).to(u.sr)
@@ -769,7 +769,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['wcsinfo']['dec_center'] = c1.dec.to(u.degree).value
     xcorn, ycorn = [[0, shape[1] - 1, shape[1] - 1, 0],
                     [0, 0, shape[0] - 1, shape[0] - 1]]
-    ccorn = wcs.pixel_to_world_values(xcorn, ycorn)
+    ccorn = wcs.pixel_to_world(xcorn, ycorn)
     for i, corn in enumerate(ccorn):
         metadata['wcsinfo']['ra_corn{i+1}'] = corn.ra.to(u.degree).value
         metadata['wcsinfo']['dec_corn{i+1}'] = corn.dec.to(u.degree).value
