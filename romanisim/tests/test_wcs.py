@@ -110,7 +110,7 @@ def test_wcs_from_fits_header():
     wcs2 = wcs.wcs_from_fits_header(wcs1.header.header)
     xg, yg = np.meshgrid(np.linspace(0, 4088, 100), np.linspace(0, 4088, 100))
     rd1 = np.degrees(wcs1._radec(xg.copy(), yg.copy()))
-    rd2 = wcs2.pixel_to_world(xg.copy(), yg.copy())
+    rd2 = wcs2.pixel_to_world_values(xg.copy(), yg.copy())
     rd1 = SkyCoord(ra=rd1[0] * u.deg, dec=rd1[1] * u.deg, frame=rd2.frame)
     sep = rd1.separation(rd2).to(u.arcsec).value
 
@@ -168,7 +168,7 @@ def test_scale_factor():
     # Create the wcs and generate results
     distortion = make_fake_distortion_function()
     gwcs = wcs.make_wcs(cc, distortion, scale_factor=scale_factor)
-    sky = gwcs.pixel_to_world(grid, grid)
+    sky = gwcs.pixel_to_world_values(grid, grid)
 
     assert all(truth.separation(sky).to(u.arcsec).value < 1e-3)
 
@@ -190,6 +190,6 @@ def test_scale_factor_negative():
     # Create the wcs and generate results
     distortion = make_fake_distortion_function()
     gwcs = wcs.make_wcs(cc, distortion, scale_factor=scale_factor)
-    sky = gwcs.pixel_to_world(grid, grid)
+    sky = gwcs.pixel_to_world_values(grid, grid)
 
     assert all(truth.separation(sky).to(u.arcsec).value < 1e-3)

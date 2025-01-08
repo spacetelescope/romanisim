@@ -740,8 +740,8 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['photometry']['conversion_megajanskys'] = 1
 
     cenx, ceny = ((shape[1] - 1) / 2, (shape[0] - 1) / 2)
-    c1 = wcs.pixel_to_world(cenx, ceny)
-    c2 = wcs.pixel_to_world(cenx + 1, ceny)
+    c1 = wcs.pixel_to_world_values(cenx, ceny)
+    c2 = wcs.pixel_to_world_values(cenx + 1, ceny)
     pscale = c1.separation(c2)
 
     metadata['photometry']['pixelarea_steradians'] = (pscale ** 2).to(u.sr)
@@ -756,7 +756,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['resample']['pointings'] = nexposures
     metadata['resample']['product_exposure_time'] = (
         metadata['basic']['max_exposure_time'])
-    xref, yref = wcs.world_to_pixel(
+    xref, yref = wcs.world_to_pixel_values(
         metadata['wcsinfo']['ra_ref'], metadata['wcsinfo']['dec_ref'])
     metadata['wcsinfo']['x_ref'] = xref
     metadata['wcsinfo']['y_ref'] = yref
@@ -769,7 +769,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['wcsinfo']['dec_center'] = c1.dec.to(u.degree).value
     xcorn, ycorn = [[0, shape[1] - 1, shape[1] - 1, 0],
                     [0, 0, shape[0] - 1, shape[0] - 1]]
-    ccorn = wcs.pixel_to_world(xcorn, ycorn)
+    ccorn = wcs.pixel_to_world_values(xcorn, ycorn)
     for i, corn in enumerate(ccorn):
         metadata['wcsinfo']['ra_corn{i+1}'] = corn.ra.to(u.degree).value
         metadata['wcsinfo']['dec_corn{i+1}'] = corn.dec.to(u.degree).value

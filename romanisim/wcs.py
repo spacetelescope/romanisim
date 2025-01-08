@@ -374,7 +374,7 @@ def wcs_from_fits_header(header):
     # convention in the galsim CelestialWCS object, we delete that here.
     # Success is defined by
     # (GWCS._radec(x, y) ==
-    #  wcs_from_fits_header(GWCS.header.header).pixel_to_world(x, y))
+    #  wcs_from_fits_header(GWCS.header.header).pixel_to_world_values(x, y))
 
     cd = w.wcs.piximg_matrix
 
