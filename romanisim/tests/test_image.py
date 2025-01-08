@@ -411,6 +411,19 @@ def test_simulate_counts_generic():
     assert np.sum(objinfo['counts'] > 0) == 0
     # these sources should be out of bounds
 
+    ### Assert that out-of-range values do not cause integer overflow:
+    try:
+        # Have numpy raise on warnings:
+        np.seterr(all='raise')
+        # Test simulating with a value that is out of range for an int32
+        im9 = im.copy()
+        im9.array[0][0] = np.float32(2**40)
+        image.simulate_counts_generic(im9, exptime, sky=sky, flat=0.5, zpflux=zpflux)
+    finally:
+        # revert numpy warning settings to default
+        np.seterr(all='print')
+
+
 
 def test_simulate_counts():
     imdict = set_up_image_rendering_things()
