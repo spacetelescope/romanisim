@@ -469,8 +469,19 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         image.quantize()
         rng_numpy_seed = rng.raw()
         rng_numpy = np.random.default_rng(rng_numpy_seed)
+
+        # NOTE: Here, we convert the array of float32 values to int32 (i4), so
+        # we need to "clip" them to be in the valid range first. However, just
+        # clipping with the maximum int32 value (2^31 - 1) isn't sufficient.
+        # This is because `np.float32(2**31 - 1)` is the same value as
+        # `np.float32(2**31)` due to floating point imprecision, and on some
+        # architectures, converting that value to int32 rolls over to a negative
+        # number. To resolve, we use `np.nextafter` to get the previous floating
+        # point number, which is roughly 2^31 - 128.
+        MAX_SAFE_VALUE = np.nextafter(np.float32(2**31 - 1), 0)
         image.array[:, :] = rng_numpy.binomial(
-            np.clip(image.array, 0, 2**31 - 1).astype('i4'), flat / maxflat)
+            np.clip(image.array, 0, MAX_SAFE_VALUE).astype("i4"), flat / maxflat
+        )
 
     if dark is not None:
         workim = image * 0
