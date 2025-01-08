@@ -161,7 +161,7 @@ def test_sim_mosaic():
 
     # Create bounds from the object list
     twcs = romanisim.wcs.get_mosaic_wcs(metadata)
-    allx, ally = twcs.world_to_pixel(cat['ra'], cat['dec'])
+    allx, ally = twcs.world_to_pixel_values(cat['ra'].value, cat['dec'].value)
 
     # Obtain the sample extremums
     xmin = min(allx)
@@ -170,7 +170,7 @@ def test_sim_mosaic():
     ymax = max(ally)
 
     # Obtain WCS center
-    xcen, ycen = twcs.world_to_pixel(ra_ref, dec_ref)
+    xcen, ycen = twcs.world_to_pixel_values(ra_ref, dec_ref)
 
     # Determine maximum extremums from WCS center
     xdiff = max([math.ceil(xmax - xcen), math.ceil(xcen - xmin)]) + 1
@@ -191,7 +191,8 @@ def test_sim_mosaic():
     assert len(extras['objinfo']) == len(cat)
 
     # Ensure center pixel of bright objects is bright
-    x_all, y_all = moswcs.world_to_pixel(cat['ra'][:10], cat['dec'][:10])
+    x_all, y_all = moswcs.world_to_pixel_values(cat['ra'][:10].value,
+                                                cat['dec'][:10].value)
     for x, y in zip(x_all, y_all):
         x = int(x)
         y = int(y)
@@ -581,7 +582,7 @@ def test_scaling():
     # pixel scales are different by a factor of two.
     fluxes = []
     for im, fac in zip((im1, im2, im3), (1, 2, 1)):
-        pix = im.meta.wcs.world_to_pixel(
+        pix = im.meta.wcs.world_to_pixel_values(
             imdict['tabcatalog']['ra'][0], imdict['tabcatalog']['dec'][0])
         pind = [int(x) for x in pix]
         margin = 30 * fac
