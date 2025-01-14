@@ -478,7 +478,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         # architectures, converting that value to int32 rolls over to a negative
         # number. To resolve, we use `np.nextafter` to get the previous floating
         # point number, which is roughly 2^31 - 128.
-        MAX_SAFE_VALUE = np.nextafter(np.float32(2**31 - 1), 0)
+        MAX_SAFE_VALUE = np.nextafter(2**31 - 1, 0, dtype=np.float32)
         image.array[:, :] = rng_numpy.binomial(
             np.clip(image.array, 0, MAX_SAFE_VALUE).astype("i4"), flat / maxflat
         )
