@@ -152,11 +152,10 @@ def make_dummy_table_catalog(coord,
 
 def make_cosmos_galaxies(coord,
                          radius=0.1,
-                         index=None,
-                         faintmag=26,
                          bandpasses=None,
                          rng=None,
                          seed=50,
+                         cosmos_file=None,
                          ):
     """Make a catalog of galaxies from sources in the COSMOS catalog.
     https://cosmos2020.calet.org/
@@ -249,114 +248,63 @@ def make_cosmos_galaxies(coord,
                 cos_filt.append('UVISTA_Ks_FLUX_AUTO')
             if opt_elem in ("F158", "F184", "F146"):
                 cos_filt.append('UVISTA_H_FLUX_AUTO') 
-        # for opt_elem in bandpasses:
-        #     if opt_elem == "F062":
-        #         cos_filt.append('lp_MR')
-        #     if opt_elem == "F087":
-        #         cos_filt.append('lp_MZ')
-        #     if opt_elem == "F106":
-        #         cos_filt.append('lp_MY')
-        #     if opt_elem in ("F129", "F158", "F146"):
-        #         cos_filt.append('lp_MJ')
-        #     if opt_elem in ("F213", "F184"):
-        #         cos_filt.append('lp_MK')
-        #     if opt_elem in ("F158", "F184", "F146"):
-        #         cos_filt.append('lp_MH') 
 
     # Open COSMOS file and pare to required tabs
-    dir_in = "/Users/phuwe/src/roman/data/cosmos/"
-    cos_cat_all = table.Table.read(dir_in+'COSMOS2020_CLASSIC_R1_v2.2_p3.fits',format='fits',hdu=1)
+    if cosmos_file:
+        cos_cat_all = table.Table.read(cosmos_file,format='fits',hdu=1)
+    else:
+        dir_in = "/Users/phuwe/src/roman/data/cosmos/"
+        cos_cat_all = table.Table.read(dir_in+'COSMOS2020_CLASSIC_R1_v2.2_p3.fits',format='fits',hdu=1)
 
-    # Filter out stars
-    # Do this before source density?
+    # Select galaxies
     cos_cat_all = cos_cat_all[cos_cat_all['lp_type']==0]
 
-    # Calculate source density
+    
     # Calculate viewing area
-    # Calculate total sources
-    # Calculate number of items
     ramin = min(cos_cat_all['ALPHA_J2000'])
     ramax = max(cos_cat_all['ALPHA_J2000'])
     decmin = min(cos_cat_all['DELTA_J2000'])
     decmax = max(cos_cat_all['DELTA_J2000'])
-    print('Area covered [deg]: {:.6f}<RA<{:.6f} & {:.6f}<Dec<{:.6f}'.format(ramin,ramax,decmin,decmax))
+    # print('Area covered [deg]: {:.6f}<RA<{:.6f} & {:.6f}<Dec<{:.6f}'.format(ramin,ramax,decmin,decmax))
     cos_area = ((ramax - ramin) * u.deg) * ((decmax - decmin) * u.deg)
-    print(f'Area covered: {cos_area}')
+    # print(f'Area covered: {cos_area}')
+
+    # Calculate source density
     cos_density = len(cos_cat_all['ID']) / cos_area
-    print(f'Source density: {cos_density}')
-    cos_count = max(cos_cat_all['ID'])
-    print(f"len(cos_cat_all['ID']) = {len(cos_cat_all['ID'])}")
-    # print(f"max(cos_cat_all['ID']) = {max(cos_cat_all['ID'])}")
-    print(f"sim area = {np.pi * (radius*u.deg)**2}")
+
+    # Calculate total sources
     sim_count = cos_density * np.pi * (radius * u.deg)**2
-    print(f"sim_count = {sim_count}")
 
     # Drop all flagged objects
-    whichflag = 'COMBINED'
-    cos_cat_all = cos_cat_all[cos_cat_all['FLAG_{}'.format(whichflag)]==0]
-    cos_cat_all = cos_cat_all[cos_cat_all['KRON_RADIUS']>0]
+    cos_cat_all = cos_cat_all[cos_cat_all['FLAG_COMBINED']==0]
+
+    # Only keep items with a radius
     cos_cat_all = cos_cat_all[cos_cat_all['FLUX_RADIUS']>0]
 
+    # Only keep items with shape measurements
     cos_cat_all = cos_cat_all[cos_cat_all['ACS_B_WORLD']>0]
     cos_cat_all = cos_cat_all[cos_cat_all['ACS_A_WORLD']>0]
 
-    # GalSim can only render galaxies with concentrations between 0.3 and 6.2
-    cos_cat_all = cos_cat_all[(cos_cat_all['FLUX_RADIUS'] / cos_cat_all['KRON_RADIUS']) > 0.3]
-    cos_cat_all = cos_cat_all[(cos_cat_all['FLUX_RADIUS'] / cos_cat_all['KRON_RADIUS']) < 6.2]
-
-    # for opt_elem in ['lp_MR', 'lp_MZ', 'lp_MY', 'lp_MJ', 'lp_MK', 'lp_MH']:
-    #     cos_cat_all = cos_cat_all[cos_cat_all[opt_elem] > (faintmag + 1 - 48.6)]
+    # # GalSim can only render galaxies with concentrations between 0.3 and 6.2
+    # cos_cat_all = cos_cat_all[(cos_cat_all['FLUX_RADIUS'] / cos_cat_all['KRON_RADIUS']) > 0.3]
+    # cos_cat_all = cos_cat_all[(cos_cat_all['FLUX_RADIUS'] / cos_cat_all['KRON_RADIUS']) < 6.2]
 
     # Filter for flags
-    cos_filt += ["ID", "FLUX_RADIUS", "KRON_RADIUS", "ACS_A_WORLD", "ACS_B_WORLD"]
+    # cos_filt += ["ID", "FLUX_RADIUS", "KRON_RADIUS", "ACS_A_WORLD", "ACS_B_WORLD"]
+    cos_filt += ["ID", "FLUX_RADIUS", "ACS_A_WORLD", "ACS_B_WORLD"]
+    # Temp
+    cos_filt += ["ACS_FWHM_WORLD"]
     cos_cat =cos_cat_all[cos_filt]   
 
-    # for opt_elem in ['lp_MR', 'lp_MZ', 'lp_MY', 'lp_MJ', 'lp_MK', 'lp_MH']:
-    #     cos_cat = cos_cat[cos_cat[opt_elem] > (faintmag + 1 - 48.6)]
 
-    print(f"len(cos_cat_all['ID']) = {len(cos_cat_all['ID'])}")
-
-
-
-    # Obtain random sources from the catalog with mag > faint mag
+    # Obtain random sources from the catalog
     rng_numpy_seed = rng.raw()
     rng_numpy = np.random.default_rng(rng_numpy_seed)
     sim_ids = rng_numpy.integers(size=int(sim_count.value), low=0, high=len(cos_cat["ID"])).tolist()
-    print(f"sim_ids = {sim_ids}")
-    print(f"len(sim_ids) = {len(sim_ids)}")
-    print(f"len(set(sim_ids)) = {len(set(sim_ids))}")
-    # print(f"np.any(cos_cat_all['ID'] in sim_ids) = {np.any(cos_cat_all['ID'] in sim_ids)}")
-    # cos_cat_all = cos_cat_all[np.any(cos_cat_all['ID'] in sim_ids)]
-    # mask = cos_cat_all['ID'].isin(sim_ids)
-    # print(f"cos_cat_all['ID'] in sim_ids = {cos_cat_all['ID'] in sim_ids}")
-    # d = dict({'ID':sim_ids})
-    # print(f"cos_cat_all & d = {cos_cat_all & d}")
-    # print(f"cos_cat_all[cos_cat_all['ID'] in sim_ids] = {cos_cat_all[cos_cat_all['ID'] in sim_ids]}")
-    print(f"cos_cat[[x for x in cos_cat['ID'] if x in set(sim_ids)]] = {
-        cos_cat[[x for x in cos_cat['ID'] if x in set(sim_ids)]]}")
-    trycat = cos_cat[[x for x in cos_cat['ID'] if x in set(sim_ids)]]
-    print(f"len(trycat) = {len(trycat["ID"])}")
-    print(f"len(cos_cat) = {len(cos_cat["ID"])}")
-
     sim_cat = cos_cat[sim_ids]
-    print(f"sim_cat = \n{sim_cat}")
-    print(f"len(sim_cat) = {len(sim_cat)}")
 
-
-    # blah = cos_cat_all[np.any(cos_cat_all['ID'] in sim_ids)]   
-
-    # def all_positive(table, key_colnames):
-    #     colnames = [name for name in table.colnames if name not in key_colnames]
-    #     for colname in colnames:
-    #         if np.any(table[colname] <= 0):
-    #             return False
-    #     return True
-
-    # try2cat = cos_cat.group_by('ID')
-    # t_filt = try2cat.groups.filter(all_positive)
-
-    # mask = cos_cat['ID'] in sim_ids
-    # cos_cat_all = cos_cat_all[mask]
+    # print(f"sim_cat = \n{sim_cat}")
+    # print(f"len(sim_cat) = {len(sim_cat)}")
 
     # Match cosmos filters to roman filters
     for opt_elem in bandpasses:
@@ -383,136 +331,52 @@ def make_cosmos_galaxies(coord,
         else:
             log.warning(f'Unknown filter {opt_elem} skipped in object catalog creation.')
 
-        # if opt_elem == "F062":
-        #     sim_cat['MAG_F062'] = sim_cat['lp_MR']
-        # elif opt_elem == "F087":
-        #     sim_cat['MAG_F087'] = sim_cat['lp_MZ']
-        # elif opt_elem == "F106":
-        #     sim_cat['MAG_F106'] = sim_cat['lp_MY']
-        # elif opt_elem == "F129":
-        #     sim_cat['MAG_F129'] = sim_cat['lp_MJ']
-        # elif opt_elem == "F146":
-        #     f146_j_coeff = 0.46333417914234964
-        #     sim_cat['MAG_F146'] = (f146_j_coeff * sim_cat['lp_MJ']) + ((1 - f146_j_coeff) * sim_cat['lp_MH'])
-        # elif opt_elem == "F158":
-        #     f158_h_coeff = 0.823395077391525
-        #     sim_cat['MAG_F158'] = (f158_h_coeff * sim_cat['lp_MH']) + ((1 - f158_h_coeff) * sim_cat['lp_MJ'])
-        # elif opt_elem == "F184":
-        #     f184_ks_coeff = 0.3838145747397368
-        #     sim_cat['MAG_F184'] = (f184_ks_coeff * sim_cat['lp_MK']) + ((1 - f184_ks_coeff) * sim_cat['lp_MH'])
-        # elif opt_elem == "F213":
-        #     sim_cat['MAG_F213'] = sim_cat['lp_MK']
-        # else:
-        #     log.warning(f'Unknown filter {opt_elem} skipped in object catalog creation.')
-
-    
-
-    # Randomize positions and angles of the sources
+    # Randomize positions of the sources
     locs = util.random_points_in_cap(coord, radius, len(sim_ids), rng=rng)
 
-    # Return Table with source parameters
-    out = table.Table()
-
-    # perturb source fluxes by ~20%
-    sim_cat_orig = sim_cat.copy()
-    source_pert = len(sim_ids) * [1] + ((0.2) * rng_numpy.normal(size=len(sim_ids)))
-    source_pert = np.ones(len(sim_ids))
-    source_pert += ((0.2) * rng_numpy.normal(size=len(sim_ids)))
-    import statistics
-    print(f"bandpasses = {bandpasses}")
-    # for opt_elem in bandpasses:
-    #     print(f"mean, stddev of source_pert = {statistics.mean(source_pert)}, {statistics.stdev(source_pert)}")
-    #     print(f"max, min of source_pert = {np.max(source_pert)}, {np.min(source_pert)}")
-    #     out[opt_elem] = source_pert * (10.**((sim_cat['MAG_{}'.format(opt_elem)] + 48.6) / -2.5)).astype('f4')
-    #     out[opt_elem] = 10.**((sim_cat['MAG_{}'.format(opt_elem)] + 48.6) / -2.5)
-
-
-    #     # sim_cat['MAG_{}'.format(opt_elem)] *= source_pert
-
-    #     # additionally perturb each colour by ~5%
-    #     # sim_cat['MAG_{}'.format(opt_elem)] *= len(sim_ids) * [1] + ((0.05) * rng_numpy.normal(size=len(sim_ids)))
-
-    #     out[opt_elem] *= len(sim_ids) * [1] + ((0.05) * rng_numpy.normal(size=len(sim_ids)))
-
-    #     print(f"thisband = {opt_elem}")
-    #     print(f"max(sim_cat[opt_elem]) = {max(sim_cat['MAG_{}'.format(opt_elem)])}, {max(sim_cat['MAG_{}'.format(opt_elem)]) + 48.6}")
-    #     print(f"min(sim_cat[opt_elem]) = {min(sim_cat['MAG_{}'.format(opt_elem)])}, {min(sim_cat['MAG_{}'.format(opt_elem)]) + 48.6}")
-    #     print(f"mean(sim_cat[opt_elem]) = {statistics.mean(sim_cat['MAG_{}'.format(opt_elem)])}, {statistics.mean(sim_cat['MAG_{}'.format(opt_elem)]) + 48.6}")
-    #     print(f"std(sim_cat[opt_elem]) = {statistics.stdev(sim_cat['MAG_{}'.format(opt_elem)])}, {statistics.stdev(sim_cat['MAG_{}'.format(opt_elem)]) + 48.6}")
-    #     print(f"max(out[opt_elem]) = {max(out[opt_elem])}")
-    #     print(f"min(out[opt_elem]) = {min(out[opt_elem])}")
-    #     print(f"mean(out[opt_elem]) = {statistics.mean(out[opt_elem])}")
-    #     print(f"std(out[opt_elem]) = {statistics.stdev(out[opt_elem])}")
-
-
-    
-    # test_bp = sim_cat['FLUX_{}'.format(bandpasses[0])] / sim_cat_orig['FLUX_{}'.format(bandpasses[0])]
-    # # import statistics
-    # print(f"max(test_bp) = {max(test_bp)}")
-    # print(f"min(test_bp) = {min(test_bp)}")
-    # print(f"avg(test_bp) = {sum(test_bp) / len(test_bp)}")
-    # print(f"std(test_bp) = {statistics.stdev(test_bp)}")
-
-    # Add GAIA sources (separate method?)
-    # TODO
-
+    # Set profile types
     types = np.zeros(len(sim_ids), dtype='U3')
     types[:] = 'SER'
 
-    #TEmp
-    pa = rng_numpy.uniform(size=len(sim_ids), low=0, high=360)
-    # no clue what a realistic distribution of b/a is, but this at least goes to zero
-    # for little tiny needles and peaks around circular objects, which isn't nuts.
-    ba = rng_numpy.beta(3, 1, size=len(sim_ids))
-    ba = np.clip(ba, 0.2, 1)
-
-    # # Return Table with source parameters
-    # out = table.Table()
+    # Return Table with source parameters
+    out = table.Table()
     out['ra'] = locs.ra.to(u.deg).value
     out['dec'] = locs.dec.to(u.deg).value
     out['type'] = types
-    # out['n'] = [ / 3.5] * len(sim_ids)
-    # out['n'] = [(sim_cat['FLUX_RADIUS'] / sim_cat['KRON_RADIUS']) if (sim_cat['KRON_RADIUS'] > 0) else 3.5]
-    # out['n'] = np.divide(sim_cat['FLUX_RADIUS'], sim_cat['KRON_RADIUS'], where=(sim_cat['KRON_RADIUS'] > 0.01))
-    # out['n'][sim_cat['KRON_RADIUS'] > 0.01] = sim_cat['FLUX_RADIUS'][sim_cat['KRON_RADIUS'] > 0.01] /  sim_cat['KRON_RADIUS'][sim_cat['KRON_RADIUS'] > 0.01]
-    # sim_cat['KRON_RADIUS'][sim_cat['KRON_RADIUS'] < 0.01] = 3.5
-    out['n'] = sim_cat['FLUX_RADIUS'] / sim_cat['KRON_RADIUS']
 
-
-    print(f"sim_cat['KRON_RADIUS'] = {sim_cat['KRON_RADIUS']}")
-
-    # STop doign this and jsut filter out ones mising both radii
-
-    # print(f"out['n'] = {out['n']}")
-    # print(f"max(out['n']) = {max(out['n'])}")
-    # print(f"min(out['n']) = {min(out['n'])}")
-    # print(f"mean(out['n']) = {statistics.mean(out['n'])}")
-    # print(f"std(out['n']) = {statistics.stdev(out['n'])}")
+    # Randomize concentrations
+    out['n'] = np.random.uniform(low=1.0, high=4.0, size=len(sim_ids))
 
     # Scale this from pixels to output half_light_radius unit (arcsec)
-    out['half_light_radius'] = sim_cat['FLUX_RADIUS'].astype('f4')
+    # move the constant to parameters
+    out['half_light_radius'] = sim_cat['FLUX_RADIUS'].astype('f4') * 0.15
 
-
+    # Set random position angles
+    pa = np.random.uniform(size=len(sim_ids), low=0, high=360)
     out['pa'] = pa.astype('f4')
-    # out['ba'] = ba.astype('f4')
-    out['ba'] = (sim_cat['ACS_B_WORLD'] / sim_cat['ACS_A_WORLD']).astype('f4')
 
-    # plot fwhm world / flux radius should be in agreement ? 
+    # Save ellipticity
+    out['ba'] = (1 - (sim_cat['ACS_B_WORLD'] / sim_cat['ACS_A_WORLD'])).astype('f4')
 
+    # Perturb source fluxes by ~20%
+    source_pert = np.ones(len(sim_ids))
+    source_pert += ((0.2) * np.random.normal(size=len(sim_ids)))
+
+    # Convert fluxes to Jankskys and normalize for zero-point
     for bandpass in bandpasses:
-        print(f"bandpass = {bandpass}")
-        out[bandpass] = sim_cat[f'FLUX_{bandpass}'] / 10**6
-    #     # mag_thisband = mag + rng_numpy.normal(size=n)
-    #     # sigma of one mag isn't nuts.  But this will be totally uncorrelated
-    #     # in different bands, so we'll get some weird colored objects
-    #     mag_thisband = sim_cat['MAG_{}'.format(bandpass)]
-    #     # out[bandpass] = (10.**(-mag_thisband / 2.5)).astype('f4')
-    #     # out[bandpass] = sim_cat['MAG_{}'.format(bandpass)]
-    #     out[bandpass] = (10.**(mag_thisband / 2.5)).astype('f4')
-        print(f"max(out[bandpass]) = {max(out[bandpass])}")
-        print(f"min(out[bandpass]) = {min(out[bandpass])}")
-        print(f"mean(out[bandpass]) = {statistics.mean(out[bandpass])}")
-        print(f"std(out[bandpass]) = {statistics.stdev(out[bandpass])}")
+        # Perturb sources fluxes by 5% per bandwidth
+        band_source_pert = ((0.05) * np.random.normal(size=len(sim_ids)))
+        
+        # Convert fluxes to Jankskys, normalize for zero-point, and apply perturbations
+        out[bandpass] = sim_cat[f'FLUX_{bandpass}'] * (1 + source_pert + band_source_pert) / (3631 * 10**6)
+
+        # Temp
+        out[f'FL50_{bandpass}'] = sim_cat[f'FLUX_{bandpass}'] 
+
+    # Temp    
+    out['FWHM'] = sim_cat['ACS_FWHM_WORLD'] 
+
+    # Return output table
     return out
 
 
@@ -607,18 +471,10 @@ def make_galaxies(coord,
         # in different bands, so we'll get some weird colored objects
         out[bandpass] = (10.**(-mag_thisband / 2.5)).astype('f4')
 
-        import statistics
-        print(f"bandpass = {bandpass}")
-        print(f"mag_thisband = {mag_thisband}")
-        print(f"max(mag_thisband) = {max(mag_thisband)}")
-        print(f"min(mag_thisband) = {min(mag_thisband)}")
-        print(f"mean(mag_thisband) = {statistics.mean(mag_thisband)}")
-        print(f"std(mag_thisband) = {statistics.stdev(mag_thisband)}")
-        print(f"max(out) = {max(out[bandpass])}")
-        print(f"min(out) = {min(out[bandpass])}")
-        print(f"mean(out) = {statistics.mean(out[bandpass])}")
-        print(f"std(out) = {statistics.stdev(out[bandpass])}")
     return out
+
+
+# TBD make_gaia_stars
 
 
 def make_stars(coord,
