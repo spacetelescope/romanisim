@@ -595,7 +595,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         objinfo['y'] = ypos
         objinfo['counts'] = objinfo0['counts']
         objinfo['time'] = objinfo0['time']
-        extras['objinfo'] = objinfo
+        extras['simcatobj'] = objinfo
 
     if sky is not None:
         # in e / s / output pixel

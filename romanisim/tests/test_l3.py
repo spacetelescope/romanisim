@@ -188,7 +188,7 @@ def test_sim_mosaic():
                                  seed=rng_seed)
 
     # Did all sources get simulated?
-    assert len(extras['objinfo']) == len(cat)
+    assert len(extras['simcatobj']) == len(cat)
 
     # Ensure center pixel of bright objects is bright
     x_all, y_all = moswcs.world_to_pixel_values(cat['ra'][:10].value,
@@ -432,7 +432,7 @@ def test_simulate_cps():
         xpos=[50, 50], ypos=[50, 50], seed=rng_seed)
 
     assert np.sum(im3.array) > 0  # at least verify that we added some sources...
-    assert len(objinfo['objinfo']) == 2  # two sources were added
+    assert len(objinfo['simcatobj']) == 2  # two sources were added
 
     im4 = im.copy()
     _, objinfo = l3.simulate_cps(
@@ -441,7 +441,7 @@ def test_simulate_cps():
         seed=rng_seed,
         psf=imdict['impsfchromatic'], bandpass=imdict['bandpass'])
     assert np.sum(im4.array) > 0  # at least verify that we added some sources...
-    assert len(objinfo['objinfo']) == 2  # two sources were added
+    assert len(objinfo['simcatobj']) == 2  # two sources were added
 
     im5 = im.copy()
     _, objinfo = l3.simulate_cps(
@@ -449,7 +449,7 @@ def test_simulate_cps():
         psf=imdict['impsfchromatic'], xpos=[1000, 1000],
         seed=rng_seed,
         ypos=[1000, 1000])
-    assert 'objinfo' not in objinfo
+    assert 'simcatobj' not in objinfo
     # these sources should be out of bounds
 
 

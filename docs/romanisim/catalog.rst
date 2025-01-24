@@ -25,7 +25,7 @@ The following fields must be specified for each source:
 * n: the Sersic index of the source.  This value is ignored if the source is a point source.
 * half_light_radius: the half light radius of the source in arcseconds.  This value is ignored if the source is a point source.
 * pa: the position angle of the source, in degrees east of north.  This value is ignored if the source is a point source.
-* ba: the major-to-minor axis ratio.  This value is ignored if the source is a point source.
+* ba: the minor-to-major axis ratio.  This value is ignored if the source is a point source.
 
 Following these required fields is a series of columns giving the fluxes of the the sources in "maggies"; the AB magnitude of the source is given by :math:`-2.5*\log_{10}(\mathrm{flux})`.  In order to simulate a scene in a given bandpass, a column with the name of that bandpass must be present giving the total fluxes of the sources.  Many flux columns may be present, and other columns may also be present but will be ignored.
 
