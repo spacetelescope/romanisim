@@ -632,7 +632,8 @@ def gather_reference_data(image_mod, usecrds=False):
                     continue
                 if reftype not in refsneeded:
                     continue
-                image_mod.meta.ref_file[reftype] = os.path.basename(reffn)
+                image_mod.meta.ref_file[reftype] = (
+                    'crds://' + os.path.basename(reffn))
         if flatneeded:
             try:
                 flatfile = crds.getreferences(
@@ -641,7 +642,8 @@ def gather_reference_data(image_mod, usecrds=False):
 
                 flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
                 flat = flat_model.data[...].copy()
-                image_mod.meta.ref_file['flat'] = os.path.basename(flatfile)
+                image_mod.meta.ref_file['flat'] = (
+                    'crds://' + os.path.basename(flatfile))
             except crds.core.exceptions.CrdsLookupError:
                 log.warning('Could not find flat; using 1')
                 flat = 1
@@ -659,14 +661,17 @@ def gather_reference_data(image_mod, usecrds=False):
         model = roman_datamodels.datamodels.ReadnoiseRefModel(
             reffiles['readnoise'])
         out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
+        out['readnoise'] *= u.DN
 
     if isinstance(reffiles['gain'], str):
         model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
         out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
+        out['gain'] *= u.electron / u.DN
 
     if isinstance(reffiles['dark'], str):
         model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
         out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy()
+        out['dark'] *= u.DN / u.s
         out['dark'] *= out['gain']
     if isinstance(out['dark'], u.Quantity):
         out['dark'] = out['dark'].to(u.electron / u.s).value
@@ -691,6 +696,7 @@ def gather_reference_data(image_mod, usecrds=False):
         saturation = roman_datamodels.datamodels.SaturationRefModel(
             reffiles['saturation'])
         saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
+        saturation *= u.DN
         out['saturation'] = saturation
 
     out['reffiles'] = reffiles

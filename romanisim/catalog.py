@@ -851,7 +851,7 @@ def table_to_catalog(table, bandpasses):
     * n : float, sersic index
     * half_light_radius : float, half light radius in arcsec
     * pa : float, position angle of ellipse relative to north (on the sky) in degrees
-    * ba : float, ratio of semiminor axis b over semimajor axis a
+    * ba : float, semiminor axis b divided by semimajor axis a
 
     Alternatively, the table must have the columns specified in
     image_table_to_catalog (for image input).

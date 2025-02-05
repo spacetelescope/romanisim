@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   check:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@9f1f43251dde69da8613ea8e11144f05cdea41d5  # v1.15.0
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
     with:
       envs: |
         - linux: check-style
@@ -31,7 +31,7 @@ jobs:
       cache_path: /tmp/data
   test:
     needs: [ latest_data_cache ]
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@9f1f43251dde69da8613ea8e11144f05cdea41d5  # v1.15.0
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
     with:
       libraries: |
         brew:
@@ -44,8 +44,7 @@ jobs:
       cache-path: ${{ needs.latest_data_cache.outputs.cache_path }}
       cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}
       envs: |
-        - linux: py310-oldestdeps-cov-xdist
-        - linux: py310-xdist
+        - linux: py311-oldestdeps-cov-xdist
         - linux: py311-xdist
         - linux: py3-xdist
         - macos: py3-xdist
