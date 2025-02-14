@@ -17,8 +17,15 @@ from romanisim import gaia
 from . import util, log
 import romanisim.bandpass
 
+# COSMOS constants taken from the COSMOS2020 paper:
+# https://arxiv.org/pdf/2110.13923
+# Area of the ultra-deep regions of UltraVISTA data in square degrees
+ULTRA_DEEP_AREA = 0.62
 
+# COSMOS pixel scale
 COSMOS_PIX_TO_ARCSEC = 0.15
+
+# FIlter combination coefficients
 F146_J_COEFF = 0.46333417914234964
 F158_H_COEFF = 0.823395077391525
 F184_KS_COEFF = 0.3838145747397368
@@ -243,21 +250,14 @@ def make_cosmos_galaxies(coord,
     # Select galaxies
     cos_cat_all = cos_cat_all[(cos_cat_all['lp_type'] % 2) == 0]
 
-    # Calculate viewing area
-    ramin = min(cos_cat_all['ALPHA_J2000'])
-    ramax = max(cos_cat_all['ALPHA_J2000'])
-    decmin = min(cos_cat_all['DELTA_J2000'])
-    decmax = max(cos_cat_all['DELTA_J2000'])
-    cos_area = ((ramax - ramin) * u.deg) * ((decmax - decmin) * u.deg)
+    # Ensure that we are using only the ultra-deep regions of UltraVISTA data
+    cos_cat_all = cos_cat_all[cos_cat_all['FLAG_UDEEP'] == 0]
 
     # Calculate source density
-    cos_density = len(cos_cat_all['ID']) / cos_area
+    cos_density = len(cos_cat_all['ID']) / ULTRA_DEEP_AREA
 
     # Calculate total sources
     sim_count = cos_density * np.pi * (radius * u.deg)**2
-
-    # Ensure that we are using only the ultra-deep regions of UltraVISTA data
-    cos_cat_all = cos_cat_all[cos_cat_all['FLAG_UDEEP'] == 0]
 
     # Only keep items with a flux radius
     cos_cat_all = cos_cat_all[cos_cat_all['FLUX_RADIUS'] > 0]
@@ -475,9 +475,6 @@ def make_gaia_stars(coord,
 
     if date is None:
         date = Time('2026-01-01T00:00:00')
-
-    if rng is None:
-        rng = galsim.UniformDeviate(seed)
 
     if rng is None:
         rng = galsim.UniformDeviate(seed)
