@@ -33,7 +33,7 @@ on:
 
 jobs:
   download_webbpsf_data:
-    uses: spacetelescope/webbpsf/.github/workflows/download_data.yml@207f724a881a224225f2e57243cefa09ffe4c04b  # v1.5.0
+    uses: ./.github/workflows/download_data.yml
     with:
       minimal: ${{ github.event_name != 'workflow_dispatch' && true || inputs.webbpsf_minimal }}
   combine_data_cache:
