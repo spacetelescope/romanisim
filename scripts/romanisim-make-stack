@@ -94,11 +94,16 @@ def main():
                         help='Use CRDS for distortion map')
 
     # Use CRDS stored PSFs
+    # Deprecated!
     parser.add_argument('-w', '--webbpsf',
                         action='store_true',
-                        help='Use webbpsf for PSFs.')
+                        help='Use stpsf for PSFs. (deprecated, use stpsf)')
 
-    parser.add_argument('-f', '--force-ma-table-number', type=int, default=-1,
+    parser.add_argument('--stpsf',
+                        action='store_true',
+                        help='Use stpsf for PSFs.')
+
+    Parser.add_argument('-f', '--force-ma-table-number', type=int, default=-1,
                         help='Force MA table number, ignoring file content.')
 
     args = parser.parse_args()

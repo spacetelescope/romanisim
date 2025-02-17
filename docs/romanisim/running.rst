@@ -15,7 +15,7 @@ The ``romanisim-make-image`` command line interface (CLI) has a number of argume
 this functionality::
 
     romanisim-make-image -h
-    usage: romanisim-make-image [-h] [--bandpass BANDPASS] [--boresight] [--catalog CATALOG] [--config CONFIG] [--date DATE] [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER] [--nobj NOBJ] [--previous PREVIOUS] [--radec RADEC RADEC] [--rng_seed RNG_SEED] [--roll ROLL] [--sca SCA] [--usecrds] [--webbpsf] [--truncate TRUNCATE] [--pretend-spectral PRETEND_SPECTRAL] [--drop-extra-dq] [--scale-factor SCALE_FACTOR] filename
+    usage: romanisim-make-image [-h] [--bandpass BANDPASS] [--boresight] [--catalog CATALOG] [--config CONFIG] [--date DATE] [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER] [--nobj NOBJ] [--previous PREVIOUS] [--radec RADEC RADEC] [--rng_seed RNG_SEED] [--roll ROLL] [--sca SCA] [--usecrds] [--stpsf] [--truncate TRUNCATE] [--pretend-spectral PRETEND_SPECTRAL] [--drop-extra-dq] [--scale-factor SCALE_FACTOR] filename
 
     Make a demo image.
 
@@ -39,7 +39,7 @@ this functionality::
       --sca SCA             SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this mode to indicate where the SCA number should be filled, e.g.
                             l1_wfi{}.asdf (default: 7)
       --usecrds             Use CRDS for distortion map (default: False)
-      --webbpsf             Use webbpsf for PSF (default: False)
+      --stpsf               Use stpsf for PSF (default: False)
       --truncate TRUNCATE   If set, truncate the MA table at given number of resultants. (default: None)
       --pretend-spectral PRETEND_SPECTRAL
                             Pretend the image is spectral. exposure.type and instrument.element are updated to be grism / prism. (default: None)
@@ -59,9 +59,9 @@ the observation.
 
 Additional arguments control some details of the simulation.  The
 ``--usecrds`` argument indicates that reference files should be pulled
-from the Roman CRDS server, and is recommended.  The ``--webbpsf``
-argument indicates that the `WebbPSF
-<https://webbpsf.readthedocs.io>`_ package should be used to simulate
+from the Roman CRDS server, and is recommended.  The ``--stpsf``
+argument indicates that the `STPSF
+<https://stpsf.readthedocs.io>`_ package should be used to simulate
 the PSF; note that this presently disables chromatic PSF rendering.
 
 The ``--rng_seed`` argument specifies a seed to the random number

@@ -255,10 +255,15 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
         Persistence object
     """
 
+    if getattr(args, 'webbpsf', False):
+        log.warning('Warning: webbpsf argument is deprecated, please use '
+                    '--stpsf instead.')
+        args.stpsf = args.webbpsf
+
     # Simulate image
     im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
-        webbpsf=args.webbpsf, level=args.level, persistence=persist,
+        stpsf=args.stpsf, level=args.level, persistence=persist,
         rng=rng)
 
     # Create metadata for simulation parameter

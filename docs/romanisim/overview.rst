@@ -22,7 +22,7 @@ described by catalogs of sources.  The simulation includes:
 
 The simulator is based on galsim and most of these features directly invoke the
 equivalents in the galsim.roman package.  The chief additions of this package
-on top of the galsim.roman implementation are using "official" webbpsf
+on top of the galsim.roman implementation are using "official" stpsf
 PSFs, and many reference files from the Roman `CRDS <https://roman-crds.stsci.edu>`_ CRDS.  This
 package also implements WFI up-the-ramp sampled and averaged images like those
 that will be downlinked from the telescope, and the official Roman WFI file
@@ -61,7 +61,7 @@ adds an additional top-level branch to the asdf tree with the name
       ├─rng_seed (NoneType): None
       ├─simcatobj (NDArrayType): shape=(496,), dtype=void96
       ├─usecrds (bool): False
-      └─webbpsf (bool): True
+      └─stpsf (bool): True
 
 These fields are simply the arguments to ``romanisim-make-image``,
 plus an additional ``simcatobj`` field which contains the ``x``, ``y``,
