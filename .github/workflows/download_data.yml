@@ -64,8 +64,8 @@ on:
       - develop
 
 env:
-  FULL_DATA_URL: https://stsci.box.com/shared/static/qxpiaxsjwo15ml6m4pkhtk36c9jgj70k.gz
-  MINIMAL_DATA_URL: https://stsci.box.com/shared/static/0dt9z6b927iqgtify2a4cvls9hvapi6k.gz
+  FULL_DATA_URL: https://stsci.box.com/shared/static/kqfolg2bfzqc4mjkgmujo06d3iaymahv.gz
+  MINIMAL_DATA_URL: https://stsci.box.com/shared/static/3hzmbarac5yxjt6x7gn17vz02k7c8z1d.gz
 
 jobs:
   download:

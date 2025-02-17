@@ -47,7 +47,7 @@ In summary, the basic install process looks like this::
     # get stpsf data and untar it
     mkdir -p $HOME/data/stpsf-data
     cd $HOME/data/stpsf-data
-    wget https://stsci.box.com/shared/static/qxpiaxsjwo15ml6m4pkhtk36c9jgj70k.gz -O stpsf-data.tar.gz
+    wget PATH_TO_STPSF_FILES -O stpsf-data.tar.gz
     tar -xzf stpsf-data.tar.gz
     export STPSF_PATH=$PWD/stpsf-data
 
@@ -57,6 +57,8 @@ In summary, the basic install process looks like this::
     # exclusively using analytic model galaxies.
     galsim_download_cosmos -s 23.5
     galsim_download_cosmos -s 25.2
+
+The path to the STPSF data files may be found `here <https://stpsf.readthedocs.io/en/latest/installation.html>`_.
 
 You may wish to, for example, set up a new python virtual environment
 before running the above, or choose a different directory for
