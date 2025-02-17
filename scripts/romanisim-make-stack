@@ -97,7 +97,7 @@ def main():
     # Deprecated!
     parser.add_argument('-w', '--webbpsf',
                         action='store_true',
-                        help='Use stpsf for PSFs.')
+                        help='Use stpsf for PSFs. (deprecated, use stpsf)')
 
     parser.add_argument('--stpsf',
                         action='store_true',
