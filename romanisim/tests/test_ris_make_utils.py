@@ -41,7 +41,7 @@ def test_simulate_image_file(tmp_path):
     cat = ris_make_utils.create_catalog(meta, nobj=1, usecrds=False)
     args.filename = tmp_path / 'im.asdf'
     args.usecrds = False
-    args.webbpsf = False
+    args.stpsf = False
     args.level = 0
     galsim.roman.n_pix = 100
     ris_make_utils.simulate_image_file(args, meta, cat)

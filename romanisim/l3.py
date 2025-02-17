@@ -94,7 +94,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
 
 
 def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
-                           webbpsf=True, exptimes=None, seed=None):
+                           stpsf=True, exptimes=None, seed=None):
     """Inject sources into an L3 image.
 
     This routine allows sources to be injected onto an existing L3 image.
@@ -129,8 +129,8 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         galsim random number generator to use
     seed : int
         Seed to use for rng
-    webbpsf: bool
-        if True, use WebbPSF to model the PSF
+    stpsf: bool
+        if True, use Stpsf to model the PSF
 
     Returns
     -------
@@ -153,7 +153,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
-        psf = l3_psf(filter_name, pixscalefrac, webbpsf=True, chromatic=False)
+        psf = l3_psf(filter_name, pixscalefrac, stpsf=True, chromatic=False)
     sca = romanisim.parameters.default_sca
     maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
     etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
@@ -279,7 +279,7 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
 def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
              metadata={}, 
              effreadnoise=None, sky=None, psf=None,
-             bandpass=None, seed=None, rng=None, webbpsf=True,
+             bandpass=None, seed=None, rng=None, stpsf=True,
              **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -313,8 +313,8 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     bandpass : galsim.Bandpass
         Bandpass in which mosaic is being rendered. This is used only in cases
         where chromatic profiles & PSFs are being used.
-    webbpsf : bool
-        Use webbpsf to compute PSF
+    stpsf : bool
+        Use stpsf to compute PSF
     rng : galsim.BaseDeviate
         random number generator to use
     seed : int
@@ -413,7 +413,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
-        psf = l3_psf(filter_name, pixscalefrac, webbpsf=webbpsf,
+        psf = l3_psf(filter_name, pixscalefrac, stpsf=stpsf,
                      chromatic=chromatic)
 
     # Simulate mosaic cps

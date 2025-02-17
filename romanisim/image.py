@@ -496,7 +496,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 def simulate_counts(metadata, objlist,
                     rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
-                    webbpsf=True,
+                    stpsf=True,
                     darkrate=None, flat=None,
                     psf_keywords=dict()):
     """Simulate total electrons in a single SCA.
@@ -564,7 +564,7 @@ def simulate_counts(metadata, objlist,
             and objlist[0].profile.spectral):
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
-                                 chromatic=chromatic, webbpsf=webbpsf,
+                                 chromatic=chromatic, stpsf=stpsf,
                                  variable=True, **psf_keywords)
     image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
@@ -704,7 +704,7 @@ def gather_reference_data(image_mod, usecrds=False):
 
 
 def simulate(metadata, objlist,
-             usecrds=True, webbpsf=True, level=2, crparam=dict(),
+             usecrds=True, stpsf=True, level=2, crparam=dict(),
              persistence=None, seed=None, rng=None,
              psf_keywords=dict(), **kwargs
              ):
@@ -727,8 +727,8 @@ def simulate(metadata, objlist,
         List of objects in the field to simulate
     usecrds : bool
         use CRDS to get reference files
-    webbpsf : bool
-        use webbpsf to generate PSF
+    stpsf : bool
+        use stpsf to generate PSF
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
         0 makes a special idealized total electrons image; these are only
@@ -807,7 +807,7 @@ def simulate(metadata, objlist,
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
-        webbpsf=webbpsf, flat=flat, psf_keywords=psf_keywords)
+        stpsf=stpsf, flat=flat, psf_keywords=psf_keywords)
     util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
     if level == 0:
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
@@ -849,7 +849,7 @@ def simulate(metadata, objlist,
 
 def make_test_catalog_and_images(
         seed=12345, sca=7, filters=None, nobj=1000,
-        usecrds=True, webbpsf=True, galaxy_sample_file_name=None, **kwargs):
+        usecrds=True, stpsf=True, galaxy_sample_file_name=None, **kwargs):
     """This is a test routine that exercises many options but is not intended for
     general use."""
     log.info('Making catalog...')
@@ -868,7 +868,7 @@ def make_test_catalog_and_images(
     for filter_name in filters:
         metadata['instrument']['optical_element'] = 'F' + filter_name[1:]
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
-                      webbpsf=webbpsf, **kwargs)
+                      stpsf=stpsf, **kwargs)
         out[filter_name] = im
     return out
 
@@ -928,7 +928,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
 
 
 def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
-                           gain=None, webbpsf=True):
+                           gain=None, stpsf=True):
     """Inject sources into an L2 image.
 
     This routine allows sources to be injected into an existing L2 image.
@@ -969,8 +969,8 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         galsim random number generator to use
     gain: float [electron / DN]
         gain to use when converting simulated electrons to DN
-    webbpsf: bool
-        if True, use WebbPSF to model the PSF
+    stpsf: bool
+        if True, use Stpsf to model the PSF
 
     Returns
     -------
@@ -997,7 +997,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     if psf is None:
         psf = romanisim.psf.make_psf(
             sca, filter_name, wcs=wcs,
-            chromatic=False, webbpsf=webbpsf)
+            chromatic=False, stpsf=stpsf)
 
     if gain is None:
         gain = parameters.reference_data['gain']

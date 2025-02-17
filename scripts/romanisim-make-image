@@ -98,7 +98,9 @@ if __name__ == '__main__':
     parser.add_argument('--usecrds', action='store_true',
                         help='Use CRDS for distortion map')
     parser.add_argument('--webbpsf', action='store_true',
-                        help='Use webbpsf for PSF')
+                        help='Use stpsf for PSF')  # deprecated!
+    parser.add_argument('--stpsf', action='store_true',
+                        help='Use stpsf for PSF')
     parser.add_argument('--truncate', type=int, default=None, help=(
         'If set, truncate the MA table at given number of resultants.'))
     parser.add_argument('--pretend-spectral', type=str, default=None, help=(
