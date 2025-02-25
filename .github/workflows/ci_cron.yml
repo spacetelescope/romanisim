@@ -31,5 +31,5 @@ jobs:
       cache-path: ${{ needs.latest_data_cache.outputs.cache_path }}
       cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}
       envs: |
-        - macos: py311-xdist
+        - macos: py3-devdeps-xdist
         - linux: py3-devdeps-xdist
