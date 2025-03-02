@@ -25,7 +25,7 @@ ULTRA_DEEP_AREA = 0.62
 # COSMOS pixel scale
 COSMOS_PIX_TO_ARCSEC = 0.15
 
-# FIlter combination coefficients
+# Filter interpolation coefficients
 F146_J_COEFF = 0.46333417914234964
 F158_H_COEFF = 0.823395077391525
 F184_KS_COEFF = 0.3838145747397368
@@ -190,6 +190,7 @@ def make_cosmos_galaxies(coord,
                          rng=None,
                          seed=50,
                          filename=None,
+                         cat_area=None,
                          **kwargs
                          ):
     """Make a catalog of galaxies from sources in the COSMOS catalog.
@@ -200,14 +201,18 @@ def make_cosmos_galaxies(coord,
     coord : astropy.coordinates.SkyCoord
         Location around which to generate sources.
     radius : float
-        radius in degrees of cap in which to uniformly generate sources
+        Radius in degrees in which to uniformly generate sources.
+    bandpasses : list[str]
+        List of names of bandpasses in which to generate fluxes.
     rng : galsim.BaseDeviate
-        random number generator to use
+        Random number generator to use.
     seed : int
-        seed to use for random numbers, only used if rng is None
+        Seed to use for random numbers, only used if rng is None.
     filename : string
-        Optional filename of a catalog of galaxies to use to draw from.
+        Optional filename of a catalog of galaxies to draw from.
         Code assumes a format similar to that of COSMOS.
+    cat_area : float
+        Area of catalog file in square degrees.
 
     Returns
     -------
@@ -254,7 +259,10 @@ def make_cosmos_galaxies(coord,
     cos_cat_all = cos_cat_all[cos_cat_all['FLAG_UDEEP'] == 0]
 
     # Calculate source density
-    cos_density = len(cos_cat_all['ID']) / ULTRA_DEEP_AREA
+    if cat_area:
+        cos_density = len(cos_cat_all['ID']) / cat_area
+    else:
+        cos_density = len(cos_cat_all['ID']) / ULTRA_DEEP_AREA
 
     # Calculate total sources
     sim_count = cos_density * np.pi * (radius * u.deg)**2
@@ -455,15 +463,15 @@ def make_gaia_stars(coord,
     coord : astropy.coordinates.SkyCoord
         Location around which to generate sources.
     radius : float
-        radius in degrees of cap in which to generate sources
-    bandpasses : list[str]
-        list of names of bandpasses for which to generate fluxes.
-    rng : galsim.BaseDeviate
-        random number generator to use
-    seed : int
-        seed for random number generator to use, only used if rng is None
+        Radius in degrees in which to generate sources
     date : astropy.time.Time
         Optional argument to provide a date and time for stellar search
+    bandpasses : list[str]
+        List of names of bandpasses for which to generate fluxes.
+    rng : galsim.BaseDeviate
+        Random number generator to use.
+    seed : int
+        Seed for random number generator to use, only used if rng is None.
 
     Returns
     -------

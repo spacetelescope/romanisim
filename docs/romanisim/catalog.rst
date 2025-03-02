@@ -59,7 +59,7 @@ The simulator performs the following operations on the catalog sources:
 * Sources are randomly oriented.
 * Source fluxes are lightly perturbed.
 
-The simulator allows for passage of a user-specified COSMOS file (one which must have the same tabular format as COSMOS2020_CLASSIC_R1_v2.2_p3.fits) via the ``filename`` keyword. 
+The simulator allows for passage of a user-specified COSMOS file (one which must have the same tabular format as COSMOS2020_CLASSIC_R1_v2.2_p3.fits) via the ``filename`` keyword. The catalog area can be set with ``cat_area``.
 
 The simulator can also generate the appropriate false-color stars for the image from the GAIA catalog via the ``make_gaia_stars`` method, in place of the random stars in ``make_stars``.
 
