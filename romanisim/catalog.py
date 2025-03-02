@@ -457,7 +457,6 @@ def make_gaia_stars(coord,
                     ):
     """Make a catalog of stars from the GAIA catalog.
 
-
     Parameters
     ----------
     coord : astropy.coordinates.SkyCoord
