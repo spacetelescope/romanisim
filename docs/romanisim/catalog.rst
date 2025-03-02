@@ -37,13 +37,14 @@ The ``make_stars`` and ``make_galaxies`` routines make random catalogs of stars 
 
 We expect scientific uses to be driven by custom-created catalogs rather than the simple routines above, and provide the ``make_cosmos_galaxies`` and ``make_gaia_stars`` routines outlined below. 
 
-.. image:: ./cosmos_gaia.png
-  :width: 600
-  :alt: Level 3 Mosaic of cosmos and gaia sources with radius = 0.1 degree (search area visible)
-
 
 Using COSMOS Galaxies and GAIA Stars
 ====================================
+
+.. figure:: ./cosmos_gaia.png
+  :width: 600
+
+  Level 3 Mosaic of cosmos and gaia sources with radius = 0.1 degree (search area visible)
 
 
 The simulator can utilize the COSMOS catalog to generate sources based off of real galaxies via the ``make_cosmos_galaxies`` method. The COSMOS survey is a 2 square degree collection of over 2 million galaxies with multi-wavelength photometry (Weaver et al. 2022)[https://arxiv.org/pdf/2110.13923]. A streamlined catalog for the simulator is provided with the code, but for those so interested, the latest full catalog can be found at https://cosmos.astro.caltech.edu/ and used with this method. 
