@@ -35,7 +35,7 @@ The simulator API includes a few simple tools to generate parametric distributio
 
 The ``make_stars`` and ``make_galaxies`` routines make random catalogs of stars and galaxies.  The number of stars and galaxies can be adjusted.  Likewise, the power law index by which the sources' magnitudes are sampled can be adjusted, as can their limiting magnitudes.  Galaxy Sersic parameters, half-light radii, and position angles are chosen at random, with a rough attempt to make brighter galaxies appropriately larger (i.e., conserving surface brightness).  Stars can be chosen to be distributed with a King profile.  This functionality is however very rudimentary and limited, and is better suited for toy problems than real scientific work.  
 
-We expect scientific uses to be driven by custom-created catalogs rather than the simple routines above, and provide the ``make_cosmos_galaxies`` and ``make_gaia_stars`` routines outlined below. 
+We expect scientific uses to be driven by custom-created catalogs rather than the simple routines above, and provide the ``make_cosmos_galaxies`` and ``make_gaia_stars`` routines outlined below to provide that funcionality. 
 
 
 Using COSMOS Galaxies and GAIA Stars
@@ -51,10 +51,11 @@ The simulator can utilize the COSMOS catalog to generate sources based off of re
  
 The simulator performs the following operations on the catalog sources:
 
-* Only galaxies that have "ultra-deep" Ultra Vista wavelength measurements are selected from the COSMOS catalog. This trims the catalog to 0.62 square degrees, and to a peak magnitude depth of ~25.
+* Only galaxies that have "ultra-deep" Ultra Vista wavelength measurements are selected from the COSMOS catalog. This trims the catalog to 0.62 square degrees, and to a peak magnitude depth of ~25. 
+* The source density of the COSMOS catalog as well as the input viewing area are used to determine the number of sources simulated.
 * Roman bands are approximated by linear interpolations of nearest HST and Ultra Vista bands.
-* Galaxies are placed in random positions about the sky, preserving the overall source density of the COSMOS catalog.
-* While galaxy shapes are preserved, they are given randomly chosen concentrations (between 1 <= n <= 4).
+* Galaxies are placed in random positions about the sky.
+* While galaxy shapes are preserved, they are given randomly chosen concentrations (1 <= n <= 4).
 * Sources are randomly oriented.
 * Source fluxes are lightly perturbed.
 
