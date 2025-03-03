@@ -7,13 +7,12 @@ import dataclasses
 import numpy as np
 import galsim
 from galsim import roman
-from astropy import coordinates
-from astropy import table
+from astropy import coordinates, table
 from astropy import units as u
 from astropy.io import fits
-from astropy.time import Time
+import astropy.time
 from astroquery.gaia import Gaia
-from romanisim import gaia
+from romanisim import gaia as rsim_gaia
 from . import util, log
 import romanisim.bandpass
 
@@ -477,11 +476,12 @@ def make_gaia_stars(coord,
     catalog : astropy.Table
         Table for use with table_to_catalog to generate catalog for simulation.
     """
+
     if bandpasses is None:
         bandpasses = ["F062", "F087", "F106", "F129", "F146", "F158", "F184", "F213"]
 
     if date is None:
-        date = Time('2026-01-01T00:00:00')
+        date = astropy.time.Time('2026-01-01T00:00:00')
 
     if rng is None:
         rng = galsim.UniformDeviate(seed)
@@ -492,7 +492,7 @@ def make_gaia_stars(coord,
     r = job.get_results()
 
     # Create catalog
-    star_cat = gaia.gaia2romanisimcat(r, date, fluxfields=bandpasses)
+    star_cat = rsim_gaia.gaia2romanisimcat(r, date, fluxfields=bandpasses)
 
     # Set object types
     types = np.zeros(len(star_cat), dtype='U3')
