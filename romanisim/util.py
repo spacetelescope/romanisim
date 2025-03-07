@@ -96,11 +96,11 @@ def scalergb(rgb, scales=None, gray=0):
     if scales is not None:
         for i in range(3):
             rgb[:, :, i] = rgb[:, :, i] / scales[i] + gray
-    I = np.sum(np.clip(rgb, 0, np.inf), axis=2)  # how much light is there?
+    intensity = np.sum(np.clip(rgb, 0, np.inf), axis=2)  # how much light is there?
     Q = 20  # taken from legacyviewer
-    fI = np.arcsinh(Q * I) / np.sqrt(Q)
-    I += (I == 0) * 1e-6
-    rgb *= (fI / I)[:, :, None]
+    fI = np.arcsinh(Q * intensity) / np.sqrt(Q)
+    intensity += (intensity == 0) * 1e-6
+    rgb *= (fI / intensity)[:, :, None]
     rgb = np.clip(rgb, 0, 1)
     return rgb
 
