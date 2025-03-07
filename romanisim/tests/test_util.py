@@ -59,14 +59,12 @@ def test_scalergb():
     testim[1, 0, :] = [-1000, 0, 0]
     answers[1, 0, :] = 0
     testim[1, 1, :] = [1, 5, 2]
-    answers[1, 1, :] = np.array([1, 5, 2]) / np.sqrt(1 + 25 + 4)
+    answers[1, 1, :] = np.array([1, 5, 2]) * np.arcsinh(20 * 8) / np.sqrt(20) / 8
     response = util.scalergb(testim)
     assert np.allclose(response, answers)
-    response = util.scalergb(testim, lumrange=[0, 10])
-    answers[1, 1, :] = np.array([1, 5, 2]) / 10
-    assert np.allclose(response, answers)
-    response = util.scalergb(testim, scales=[1, 2, 3], lumrange=[0, 10])
-    assert np.allclose(answers / np.array([1, 2, 3])[None, None, :], response)
+    response = util.scalergb(testim, scales=[1, 2, 3])
+    newanswers = util.scalergb(testim / np.array([1, 2, 3])[None, None, :])
+    assert np.allclose(response, newanswers)
 
 
 def test_random_points_in_cap():

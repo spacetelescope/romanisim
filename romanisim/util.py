@@ -71,15 +71,11 @@ def celestialcoord(sky):
                                      sky.dec.to(u.rad).value * galsim.radians)
 
 
-def scalergb(rgb, scales=None, lumrange=None):
-    """Scales three flux images into a range of luminosity for displaying.
+def scalergb(rgb, scales=None, gray=0):
+    """Scales three flux images into an RGB image for displaying.
 
-    Images are scaled into [0, 1].
-
-    This routine is intended to help with cases where you want to display
-    some images and want the color scale to cover only a certain range,
-    but saturated regions should retain their appropriate hue and not be
-    compressed to white.
+    Images are scaled into [0, 1].  This routine was borrowed from the Legacy
+    Survey viewer.  It expects background subtracted images.
 
     Parameters
     ----------
@@ -87,8 +83,8 @@ def scalergb(rgb, scales=None, lumrange=None):
         the RGB images to scale
     scales : list[float] (must contain 3 floats)
         rescale each image by this amount
-    lumrange : list[float] (must contain 2 floats)
-        minimum and maximum luminosity
+    gray : float
+        add a constant to the image to shift the sky background value from 0 to gray
 
     Returns
     -------
@@ -96,19 +92,17 @@ def scalergb(rgb, scales=None, lumrange=None):
         scaled RGB image suitable for displaying
     """
 
-    rgb = np.clip(rgb, 0, np.inf)
+    rgb = rgb.copy()
     if scales is not None:
         for i in range(3):
-            rgb[:, :, i] /= scales[i]
-    norm = np.sqrt(rgb[:, :, 0]**2 + rgb[:, :, 1]**2 + rgb[:, :, 2]**2)
-    if lumrange is None:
-        lumrange = [0, np.max(norm)]
-    newnorm = np.clip((norm - lumrange[0]) / (lumrange[1] - lumrange[0]),
-                      0, 1)
-    out = rgb.copy()
-    for i in range(3):
-        out[:, :, i] = out[:, :, i] * newnorm / (norm + (norm == 0))
-    return out
+            rgb[:, :, i] = rgb[:, :, i] / scales[i] + gray
+    I = np.sum(np.clip(rgb, 0, np.inf), axis=2)  # how much light is there?
+    Q = 20  # taken from legacyviewer
+    fI = np.arcsinh(Q * I) / np.sqrt(Q)
+    I += (I == 0) * 1e-6
+    rgb *= (fI / I)[:, :, None]
+    rgb = np.clip(rgb, 0, 1)
+    return rgb
 
 
 def random_points_in_cap(coord, radius, nobj, rng=None):
