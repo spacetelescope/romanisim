@@ -275,6 +275,7 @@ def make_cosmos_galaxies(coord,
 
     # Filter for flags
     cos_filt += ["ID", "FLUX_RADIUS", "ACS_A_WORLD", "ACS_B_WORLD"]
+    cos_filt = list(set(cos_filt))
 
     # Trim catalog
     cos_cat = cos_cat_all[cos_filt]
