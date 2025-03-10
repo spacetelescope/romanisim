@@ -181,7 +181,7 @@ def test_make_gaia_stars(tmp_path):
     radius = 0.1
 
     cat = catalog.make_gaia_stars(
-        cen, radius=radius, rng=galsim.UniformDeviate(42))
+        cen, radius=radius)
 
     assert len(cat) > 0
     skycoord = SkyCoord(
