@@ -7,12 +7,27 @@ import dataclasses
 import numpy as np
 import galsim
 from galsim import roman
-from astropy import coordinates
-from astropy import table
+from astropy import coordinates, table
 from astropy import units as u
 from astropy.io import fits
-from . import util
+import astropy.time
+from astroquery.gaia import Gaia
+from romanisim import gaia as rsim_gaia
+from . import util, log
 import romanisim.bandpass
+
+# COSMOS constants taken from the COSMOS2020 paper:
+# https://arxiv.org/pdf/2110.13923
+# Area of the ultra-deep regions of UltraVISTA data in square degrees
+ULTRA_DEEP_AREA = 0.62
+
+# COSMOS pixel scale
+COSMOS_PIX_TO_ARCSEC = 0.15
+
+# Filter interpolation coefficients
+F146_J_COEFF = 0.46333417914234964
+F158_H_COEFF = 0.823395077391525
+F184_KS_COEFF = 0.3838145747397368
 
 
 @dataclasses.dataclass
@@ -116,7 +131,9 @@ def make_dummy_table_catalog(coord,
                              rng=None,
                              nobj=1000,
                              bandpasses=None,
-                             seed=None,
+                             cosmos=False,
+                             gaia=False,
+                             **kwargs
                              ):
     """Make a dummy table catalog.
 
@@ -135,6 +152,10 @@ def make_dummy_table_catalog(coord,
         Number of objects to generate in spherical cap.
     bandpasses : list[str]
         List of names of bandpasses in which to generate fluxes.
+    cosmos : Bool
+        Flag to specify random selection of COSMOS galaxies
+    gaia : Bool
+        Flag to specify usage of stars from the GAIA catalog
 
     Returns
     -------
@@ -142,13 +163,194 @@ def make_dummy_table_catalog(coord,
         Table including fields needed to generate a list of CatalogObject
         entries for rendering.
     """
-    t1 = make_galaxies(coord, radius=radius, rng=rng, n=int(nobj * 0.8),
-                       bandpasses=bandpasses)
-    t2 = make_stars(coord, radius=radius, rng=rng, n=int(nobj * 0.1),
-                    bandpasses=bandpasses)
-    t3 = make_stars(coord, radius=radius / 100, rng=rng, n=int(nobj * 0.1),
-                    bandpasses=bandpasses, truncation_radius=radius * 0.3)
-    return table.vstack([t1, t2, t3])
+    if cosmos:
+        t1 = make_cosmos_galaxies(coord, radius=radius, rng=rng,
+                                  bandpasses=bandpasses, **kwargs)
+    else:
+        t1 = make_galaxies(coord, radius=radius, rng=rng, n=int(nobj * 0.8),
+                           bandpasses=bandpasses)
+
+    if gaia:
+        t2 = make_gaia_stars(coord, radius=radius, rng=rng, **kwargs)
+        cat_table = table.vstack([t1, t2])
+    else:
+        t2 = make_stars(coord, radius=radius, rng=rng, n=int(nobj * 0.1),
+                        bandpasses=bandpasses)
+        t3 = make_stars(coord, radius=radius / 100, rng=rng, n=int(nobj * 0.1),
+                        bandpasses=bandpasses, truncation_radius=radius * 0.3)
+        cat_table = table.vstack([t1, t2, t3])
+
+    return cat_table
+
+
+def make_cosmos_galaxies(coord,
+                         radius=0.1,
+                         bandpasses=None,
+                         rng=None,
+                         seed=50,
+                         filename=None,
+                         cat_area=None,
+                         **kwargs
+                         ):
+    """Make a catalog of galaxies from sources in the COSMOS catalog.
+    https://cosmos2020.calet.org/
+
+    Parameters
+    ----------
+    coord : astropy.coordinates.SkyCoord
+        Location around which to generate sources.
+    radius : float
+        Radius in degrees in which to uniformly generate sources.
+    bandpasses : list[str]
+        List of names of bandpasses in which to generate fluxes.
+    rng : galsim.BaseDeviate
+        Random number generator to use.
+    seed : int
+        Seed to use for random numbers, only used if rng is None.
+    filename : string
+        Optional filename of a catalog of galaxies to draw from.
+        Code assumes a format similar to that of COSMOS.
+    cat_area : float
+        Area of catalog file in square degrees.
+
+    Returns
+    -------
+    catalog : astropy.Table
+        Table for use with table_to_catalog to generate catalog for simulation.
+    """
+
+    if rng is None:
+        rng = galsim.UniformDeviate(seed)
+
+    # Generate list of required COSMOS filters (and Roman, if necessary)
+    cos_filt = []
+    if bandpasses is None:
+        cos_filt = ['HSC_r_FLUX_AUTO', 'HSC_z_FLUX_AUTO', 'UVISTA_Y_FLUX_AUTO',
+                    'UVISTA_J_FLUX_AUTO', 'UVISTA_H_FLUX_AUTO', 'UVISTA_Ks_FLUX_AUTO']
+        bandpasses = ["F062", "F087", "F106", "F129", "F146", "F158", "F184", "F213"]
+    else:
+        for opt_elem in bandpasses:
+            if opt_elem == "F062":
+                cos_filt.append('HSC_r_FLUX_AUTO')
+            if opt_elem == "F087":
+                cos_filt.append('HSC_z_FLUX_AUTO')
+            if opt_elem == "F106":
+                cos_filt.append('UVISTA_Y_FLUX_AUTO')
+            if opt_elem in ("F129", "F158", "F146"):
+                cos_filt.append('UVISTA_J_FLUX_AUTO')
+            if opt_elem in ("F213", "F184"):
+                cos_filt.append('UVISTA_Ks_FLUX_AUTO')
+            if opt_elem in ("F158", "F184", "F146"):
+                cos_filt.append('UVISTA_H_FLUX_AUTO')
+
+    # Open COSMOS file and pare to required tabs
+    if filename:
+        cos_cat_all = table.Table.read(filename, format='fits', hdu=1)
+    else:
+        dir_in = "romanisim/data/"
+        cos_cat_all = table.Table.read(dir_in + 'COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits',
+                                       format='fits', hdu=1)
+
+    # Select galaxies
+    cos_cat_all = cos_cat_all[(cos_cat_all['lp_type'] % 2) == 0]
+
+    # Ensure that we are using only the ultra-deep regions of UltraVISTA data
+    cos_cat_all = cos_cat_all[cos_cat_all['FLAG_UDEEP'] == 0]
+
+    # Calculate source density
+    if cat_area:
+        cos_density = len(cos_cat_all['ID']) / cat_area
+    else:
+        cos_density = len(cos_cat_all['ID']) / ULTRA_DEEP_AREA
+
+    # Calculate total sources
+    sim_count = cos_density * np.pi * (radius * u.deg)**2
+
+    # Only keep items with a flux radius
+    cos_cat_all = cos_cat_all[cos_cat_all['FLUX_RADIUS'] > 0]
+
+    # Only keep items with shape measurements
+    cos_cat_all = cos_cat_all[cos_cat_all['ACS_B_WORLD'] > 0]
+    cos_cat_all = cos_cat_all[cos_cat_all['ACS_A_WORLD'] > 0]
+
+    # Filter for flags
+    cos_filt += ["ID", "FLUX_RADIUS", "ACS_A_WORLD", "ACS_B_WORLD"]
+    cos_filt = list(set(cos_filt))
+
+    # Trim catalog
+    cos_cat = cos_cat_all[cos_filt]
+
+    # Obtain random sources from the catalog
+    rng_numpy_seed = rng.raw()
+    rng_numpy = np.random.default_rng(rng_numpy_seed)
+    sim_count = rng_numpy.poisson(sim_count.value)
+    sim_ids = rng_numpy.integers(size=sim_count, low=0, high=len(cos_cat["ID"])).tolist()
+    sim_cat = cos_cat[sim_ids]
+
+    # Match cosmos filters to roman filters
+    for opt_elem in bandpasses:
+        if opt_elem == "F062":
+            sim_cat['FLUX_F062'] = sim_cat['HSC_r_FLUX_AUTO']
+        elif opt_elem == "F087":
+            sim_cat['FLUX_F087'] = sim_cat['HSC_z_FLUX_AUTO']
+        elif opt_elem == "F106":
+            sim_cat['FLUX_F106'] = sim_cat['UVISTA_Y_FLUX_AUTO']
+        elif opt_elem == "F129":
+            sim_cat['FLUX_F129'] = sim_cat['UVISTA_J_FLUX_AUTO']
+        elif opt_elem == "F146":
+            sim_cat['FLUX_F146'] = (F146_J_COEFF * sim_cat['UVISTA_J_FLUX_AUTO']) + \
+                ((1 - F146_J_COEFF) * sim_cat['UVISTA_H_FLUX_AUTO'])
+        elif opt_elem == "F158":
+            sim_cat['FLUX_F158'] = (F158_H_COEFF * sim_cat['UVISTA_H_FLUX_AUTO']) + \
+                ((1 - F158_H_COEFF) * sim_cat['UVISTA_J_FLUX_AUTO'])
+        elif opt_elem == "F184":
+            sim_cat['FLUX_F184'] = (F184_KS_COEFF * sim_cat['UVISTA_Ks_FLUX_AUTO']) + \
+                ((1 - F184_KS_COEFF) * sim_cat['UVISTA_H_FLUX_AUTO'])
+        elif opt_elem == "F213":
+            sim_cat['FLUX_F213'] = sim_cat['UVISTA_Ks_FLUX_AUTO']
+        else:
+            log.warning(f'Unknown filter {opt_elem} skipped in object catalog creation.')
+
+    # Randomize positions of the sources
+    locs = util.random_points_in_cap(coord, radius, len(sim_ids), rng=rng)
+
+    # Set profile types
+    types = np.zeros(len(sim_ids), dtype='U3')
+    types[:] = 'SER'
+
+    # Return Table with source parameters
+    out = table.Table()
+    out['ra'] = locs.ra.to(u.deg).value
+    out['dec'] = locs.dec.to(u.deg).value
+    out['type'] = types
+
+    # Randomize concentrations
+    out['n'] = rng_numpy.uniform(low=1.0, high=4.0, size=len(sim_ids))
+
+    # Scale this from pixels to output half_light_radius unit (arcsec)
+    out['half_light_radius'] = sim_cat['FLUX_RADIUS'].astype('f4') * COSMOS_PIX_TO_ARCSEC
+
+    # Set random position angles
+    pa = rng_numpy.uniform(size=len(sim_ids), low=0, high=360)
+    out['pa'] = pa.astype('f4')
+
+    # Save b / a shape ratio
+    out['ba'] = (sim_cat['ACS_B_WORLD'] / sim_cat['ACS_A_WORLD']).astype('f4')
+
+    # Perturb source fluxes by ~20%
+    source_pert = np.ones(len(sim_ids))
+    source_pert += ((0.2) * rng_numpy.normal(size=len(sim_ids)))
+
+    # Convert fluxes to Jankskys and normalize for zero-point
+    for bandpass in bandpasses:
+        # Perturb sources fluxes by 5% per bandwidth
+        band_source_pert = ((0.05) * rng_numpy.normal(size=len(sim_ids)))
+
+        # Convert fluxes to Jankskys, normalize for zero-point, and apply perturbations
+        out[bandpass] = sim_cat[f'FLUX_{bandpass}'] * (1 + source_pert + band_source_pert) / (3631 * 10**6)
+
+    # Return output table
+    return out
 
 
 def make_galaxies(coord,
@@ -241,7 +443,50 @@ def make_galaxies(coord,
         # sigma of one mag isn't nuts.  But this will be totally uncorrelated
         # in different bands, so we'll get some weird colored objects
         out[bandpass] = (10.**(-mag_thisband / 2.5)).astype('f4')
+
     return out
+
+
+def make_gaia_stars(coord,
+                    radius=0.1,
+                    date=None,
+                    bandpasses=None,
+                    **kwargs
+                    ):
+    """Make a catalog of stars from the GAIA catalog.
+
+    Parameters
+    ----------
+    coord : astropy.coordinates.SkyCoord
+        Location around which to generate sources.
+    radius : float
+        Radius in degrees in which to generate sources
+    date : astropy.time.Time
+        Optional argument to provide a date and time for stellar search
+    bandpasses : list[str]
+        List of names of bandpasses for which to generate fluxes.
+
+    Returns
+    -------
+    catalog : astropy.Table
+        Table for use with table_to_catalog to generate catalog for simulation.
+    """
+
+    if bandpasses is None:
+        bandpasses = ["F062", "F087", "F106", "F129", "F146", "F158", "F184", "F213"]
+
+    if date is None:
+        date = astropy.time.Time('2026-01-01T00:00:00')
+
+    # Perform GAIA search
+    q = f'select * from gaiadr3.gaia_source where distance({coord.ra.value}, {coord.dec.value}, ra, dec) < {radius}'
+    job = Gaia.launch_job_async(q)
+    r = job.get_results()
+
+    # Create catalog
+    star_cat = rsim_gaia.gaia2romanisimcat(r, date, fluxfields=bandpasses)
+
+    return star_cat
 
 
 def make_stars(coord,
@@ -461,7 +706,7 @@ def make_image_catalog(image_filenames, psf, out_base_filename,
     res['noise_variance'] = 0
     res['mag'] = 0  # not sure what this is used for
     res['stamp_flux'] = 1  # not sure what this is used for
-    res['weight'] = 1/nimage
+    res['weight'] = 1 / nimage
     res['band'] = 'F087'
     fits.writeto(out_base_filename + '.fits', res)
 

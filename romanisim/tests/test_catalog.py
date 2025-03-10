@@ -3,13 +3,17 @@ Unit tests for catalog functions.
 """
 
 import os
+import pytest
 import numpy as np
 import galsim
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+from astropy.time import Time
 from romanisim import log
 import asdf
+
+OPTICAL_ELEMS = ["F062", "F087", "F106", "F129", "F146", "F158", "F184", "F213"]
 
 
 def test_make_dummy_catalog():
@@ -150,3 +154,63 @@ def test_table_catalog(tmp_path):
 
     log.info('DMS217: successfully generated parametric distributions of '
              'sources with different magnitudes and sizes.')
+
+
+def test_cosmos_table_catalog(tmp_path):
+    """Test population of sources with COSMOS objects
+    """
+    cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
+    radius = 0.01
+    cat = catalog.make_cosmos_galaxies(
+        cen, radius=radius, seed=11)
+    assert len(cat) > 0
+    skycoord = SkyCoord(
+        ra=[c['ra'] * u.deg for c in cat],
+        dec=[c['dec'] * u.deg for c in cat])
+
+    assert np.max(cen.separation(skycoord).to(u.deg).value) < radius
+
+    for bp in OPTICAL_ELEMS:
+        assert cat[0][bp] is not None
+
+
+def test_make_gaia_stars(tmp_path):
+    """Test population of sources from GAIA catalog
+    """
+    cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
+    radius = 0.1
+
+    cat = catalog.make_gaia_stars(
+        cen, radius=radius)
+
+    assert len(cat) > 0
+    skycoord = SkyCoord(
+        ra=[c['ra'] * u.deg for c in cat],
+        dec=[c['dec'] * u.deg for c in cat])
+    assert np.nanmax(cen.separation(skycoord).to(u.deg).value) < radius
+
+    for bp in OPTICAL_ELEMS:
+        assert cat[0][bp] is not None
+
+
+@pytest.mark.parametrize("cosmos", [True, False])
+@pytest.mark.parametrize("gaia", [True, False])
+@pytest.mark.parametrize("filename", [None, "romanisim/data/COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits"])
+@pytest.mark.parametrize("date", [None, Time('2026-01-01T00:00:00')])
+def test_full_table_catalog(cosmos, gaia, filename, date, tmp_path):
+    """Test permutations of source population
+    """
+    cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
+    radius = 0.1
+    cat = catalog.make_dummy_table_catalog(
+        cen, radius=radius, seed=11, cosmos=cosmos, gaia=gaia,
+        filename=filename, date=date)
+    assert len(cat) > 0
+    skycoord = SkyCoord(
+        ra=[c['ra'] * u.deg for c in cat],
+        dec=[c['dec'] * u.deg for c in cat])
+
+    assert np.nanmax(cen.separation(skycoord).to(u.deg).value) < radius
+
+    for bp in OPTICAL_ELEMS:
+        assert cat[0][bp] is not None

@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 from astropy.time import Time
-from romanisim import gaia
-import romanisim.parameters, romanisim.bandpass
+from astropy import units as u
+from romanisim import catalog
+from astropy.coordinates import SkyCoord
 try:
     from astroquery.gaia import Gaia
 except ModuleNotFoundError:
@@ -27,10 +28,6 @@ if __name__ == '__main__':
 
     ra, dec, radius = args.ra, args.dec, args.radius
     time = Time(args.time, format='isot')
-    q = ('select * from gaiadr3.gaia_source where '
-         f'distance({ra}, {dec}, ra, dec) < {radius}')
-    job = Gaia.launch_job_async(q)
-    r = job.get_results()
-    fluxfields = set(romanisim.bandpass.galsim2roman_bandpass.values())
-    cat = gaia.gaia2romanisimcat(r, time, fluxfields=fluxfields)
-    cat.write(args.filename, overwrite=True) 
+    cen = SkyCoord(ra * u.deg, dec * u.deg)
+    cat = catalog.make_gaia_stars(cen, radius=radius, date=time)
+    cat.write(args.filename, overwrite=True)
