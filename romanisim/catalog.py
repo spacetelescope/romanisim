@@ -325,13 +325,13 @@ def make_cosmos_galaxies(coord,
     out['type'] = types
 
     # Randomize concentrations
-    out['n'] = np.random.uniform(low=1.0, high=4.0, size=len(sim_ids))
+    out['n'] = rng_numpy.uniform(low=1.0, high=4.0, size=len(sim_ids))
 
     # Scale this from pixels to output half_light_radius unit (arcsec)
     out['half_light_radius'] = sim_cat['FLUX_RADIUS'].astype('f4') * COSMOS_PIX_TO_ARCSEC
 
     # Set random position angles
-    pa = np.random.uniform(size=len(sim_ids), low=0, high=360)
+    pa = rng_numpy.uniform(size=len(sim_ids), low=0, high=360)
     out['pa'] = pa.astype('f4')
 
     # Save b / a shape ratio
@@ -339,12 +339,12 @@ def make_cosmos_galaxies(coord,
 
     # Perturb source fluxes by ~20%
     source_pert = np.ones(len(sim_ids))
-    source_pert += ((0.2) * np.random.normal(size=len(sim_ids)))
+    source_pert += ((0.2) * rng_numpy.normal(size=len(sim_ids)))
 
     # Convert fluxes to Jankskys and normalize for zero-point
     for bandpass in bandpasses:
         # Perturb sources fluxes by 5% per bandwidth
-        band_source_pert = ((0.05) * np.random.normal(size=len(sim_ids)))
+        band_source_pert = ((0.05) * rng_numpy.normal(size=len(sim_ids)))
 
         # Convert fluxes to Jankskys, normalize for zero-point, and apply perturbations
         out[bandpass] = sim_cat[f'FLUX_{bandpass}'] * (1 + source_pert + band_source_pert) / (3631 * 10**6)
@@ -451,8 +451,6 @@ def make_gaia_stars(coord,
                     radius=0.1,
                     date=None,
                     bandpasses=None,
-                    rng=None,
-                    seed=50,
                     **kwargs
                     ):
     """Make a catalog of stars from the GAIA catalog.
@@ -467,10 +465,6 @@ def make_gaia_stars(coord,
         Optional argument to provide a date and time for stellar search
     bandpasses : list[str]
         List of names of bandpasses for which to generate fluxes.
-    rng : galsim.BaseDeviate
-        Random number generator to use.
-    seed : int
-        Seed for random number generator to use, only used if rng is None.
 
     Returns
     -------
@@ -484,9 +478,6 @@ def make_gaia_stars(coord,
     if date is None:
         date = astropy.time.Time('2026-01-01T00:00:00')
 
-    if rng is None:
-        rng = galsim.UniformDeviate(seed)
-
     # Perform GAIA search
     q = f'select * from gaiadr3.gaia_source where distance({coord.ra.value}, {coord.dec.value}, ra, dec) < {radius}'
     job = Gaia.launch_job_async(q)
@@ -495,22 +486,7 @@ def make_gaia_stars(coord,
     # Create catalog
     star_cat = rsim_gaia.gaia2romanisimcat(r, date, fluxfields=bandpasses)
 
-    # Set object types
-    types = np.zeros(len(star_cat), dtype='U3')
-    types[:] = 'PSF'
-
-    # Populate output table
-    out = table.Table()
-    out['ra'] = star_cat['ra']
-    out['dec'] = star_cat['dec']
-    out['type'] = types
-    out['n'] = -1 * np.zeros(len(star_cat), dtype='f4')
-    out['half_light_radius'] = np.zeros(len(star_cat), dtype='f4')
-    out['pa'] = np.zeros(len(star_cat), dtype='f4')
-    out['ba'] = np.ones(len(star_cat), dtype='f4')
-    for bandpass in bandpasses:
-        out[bandpass] = star_cat[bandpass]
-    return out
+    return star_cat
 
 
 def make_stars(coord,
