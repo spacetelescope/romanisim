@@ -57,7 +57,7 @@ def main():
 
     outfile_name = f'gaia_{args.radecrad[0]:.2f}_{args.radecrad[1]:.2f}_{args.radecrad[2]:.2f}-{args.time}.ecsv'
     if args.output:
-        outfile_name = args.output + ".ecsv"
+        outfile_name = args.output
     gaia.gaia2romanisimcat(r, Time(args.time), fluxfields=set(romanisim.bandpass.galsim2roman_bandpass.values())).write(outfile_name, overwrite=True)
 
 # Call main if run (as opposed to imported as a module)
