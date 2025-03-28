@@ -153,7 +153,23 @@ read_pattern = {3: [[2], [5], [10], [16], [17]],
                      [95 + x for x in range(32)], 
                      [127 + x for x in range(32)], 
                      [159 + x for x in range(32)], 
-                     [191 + x for x in range(32)], [223]]
+                     [191 + x for x in range(32)], [223]],
+                18: [[x] for x in range(1, 301)],
+
+                # note: these MA tables are not part of the PRD and are intended
+                # only to support DMS testing.  In particular, 110 is a
+                # 16-resultant imaging table needed to demonstrate ramp fitting
+                # performance.
+                # both 109 and 110 have CRDS darks for both spectroscopic and
+                # imaging modes
+                109: [[1], [2, 3], [5, 6, 7], [10, 11, 12, 13],
+                      [15, 16, 17, 18, 19, 20], [21, 22, 23, 24, 25, 26],
+                      [27, 28, 29, 30, 31, 32], [33, 34, 35, 36, 37, 38],
+                      [39, 40, 41, 42, 43], [44]],
+                110: [[1], [2, 3, 4], [5, 6, 7], [8, 9, 10], [11, 12, 13],
+                      [14, 15, 16], [17, 18, 19], [20, 21, 22], [23, 24, 25],
+                      [26, 27, 28], [29, 30, 31], [32, 33, 34], [35, 36, 37],
+                      [38, 39, 40], [41, 42, 43], [44]],
                 }
 
 default_parameters_dictionary = {
