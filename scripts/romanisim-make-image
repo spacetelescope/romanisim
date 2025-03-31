@@ -64,7 +64,10 @@ if __name__ == '__main__':
         description='Make a demo image.',
         epilog='EXAMPLE: %(prog)s output_image.asdf',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('filename', type=str, help='output image (asdf)')
+    parser.add_argument('filename', type=str,
+                        help=('output image (asdf).  {} and {bandpass} strings '
+                              'will be automatically populated with detector '
+                              'and bandpass information.'))
     parser.add_argument('--bandpass', type=str, help='bandpass to simulate',
                         default='F087')
     parser.add_argument('--boresight', action='store_true', default=False,
@@ -90,7 +93,7 @@ if __name__ == '__main__':
                         help='Position angle (North towards YIdl) measured at the V2Ref/V3Ref of the aperture used.')
     parser.add_argument('--sca', type=int, default=7, help=(
         'SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this mode '
-        'to indicate where the SCA number should be filled, e.g. l1_{}.asdf'))
+        'to indicate where the detector number should be filled, e.g. l1_{}.asdf'))
     parser.add_argument('--usecrds', action='store_true',
                         help='Use CRDS for distortion map')
     parser.add_argument('--webbpsf', action='store_true',
