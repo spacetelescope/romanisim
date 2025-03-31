@@ -3,6 +3,7 @@
 
 from copy import deepcopy
 import os
+import pathlib
 import re
 import defusedxml.ElementTree
 import numpy as np
@@ -264,12 +265,14 @@ def format_filename(filename, sca, bandpass=None, pretend_spectral=None):
     """
     args = []
     kwargs = dict()
-    if '{}' in filename:
+    pname = pathlib.Path(filename)
+    bname = pname.parts[-1]
+    if '{}' in bname:
         args.append(f'wfi{sca:02d}')
-    if '{bandpass}' in filename:
+    if '{bandpass}' in bname:
         bp = bandpass if pretend_spectral is None else pretend_spectral
         kwargs['bandpass'] = bp.lower()
-    return filename.format(*args, **kwargs)
+    return pname.with_name(bname.format(*args, **kwargs))
 
 
 def simulate_image_file(args, metadata, cat, rng=None, persist=None):
