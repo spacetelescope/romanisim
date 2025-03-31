@@ -3,6 +3,7 @@
 
 from copy import deepcopy
 import os
+import pathlib
 import re
 import defusedxml.ElementTree
 import numpy as np
@@ -237,6 +238,43 @@ def parse_filename(filename):
     return out
 
 
+def format_filename(filename, sca, bandpass=None, pretend_spectral=None):
+    """Add SCA and filter information to a filename.
+
+    This parameter turns a string like out_{}_{bandpass}.asdf into
+    out_wfi01_f184.asdf.  It differs from format(...) calls in that it won't
+    choke if the target filename includes no {} symbols to format.
+
+    If pretend_spectral is set, the bandpass portion is filled out with the
+    value of pretend_spectral rather than the bandpass, so that
+    out_{}_{bandpass}.asdf becomes out_wfi01_grism.asdf, for example, if
+    pretend_bandpass is grism and bandpass is f158.  This is to support
+    creation of files that have metadata that look like spectroscopic files
+    while the actual pixels are simulated with a different optical bandpass.
+
+    Parameters
+    ----------
+    filename : str
+        file name to format
+    sca : int
+        detector to insert into filename
+    bandpass : str
+        optical element to insert into filename
+    pretend_spectral : str
+        pretend that optical observation was made in this spectroscopic mode
+    """
+    args = []
+    kwargs = dict()
+    pname = pathlib.Path(filename)
+    bname = pname.parts[-1]
+    if '{}' in bname:
+        args.append(f'wfi{sca:02d}')
+    if '{bandpass}' in bname:
+        bp = bandpass if pretend_spectral is None else pretend_spectral
+        kwargs['bandpass'] = bp.lower()
+    return pname.with_name(bname.format(*args, **kwargs))
+
+
 def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     """
     Simulate an image and write it to a file.
@@ -260,6 +298,9 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
                     '--stpsf instead.')
         args.stpsf = args.webbpsf
 
+    filename = format_filename(args.filename, args.sca, bandpass=args.bandpass,
+                               pretend_spectral=args.pretend_spectral)
+
     # Simulate image
     im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
@@ -273,7 +314,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     romanisimdict.update(**extras)
     romanisimdict['version'] = romanisim.__version__
 
-    basename = os.path.basename(args.filename)
+    basename = os.path.basename(filename)
     obsdata = parse_filename(basename)
     if obsdata is not None:
         im['meta']['observation'].update(**obsdata)
@@ -296,7 +337,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     af = asdf.AsdfFile()
     af.tree = {'roman': im, 'romanisim': romanisimdict}
 
-    af.write_to(open(args.filename, 'wb'))
+    af.write_to(open(filename, 'wb'))
 
 
 def parse_apt_file(filename):

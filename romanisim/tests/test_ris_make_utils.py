@@ -43,6 +43,9 @@ def test_simulate_image_file(tmp_path):
     args.usecrds = False
     args.stpsf = False
     args.level = 0
+    args.sca = 7
+    args.bandpass = 'F184'
+    args.pretend_spectral = None
     galsim.roman.n_pix = 100
     ris_make_utils.simulate_image_file(args, meta, cat)
     im = asdf.open(args.filename)
@@ -57,3 +60,11 @@ def test_parse_filename():
     assert obs is not None
     assert obs['program'] == 99999
     assert obs['pass'] == 1
+
+
+def test_format_filename():
+    from romanisim.ris_make_utils import format_filename
+    assert 'test' == str(format_filename('test', sca=1))
+    assert 'test_wfi01' == str(format_filename('test_{}', sca=1))
+    assert 'test_wfi01_foo' == str(format_filename(
+        'test_{}_{bandpass}', sca=1, bandpass='foo'))
