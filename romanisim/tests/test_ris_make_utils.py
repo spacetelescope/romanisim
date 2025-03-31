@@ -43,6 +43,7 @@ def test_simulate_image_file(tmp_path):
     args.usecrds = False
     args.stpsf = False
     args.level = 0
+    args.sca = 7
     galsim.roman.n_pix = 100
     ris_make_utils.simulate_image_file(args, meta, cat)
     im = asdf.open(args.filename)
