@@ -86,7 +86,7 @@ def fill_in_parameters(parameters, coord, pa_aper=0, boresight=True):
         parameters['wcsinfo']['aperture_name'] = 'WFI_CEN'
         parameters['pointing']['target_aperture'] = 'WFI_CEN'
 
-    parameters['wcsinfo']['pa_aperture'] = pa_aper
+    parameters['pointing']['pa_aperture'] = pa_aper
 
 
 def get_wcs(image, usecrds=True, distortion=None):
