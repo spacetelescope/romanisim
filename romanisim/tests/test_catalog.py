@@ -6,6 +6,7 @@ import os
 import pytest
 import numpy as np
 import galsim
+from pathlib import Path
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -195,7 +196,7 @@ def test_make_gaia_stars(tmp_path):
 
 @pytest.mark.parametrize("cosmos", [True, False])
 @pytest.mark.parametrize("gaia", [True, False])
-@pytest.mark.parametrize("filename", [None, "romanisim/data/COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits"])
+@pytest.mark.parametrize("filename", [None, Path(__file__).parent.parent / "data" /"COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits"])
 @pytest.mark.parametrize("date", [None, Time('2026-01-01T00:00:00')])
 def test_full_table_catalog(cosmos, gaia, filename, date, tmp_path):
     """Test permutations of source population
