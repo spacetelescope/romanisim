@@ -220,7 +220,7 @@ def add_more_metadata(metadata):
     metadata['exposure']['nresultants'] = len(read_pattern)
     metadata['exposure']['frame_time'] = parameters.read_time
     metadata['exposure']['exposure_time'] = openshuttertime
-    metadata['exposure']['ma_table_id'] = 'sci{manum:04d}'
+    metadata['exposure']['ma_table_id'] = f'sci{manum:04d}'
     effexptime = parameters.read_time * (
         np.mean(read_pattern[-1]) - np.mean(read_pattern[0]))
     metadata['exposure']['effective_exposure_time'] = effexptime
