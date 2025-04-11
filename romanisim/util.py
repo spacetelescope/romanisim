@@ -203,6 +203,7 @@ def add_more_metadata(metadata):
         metadata['exposure'] = {}
     if 'guide_star' not in metadata.keys():
         metadata['guide_star'] = {}
+    manum = metadata['exposure']['ma_table_number']
     read_pattern = metadata['exposure'].get(
         'read_pattern',
         parameters.read_pattern[metadata['exposure']['ma_table_number']])
@@ -219,16 +220,15 @@ def add_more_metadata(metadata):
     metadata['exposure']['nresultants'] = len(read_pattern)
     metadata['exposure']['frame_time'] = parameters.read_time
     metadata['exposure']['exposure_time'] = openshuttertime
+    metadata['exposure']['ma_table_id'] = f'sci{manum:04d}'
     effexptime = parameters.read_time * (
         np.mean(read_pattern[-1]) - np.mean(read_pattern[0]))
     metadata['exposure']['effective_exposure_time'] = effexptime
-    metadata['guide_star']['window_xsize'] = 16
-    metadata['guide_star']['window_ysize'] = 16
     if 'window_xstart' in metadata['guide_star']:
         metadata['guide_star']['window_xstop'] = (
-            metadata['guide_star']['window_xstart'])
+            metadata['guide_star']['window_xstart'] + 16)
         metadata['guide_star']['window_ystop'] = (
-            metadata['guide_star']['window_ystart'])
+            metadata['guide_star']['window_ystart'] + 16)
     if 'visit' not in metadata.keys():
         metadata['visit'] = dict()
     metadata['visit']['status'] = 'SUCCESSFUL'
