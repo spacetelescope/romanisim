@@ -81,7 +81,7 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
-minversion = 4.6
+minversion = "4.6"
 norecursedirs = [
     "docs/_build",
     "docs/exts",
@@ -94,6 +94,9 @@ doctest_rst = "enabled"
 markers = [
     "soctests: run only the SOC tests in the suite.",
     "bigdata: uses a lot of data.",
+]
+addopts = [
+    "--color=yes",  # Enable colored output by default
 ]
 
 [tool.coverage.run]
