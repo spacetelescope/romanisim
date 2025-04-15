@@ -6,6 +6,7 @@ based on catalogs of sources in those scenes.
 import dataclasses
 import numpy as np
 import galsim
+from pathlib import Path
 from galsim import roman
 from astropy import coordinates, table
 from astropy import units as u
@@ -247,8 +248,7 @@ def make_cosmos_galaxies(coord,
     if filename:
         cos_cat_all = table.Table.read(filename, format='fits', hdu=1)
     else:
-        dir_in = "romanisim/data/"
-        cos_cat_all = table.Table.read(dir_in + 'COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits',
+        cos_cat_all = table.Table.read(Path(__file__).parent / "data" / "COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits",
                                        format='fits', hdu=1)
 
     # Select galaxies
