@@ -6,7 +6,6 @@ based on catalogs of sources in those scenes.
 import dataclasses
 import numpy as np
 import galsim
-from pathlib import Path
 from galsim import roman
 from astropy import coordinates, table
 from astropy import units as u
@@ -219,6 +218,7 @@ def make_cosmos_galaxies(coord,
     catalog : astropy.Table
         Table for use with table_to_catalog to generate catalog for simulation.
     """
+    from pathlib import Path
 
     if rng is None:
         rng = galsim.UniformDeviate(seed)
