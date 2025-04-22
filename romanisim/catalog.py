@@ -3,6 +3,8 @@
 This module provides basic routines to allow romanisim to render scenes
 based on catalogs of sources in those scenes.
 """
+from pathlib import Path
+
 import dataclasses
 import numpy as np
 import galsim
@@ -19,6 +21,7 @@ import romanisim.bandpass
 # COSMOS constants taken from the COSMOS2020 paper:
 # https://arxiv.org/pdf/2110.13923
 # Area of the ultra-deep regions of UltraVISTA data in square degrees
+COSMOS_DEFAULT_CATALOG = Path(__file__).parent / 'data/COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits'
 ULTRA_DEEP_AREA = 0.62
 
 # COSMOS pixel scale
@@ -244,12 +247,9 @@ def make_cosmos_galaxies(coord,
                 cos_filt.append('UVISTA_H_FLUX_AUTO')
 
     # Open COSMOS file and pare to required tabs
-    if filename:
-        cos_cat_all = table.Table.read(filename, format='fits', hdu=1)
-    else:
-        dir_in = "romanisim/data/"
-        cos_cat_all = table.Table.read(dir_in + 'COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits',
-                                       format='fits', hdu=1)
+    if not filename:
+        filename = COSMOS_DEFAULT_CATALOG
+    cos_cat_all = table.Table.read(filename, format='fits', hdu=1)
 
     # Select galaxies
     cos_cat_all = cos_cat_all[(cos_cat_all['lp_type'] % 2) == 0]
