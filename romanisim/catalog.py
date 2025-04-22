@@ -218,6 +218,7 @@ def make_cosmos_galaxies(coord,
     catalog : astropy.Table
         Table for use with table_to_catalog to generate catalog for simulation.
     """
+    from pathlib import Path
 
     if rng is None:
         rng = galsim.UniformDeviate(seed)
@@ -247,8 +248,7 @@ def make_cosmos_galaxies(coord,
     if filename:
         cos_cat_all = table.Table.read(filename, format='fits', hdu=1)
     else:
-        dir_in = "romanisim/data/"
-        cos_cat_all = table.Table.read(dir_in + 'COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits',
+        cos_cat_all = table.Table.read(Path(__file__).parent / "data" / "COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits",
                                        format='fits', hdu=1)
 
     # Select galaxies
