@@ -3,7 +3,7 @@
 This module provides basic routines to allow romanisim to render scenes
 based on catalogs of sources in those scenes.
 """
-from pathlib import Path
+import pathlib
 
 import dataclasses
 import numpy as np
@@ -21,7 +21,7 @@ import romanisim.bandpass
 # COSMOS constants taken from the COSMOS2020 paper:
 # https://arxiv.org/pdf/2110.13923
 # Area of the ultra-deep regions of UltraVISTA data in square degrees
-COSMOS_DEFAULT_CATALOG = Path(__file__).parent / 'data/COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits'
+COSMOS_DEFAULT_CATALOG = pathlib.Path(__file__).parent / 'data/COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits'
 ULTRA_DEEP_AREA = 0.62
 
 # COSMOS pixel scale
