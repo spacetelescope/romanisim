@@ -21,7 +21,6 @@ import romanisim.util
 import roman_datamodels.datamodels as rdm
 from roman_datamodels.stnode import WfiMosaic
 import astropy.units as u
-import roman_datamodels.maker_utils as maker_utils
 import astropy
 from galsim import roman
 from astropy import table
@@ -331,7 +330,8 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     """
 
     # Create metadata object
-    meta = maker_utils.mk_mosaic_meta()  # all dummy values
+    mosaic_mdl = rdm.MosaicModel.fake_data()
+    meta = mosaic_mdl.meta
 
     # add romanisim defaults
     for key in romanisim.parameters.default_mosaic_parameters_dictionary.keys():
@@ -429,7 +429,11 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     var_poisson = extras.pop('var_poisson')
     var_rnoise = extras.pop('var_rnoise')
     context = np.ones((1,) + mosaic.array.shape, dtype=np.uint32)
-    mosaic_mdl = make_l3(mosaic, meta, efftimes, var_poisson=var_poisson,
+    if not isinstance(var_rnoise, np.ndarray):
+        var_rnoise = np.full(mosaic.array.shape, var_rnoise, np.float32)
+    if not isinstance(var_poisson, np.ndarray):
+        var_poisson = np.full(mosaic.array.shape, var_poisson, np.float32)
+    mosaic_mdl = make_l3(mosaic_mdl, mosaic, efftimes, var_poisson=var_poisson,
                          var_rnoise=var_rnoise, context=context)
 
     log.info('Simulation complete.')
@@ -631,13 +635,15 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     return image, extras
 
 
-def make_l3(image, metadata, efftimes, var_poisson=None,
+def make_l3(mosaic_node, image, efftimes, var_poisson=None,
             var_flat=None, var_rnoise=None, context=None):
     """
-    Create and populate MosaicModel of image and noises.
+    Populate a MosaicModel with image and noises.
 
     Parameters
     ----------
+    mosaic_node : MosaicModel
+        MosaicModel to update
     image : galsim.Image
         Image containing mosaic data (MJy / sr)
     metadata : dict
@@ -669,27 +675,22 @@ def make_l3(image, metadata, efftimes, var_poisson=None,
     else:
         efftimes_arr = efftimes * np.ones(mosaic.shape, dtype=np.float32)
 
-    # Set mosaic to be a mosaic node
-    mosaic_node = maker_utils.mk_level3_mosaic(
-        shape=mosaic.shape, meta=metadata)
-    mosaic_node.meta.wcs = metadata['wcs']
-
     # Set data
     mosaic_node.data = mosaic
 
-    var_poisson = 0 if var_poisson is None else var_poisson
-    var_rnoise = 0 if var_rnoise is None else var_rnoise
-    var_flat = 0 if var_flat is None else var_flat
+    empty_var = np.zeros(mosaic.shape, dtype=np.float32)
+    var_poisson = empty_var if var_poisson is None else var_poisson
+    var_rnoise = empty_var if var_rnoise is None else var_rnoise
+    var_flat = empty_var if var_flat is None else var_flat
     context = (np.ones((1,) + mosaic.shape, dtype=np.uint32)
                if context is None else context)
-    
-    mosaic_node.var_poisson[...] = var_poisson
-    mosaic_node.var_rnoise[...] = var_rnoise
-    mosaic_node.var_flat[...] = var_flat
-    mosaic_node.err[...] = np.sqrt(
+
+    mosaic_node.var_poisson = var_poisson.copy()
+    mosaic_node.var_rnoise = var_rnoise.copy()
+    mosaic_node.var_flat = var_flat.copy()
+    mosaic_node.err = np.sqrt(
         var_poisson + var_rnoise + var_flat)
     mosaic_node.context = context
-    
 
     # Weight
     # Use exptime weight
