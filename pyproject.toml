@@ -17,7 +17,7 @@ classifiers = [
 ]
 dependencies = [
     "asdf >=3.3.0",
-    "astropy >=5.3",
+    "astropy >=6.0",
     "crds >=11.16.21",
     "defusedxml >=0.5.0",
     "galsim >=2.5.1",
