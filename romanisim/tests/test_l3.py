@@ -53,7 +53,7 @@ def test_inject_sources_into_mosaic():
     g4 = galsim.GaussianDeviate(rng_seed, mean=meanflux, sigma=0.10 * meanflux)
 
     # Create level 3 mosaic model
-    l3_mos = rdm.MosaicModel.fake_data(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
+    l3_mos = rdm.MosaicModel.create_fake_data(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
     l3_mos['meta']['wcs'] = twcs._wcs
 
     # Update metadata in the l3 model

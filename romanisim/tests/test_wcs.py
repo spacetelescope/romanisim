@@ -132,7 +132,7 @@ def test_wcs_crds_match():
     metadata['instrument']['optical_element'] = 'F158'
     metadata['exposure']['ma_table_number'] = 1
 
-    image_mod = roman_datamodels.datamodels.ImageModel.fake_data({"meta": metadata})
+    image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data({"meta": metadata})
     image_mod.meta.wcs = None
 
     twcs = wcs.get_wcs(image_mod, usecrds=True)

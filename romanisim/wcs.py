@@ -110,7 +110,7 @@ def get_wcs(image, usecrds=True, distortion=None):
 
     # If sent a dictionary, create a temporary model for CRDS interface
     if (type(image) is not roman_datamodels.datamodels.ImageModel):
-        image_mod = roman_datamodels.datamodels.ImageModel.fake_data({"meta": image})
+        image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data({"meta": image})
     else:
         image_mod = image
 
@@ -445,7 +445,7 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
 
     # If sent a dictionary, create a temporary model for data interface
     if (type(mosaic) is not roman_datamodels.datamodels.MosaicModel):
-        mosaic_node = roman_datamodels.datamodels.MosaicModel.fake_data({"meta": mosaic}, shape=shape)
+        mosaic_node = roman_datamodels.datamodels.MosaicModel.create_fake_data({"meta": mosaic}, shape=shape)
     else:
         mosaic_node = mosaic
 

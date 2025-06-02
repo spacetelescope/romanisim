@@ -759,7 +759,7 @@ def simulate(metadata, objlist,
                     'files from CRDS.  The WCS may be incorrect and up-to-date '
                     'calibration information will not be used.')
 
-    image_mod = roman_datamodels.datamodels.ImageModel.fake_data()
+    image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
     meta = image_mod.meta
     meta['wcs'] = None
 
@@ -874,7 +874,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     """
 
     n_groups = len(metadata['exposure']['read_pattern'])
-    out = roman_datamodels.stnode.WfiImage.fake_data()
+    out = roman_datamodels.stnode.WfiImage.create_fake_data()
     # ephemeris contains a lot of angles that could be computed.
     # exposure contains
     #     ngroups, nframes, sca_number, gain_factor, integration_time,

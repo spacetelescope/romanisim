@@ -330,7 +330,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     """
 
     # Create metadata object
-    mosaic_mdl = rdm.MosaicModel.fake_data()
+    mosaic_mdl = rdm.MosaicModel.create_fake_data()
     meta = mosaic_mdl.meta
 
     # add romanisim defaults

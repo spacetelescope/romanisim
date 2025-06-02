@@ -411,7 +411,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     from roman_datamodels import stnode
     nborder = parameters.nborder
     npix = galsim.roman.n_pix + 2 * nborder
-    out = stnode.WfiScienceRaw.fake_data(shape=(len(resultants), npix, npix))
+    out = stnode.WfiScienceRaw.create_fake_data(shape=(len(resultants), npix, npix))
     if metadata is not None:
         out['meta'].update(metadata)
     extras = dict()
