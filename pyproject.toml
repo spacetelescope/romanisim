@@ -21,7 +21,6 @@ dependencies = [
     "crds >=11.16.21",
     "defusedxml >=0.5.0",
     "galsim >=2.5.1",
-    "rad >=0.23.0",
     # "roman_datamodels >=0.23.0",
     "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
     "gwcs >=0.22.1, <0.24.0",
