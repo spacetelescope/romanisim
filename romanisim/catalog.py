@@ -3,6 +3,7 @@
 This module provides basic routines to allow romanisim to render scenes
 based on catalogs of sources in those scenes.
 """
+import os
 import dataclasses
 import numpy as np
 import galsim
@@ -10,6 +11,8 @@ from galsim import roman
 from astropy import coordinates, table
 from astropy import units as u
 from astropy.io import fits
+from astropy_healpix import HEALPix
+from astropy.coordinates import Galactic
 import astropy.time
 from astroquery.gaia import Gaia
 from romanisim import gaia as rsim_gaia
@@ -154,8 +157,9 @@ def make_dummy_table_catalog(coord,
         List of names of bandpasses in which to generate fluxes.
     cosmos : Bool
         Flag to specify random selection of COSMOS galaxies
-    gaia : Bool
+    gaia : Bool or string
         Flag to specify usage of stars from the GAIA catalog
+        or location of healpix files
 
     Returns
     -------
@@ -163,6 +167,7 @@ def make_dummy_table_catalog(coord,
         Table including fields needed to generate a list of CatalogObject
         entries for rendering.
     """
+    # Create galaxies
     if cosmos:
         t1 = make_cosmos_galaxies(coord, radius=radius, rng=rng,
                                   bandpasses=bandpasses, **kwargs)
@@ -170,8 +175,13 @@ def make_dummy_table_catalog(coord,
         t1 = make_galaxies(coord, radius=radius, rng=rng, n=int(nobj * 0.8),
                            bandpasses=bandpasses)
 
+    # Create stars
     if gaia:
-        t2 = make_gaia_stars(coord, radius=radius, rng=rng, **kwargs)
+        if os.path.isdir(gaia):
+            # Healpix catalogs within a directory
+            t2 = make_healpix_objs(gaia, coord, radius=radius, rng=rng, **kwargs)
+        else:
+            t2 = make_gaia_stars(coord, radius=radius, rng=rng, **kwargs)
         cat_table = table.vstack([t1, t2])
     else:
         t2 = make_stars(coord, radius=radius, rng=rng, n=int(nobj * 0.1),
@@ -485,6 +495,99 @@ def make_gaia_stars(coord,
 
     # Create catalog
     star_cat = rsim_gaia.gaia2romanisimcat(r, date, fluxfields=bandpasses)
+
+    return star_cat
+
+
+def make_healpix_objs(hp_dir,
+                      coord,
+                      radius=0.1,
+                      date=None,
+                      bandpasses=None,
+                      **kwargs
+                      ):
+    """Make a catalog of stars from a directory of GAIA catalog files, sorted by Healpix.
+    The files are assumed to be in FITS format.
+    Healpix parameters:
+        128 sides
+        nested order
+        Galactic frame
+
+    Parameters
+    ----------
+    hp_dir: string
+        Path to directory containing healpix files
+    coord : astropy.coordinates.SkyCoord
+        Location around which to generate sources.
+    radius : float
+        Radius in degrees in which to generate sources
+    date : astropy.time.Time
+        Optional argument to provide a date and time for stellar search
+    bandpasses : list[str]
+        List of names of bandpasses for which to generate fluxes.
+
+    Returns
+    -------
+    catalog : astropy.Table
+        Table for use with table_to_catalog to generate catalog for simulation.
+    """
+
+    if bandpasses is None:
+        bandpasses = ["F062", "F087", "F106", "F129", "F146", "F158", "F184", "F213"]
+
+    if date is None:
+        date = astropy.time.Time('2026-01-01T00:00:00')
+
+    # Set parameters of Healpix
+    hp = HEALPix(nside=128, order='nested', frame=Galactic())
+
+    # Find Healpix
+    hp_cone = hp.cone_search_skycoord(util.skycoord(coord), radius=radius * u.deg)
+    log.info(f"\nXXX hp_cone = {hp_cone}")
+
+    # Open first helpix file
+    hp_filename = hp_dir + f"/gaia-{hp_cone[0]}.fits"
+
+    # Check for RSIM created Healpix files
+    with fits.open(hp_filename, mode='readonly') as hdul:
+        rsim_cat = True if ('RSIMCAT' in hdul[0].header) else False
+
+    # Create initial catalog
+    cat_table = table.Table.read(hp_filename)
+
+    # Append additional healpix catalogs
+    if len(hp_cone > 1):
+        for hp_idx in hp_cone[1:]:
+            hp_filename = hp_dir + f"/gaia-{hp_idx}.fits"
+            hp_table = table.Table.read(hp_filename)
+            cat_table = table.vstack([cat_table, hp_table])
+
+    # Adjust type and add units for RSIM created Healpix files
+    # Could add filtering here
+    if rsim_cat:
+        cat_table['pmra'] = np.where(cat_table['pmra']=='null', '0', cat_table['pmra']).astype(np.float64)
+        cat_table['pmra_error'] = np.where(cat_table['pmra_error']=='null', '0', cat_table['pmra_error']).astype(np.float64)
+        cat_table['pmdec'] = np.where(cat_table['pmdec']=='null', '0', cat_table['pmdec']).astype(np.float64)
+        cat_table['pmdec_error'] = np.where(cat_table['pmdec_error']=='null', '0', cat_table['pmdec_error']).astype(np.float64)
+        cat_table['parallax'] = np.where(cat_table['parallax']=='null', '0', cat_table['parallax']).astype(np.float64)
+        cat_table['phot_g_mean_mag'] = np.where(cat_table['phot_g_mean_mag']=='null', '1000', cat_table['phot_g_mean_mag']).astype(np.float64)
+        cat_table['phot_bp_mean_mag'] = np.where(cat_table['phot_bp_mean_mag']=='null', '1000', cat_table['phot_bp_mean_mag']).astype(np.float64)
+        cat_table['phot_rp_mean_mag'] = np.where(cat_table['phot_rp_mean_mag']=='null', '1000', cat_table['phot_rp_mean_mag']).astype(np.float64)
+
+        # Add units
+        cat_table['ra'] *= u.deg
+        cat_table['ra_error'] *= u.mas
+        cat_table['dec'] *= u.deg
+        cat_table['dec_error'] *= u.mas
+        cat_table['pmra'] *= u.mas / u.yr
+        cat_table['pmra_error'] *= u.mas / u.yr
+        cat_table['pmdec'] *= u.mas / u.yr
+        cat_table['pmdec_error'] *= u.mas / u.yr
+        cat_table['parallax'] *= u.mas
+
+
+    # Create catalog
+    star_cat = rsim_gaia.gaia2romanisimcat(cat_table, date, fluxfields=bandpasses)
 
     return star_cat
 
