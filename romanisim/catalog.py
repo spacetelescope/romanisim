@@ -158,7 +158,7 @@ def make_dummy_table_catalog(coord,
     cosmos : Bool
         Flag to specify random selection of COSMOS galaxies
     gaia : Bool or string
-        Flag to specify usage of stars from the GAIA catalog
+        Flag to specify usage of stars from the Gaia catalog
         or location of healpix files
 
     Returns
@@ -463,7 +463,7 @@ def make_gaia_stars(coord,
                     bandpasses=None,
                     **kwargs
                     ):
-    """Make a catalog of stars from the GAIA catalog.
+    """Make a catalog of stars from the Gaia catalog.
 
     Parameters
     ----------
@@ -488,7 +488,7 @@ def make_gaia_stars(coord,
     if date is None:
         date = astropy.time.Time('2026-01-01T00:00:00')
 
-    # Perform GAIA search
+    # Perform Gaia search
     q = f'select * from gaiadr3.gaia_source where distance({coord.ra.value}, {coord.dec.value}, ra, dec) < {radius}'
     job = Gaia.launch_job_async(q)
     r = job.get_results()
@@ -506,7 +506,7 @@ def make_healpix_objs(hp_dir,
                       bandpasses=None,
                       **kwargs
                       ):
-    """Make a catalog of stars from a directory of GAIA catalog files, sorted by Healpix.
+    """Make a catalog of stars from a directory of Gaia catalog files, sorted by Healpix.
     The files are assumed to be in FITS format.
     Healpix parameters:
         128 sides
@@ -546,7 +546,8 @@ def make_healpix_objs(hp_dir,
     log.info(f"\nXXX hp_cone = {hp_cone}")
 
     # Open first helpix file
-    hp_filename = hp_dir + f"/gaia-{hp_cone[0]}.fits"
+    # hp_filename = hp_dir + f"/gaia-{hp_cone[0]}.fits"
+    hp_filename = hp_dir + f"/cat-{hp_cone[0]}.fits"
 
     # Check for RSIM created Healpix files
     with fits.open(hp_filename, mode='readonly') as hdul:
@@ -558,32 +559,34 @@ def make_healpix_objs(hp_dir,
     # Append additional healpix catalogs
     if len(hp_cone > 1):
         for hp_idx in hp_cone[1:]:
-            hp_filename = hp_dir + f"/gaia-{hp_idx}.fits"
+            # hp_filename = hp_dir + f"/gaia-{hp_idx}.fits"
+            hp_filename = hp_dir + f"/cat-{hp_idx}.fits"
             hp_table = table.Table.read(hp_filename)
             cat_table = table.vstack([cat_table, hp_table])
 
     # Adjust type and add units for RSIM created Healpix files
     # Could add filtering here
     if rsim_cat:
-        cat_table['pmra'] = np.where(cat_table['pmra']=='null', '0', cat_table['pmra']).astype(np.float64)
-        cat_table['pmra_error'] = np.where(cat_table['pmra_error']=='null', '0', cat_table['pmra_error']).astype(np.float64)
-        cat_table['pmdec'] = np.where(cat_table['pmdec']=='null', '0', cat_table['pmdec']).astype(np.float64)
-        cat_table['pmdec_error'] = np.where(cat_table['pmdec_error']=='null', '0', cat_table['pmdec_error']).astype(np.float64)
-        cat_table['parallax'] = np.where(cat_table['parallax']=='null', '0', cat_table['parallax']).astype(np.float64)
-        cat_table['phot_g_mean_mag'] = np.where(cat_table['phot_g_mean_mag']=='null', '1000', cat_table['phot_g_mean_mag']).astype(np.float64)
-        cat_table['phot_bp_mean_mag'] = np.where(cat_table['phot_bp_mean_mag']=='null', '1000', cat_table['phot_bp_mean_mag']).astype(np.float64)
-        cat_table['phot_rp_mean_mag'] = np.where(cat_table['phot_rp_mean_mag']=='null', '1000', cat_table['phot_rp_mean_mag']).astype(np.float64)
+        pass
+        # cat_table['pmra'] = np.where(cat_table['pmra']=='null', '0', cat_table['pmra']).astype(np.float64)
+        # cat_table['pmra_error'] = np.where(cat_table['pmra_error']=='null', '0', cat_table['pmra_error']).astype(np.float64)
+        # cat_table['pmdec'] = np.where(cat_table['pmdec']=='null', '0', cat_table['pmdec']).astype(np.float64)
+        # cat_table['pmdec_error'] = np.where(cat_table['pmdec_error']=='null', '0', cat_table['pmdec_error']).astype(np.float64)
+        # cat_table['parallax'] = np.where(cat_table['parallax']=='null', '0', cat_table['parallax']).astype(np.float64)
+        # cat_table['phot_g_mean_mag'] = np.where(cat_table['phot_g_mean_mag']=='null', '1000', cat_table['phot_g_mean_mag']).astype(np.float64)
+        # cat_table['phot_bp_mean_mag'] = np.where(cat_table['phot_bp_mean_mag']=='null', '1000', cat_table['phot_bp_mean_mag']).astype(np.float64)
+        # cat_table['phot_rp_mean_mag'] = np.where(cat_table['phot_rp_mean_mag']=='null', '1000', cat_table['phot_rp_mean_mag']).astype(np.float64)
 
-        # Add units
-        cat_table['ra'] *= u.deg
-        cat_table['ra_error'] *= u.mas
-        cat_table['dec'] *= u.deg
-        cat_table['dec_error'] *= u.mas
-        cat_table['pmra'] *= u.mas / u.yr
-        cat_table['pmra_error'] *= u.mas / u.yr
-        cat_table['pmdec'] *= u.mas / u.yr
-        cat_table['pmdec_error'] *= u.mas / u.yr
-        cat_table['parallax'] *= u.mas
+        # # Add units
+        # cat_table['ra'] *= u.deg
+        # cat_table['ra_error'] *= u.mas
+        # cat_table['dec'] *= u.deg
+        # cat_table['dec_error'] *= u.mas
+        # cat_table['pmra'] *= u.mas / u.yr
+        # cat_table['pmra_error'] *= u.mas / u.yr
+        # cat_table['pmdec'] *= u.mas / u.yr
+        # cat_table['pmdec_error'] *= u.mas / u.yr
+        # cat_table['parallax'] *= u.mas
 
 
     # Create catalog
