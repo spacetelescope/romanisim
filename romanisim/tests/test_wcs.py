@@ -13,7 +13,6 @@ import galsim
 import pytest
 
 import roman_datamodels
-import roman_datamodels.maker_utils as maker_utils
 
 
 def make_fake_distortion_function():
@@ -133,17 +132,8 @@ def test_wcs_crds_match():
     metadata['instrument']['optical_element'] = 'F158'
     metadata['exposure']['ma_table_number'] = 1
 
-    # Create Image model to track validation
-    meta = maker_utils.mk_common_meta()
-    meta["photometry"] = maker_utils.mk_photometry()
-
-    for key in metadata.keys():
-        meta[key].update(metadata[key])
-    meta['wcs'] = None
-
-    image_node = maker_utils.mk_level2_image()
-    image_node['meta'] = meta
-    image_mod = roman_datamodels.datamodels.ImageModel(image_node)
+    image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data({"meta": metadata})
+    image_mod.meta.wcs = None
 
     twcs = wcs.get_wcs(image_mod, usecrds=True)
 

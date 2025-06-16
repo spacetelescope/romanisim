@@ -16,14 +16,14 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
-    "asdf >=3.3.0",
+    "asdf >=4.1.0",
     "astropy >=6.0",
     "astropy_healpix >= 1.1.2",
     "crds >=11.16.21",
     "defusedxml >=0.5.0",
     "galsim >=2.5.1",
-    "rad >=0.23.0",
-    "roman_datamodels >=0.23.0",
+    # "roman_datamodels >=0.23.0",
+    "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
     "gwcs >=0.22.1, <0.24.0",
     "jsonschema >=4.8",
     "numpy >=1.24",
