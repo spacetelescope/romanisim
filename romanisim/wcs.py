@@ -32,7 +32,6 @@ import galsim.wcs
 from galsim import roman
 from . import util
 import romanisim.parameters
-import roman_datamodels.maker_utils as maker_utils
 
 from romanisim import log
 
@@ -111,13 +110,7 @@ def get_wcs(image, usecrds=True, distortion=None):
 
     # If sent a dictionary, create a temporary model for CRDS interface
     if (type(image) is not roman_datamodels.datamodels.ImageModel):
-        image_node = maker_utils.mk_level2_image()
-        for key in image.keys():
-            if isinstance(image[key], dict):
-                image_node['meta'][key].update(image[key])
-            else:
-                image_node['meta'][key] = image[key]
-        image_mod = roman_datamodels.datamodels.ImageModel(image_node)
+        image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data({"meta": image})
     else:
         image_mod = image
 
@@ -452,15 +445,7 @@ def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
 
     # If sent a dictionary, create a temporary model for data interface
     if (type(mosaic) is not roman_datamodels.datamodels.MosaicModel):
-        if shape is None:
-            mosaic_node = maker_utils.mk_level3_mosaic()
-        else:
-            mosaic_node = maker_utils.mk_level3_mosaic(shape=shape)
-        for key in mosaic.keys():
-            if isinstance(mosaic[key], dict) and key in mosaic_node['meta'].keys():
-                mosaic_node['meta'][key].update(mosaic[key])
-            else:
-                mosaic_node['meta'][key] = mosaic[key]
+        mosaic_node = roman_datamodels.datamodels.MosaicModel.create_fake_data({"meta": mosaic}, shape=shape)
     else:
         mosaic_node = mosaic
 
