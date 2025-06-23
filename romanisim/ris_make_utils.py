@@ -156,7 +156,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         raise ValueError('Must set either catalog_name or metadata')
 
     # Create catalog
-    if catalog_name is None or os.path.isdir(catalog_name):
+    if catalog_name is None:
         # Create a catalog from scratch
         # Create wcs object
         distortion_file = parameters.reference_data["distortion"]
@@ -170,26 +170,15 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         if not isinstance(coord, coordinates.SkyCoord):
             coord = twcs.toWorld(galsim.PositionD(*coord))
 
-        if catalog_name is None:
-            cat = catalog.make_dummy_table_catalog(
-                coord, bandpasses=bandpasses, nobj=nobj, rng=rng, radius=radius)
-        else:
-            # Healpix path provided
-            cat = catalog.make_dummy_table_catalog(
-                coord, bandpasses=bandpasses, nobj=nobj, rng=rng, gaia=catalog_name, radius=radius)
+        cat = catalog.make_dummy_table_catalog(
+            coord, bandpasses=bandpasses, nobj=nobj, rng=rng)
     else:
-        cat = table.Table.read(catalog_name)
-        bandpass = [f for f in cat.dtype.names if f[0] == 'F']
-        bad = np.zeros(len(cat), dtype='bool')
-        for b in bandpass:
-            bad |= ~np.isfinite(cat[b])
-            if hasattr(cat[b], 'mask'):
-                bad |= cat[b].mask
-        cat = cat[~bad]
-        nbad = np.sum(bad)
-        if nbad > 0:
-            log.info(f'Removing {nbad} catalog entries with non-finite or '
-                    'masked fluxes.')
+        # Set date
+        if metadata:
+            date=metadata['exposure']['start_time']
+        else:
+            date=None
+        cat = catalog.from_catalog(catalog_name, coord, date=date, bandpasses=bandpasses)
 
     return cat
 

@@ -16,7 +16,7 @@ from astropy.coordinates import Galactic
 import astropy.time
 from astroquery.gaia import Gaia
 from romanisim import gaia as rsim_gaia
-from . import util, log
+from . import util, log, parameters
 import romanisim.bandpass
 
 # COSMOS constants taken from the COSMOS2020 paper:
@@ -135,7 +135,6 @@ def make_dummy_table_catalog(coord,
                              nobj=1000,
                              bandpasses=None,
                              cosmos=False,
-                             gaia=False,
                              **kwargs
                              ):
     """Make a dummy table catalog.
@@ -157,9 +156,6 @@ def make_dummy_table_catalog(coord,
         List of names of bandpasses in which to generate fluxes.
     cosmos : Bool
         Flag to specify random selection of COSMOS galaxies
-    gaia : Bool or string
-        Flag to specify usage of stars from the Gaia catalog
-        or location of healpix files
 
     Returns
     -------
@@ -176,19 +172,11 @@ def make_dummy_table_catalog(coord,
                            bandpasses=bandpasses)
 
     # Create stars
-    if gaia:
-        if os.path.isdir(gaia):
-            # Healpix catalogs within a directory
-            t2 = make_healpix_objs(gaia, coord, radius=radius, rng=rng, **kwargs)
-        else:
-            t2 = make_gaia_stars(coord, radius=radius, rng=rng, **kwargs)
-        cat_table = table.vstack([t1, t2])
-    else:
-        t2 = make_stars(coord, radius=radius, rng=rng, n=int(nobj * 0.1),
-                        bandpasses=bandpasses)
-        t3 = make_stars(coord, radius=radius / 100, rng=rng, n=int(nobj * 0.1),
-                        bandpasses=bandpasses, truncation_radius=radius * 0.3)
-        cat_table = table.vstack([t1, t2, t3])
+    t2 = make_stars(coord, radius=radius, rng=rng, n=int(nobj * 0.1),
+                    bandpasses=bandpasses)
+    t3 = make_stars(coord, radius=radius / 100, rng=rng, n=int(nobj * 0.1),
+                    bandpasses=bandpasses, truncation_radius=radius * 0.3)
+    cat_table = table.vstack([t1, t2, t3])
 
     return cat_table
 
@@ -559,7 +547,6 @@ def make_healpix_objs(hp_dir,
     # Append additional healpix catalogs
     if len(hp_cone > 1):
         for hp_idx in hp_cone[1:]:
-            # hp_filename = hp_dir + f"/gaia-{hp_idx}.fits"
             hp_filename = hp_dir + f"/cat-{hp_idx}.fits"
             hp_table = table.Table.read(hp_filename)
             cat_table = table.vstack([cat_table, hp_table])
@@ -593,6 +580,43 @@ def make_healpix_objs(hp_dir,
     star_cat = rsim_gaia.gaia2romanisimcat(cat_table, date, fluxfields=bandpasses)
 
     return star_cat
+
+
+def read_one_healpix(filename,
+                     date=None,
+                     bandpasses=None,
+                     **kwargs
+                     ):
+    """Make a catalog of stars from a directory of Gaia catalog files, sorted by Healpix.
+    The files are assumed to be in FITS format.
+    Healpix parameters:
+        128 sides
+        nested order
+        Galactic frame
+
+    Parameters
+    ----------
+    hp_dir: string
+        Path to directory containing healpix files
+    date : astropy.time.Time
+        Optional argument to provide a date and time for stellar search
+    bandpasses : list[str]
+        List of names of bandpasses for which to generate fluxes.
+
+    Returns
+    -------
+    catalog : astropy.Table
+        Table for use with table_to_catalog to generate catalog for simulation.
+    """
+
+    # Open healpix file
+    cat_table = table.Table.read(filename)
+
+    # Check for RSIM Gaia catalog
+    if 'phot_g_mean_mag' in cat_table.colnames:
+        return rsim_gaia.gaia2romanisimcat(cat_table, date, fluxfields=bandpasses, **kwargs)
+    else:
+        return table.Table.read(cat_table, bandpasses)
 
 
 def make_stars(coord,
@@ -875,7 +899,7 @@ def table_to_catalog(table, bandpasses):
     return out
 
 
-def read_catalog(filename, bandpasses):
+def from_catalog(filename, coord, date=None, bandpasses=None, radius=parameters.WFS_FOV, **kwargs):
     """Read a catalog into a list of CatalogObjects.
 
     Catalog must be readable by astropy.table.Table.read(...) and contain
@@ -888,9 +912,62 @@ def read_catalog(filename, bandpasses):
     bandpasses : list[str]
         bandpasses for which fluxes are tabulated in the catalog
 
+    gaia : Bool or string
+        Flag to specify usage of stars from the Gaia catalog
+        or location of healpix files
+
     Returns
     -------
-    list[CatalogObject]
-        list of catalog objects in filename
+    cat : astropy.Table
+        Table for use with table_to_catalog to generate catalog for simulation.
     """
-    return table_to_catalog(table.Table.read(filename), bandpasses)
+    # Set defaults if needed
+    if bandpasses is None:
+        bandpasses = ["F062", "F087", "F106", "F129", "F146", "F158", "F184", "F213"]
+
+    if date is None:
+        date = astropy.time.Time('2026-01-01T00:00:00')
+
+    # Generate star catalogs
+    if filename == None:
+        # Call Gaia website for information
+        cat = make_gaia_stars(coord, radius=radius, date=date, **kwargs)
+    elif os.path.isdir(filename):
+        # Healpix catalogs within a directory
+
+        # Set parameters of Healpix
+        hp = HEALPix(nside=128, order='nested', frame=Galactic())
+
+        # Find Healpix
+        hp_cone = hp.cone_search_skycoord(util.skycoord(coord), radius=radius * u.deg)
+        log.info(f"\nXXX hp_cone = {hp_cone}")
+
+        # Create initial catalog
+        hp_filename = filename + f"/cat-{hp_cone[0]}.fits"
+        cat = read_one_healpix(hp_filename, date, bandpasses, **kwargs)
+
+        # Append additional healpix catalogs
+        if len(hp_cone > 1):
+            for hp_idx in hp_cone[1:]:
+                hp_filename = filename + f"/cat-{hp_idx}.fits"
+                log.info(f"\nXXX hp_filename = {hp_filename}")
+                hp_table = read_one_healpix(hp_filename, date, bandpasses, **kwargs)
+                cat = table.vstack([cat, hp_table])
+    else:
+        # Catalog file
+        cat = table.Table.read(filename)
+
+    # Remove bad entries
+    bandpass = [f for f in cat.dtype.names if f[0] == 'F']
+    bad = np.zeros(len(cat), dtype='bool')
+    for b in bandpass:
+        bad |= ~np.isfinite(cat[b])
+        if hasattr(cat[b], 'mask'):
+            bad |= cat[b].mask
+    cat = cat[~bad]
+    nbad = np.sum(bad)
+    if nbad > 0:
+        log.info(f'Removing {nbad} catalog entries with non-finite or '
+                'masked fluxes.')
+
+    return cat

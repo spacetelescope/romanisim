@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import os
 import argparse
 from copy import deepcopy
 import yaml
@@ -149,21 +149,6 @@ def main():
             if option not in ('pointing_file_name', 'debug', 'make_script') and \
                     value is not None:
                 options_dct[option] = value
-    else:
-        # Calculate center and extent to obtain catalog sources
-        ra_max = max(pointings['RA'])
-        ra_min = min(pointings['RA'])
-        dec_max = max(pointings['DEC'])
-        dec_min = min(pointings['DEC'])
-
-        ra_cen = (ra_max + ra_min) / 2
-        dec_cen = (dec_max + dec_min) / 2
-
-        radius = ( (ra_max - ra_cen) ** 2 + (dec_max - dec_cen) ** 2)**0.5 + parameters.WFS_FOV
-        coord = SkyCoord(ra_cen * u.deg, dec_cen * u.deg)
-
-        # Create catalog object
-        cat = ris.create_catalog(metadata=metadata, catalog_name=args.cat_file_name, coord=coord, radius=radius)
 
     # Initialize time offset
     time_offset = 0.0 * u.s
@@ -243,8 +228,9 @@ def main():
             else:
                 # RA & Dec
                 log.debug(f"float(entry['PA']) = {float(entry['PA'])}")
-                coord = SkyCoord(ra=float(entry['RA']) * u.deg, dec=float(entry['DEC']) * u.deg,
-                                 frame='icrs')
+                radius = parameters.WFS_FOV
+                coord = SkyCoord(ra=float(entry['RA']) * u.deg, dec=float(entry['DEC']) * u.deg, frame='icrs')
+
                 wcs.fill_in_parameters(metadata, coord, boresight=args.boresight,
                                        pa_aper=float(entry['PA']))
 
@@ -264,6 +250,10 @@ def main():
 
                 else:
                     persist = persistence.Persistence()
+
+                # Create catalog object
+                cat = ris.create_catalog(metadata=metadata, catalog_name=args.cat_file_name,
+                                         bandpasses=[bandpass], coord=coord, radius=radius)
 
                 # Set arguments to pass to image simulation
                 args.filename = output_file_name

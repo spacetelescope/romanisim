@@ -73,7 +73,8 @@ def test_table_catalog(tmp_path):
 
     tabpath = tmp_path / 'table.ecsv'
     table.write(tabpath)
-    newcat = catalog.read_catalog(tabpath, bands)
+    newtab = catalog.from_catalog(tabpath, bands)
+    newcat = catalog.table_to_catalog(newtab, bands)
     assert len(newcat) == len(cat)
     for c1, c2 in zip(cat, newcat):
         assert c1.sky_pos == c2.sky_pos
@@ -176,7 +177,7 @@ def test_cosmos_table_catalog(tmp_path):
 
 
 def test_make_gaia_stars(tmp_path):
-    """Test population of sources from GAIA catalog
+    """Test population of sources from Gaia catalog
     """
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.1
