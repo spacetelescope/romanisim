@@ -770,7 +770,7 @@ def simulate(metadata, objlist,
     for key in metadata.keys():
         meta[key].update(metadata[key])
 
-    util.add_more_metadata(meta)
+    util.add_more_metadata(meta, usecrds=usecrds)
 
     # Create Image model to track validation
     image_node = maker_utils.mk_level2_image()

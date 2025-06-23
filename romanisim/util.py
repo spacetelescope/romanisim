@@ -12,6 +12,10 @@ from romanisim import parameters, wcs, bandpass
 from romanisim.velocity_aberration import compute_va_effects
 from scipy import integrate
 
+import crds
+from crds import api
+import asdf
+
 __all__ = ["skycoord",
            "celestialcoord",
            "scalergb",
@@ -186,7 +190,7 @@ def random_points_at_radii(coord, radii, rng=None):
     return c1
 
 
-def add_more_metadata(metadata):
+def add_more_metadata(metadata, usecrds=False):
     """Fill out the metadata dictionary, modifying it in place.
 
     Parameters
@@ -204,26 +208,50 @@ def add_more_metadata(metadata):
     if 'guide_star' not in metadata.keys():
         metadata['guide_star'] = {}
     manum = metadata['exposure']['ma_table_number']
-    read_pattern = metadata['exposure'].get(
-        'read_pattern',
-        parameters.read_pattern[metadata['exposure']['ma_table_number']])
-    metadata['exposure']['read_pattern'] = read_pattern
-    openshuttertime = parameters.read_time * read_pattern[-1][-1]
-    offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
-                   end=openshuttertime * u.s)
-    starttime = metadata['exposure']['start_time']
-    if not isinstance(starttime, Time):
-        starttime = Time(starttime, format='isot')
-    for prefix, offset in offsets.items():
-        metadata['exposure'][f'{prefix}_time'] = Time((
-            starttime + offset).isot)
-    metadata['exposure']['nresultants'] = len(read_pattern)
-    metadata['exposure']['frame_time'] = parameters.read_time
-    metadata['exposure']['exposure_time'] = openshuttertime
-    metadata['exposure']['ma_table_id'] = f'sci{manum:04d}'
-    effexptime = parameters.read_time * (
-        np.mean(read_pattern[-1]) - np.mean(read_pattern[0]))
-    metadata['exposure']['effective_exposure_time'] = effexptime
+
+    if usecrds:
+        # Get the recommendation from the CRDS based on the date and the context
+        rec = crds.getrecommendations({'ROMAN.META.INSTRUMENT.NAME': 'wfi', 'ROMAN.META.EXPOSURE.START_TIME': meta['exposure']['start_time'].value}, observatory='roman')
+        context = api.get_default_context('roman')
+        matab_ref = rec['matable']
+        matab_file = api.dump_references(context, [matab_ref])
+
+        matab = asdf.open(matab_file[matab_ref])
+
+        metadata['exposure']['frame_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['frame_time']
+        metadata['exposure']['ma_table_id'] = f'sci{manum:04d}'
+        nresultants = len(metadata['exposure']['read_pattern'])
+        metadata['exposure']['nresultants'] = nresultants
+
+        if metadata['exposure']['truncated']:
+            metadata['exposure']['read_pattern'] = matab['roman']['science_tables'][f'SCI{manum:04}']['science_read_pattern'][:nresultants]
+            metadata['exposure']['exposure_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['accumulated_exposure_time'][:nresultants]  # Subtracting 1 from nresultants due to Python's 0-indexing
+            metadata['exposure']['effective_exposure_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['effective_exposure_time'][:nresultants]
+        else:
+            metadata['exposure']['read_pattern'] = matab['roman']['science_tables'][f'SCI{manum:04}']['science_read_pattern']
+            metadata['exposure']['exposure_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['accumulated_exposure_time'][-1]
+            metadata['exposure']['effective_exposure_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['effective_exposure_time'][-1]
+    else:
+        read_pattern = metadata['exposure'].get(
+            'read_pattern',
+            parameters.read_pattern[metadata['exposure']['ma_table_number']])
+        metadata['exposure']['read_pattern'] = read_pattern
+        openshuttertime = parameters.read_time * read_pattern[-1][-1]
+        offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
+                    end=openshuttertime * u.s)
+        starttime = metadata['exposure']['start_time']
+        if not isinstance(starttime, Time):
+            starttime = Time(starttime, format='isot')
+        for prefix, offset in offsets.items():
+            metadata['exposure'][f'{prefix}_time'] = Time((
+                starttime + offset).isot)
+        metadata['exposure']['nresultants'] = len(read_pattern)
+        metadata['exposure']['frame_time'] = parameters.read_time
+        metadata['exposure']['exposure_time'] = openshuttertime
+        metadata['exposure']['ma_table_id'] = f'sci{manum:04d}'
+        effexptime = parameters.read_time * (np.mean(read_pattern[-1]))        
+        metadata['exposure']['effective_exposure_time'] = round(effexptime, 4)
+
     if 'window_xstart' in metadata['guide_star']:
         metadata['guide_star']['window_xstop'] = (
             metadata['guide_star']['window_xstart'] + 16)
@@ -232,6 +260,8 @@ def add_more_metadata(metadata):
     if 'visit' not in metadata.keys():
         metadata['visit'] = dict()
     metadata['visit']['status'] = 'SUCCESSFUL'
+
+    # return metadata
 
 
 def update_pointing_and_wcsinfo_metadata(metadata, gwcs):
