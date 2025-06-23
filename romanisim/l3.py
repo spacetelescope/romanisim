@@ -330,8 +330,8 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     """
 
     # Create metadata object
-    mosaic_mdl = rdm.MosaicModel.create_fake_data()
-    meta = mosaic_mdl.meta
+    mosaic_node = WfiMosaic.create_fake_data()
+    meta = mosaic_node.meta
 
     # add romanisim defaults
     for key in romanisim.parameters.default_mosaic_parameters_dictionary.keys():
@@ -433,11 +433,11 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         var_rnoise = np.full(mosaic.array.shape, var_rnoise, np.float32)
     if not isinstance(var_poisson, np.ndarray):
         var_poisson = np.full(mosaic.array.shape, var_poisson, np.float32)
-    mosaic_mdl = make_l3(mosaic_mdl, mosaic, efftimes, var_poisson=var_poisson,
-                         var_rnoise=var_rnoise, context=context)
+    mosaic_node = make_l3(mosaic_node, mosaic, efftimes, var_poisson=var_poisson,
+                          var_rnoise=var_rnoise, context=context)
 
     log.info('Simulation complete.')
-    return mosaic_mdl._instance, extras
+    return mosaic_node, extras
 
 
 def get_pixscalefrac(wcs, shape):
