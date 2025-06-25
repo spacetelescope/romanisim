@@ -804,7 +804,7 @@ def table_to_catalog(table, bandpasses):
     return out
 
 
-def from_catalog(filename, coord, date=None, bandpasses=None, radius=parameters.WFS_FOV, **kwargs):
+def read_catalog(filename, coord, date=None, bandpasses=None, radius=parameters.WFS_FOV, **kwargs):
     """Read a catalog into a list of CatalogObjects.
 
     Catalog must be readable by astropy.table.Table.read(...) and contain

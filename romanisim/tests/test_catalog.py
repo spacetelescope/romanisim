@@ -73,7 +73,7 @@ def test_table_catalog(tmp_path):
 
     tabpath = tmp_path / 'table.ecsv'
     table.write(tabpath)
-    newtab = catalog.from_catalog(tabpath, bands)
+    newtab = catalog.read_catalog(tabpath, bands)
     newcat = catalog.table_to_catalog(newtab, bands)
     assert len(newcat) == len(cat)
     for c1, c2 in zip(cat, newcat):

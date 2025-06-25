@@ -175,10 +175,19 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
     else:
         # Set date
         if metadata:
-            date=metadata['exposure']['start_time']
+            # Level 1 or 2
+            if "exposure" in metadata:
+                date=metadata['exposure']['start_time']
+            else:
+                # Level 3
+                # date=metadata['basic']['time_mean_mjd']
+                date=time.Time(metadata['basic']['time_mean_mjd'], format='mjd')
         else:
             date=None
-        cat = catalog.from_catalog(catalog_name, coord, date=date, bandpasses=bandpasses)
+        log.info(f'XXX create_catalog coord = {coord}')
+        log.info(f'XXX create_catalog date = {date}')
+        log.info(f'XXX create_catalog type(date) = {type(date)}')
+        cat = catalog.read_catalog(catalog_name, coord, date=date, bandpasses=bandpasses)
 
     return cat
 
