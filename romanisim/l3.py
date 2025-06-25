@@ -321,7 +321,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
 
     Returns
     -------
-    mosaic_mdl : roman_datamodels model
+    mosaic_node : roman_datamodels WfiMosaic node
         simulated mosaic
     extras : dict
         Dictionary of additionally valuable quantities.  Includes at least
@@ -330,8 +330,8 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     """
 
     # Create metadata object
-    mosaic_mdl = rdm.MosaicModel.create_fake_data()
-    meta = mosaic_mdl.meta
+    mosaic_node = WfiMosaic.create_fake_data()
+    meta = mosaic_node.meta
 
     # add romanisim defaults
     for key in romanisim.parameters.default_mosaic_parameters_dictionary.keys():
@@ -433,12 +433,11 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         var_rnoise = np.full(mosaic.array.shape, var_rnoise, np.float32)
     if not isinstance(var_poisson, np.ndarray):
         var_poisson = np.full(mosaic.array.shape, var_poisson, np.float32)
-    mosaic_mdl = make_l3(mosaic_mdl, mosaic, efftimes, var_poisson=var_poisson,
-                         var_rnoise=var_rnoise, context=context)
+    mosaic_node = make_l3(mosaic_node, mosaic, efftimes, var_poisson=var_poisson,
+                          var_rnoise=var_rnoise, context=context)
 
     log.info('Simulation complete.')
-    # return mosaic, extras
-    return mosaic_mdl, extras
+    return mosaic_node, extras
 
 
 def get_pixscalefrac(wcs, shape):
@@ -685,11 +684,11 @@ def make_l3(mosaic_node, image, efftimes, var_poisson=None,
     context = (np.ones((1,) + mosaic.shape, dtype=np.uint32)
                if context is None else context)
 
-    mosaic_node.var_poisson = var_poisson.copy()
-    mosaic_node.var_rnoise = var_rnoise.copy()
-    mosaic_node.var_flat = var_flat.copy()
+    mosaic_node.var_poisson = var_poisson.copy().astype('f4')
+    mosaic_node.var_rnoise = var_rnoise.copy().astype('f4')
+    mosaic_node.var_flat = var_flat.copy().astype('f4')
     mosaic_node.err = np.sqrt(
-        var_poisson + var_rnoise + var_flat)
+        var_poisson + var_rnoise + var_flat).astype('f4')
     mosaic_node.context = context
 
     # Weight
@@ -772,7 +771,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
                     [0, 0, shape[0] - 1, shape[0] - 1]]
     ccorn = wcs.pixel_to_world(xcorn, ycorn)
     for i, corn in enumerate(ccorn):
-        metadata['wcsinfo']['ra_corn{i+1}'] = corn.ra.to(u.degree).value
-        metadata['wcsinfo']['dec_corn{i+1}'] = corn.dec.to(u.degree).value
+        metadata['wcsinfo'][f'ra_corn{i+1}'] = corn.ra.to(u.degree).value
+        metadata['wcsinfo'][f'dec_corn{i+1}'] = corn.dec.to(u.degree).value
     metadata['wcsinfo']['orientat_local'] = 0
     metadata['wcsinfo']['orientat'] = 0

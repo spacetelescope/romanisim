@@ -217,6 +217,10 @@ def test_sim_mosaic():
     # and mads aren't terribly right.
     # if I repeat this after only including the first source I get 1.004.
 
+    af = asdf.AsdfFile()
+    af.tree = {'roman': mosaic}
+    af.validate()
+
     # Add log entries and artifacts
     log.info('DMS219 successfully created mosaic file with sources rendered '
              'at correct locations with matching flux and added noise.')

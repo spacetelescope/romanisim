@@ -412,6 +412,8 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     nborder = parameters.nborder
     npix = galsim.roman.n_pix + 2 * nborder
     out = stnode.WfiScienceRaw.create_fake_data(shape=(len(resultants), npix, npix))
+    out['amp33'] = np.zeros((len(resultants), 4096, 128), dtype=out.amp33.dtype)
+
     if metadata is not None:
         out['meta'].update(metadata)
     extras = dict()

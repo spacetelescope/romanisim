@@ -111,8 +111,10 @@ def get_wcs(image, usecrds=True, distortion=None):
     # If sent a dictionary, create a temporary model for CRDS interface
     if (type(image) is not roman_datamodels.datamodels.ImageModel):
         image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data({"meta": image})
+        shape = (roman.n_pix, roman.n_pix)
     else:
         image_mod = image
+        shape = image.data.shape
 
     sca = int(image_mod.meta.instrument.detector[3:])
     date = astropy.time.Time(image_mod.meta.exposure.start_time)
@@ -139,7 +141,6 @@ def get_wcs(image, usecrds=True, distortion=None):
                        v3_ref=image_mod.meta.wcsinfo.v3_ref,
                        roll_ref=image_mod.meta.wcsinfo.roll_ref,
                        scale_factor=image_mod.meta.velocity_aberration.scale_factor)
-        shape = image_mod.data.shape
         wcs.bounding_box = ((-0.5, shape[-1] - 0.5), (-0.5, shape[-2] - 0.5))
         wcs = GWCS(wcs)
     else:
