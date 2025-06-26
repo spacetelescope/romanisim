@@ -836,6 +836,7 @@ def read_catalog(filename, coord, date=None, bandpasses=None, radius=parameters.
     # Generate star catalogs
     if filename == None:
         # Call Gaia website for information
+        log.info(f"\nXXX NO GAIA FILE")
         cat = make_gaia_stars(coord, radius=radius, date=date, **kwargs)
     elif os.path.isdir(filename):
         # Healpix catalogs within a directory
@@ -860,6 +861,7 @@ def read_catalog(filename, coord, date=None, bandpasses=None, radius=parameters.
                 cat = table.vstack([cat, hp_table])
     else:
         # Catalog file
+        log.info(f"\nXXX Gaia file provided")
         cat = table.Table.read(filename)
 
     # Remove bad entries
