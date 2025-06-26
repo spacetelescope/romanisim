@@ -196,7 +196,7 @@ def test_make_gaia_stars(tmp_path):
 
 
 def test_read_catalog(tmp_path):
-    """Test population of sources from Gaia catalog
+    """Test reading directory of healpix files of sources from Gaia catalog
     """
     cen = SkyCoord(ra=270.0 * u.deg, dec=66.0 * u.deg)
     radius = 0.05
@@ -204,16 +204,18 @@ def test_read_catalog(tmp_path):
     # Catalog from Gaia file
     gf_name = f"{Path(__file__).parent.parent}/data/gaia-270-66-2027-06-01.ecsv"
     gf_cat = catalog.read_catalog(
-        filename=gf_name, coord=cen, date=Time('2026-01-01T00:00:00'), bandpasses=OPTICAL_ELEMS, radius=radius
+        filename=gf_name, coord=cen, date=Time('2026-01-01T00:00:00'),
+        bandpasses=OPTICAL_ELEMS, radius=radius
     )
 
     # Catalog from healpix directory
     dir_name = f"{Path(__file__).parent.parent}/data"
     dir_cat = catalog.read_catalog(
-        filename=dir_name, coord=cen, date=Time('2026-01-01T00:00:00'), bandpasses=OPTICAL_ELEMS, radius=radius
+        filename=dir_name, coord=cen, date=Time('2026-01-01T00:00:00'),
+        bandpasses=OPTICAL_ELEMS, radius=radius
     )
 
-    # Trim catalogs to objects within radius
+    # Trim catalogs to objects within radius and sort them
     gf_skycoord = SkyCoord(
         ra=[c['ra'] * u.deg for c in gf_cat],
         dec=[c['dec'] * u.deg for c in gf_cat])
@@ -248,7 +250,8 @@ def test_read_catalog(tmp_path):
 
 @pytest.mark.parametrize("cosmos", [True, False])
 @pytest.mark.parametrize("gaia", [True, False])
-@pytest.mark.parametrize("filename", [None, Path(__file__).parent.parent / "data" /"COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits"])
+@pytest.mark.parametrize("filename", [None,
+                                      Path(__file__).parent.parent / "data" / "COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits"])
 @pytest.mark.parametrize("date", [None, Time('2026-01-01T00:00:00')])
 def test_full_table_catalog(cosmos, gaia, filename, date, tmp_path):
     """Test permutations of source population

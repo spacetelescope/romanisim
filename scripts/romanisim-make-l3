@@ -63,7 +63,6 @@ if __name__ == '__main__':
     center = util.celestialcoord(SkyCoord(ra=r * u.deg, dec=d * u.deg))
     twcs = wcs.create_tangent_plane_gwcs(
         (midpoint, midpoint), pixscale, center)
-    # cat = ris.create_catalog(catalog_name=args.catalog)
 
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     if args.date is not None:

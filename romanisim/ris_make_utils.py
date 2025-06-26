@@ -6,9 +6,7 @@ import os
 import pathlib
 import re
 import defusedxml.ElementTree
-import numpy as np
 import asdf
-from astropy import table
 from astropy import time
 from astropy import coordinates
 from astropy import units as u
@@ -21,7 +19,9 @@ from romanisim import parameters, log
 from romanisim.util import calc_scale_factor
 import romanisim
 
+
 NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}
+
 
 def merge_nested_dicts(dict1, dict2):
     """
@@ -177,16 +177,13 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         if metadata:
             # Level 1 or 2
             if "exposure" in metadata:
-                date=metadata['exposure']['start_time']
+                date = metadata['exposure']['start_time']
             else:
                 # Level 3
-                # date=metadata['basic']['time_mean_mjd']
-                date=time.Time(metadata['basic']['time_mean_mjd'], format='mjd')
+                date = time.Time(metadata['basic']['time_mean_mjd'], format='mjd')
         else:
-            date=None
-        log.info(f'XXX create_catalog coord = {coord}')
-        log.info(f'XXX create_catalog date = {date}')
-        log.info(f'XXX create_catalog type(date) = {type(date)}')
+            date = None
+
         cat = catalog.read_catalog(catalog_name, coord, date=date, bandpasses=bandpasses)
 
     return cat
@@ -363,12 +360,12 @@ def parse_apt_file(filename):
 
     keys = [(('ProgramInformation', 'Title'), ('program', 'title')),
             (('ProgramInformation', 'PrincipalInvestigator',
-                  'InvestigatorAddress', 'LastName'),
-                 ('program', 'pi_name')),
+              'InvestigatorAddress', 'LastName'),
+             ('program', 'pi_name')),
             (('ProgramInformation', 'ProgramCategory'),
-                 ('program', 'category')),
+             ('program', 'category')),
             (('ProgramInformation', 'ProgramCategorySubtype'),
-                 ('program', 'subcategory')),
+             ('program', 'subcategory')),
             (('ProgramInformation', 'ProgramID'), ('observation', 'program'))]
 
     def get_apt_key(tree, keypath):

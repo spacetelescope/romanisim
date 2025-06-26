@@ -39,11 +39,9 @@ def go(args):
     if args.radec is not None:
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
                          frame='icrs')
-        log.info(f'XXX rsim_make_im coord = {coord}')
         wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, pa_aper=args.roll)
     else:
         coord = None
-        log.info(f'XXX rsim_make_im coord = {coord}')
 
     rng = galsim.UniformDeviate(args.rng_seed)
 
