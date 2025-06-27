@@ -72,7 +72,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
     # Create Image canvas to add objects to
     if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
         sourcecountsall = galsim.ImageF(
-            l3_mos.data, wcs=romanisim.wcs.GWCS(l3_mos.meta.wcs),
+            np.array(l3_mos.data), wcs=romanisim.wcs.GWCS(l3_mos.meta.wcs),
             xmin=0, ymin=0)
     else:
         sourcecountsall = l3_mos
@@ -276,7 +276,7 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
 
 
 def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
-             metadata={}, 
+             metadata={},
              effreadnoise=None, sky=None, psf=None,
              bandpass=None, seed=None, rng=None, stpsf=True,
              **kwargs):
@@ -338,7 +338,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         meta[key].update(
             romanisim.parameters.default_mosaic_parameters_dictionary[key])
 
-    # add user-specified metadta
+    # add user-specified metadata
     romanisim.util.merge_dicts(meta, metadata)
 
     add_more_metadata(meta, efftimes, filter_name, wcs, shape, nexposures)
@@ -371,7 +371,8 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
             date = astropy.time.Time(date, format='mjd')
 
         mos_cent_pos = image.wcs.toWorld(image.true_center)
-        sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos, exptime=1)
+        sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos,
+                                      exptime=1, date=date.to_datetime())
         sky_level *= (1.0 + roman.stray_light_fraction)
         sky = image * 0
         image.wcs.makeSkyImage(sky, sky_level)
@@ -418,7 +419,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
 
     # Simulate mosaic cps
     mosaic, extras = simulate_cps(
-        image, filter_name, efftimes, objlist=catalog, psf=psf, 
+        image, filter_name, efftimes, objlist=catalog, psf=psf,
         sky=sky,
         effreadnoise=effreadnoise, bandpass=bandpass,
         rng=rng, seed=seed,
@@ -469,7 +470,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
                  xpos=None, ypos=None, coord=None, sky=0, bandpass=None,
                  effreadnoise=None, maggytoes=None, etomjysr=None,
                  rng=None, seed=None, ignore_distant_sources=10,):
-    """Simulate average MegaJankies per steradian in a single SCA.
+    """Simulate average MegaJanskies per steradian in a single SCA.
 
     Parameters
     ----------
