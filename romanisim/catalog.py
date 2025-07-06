@@ -33,7 +33,7 @@ F158_H_COEFF = 0.823395077391525
 F184_KS_COEFF = 0.3838145747397368
 
 # Bandpass filters
-BANDPASSES = ["F062", "F087", "F106", "F129", "F146", "F158", "F184", "F213"]
+BANDPASSES = set(romanisim.bandpass.galsim2roman_bandpass.values())
 
 
 @dataclasses.dataclass
@@ -872,7 +872,7 @@ def read_catalog(filename,
         cat = table.Table.read(filename)
 
     # Remove bad entries
-    bandpass = [f for f in cat.dtype.names if f[0] == 'F']
+    bandpass = [f for f in cat.dtype.names if f in BANDPASSES]
     bad = np.zeros(len(cat), dtype='bool')
     for b in bandpass:
         bad |= ~np.isfinite(cat[b])
