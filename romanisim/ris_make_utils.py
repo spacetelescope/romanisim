@@ -93,15 +93,17 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     meta['instrument']['optical_element'] = bandpass
     meta['exposure']['ma_table_number'] = ma_table_number
     if usecrds:
-        # Get the recommendation from the CRDS based on the date and the context
-        rec = crds.getrecommendations({'ROMAN.META.INSTRUMENT.NAME': 'wfi', 'ROMAN.META.EXPOSURE.START_TIME': meta['exposure']['start_time'].value}, observatory='roman')
         context = api.get_default_context('roman')
-        matab_ref = rec['matable']
-        matab_file = api.dump_references(context, [matab_ref])
-        matab = asdf.open(matab_file[matab_ref])
+        ref = crds.getreferences({'ROMAN.META.INSTRUMENT.NAME': 'wfi', 'ROMAN.META.EXPOSURE.START_TIME': meta['exposure']['start_time'].value}, reftypes=['matable'], context=context, observatory='roman')
+        matab_file = ref['matable']
+        matab = asdf.open(matab_file)
+
+        parameters.ma_table_reference = matab
+
         meta['exposure']['read_pattern'] = matab['roman']['science_tables'][f'SCI{ma_table_number:04}']['science_read_pattern']
     else:
         meta['exposure']['read_pattern'] = parameters.read_pattern[ma_table_number]
+
         
     if truncate is not None:
         meta['exposure']['read_pattern'] = meta['exposure']['read_pattern'][:truncate]
