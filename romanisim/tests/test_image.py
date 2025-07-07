@@ -149,14 +149,13 @@ def set_up_image_rendering_things():
 
 def central_stamp(im, sz):
     for s in im.shape:
-        if (s % 2) != 1:
-            raise ValueError('size must be odd')
-    if (sz % 2) != 1:
-        raise ValueError('sz must be odd')
+        if (s % 2) != (sz % 2):
+            raise ValueError('sizes must both be odd or even')
     center = im.shape[0] // 2
     szo2 = sz // 2
-    return im[center - szo2: center + szo2 + 1,
-              center - szo2: center + szo2 + 1]
+    odd = sz % 2
+    return im[center - szo2: center + szo2 + odd,
+              center - szo2: center + szo2 + odd]
 
 
 @pytest.mark.soctests
@@ -182,10 +181,12 @@ def test_image_rendering():
     # stpsf doesn't do distortion
     psfob = wfi.calc_psf(oversample=oversample, nlambda=1)
     psfim = psfob[1].data * counts
+    even = (psfim.shape[0] % 2) == 0
     # PSF from Stpsf
     im = galsim.Image(101, 101, scale=wfi.pixelscale, xmin=0, ymin=0)
     # also no distortion
-    image.add_objects_to_image(im, psfcatalog, [pos[0]], [pos[1]],
+    image.add_objects_to_image(im, psfcatalog,
+                               [pos[0] - even / 2], [pos[1] - even / 2],
                                impsfgray, flux_to_counts_factor=1,
                                filter_name=filter_name)
     # im has psf from romanisim.  psfim has psf from stpsf.  Now compare?
@@ -194,13 +195,16 @@ def test_image_rendering():
     # otherwise we expect perfection in the limit that the oversampling
     # in both make_psf and wfi.calc_psf becomes arbitrarily large?
     # object rendering also includes shot noise.
-    sz = 5
+    sz = 5 + ((psfim.shape[0] % 2) == 0)
     cenpsfim = central_stamp(psfim, sz)
-    cenim = central_stamp(im.array, sz)
+    imarr = im.array
+    if even:
+        imarr = imarr[:-1, :-1]
+    cenim = central_stamp(imarr, sz)
     uncertainty = np.sqrt(psfim)
     cenunc = central_stamp(uncertainty, sz)
 
-    # DMS214 - our PSF matches that from Stpsf
+    # DMS214 - our PSF matches that from STPSF
     assert np.max(np.abs((cenim - cenpsfim) / cenunc)) < 5
     log.info('DMS214: rendered PSF matches Stpsf')
 
