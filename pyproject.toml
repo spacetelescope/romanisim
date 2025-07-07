@@ -26,7 +26,7 @@ dependencies = [
     "gwcs >=0.22.1, <0.24.0",
     "jsonschema >=4.8",
     "numpy >=1.24",
-    "stpsf >=2.0.0",
+    "stpsf >=2.1.0",
     "Cython >=0.29.21",
 ]
 license-files = ["LICENSE"]
