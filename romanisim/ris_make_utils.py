@@ -6,9 +6,7 @@ import os
 import pathlib
 import re
 import defusedxml.ElementTree
-import numpy as np
 import asdf
-from astropy import table
 from astropy import time
 from astropy import coordinates
 from astropy import units as u
@@ -21,7 +19,9 @@ from romanisim import parameters, log
 from romanisim.util import calc_scale_factor
 import romanisim
 
+
 NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}
+
 
 def merge_nested_dicts(dict1, dict2):
     """
@@ -173,18 +173,18 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         cat = catalog.make_dummy_table_catalog(
             coord, bandpasses=bandpasses, nobj=nobj, rng=rng)
     else:
-        cat = table.Table.read(catalog_name)
-        bandpass = [f for f in cat.dtype.names if f[0] == 'F']
-        bad = np.zeros(len(cat), dtype='bool')
-        for b in bandpass:
-            bad |= ~np.isfinite(cat[b])
-            if hasattr(cat[b], 'mask'):
-                bad |= cat[b].mask
-        cat = cat[~bad]
-        nbad = np.sum(bad)
-        if nbad > 0:
-            log.info(f'Removing {nbad} catalog entries with non-finite or '
-                     'masked fluxes.')
+        # Set date
+        if metadata:
+            # Level 1 or 2
+            if "exposure" in metadata:
+                date = metadata['exposure']['start_time']
+            else:
+                # Level 3
+                date = time.Time(metadata['basic']['time_mean_mjd'], format='mjd')
+        else:
+            date = None
+
+        cat = catalog.read_catalog(catalog_name, coord, date=date, bandpasses=bandpasses)
 
     return cat
 
@@ -360,12 +360,12 @@ def parse_apt_file(filename):
 
     keys = [(('ProgramInformation', 'Title'), ('program', 'title')),
             (('ProgramInformation', 'PrincipalInvestigator',
-                  'InvestigatorAddress', 'LastName'),
-                 ('program', 'pi_name')),
+              'InvestigatorAddress', 'LastName'),
+             ('program', 'pi_name')),
             (('ProgramInformation', 'ProgramCategory'),
-                 ('program', 'category')),
+             ('program', 'category')),
             (('ProgramInformation', 'ProgramCategorySubtype'),
-                 ('program', 'subcategory')),
+             ('program', 'subcategory')),
             (('ProgramInformation', 'ProgramID'), ('observation', 'program'))]
 
     def get_apt_key(tree, keypath):

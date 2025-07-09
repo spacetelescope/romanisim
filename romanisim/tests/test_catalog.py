@@ -3,10 +3,11 @@ Unit tests for catalog functions.
 """
 
 import os
+import importlib.resources
 import pytest
 import numpy as np
 import galsim
-from pathlib import Path
+# from pathlib import Path
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -73,7 +74,8 @@ def test_table_catalog(tmp_path):
 
     tabpath = tmp_path / 'table.ecsv'
     table.write(tabpath)
-    newcat = catalog.read_catalog(tabpath, bands)
+    newtab = catalog.read_catalog(tabpath, bands)
+    newcat = catalog.table_to_catalog(newtab, bands)
     assert len(newcat) == len(cat)
     for c1, c2 in zip(cat, newcat):
         assert c1.sky_pos == c2.sky_pos
@@ -176,7 +178,7 @@ def test_cosmos_table_catalog(tmp_path):
 
 
 def test_make_gaia_stars(tmp_path):
-    """Test population of sources from GAIA catalog
+    """Test population of sources from Gaia catalog
     """
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.1
@@ -194,9 +196,64 @@ def test_make_gaia_stars(tmp_path):
         assert cat[0][bp] is not None
 
 
+def test_read_catalog(tmp_path):
+    """Test reading directory of healpix files of sources from Gaia catalog
+    """
+    cen = SkyCoord(ra=270.0 * u.deg, dec=66.0 * u.deg)
+    radius = 0.05
+
+    # Catalog from Gaia file
+    gf_name = str(importlib.resources.files('romanisim').joinpath('data/gaia-270-66-2027-06-01.ecsv'))
+    gf_cat = catalog.read_catalog(
+        filename=gf_name, coord=cen, date=Time('2026-01-01T00:00:00'),
+        bandpasses=OPTICAL_ELEMS, radius=radius
+    )
+
+    # Catalog from healpix directory
+    dir_name = str(importlib.resources.files('romanisim').joinpath('data'))
+    dir_cat = catalog.read_catalog(
+        filename=dir_name, coord=cen, date=Time('2026-01-01T00:00:00'),
+        bandpasses=OPTICAL_ELEMS, radius=radius
+    )
+
+    # Trim catalogs to objects within radius and sort them
+    gf_skycoord = SkyCoord(
+        ra=[c['ra'] * u.deg for c in gf_cat],
+        dec=[c['dec'] * u.deg for c in gf_cat])
+    gf_mask = cen.separation(gf_skycoord).to(u.deg).value < radius
+    gf_cat = gf_cat[gf_mask]
+    gf_cat.sort('ra')
+
+    dir_skycoord = SkyCoord(
+        ra=[c['ra'] * u.deg for c in dir_cat],
+        dec=[c['dec'] * u.deg for c in dir_cat])
+    dir_mask = cen.separation(dir_skycoord).to(u.deg).value < radius
+    dir_cat = dir_cat[dir_mask]
+    dir_cat.sort('ra')
+
+    # Both catalogs have the same number of objects,
+    # and that number is greater than 0
+    assert len(dir_cat) > 0
+    assert len(gf_cat) == len(dir_cat)
+
+    # The catalog objects are the same
+    gf_skycoord = SkyCoord(
+        ra=[c['ra'] * u.deg for c in gf_cat],
+        dec=[c['dec'] * u.deg for c in gf_cat])
+    dir_skycoord = SkyCoord(
+        ra=[c['ra'] * u.deg for c in dir_cat],
+        dec=[c['dec'] * u.deg for c in dir_cat])
+    assert np.allclose(gf_cat["ra"], dir_cat["ra"], rtol=1e-06)
+    assert np.allclose(gf_cat["dec"], dir_cat["dec"], rtol=1e-06)
+    for bp in OPTICAL_ELEMS:
+        assert np.allclose(gf_cat[bp], dir_cat[bp], rtol=1e-06)
+
+
 @pytest.mark.parametrize("cosmos", [True, False])
 @pytest.mark.parametrize("gaia", [True, False])
-@pytest.mark.parametrize("filename", [None, Path(__file__).parent.parent / "data" /"COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits"])
+@pytest.mark.parametrize("filename",
+    [None,
+     str(importlib.resources.files('romanisim').joinpath('data/COSMOS2020_CLASSIC_R1_v2.2_p3_Streamlined.fits'))])
 @pytest.mark.parametrize("date", [None, Time('2026-01-01T00:00:00')])
 def test_full_table_catalog(cosmos, gaia, filename, date, tmp_path):
     """Test permutations of source population
