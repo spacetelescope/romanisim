@@ -11,8 +11,7 @@ from galsim import roman
 from astropy import coordinates, table
 from astropy import units as u
 from astropy.io import fits
-from astropy_healpix import HEALPix
-from astropy.coordinates import Galactic
+import astropy_healpix
 import astropy.time
 from astroquery.gaia import Gaia
 from romanisim import gaia as rsim_gaia
@@ -496,11 +495,12 @@ def read_one_healpix(filename,
                      **kwargs
                      ):
     """Make a catalog of stars from a Gaia catalog files, sorted by Healpix.
+
     The files are assumed to be in FITS format.
     Healpix parameters:
-        128 sides
-        nested order
-        Galactic frame
+    128 sides
+    nested order
+    Galactic frame
 
     Parameters
     ----------
@@ -852,7 +852,7 @@ def read_catalog(filename,
         # Healpix catalogs within a directory
 
         # Set parameters of Healpix
-        hp = HEALPix(nside=128, order='nested', frame=Galactic())
+        hp = astropy_healpix.HEALPix(nside=128, order='nested', frame=coordinates.Galactic())
 
         # Find Healpix
         hp_cone = hp.cone_search_skycoord(util.skycoord(coord), radius=radius * u.deg)
