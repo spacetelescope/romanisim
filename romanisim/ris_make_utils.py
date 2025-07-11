@@ -322,8 +322,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
 
     pretend_spectral = getattr(args, 'pretend_spectral', None)
     if pretend_spectral is not None:
-        im['meta']['exposure']['type'] = (
-            'WFI_' + args.pretend_spectral.upper())
+        im['meta']['exposure']['type'] = 'WFI_SPECTRAL'
         im['meta']['instrument']['optical_element'] = (
             args.pretend_spectral.upper())
         gs = im['meta']['guide_star']
