@@ -67,7 +67,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
     """
     # Obtain optical element
     if filter_name is None:
-        filter_name = l3_mos.meta.basic.optical_element
+        filter_name = l3_mos.meta.instrument.optical_element
 
     # Create Image canvas to add objects to
     if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
@@ -144,7 +144,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         x, y = model.meta.wcs.numerical_inverse(cat['ra'].value, cat['dec'].value,
                                                 with_bounding_box=False)
 
-    filter_name = model.meta.basic.optical_element
+    filter_name = model.meta.instrument.optical_element
     cat = romanisim.catalog.table_to_catalog(cat, [filter_name])
 
     wcs = romanisim.wcs.GWCS(model.meta.wcs)
@@ -306,7 +306,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     sky : float or array_like
         Image or constant with sky and other backgrounds (MJy / sr).  If None, then
         sky will be generated from galsim's getSkyLevel for Roman for the
-        date provided in metadata[basic][time_mean_mjd].
+        date provided in metadata['coadd_info']['time_mean'].
     psf : galsim.Profile or None
         PSF for image
     bandpass : galsim.Bandpass
@@ -343,7 +343,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
 
     add_more_metadata(meta, efftimes, filter_name, wcs, shape, nexposures)
     meta['wcs'] = wcs
-    meta['basic']['optical_element'] = filter_name
+    meta['instrument']['optical_element'] = filter_name
 
     log.info('Simulating filter {0}...'.format(filter_name))
 
@@ -366,7 +366,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
 
     # Create sky for this mosaic, if not provided (in cps)
     if sky is None:
-        date = meta['basic']['time_mean_mjd']
+        date = meta['coadd_info']['time_mean']
         if not isinstance(date, astropy.time.Time):
             date = astropy.time.Time(date, format='mjd')
 
@@ -704,7 +704,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     """Fill in the L3 metadata for simulations.
 
     Updates the 'metadata' array in place.  Touches a number of fields in
-    metadata.basic, metadata.photometry, metadata.resample, metadata.wcsinfo
+    metadata.coadd_info, metadata.photometry, metadata.resample, metadata.wcsinfo
     and the metadata root.
 
     Parameters
@@ -723,56 +723,44 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
         number of exposures contributing to mosaic
     """
     maxtime = np.max(efftimes)
-    meantime = metadata['basic']['time_mean_mjd']
+    meantime = metadata['coadd_info']['time_mean'].mjd
     meanexptime = (efftimes if np.isscalar(efftimes) else
                    np.mean(efftimes[efftimes > 0]))
     # guesses at the first and last times; do not really make sense
     # for this kind of simulation
-    metadata['basic']['time_first_mjd'] = meantime - maxtime / 24 / 60 / 60 / 2
-    metadata['basic']['time_last_mjd'] = meantime + maxtime / 24 / 60 / 60 / 2
-    metadata['basic']['max_exposure_time'] = maxtime
-    metadata['basic']['mean_exposure_time'] = meanexptime
+    from astropy.time import Time
+    metadata['coadd_info']['time_first'] = Time(
+        meantime - maxtime / 24 / 60 / 60 / 2, format='mjd')
+    metadata['coadd_info']['time_last'] = Time(
+        meantime + maxtime / 24 / 60 / 60 / 2, format='mjd')
+    metadata['coadd_info']['max_exposure_time'] = maxtime
+    metadata['coadd_info']['exposure_time'] = meanexptime
     for step in ['flux', 'outlier_detection', 'skymatch', 'resample']:
         metadata['cal_step'][step] = 'COMPLETE'
-    metadata['basic']['individual_image_meta'] = None
+    metadata['coadd_info']['individual_image_meta'] = None
     metadata['model_type'] = 'WfiMosaic'
-    metadata['photometry']['conversion_microjanskys'] = (
-        (1e12 * (u.rad / u.arcsec) ** 2).to(u.dimensionless_unscaled))
-    metadata['photometry']['conversion_megajanskys'] = 1
 
     cenx, ceny = ((shape[1] - 1) / 2, (shape[0] - 1) / 2)
     c1 = wcs.pixel_to_world(cenx, ceny)
     c2 = wcs.pixel_to_world(cenx + 1, ceny)
     pscale = c1.separation(c2)
 
-    metadata['photometry']['pixelarea_steradians'] = (pscale ** 2).to(u.sr)
-    metadata['photometry']['pixelarea_arcsecsq'] = (
-        pscale.to(u.arcsec) ** 2)
-    metadata['photometry']['conversion_microjanskys_uncertainty'] = 0
-    metadata['photometry']['conversion_megajanskys_uncertainty'] = 0
     metadata['resample']['pixel_scale_ratio'] = (
         pscale.to(u.arcsec).value / romanisim.parameters.pixel_scale)
     metadata['resample']['pixfrac'] = 0
     # our simulations sort of imply idealized 0 droplet size
     metadata['resample']['pointings'] = nexposures
-    metadata['resample']['product_exposure_time'] = (
-        metadata['basic']['max_exposure_time'])
     xref, yref = wcs.world_to_pixel_values(
         metadata['wcsinfo']['ra_ref'], metadata['wcsinfo']['dec_ref'])
     metadata['wcsinfo']['x_ref'] = xref
     metadata['wcsinfo']['y_ref'] = yref
     metadata['wcsinfo']['rotation_matrix'] = [[1, 0], [0, 1]]
     metadata['wcsinfo']['pixel_scale'] = pscale.to(u.arcsec).value
-    metadata['wcsinfo']['pixel_scale_local'] = metadata['wcsinfo']['pixel_scale']
+    metadata['wcsinfo']['pixel_scale_ref'] = metadata['wcsinfo']['pixel_scale']
     metadata['wcsinfo']['s_region'] = romanisim.wcs.create_s_region(wcs, shape)
-    metadata['wcsinfo']['pixel_shape'] = shape
-    metadata['wcsinfo']['ra_center'] = c1.ra.to(u.degree).value
-    metadata['wcsinfo']['dec_center'] = c1.dec.to(u.degree).value
-    xcorn, ycorn = [[0, shape[1] - 1, shape[1] - 1, 0],
-                    [0, 0, shape[0] - 1, shape[0] - 1]]
-    ccorn = wcs.pixel_to_world(xcorn, ycorn)
-    for i, corn in enumerate(ccorn):
-        metadata['wcsinfo'][f'ra_corn{i+1}'] = corn.ra.to(u.degree).value
-        metadata['wcsinfo'][f'dec_corn{i+1}'] = corn.dec.to(u.degree).value
-    metadata['wcsinfo']['orientat_local'] = 0
-    metadata['wcsinfo']['orientat'] = 0
+    metadata['wcsinfo']['image_shape'] = shape
+    metadata['wcsinfo']['ra'] = c1.ra.to(u.degree).value
+    metadata['wcsinfo']['dec'] = c1.dec.to(u.degree).value
+    metadata['wcsinfo']['orientation_ref'] = 0
+    metadata['wcsinfo']['orientation'] = 0
+    metadata['wcsinfo']['projection'] = 'TAN'

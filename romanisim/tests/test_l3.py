@@ -29,8 +29,7 @@ def test_inject_sources_into_mosaic():
     rng_seed = 42
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
-    metadata['basic']['optical_element'] = filter_name
-    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
+    metadata['instrument']['optical_element'] = filter_name
 
     # Create WCS
     twcs = wcs.GWCS(wcs.get_mosaic_wcs(
@@ -145,7 +144,7 @@ def test_sim_mosaic():
 
     # Set metadata and capture filter
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
-    filter_name = metadata['basic']['optical_element']
+    filter_name = metadata['instrument']['optical_element']
 
     # Setting the SCA for proper flux calculations
     sca = parameters.default_sca
@@ -311,7 +310,7 @@ def test_simulate_vs_cps():
     wcs.fill_in_parameters(meta, coord)
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
-    metadata['basic']['optical_element'] = filter_name
+    metadata['instrument']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
     # Adding the detector information as the simulations now support all 18 detectors with their own throughput curves
@@ -385,12 +384,11 @@ def test_simulate_cps():
     # Create metadata
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
-    metadata['basic']['optical_element'] = filter_name
+    metadata['instrument']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     wcs.fill_in_parameters(metadata, coord)
-    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
 
     # Test empty image
     l3.simulate_cps(
@@ -485,10 +483,9 @@ def test_exptime_array():
     wcs.fill_in_parameters(meta, coord)
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
-    metadata['basic']['optical_element'] = filter_name
+    metadata['instrument']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
-    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
 
     # Set variable exposure time array
     exptime = np.ones((roman.n_pix, roman.n_pix))
