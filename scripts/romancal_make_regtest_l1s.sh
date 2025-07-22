@@ -15,19 +15,19 @@
 # but I haven't done anything here.
 
 # default image
-romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:00:00 --rng_seed 1 --drop-extra-dq r0000101001001001001_0001_{}_{bandpass}_uncal.asdf
+romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype crds --usecrds --ma_table_number 109 --date 2027-06-01T00:00:00 --rng_seed 1 --drop-extra-dq r0000101001001001001_0001_{}_{bandpass}_uncal.asdf
 # different location, different exposure
-romanisim-make-image --radec 270.00 66.01 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:05:00 --rng_seed 2 --drop-extra-dq r0000101001001001001_0002_{}_{bandpass}_uncal.asdf
+romanisim-make-image --radec 270.00 66.01 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype crds --usecrds --ma_table_number 109 --date 2027-06-01T00:05:00 --rng_seed 2 --drop-extra-dq r0000101001001001001_0002_{}_{bandpass}_uncal.asdf
 # SCA 10
-romanisim-make-image --radec 270.00 66.01 --level 1 --sca 10 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:05:00 --rng_seed 2 --drop-extra-dq r0000101001001001001_0002_{}_{bandpass}_uncal.asdf
+romanisim-make-image --radec 270.00 66.01 --level 1 --sca 10 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype crds --usecrds --ma_table_number 109 --date 2027-06-01T00:05:00 --rng_seed 2 --drop-extra-dq r0000101001001001001_0002_{}_{bandpass}_uncal.asdf
 # default spectroscopic image
-romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:10:00 --rng_seed 3 --drop-extra-dq r0000201001001001001_0001_{}_{bandpass}_uncal.asdf --pretend-spectral GRISM
+romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype crds --usecrds --ma_table_number 109 --date 2027-06-01T00:10:00 --rng_seed 3 --drop-extra-dq r0000201001001001001_0001_{}_{bandpass}_uncal.asdf --pretend-spectral GRISM
 # truncated image
-romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:15:00 --rng_seed 4 --drop-extra-dq r0000101001001001001_0003_{}_{bandpass}_uncal.asdf --truncate 6
+romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype crds --usecrds --ma_table_number 109 --date 2027-06-01T00:15:00 --rng_seed 4 --drop-extra-dq r0000101001001001001_0003_{}_{bandpass}_uncal.asdf --truncate 6
 # truncated spectroscopic image
-romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:20:00 --rng_seed 5 --drop-extra-dq r0000201001001001001_0003_{}_{bandpass}_uncal.asdf --truncate 6 --pretend-spectral GRISM
+romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype crds --usecrds --ma_table_number 109 --date 2027-06-01T00:20:00 --rng_seed 5 --drop-extra-dq r0000201001001001001_0003_{}_{bandpass}_uncal.asdf --truncate 6 --pretend-spectral GRISM
 
 # 16 resultant image
-romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --stpsf --usecrds --ma_table_number 110 --date 2027-06-01T00:25:00 --rng_seed 6 --drop-extra-dq r0000101001001001001_0004_{}_{bandpass}_uncal.asdf
+romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype crds --usecrds --ma_table_number 110 --date 2027-06-01T00:25:00 --rng_seed 6 --drop-extra-dq r0000101001001001001_0004_{}_{bandpass}_uncal.asdf
 # truncated spectroscopic image
-romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --stpsf --usecrds --ma_table_number 110 --date 2027-06-01T00:30:00 --rng_seed 7 --drop-extra-dq r0000201001001001001_0004_{}_{bandpass}_uncal.asdf --pretend-spectral GRISM
+romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype crds --usecrds --ma_table_number 110 --date 2027-06-01T00:30:00 --rng_seed 7 --drop-extra-dq r0000201001001001001_0004_{}_{bandpass}_uncal.asdf --pretend-spectral GRISM

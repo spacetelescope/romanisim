@@ -93,15 +93,18 @@ def main():
                         action='store_true',
                         help='Use CRDS for distortion map')
 
-    # Use CRDS stored PSFs
-    # Deprecated!
+    parser.add_argument('--psftype', nargs=1, type=str, default=None,
+                        choices=[None, 'crds', 'galsim', 'stpsf'],
+                        help=('Type of PSF generator to use.'
+                              ' If None and --usecrds, then "crds" will be used'
+                              ' otherwise "galsim" is used.'))
     parser.add_argument('-w', '--webbpsf',
                         action='store_true',
-                        help='Use stpsf for PSFs. (deprecated, use stpsf)')
+                        help='Use stpsf for PSFs. (deprecated, use `--psftype stpsf`)')
 
     parser.add_argument('--stpsf',
                         action='store_true',
-                        help='Use stpsf for PSFs.')
+                        help='Use stpsf for PSFs. (deprecated, use `--psftype stpsf`)')
 
     parser.add_argument('-f', '--force-ma-table-number', type=int, default=-1,
                         help='Force MA table number, ignoring file content.')
