@@ -110,9 +110,9 @@ def test_make_l2():
 def set_up_image_rendering_things():
     im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
     filter_name = 'F158'
-    impsfgray = psf.make_psf(1, filter_name, stpsf=True, chromatic=False,
+    impsfgray = psf.make_psf(1, filter_name, psftype='stpsf', chromatic=False,
                              nlambda=1)  # nlambda = 1 speeds tests
-    impsfchromatic = psf.make_psf(1, filter_name, stpsf=False,
+    impsfchromatic = psf.make_psf(1, filter_name, psftype=None,
                                   chromatic=True)
     bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
@@ -168,7 +168,7 @@ def test_image_rendering():
     filter_name = 'F158'
     sca = 1
     pos = [50, 50]
-    impsfgray = psf.make_psf(sca, filter_name, stpsf=True, chromatic=False,
+    impsfgray = psf.make_psf(sca, filter_name, psftype='stpsf', chromatic=False,
                              pix=pos, oversample=oversample, nlambda=1)
     counts = 100000
     fluxdict = {filter_name: counts}
@@ -447,9 +447,9 @@ def test_simulate_counts():
     meta = util.default_image_meta(filter_name='F158')
     wcs.fill_in_parameters(meta, coord)
     im1 = image.simulate_counts(meta, chromcat, usecrds=False,
-                                stpsf=False, ignore_distant_sources=100)
+                                psftype=None, ignore_distant_sources=100)
     im2 = image.simulate_counts(meta, graycat,
-                                usecrds=False, stpsf=True,
+                                usecrds=False, psftype='stpsf',
                                 ignore_distant_sources=100,
                                 psf_keywords=dict(nlambda=1))
     im1 = im1[0].array
@@ -493,10 +493,10 @@ def test_simulate():
     imdict['tabcatalog']['dec'] = center.dec.to(u.deg).value
     imdict['tabcatalog'][filter_name] = (
         imdict['tabcatalog'][filter_name] / abfluxdict[f'SCA{sca:02}'][filter_name])
-    l0 = image.simulate(meta, graycat, stpsf=True, level=0,
+    l0 = image.simulate(meta, graycat, psftype='stpsf', level=0,
                         usecrds=False, psf_keywords=dict(nlambda=1))
     l0tab = image.simulate(
-        meta, imdict['tabcatalog'], stpsf=True, level=0, usecrds=False,
+        meta, imdict['tabcatalog'], psftype='stpsf', level=0, usecrds=False,
         psf_keywords=dict(nlambda=1))
     # seed = 0 is special and means "don't actually use a seed."  Any other
     # choice of seed gives deterministic behavior
@@ -506,7 +506,7 @@ def test_simulate():
     # CRs are detected, except in a 100x100 region instead of a 4kx4k region;
     # i.e., there are 1600x too many CRs.  Fine for unit tests?
     rng = galsim.BaseDeviate(1)
-    l1 = image.simulate(meta, graycat, stpsf=True, level=1,
+    l1 = image.simulate(meta, graycat, psftype='stpsf', level=1,
                         crparam=dict(), usecrds=False, rng=rng,
                         psf_keywords=dict(nlambda=1))
     peakloc = np.nonzero(l0[0]['data'] == np.max(l0[0]['data']))
@@ -526,23 +526,23 @@ def test_simulate():
         af.write_to(os.path.join(artifactdir, 'dms218.asdf'))
 
     rng = galsim.BaseDeviate(1)
-    l1_nocr = image.simulate(meta, graycat, stpsf=True, level=1,
+    l1_nocr = image.simulate(meta, graycat, psftype='stpsf', level=1,
                              usecrds=False, crparam=None, rng=rng,
                              psf_keywords=dict(nlambda=1))
     assert np.all(l1[0].data >= l1_nocr[0].data)
     log.info('DMS221: Successfully added cosmic rays to an L1 image.')
-    l2 = image.simulate(meta, graycat, stpsf=True, level=2,
+    l2 = image.simulate(meta, graycat, psftype='stpsf', level=2,
                         usecrds=False, crparam=dict(),
                         psf_keywords=dict(nlambda=1))
     # throw in some CRs for fun
-    l2c = image.simulate(meta, chromcat, stpsf=False, level=2,
+    l2c = image.simulate(meta, chromcat, psftype=None, level=2,
                          usecrds=False)
     persist = persistence.Persistence()
     fluence = 30000
     persist.update(l0[0]['data'] * 0 + fluence, time.mjd - 100 / 60 / 60 / 24)
     # zap the whole frame, 100 seconds ago.
     rng = galsim.BaseDeviate(1)
-    l1p = image.simulate(meta, graycat, stpsf=True, level=1, usecrds=False,
+    l1p = image.simulate(meta, graycat, psftype='stpsf', level=1, usecrds=False,
                          persistence=persist, crparam=None, rng=rng,
                          psf_keywords=dict(nlambda=1))
     # the random number gets instatiated from the same seed, but the order in
@@ -597,7 +597,7 @@ def test_make_test_catalog_and_images():
         fn = str(fn)
     res = image.make_test_catalog_and_images(usecrds=False,
                                              galaxy_sample_file_name=fn,
-                                             stpsf=False,
+                                             psftype=None,
                                              filters=['Y106'])
     assert len(res) > 0
 
@@ -634,7 +634,7 @@ def test_reference_file_crds_match(level):
     rng = galsim.UniformDeviate(None)
     im, simcatobj = image.simulate(
         metadata, cat, usecrds=True,
-        stpsf=True, level=level,
+        psftype='stpsf', level=level,
         rng=rng, psf_keywords=dict(nlambda=1))
 
     # Confirm that CRDS keyword was updated
@@ -666,7 +666,7 @@ def test_inject_source_into_image():
                                            nobj=2000, rng=rng)
     # Create starting image
     im, simcatobj = image.simulate(
-        meta, cat, usecrds=False, stpsf=True, level=2,
+        meta, cat, usecrds=False, psftype='stpsf', level=2,
         rng=rng, psf_keywords=dict(nlambda=1),
         crparam=None)
 
@@ -753,7 +753,7 @@ def test_image_input(tmpdir):
     tab.meta['real_galaxy_catalog_filename'] = str(base_rgc_filename) + '.fits'
 
     # render the image
-    res = image.simulate(meta, tab, usecrds=False, stpsf=False)
+    res = image.simulate(meta, tab, usecrds=False, psftype=None, )
 
     # did we get all the flux?
     totflux = np.sum(res[0].data - np.median(res[0].data))
