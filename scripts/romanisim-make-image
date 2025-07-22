@@ -116,11 +116,16 @@ if __name__ == '__main__':
         'SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this mode '
         'to indicate where the detector number should be filled, e.g. l1_{}.asdf'))
     parser.add_argument('--usecrds', action='store_true',
-                        help='Use CRDS for distortion map')
+                        help='Use CRDS references.')
+    parser.add_argument('--psftype', nargs=1, type=str, default=None,
+                        choices=[None, 'crds', 'galsim', 'stpsf'],
+                        help=('Type of PSF generator to use.'
+                              ' If None and --usecrds, then "crds" will be used'
+                              ' otherwise "galsim" is used.'))
     parser.add_argument('--webbpsf', action='store_true',
-                        help='Use stpsf for PSF (deprecated, use stpsf)')
+                        help='Use stpsf for PSF (deprecated, use `--psftype stpsf`)')
     parser.add_argument('--stpsf', action='store_true',
-                        help='Use stpsf for PSF')
+                        help='Use stpsf for PSF (deprecated, use `--psftype stpsf`)')
     parser.add_argument('--truncate', type=int, default=None, help=(
         'If set, truncate the MA table at given number of resultants.'))
     parser.add_argument('--pretend-spectral', type=str, default=None, help=(
