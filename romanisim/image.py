@@ -495,7 +495,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 def simulate_counts(metadata, objlist,
                     rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
-                    stpsf=True,
+                    psftype=None,
                     darkrate=None, flat=None,
                     psf_keywords=dict()):
     """Simulate total electrons in a single SCA.
@@ -518,6 +518,9 @@ def simulate_counts(metadata, objlist,
         do not render sources more than this many pixels off edge of detector
     usecrds : bool
         use CRDS distortion map
+    psftype : One of [None, 'crds', 'galsim', 'stpsf]
+        How to determine the PSF. If None and `usecrds` then "crds" will be
+        used otherwise "galsim".
     darkrate : float or np.ndarray[float]
         dark rate image to use (electrons / s)
     flat : float or np.ndarray[float]
@@ -534,6 +537,8 @@ def simulate_counts(metadata, objlist,
     simcatobj : np.ndarray
         catalog of simulated objects in image
     """
+    if psftype is None:
+        psftype = 'crds' if usecrds else 'galsim'
 
     if 'read_pattern' in metadata['exposure']:
         read_pattern = metadata['exposure']['read_pattern']
@@ -564,7 +569,7 @@ def simulate_counts(metadata, objlist,
             and objlist[0].profile.spectral):
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
-                                 chromatic=chromatic, stpsf=stpsf,
+                                 chromatic=chromatic, psftype=psftype,
                                  variable=True, **psf_keywords)
     image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
@@ -732,7 +737,7 @@ def gather_reference_data(image_mod, usecrds=False):
 
 
 def simulate(metadata, objlist,
-             usecrds=True, stpsf=True, level=2, crparam=dict(),
+             usecrds=True, psftype=None, level=2, crparam=dict(),
              persistence=None, seed=None, rng=None,
              psf_keywords=dict(), extra_counts=None,
              **kwargs
@@ -756,8 +761,8 @@ def simulate(metadata, objlist,
         List of objects in the field to simulate
     usecrds : bool
         use CRDS to get reference files
-    stpsf : bool
-        use stpsf to generate PSF
+    psftype : One of [None, 'crds', 'galsim', 'stpsf]
+        How to determine the PSF.
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
         0 makes a special idealized total electrons image; these are only
@@ -836,7 +841,7 @@ def simulate(metadata, objlist,
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
-        stpsf=stpsf, flat=flat, psf_keywords=psf_keywords)
+        psftype=psftype, flat=flat, psf_keywords=psf_keywords)
 
     # If extra_counts is passed in, add directly to counts
     if extra_counts is not None:
@@ -883,7 +888,7 @@ def simulate(metadata, objlist,
 
 def make_test_catalog_and_images(
         seed=12345, sca=7, filters=None, nobj=1000,
-        usecrds=True, stpsf=True, galaxy_sample_file_name=None, **kwargs):
+        usecrds=True, psftype='stpsf', galaxy_sample_file_name=None, **kwargs):
     """This is a test routine that exercises many options but is not intended for
     general use."""
     log.info('Making catalog...')
@@ -902,7 +907,7 @@ def make_test_catalog_and_images(
     for filter_name in filters:
         metadata['instrument']['optical_element'] = 'F' + filter_name[1:]
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
-                      stpsf=stpsf, **kwargs)
+                      psftype=psftype, **kwargs)
         out[filter_name] = im
     return out
 
@@ -974,7 +979,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
 
 
 def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
-                           gain=None, stpsf=True):
+                           gain=None, psftype='stpsf'):
     """Inject sources into an L2 image.
 
     This routine allows sources to be injected into an existing L2 image.
@@ -1015,8 +1020,8 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         galsim random number generator to use
     gain: float [electron / DN]
         gain to use when converting simulated electrons to DN
-    stpsf: bool
-        if True, use Stpsf to model the PSF
+    psftype : One of [None, 'crds', 'galsim', 'stpsf]
+        How to determine the PSF.
 
     Returns
     -------
@@ -1043,7 +1048,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     if psf is None:
         psf = romanisim.psf.make_psf(
             sca, filter_name, wcs=wcs,
-            chromatic=False, stpsf=stpsf)
+            chromatic=False, psftype=psftype)
 
     if gain is None:
         gain = parameters.reference_data['gain']

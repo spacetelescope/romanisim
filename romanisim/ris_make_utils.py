@@ -309,11 +309,11 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
     persist : romanisim.persistence.Persistence
         Persistence object
     """
-
-    if getattr(args, 'webbpsf', False):
-        log.warning('Warning: webbpsf argument is deprecated, please use '
-                    '--stpsf instead.')
-        args.stpsf = args.webbpsf
+    if getattr(args, 'webbpsf', False) or getattr(args, 'stpsf', False):
+        log.warning('Warning: webbpsf and stpsf arguments are deprecated, please use '
+                    '"--psftype stpsf" instead.')
+        del args.stpsf
+        args.psftype = 'stpsf'
 
     filename = format_filename(args.filename, args.sca, bandpass=args.bandpass,
                                pretend_spectral=args.pretend_spectral)
@@ -321,7 +321,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
     # Simulate image
     im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
-        stpsf=args.stpsf, level=args.level, persistence=persist,
+        psftype=args.psftype, level=args.level, persistence=persist,
         rng=rng, **kwargs)
 
     # Create metadata for simulation parameter

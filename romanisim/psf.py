@@ -21,7 +21,7 @@ from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
 from romanisim import log
 
 
-def make_one_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
+def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
                  chromatic=False, oversample=4, extra_convolution=None, **kw):
     """Make a PSF profile for Roman at a specific detector location.
 
@@ -37,6 +37,8 @@ def make_one_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
     wcs : callable (optional)
         function giving mapping from pixels to sky for use in computing local
         scale of image for stpsf PSFs
+    psftype : One of ['crds', 'galsim', 'stpsf]
+        How to determine the PSF.
     pix : tuple (float, float)
         pixel location of PSF on focal plane
     oversample : int
@@ -56,7 +58,7 @@ def make_one_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
     pix = pix if pix is not None else (roman.n_pix // 2, roman.n_pix // 2)
     if wcs is None:
         log.warning('wcs is None; unlikely to get orientation of PSF correct.')
-    if not stpsf:
+    if psftype != 'stpsf':
         filter_name = roman2galsim_bandpass[filter_name]
         defaultkw = {'pupil_bin': 8}
         if chromatic:
@@ -125,7 +127,7 @@ def make_one_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
     return intimg
 
 
-def make_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
+def make_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
              chromatic=False, variable=False, extra_convolution=None, **kw):
     """Make a PSF profile for Roman.
 
@@ -141,6 +143,8 @@ def make_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
     wcs : callable (optional)
         function giving mapping from pixels to sky for use in computing local
         scale of image for stpsf PSFs
+    psftype : One of ['crds', 'galsim', 'stpsf]
+        How to determine the PSF.
     pix : tuple (float, float)
         pixel location of PSF on focal plane
     variable : bool
@@ -157,7 +161,7 @@ def make_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
         rendering scenes.
     """
     if not variable:
-        return make_one_psf(sca, filter_name, wcs=wcs, stpsf=stpsf,
+        return make_one_psf(sca, filter_name, wcs=wcs, psftype=psftype,
                             pix=pix, chromatic=chromatic,
                             extra_convolution=extra_convolution, **kw)
     elif pix is not None:
@@ -171,7 +175,7 @@ def make_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
         ul=[buf, roman.n_pix - buf], ur=[roman.n_pix - buf, roman.n_pix - buf])
     psfs = dict()
     for corner, pix in corners.items():
-        psfs[corner] = make_one_psf(sca, filter_name, wcs=wcs, stpsf=stpsf,
+        psfs[corner] = make_one_psf(sca, filter_name, wcs=wcs, psftype=psftype,
                                     pix=pix, chromatic=chromatic,
                                     extra_convolution=extra_convolution, **kw)
     return VariablePSF(corners, psfs)
