@@ -341,13 +341,13 @@ def make_cosmos_galaxies(coord,
     source_pert = np.ones(len(sim_ids))
     source_pert += ((0.2) * rng_numpy.normal(size=len(sim_ids)))
 
-    # Convert fluxes to Jankskys and normalize for zero-point
+    # Convert fluxes to maggies by converting to Jankskys and normalizing for zero-point
     for bandpass in bandpasses:
         # Perturb sources fluxes by 5% per bandwidth
         band_source_pert = ((0.05) * rng_numpy.normal(size=len(sim_ids)))
 
         # Convert fluxes to Jankskys, normalize for zero-point, and apply perturbations
-        out[bandpass] = sim_cat[f'FLUX_{bandpass}'] * (1 + source_pert + band_source_pert) / (3631 * 10**6)
+        out[bandpass] = sim_cat[f'FLUX_{bandpass}'].value * (1 + source_pert + band_source_pert) / (3631 * 10**6)
 
     # Return output table
     return out
