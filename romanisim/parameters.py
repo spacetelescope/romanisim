@@ -212,9 +212,10 @@ default_parameters_dictionary = {
 
 # Default metadata for level 3 mosaics
 default_mosaic_parameters_dictionary = {
-    'basic': {'time_mean_mjd': Time('2026-01-01T00:00:00').mjd,
-              'optical_element': 'F184',
-              },
+    'coadd_info': {'time_mean': Time('2026-01-01T00:00:00'),
+                   },
+    'instrument': {'optical_element': 'F184',
+                   },
     'wcsinfo': {'ra_ref': 270.0,
                 'dec_ref': 66.0,
                 },
