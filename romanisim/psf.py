@@ -37,7 +37,7 @@ def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     wcs : callable (optional)
         function giving mapping from pixels to sky for use in computing local
         scale of image for stpsf PSFs
-    psftype : One of ['crds', 'galsim', 'stpsf]
+    psftype : One of ['crds', 'galsim', 'stpsf']
         How to determine the PSF.
     pix : tuple (float, float)
         pixel location of PSF on focal plane
