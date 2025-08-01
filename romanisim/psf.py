@@ -261,11 +261,18 @@ def make_one_psf_stpsf(sca, filter_name, wcs=None, pix=None,
     wfi.filter = filter_name
     wfi.detector_position = pix
     psf = wfi.calc_psf(oversample=oversample, **kw)
+    intimg = psf_to_galsimimage(psf, wcs=wcs, pix=pix, oversample=oversample, pixelscale=wfi.pixelscale, extra_convolution=extra_convolution)
+    return intimg
+
+
+def psf_to_galsimimage(psf, wcs=None, pix=None, oversample=4, pixelscale=1., extra_convolution=None):
+    """Convert an STPSF/CRDS PSF profile to galsim.Image"""
+
     # stpsf doesn't do distortion
     # calc_psf gives something aligned with the pixels, but with
     # a constant pixel scale equal to wfi.pixelscale / oversample.
     # we need to get the appropriate rotated WCS that matches this
-    newscale = wfi.pixelscale / oversample
+    newscale = pixelscale / oversample
     if wcs is not None:
         local_jacobian = wcs.local(image_pos=galsim.PositionD(pix)).getMatrix()
         # angle of [du/dx, du/dy]
