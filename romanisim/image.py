@@ -20,7 +20,6 @@ import romanisim.psf
 import romanisim.persistence
 
 import roman_datamodels
-import roman_datamodels.maker_utils as maker_utils
 
 
 # galsim fluxes are in photons / cm^2 / s
@@ -760,8 +759,8 @@ def simulate(metadata, objlist,
                     'files from CRDS.  The WCS may be incorrect and up-to-date '
                     'calibration information will not be used.')
 
-    meta = maker_utils.mk_common_meta()
-    meta["photometry"] = maker_utils.mk_photometry()
+    image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
+    meta = image_mod.meta
     meta['wcs'] = None
 
     for key in parameters.default_parameters_dictionary.keys():
@@ -771,11 +770,6 @@ def simulate(metadata, objlist,
         meta[key].update(metadata[key])
 
     util.add_more_metadata(meta, usecrds=usecrds)
-
-    # Create Image model to track validation
-    image_node = maker_utils.mk_level2_image()
-    image_node['meta'] = meta
-    image_mod = roman_datamodels.datamodels.ImageModel(image_node)
 
     filter_name = image_mod.meta.instrument.optical_element
 
@@ -879,8 +873,8 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     """Wrap a galsim simulated image with ASDF/roman_datamodel metadata.
     """
 
-    out = maker_utils.mk_level2_image(
-        n_groups=len(metadata['exposure']['read_pattern']))
+    n_groups = len(metadata['exposure']['read_pattern'])
+    out = roman_datamodels.stnode.WfiImage.create_fake_data()
     # ephemeris contains a lot of angles that could be computed.
     # exposure contains
     #     ngroups, nframes, sca_number, gain_factor, integration_time,
@@ -917,6 +911,18 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     out['var_rnoise'] = slopevar_rn.value
     out['var_flat'] = slopevar_rn.value * 0
     out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
+    out['amp33'] = np.zeros((n_groups, 4096, 128), dtype=out.amp33.dtype)
+    for side in ('left', 'right', 'top', 'bottom'):
+        if side in ('left', 'right'):
+            shape = (n_groups, slope.shape[0] + 8, 4)
+        else:
+            shape = (n_groups, 4, slope.shape[1] + 8)
+        name = f'border_ref_pix_{side}'
+        out[name] = np.zeros(shape, dtype=out[name].dtype)
+
+        dq_name = f'dq_border_ref_pix_{side}'
+        out[dq_name] = np.zeros(shape[1:], dtype=out[dq_name].dtype)
+
     extras = dict()
     if persistence is not None:
         extras['persistence'] = persistence.to_dict()

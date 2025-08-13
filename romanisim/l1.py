@@ -408,11 +408,12 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
         including DQ images and persistence information.
     """
 
-    import roman_datamodels.maker_utils as maker_utils
+    from roman_datamodels import stnode
     nborder = parameters.nborder
     npix = galsim.roman.n_pix + 2 * nborder
-    out = maker_utils.mk_level1_science_raw(
-        shape=(len(resultants), npix, npix))
+    out = stnode.WfiScienceRaw.create_fake_data(shape=(len(resultants), npix, npix))
+    out['amp33'] = np.zeros((len(resultants), 4096, 128), dtype=out.amp33.dtype)
+
     if metadata is not None:
         out['meta'].update(metadata)
     extras = dict()

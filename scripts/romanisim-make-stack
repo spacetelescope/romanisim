@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import os
 import argparse
 from copy import deepcopy
 import yaml
@@ -32,7 +32,7 @@ def main():
                         type=str,
                         metavar='object_table.csv',
                         help='Object catalog file for wcs matching (csv)')
-    
+
     # Create script making argument
     parser.add_argument('-a', "--apt",
                         type=str,
@@ -43,10 +43,10 @@ def main():
     parser.add_argument('-b', '--boresight',
                         action='store_true',
                         help=('RA & Dec specifies location of boresight, not center of WFI.'))
-    
+
     # Use config file to override metadata or values in default parameters file
-    parser.add_argument('-c', '--config', 
-                        type=str, 
+    parser.add_argument('-c', '--config',
+                        type=str,
                         help='Input parameter override file (yaml)',
                         default=None)
 
@@ -69,7 +69,7 @@ def main():
                         default=None,
                         help='Filename to output list of romanisim calls (sims.script) instead of '
                              'making simulation files (e.g. for cluster usage).')
-    
+
     # Persistence
     parser.add_argument('-p', '--persistence',
                         action='store_true',
@@ -103,7 +103,7 @@ def main():
                         action='store_true',
                         help='Use stpsf for PSFs.')
 
-    Parser.add_argument('-f', '--force-ma-table-number', type=int, default=-1,
+    parser.add_argument('-f', '--force-ma-table-number', type=int, default=-1,
                         help='Force MA table number, ignoring file content.')
 
     args = parser.parse_args()
@@ -115,12 +115,12 @@ def main():
                 "preparation of ROSES proposals is not advised.  Other "
                 "packages like galsim's roman package or STIPS may better "
                 "serve such purposes.")
-    
+
     if args.config is not None:
         # Open and parse overrides file
         with open(args.config, "r") as config_file:
             config = yaml.safe_load(config_file)
-            combo_dict = parameters.__dict__ 
+            combo_dict = parameters.__dict__
             ris.merge_nested_dicts(combo_dict, config)
             parameters.__dict__.update(combo_dict)
     elif args.usecrds:
@@ -134,6 +134,8 @@ def main():
     # Create random number distribution
     rng = galsim.UniformDeviate(args.rng_seed)
 
+    # Open csv table pointing file
+    pointings = Table.read(args.pointing_file_name, comment="#", delimiter=" ")
 
     # If creating a script, create files
     if args.make_script:
@@ -147,10 +149,6 @@ def main():
             if option not in ('pointing_file_name', 'debug', 'make_script') and \
                     value is not None:
                 options_dct[option] = value
-    else:
-        # Create catalog object
-        cat = ris.create_catalog(metadata=metadata, catalog_name=args.cat_file_name)
-
 
     # Initialize time offset
     time_offset = 0.0 * u.s
@@ -162,12 +160,11 @@ def main():
     if args.persistence:
         previous_file_name = {}
 
-    # Open csv table pointing file    
-    pointings = Table.read(args.pointing_file_name, comment="#", delimiter=" ")
-
     apt_metadata = None if not args.apt else ris.parse_apt_file(args.apt)
 
     program = '00001' if apt_metadata is None else apt_metadata['observation']['program']
+
+    apt_metadata['observation']['program'] = int(apt_metadata['observation']['program'])
 
     # Loop over pointings
     for entry_idx, entry in enumerate(pointings):
@@ -231,8 +228,9 @@ def main():
             else:
                 # RA & Dec
                 log.debug(f"float(entry['PA']) = {float(entry['PA'])}")
-                coord = SkyCoord(ra=float(entry['RA']) * u.deg, dec=float(entry['DEC']) * u.deg,
-                                 frame='icrs')
+                radius = parameters.WFS_FOV
+                coord = SkyCoord(ra=float(entry['RA']) * u.deg, dec=float(entry['DEC']) * u.deg, frame='icrs')
+
                 wcs.fill_in_parameters(metadata, coord, boresight=args.boresight,
                                        pa_aper=float(entry['PA']))
 
@@ -253,7 +251,16 @@ def main():
                 else:
                     persist = persistence.Persistence()
 
+                # Create catalog object
+                cat = ris.create_catalog(metadata=metadata, catalog_name=args.cat_file_name,
+                                         bandpasses=[bandpass], coord=coord, radius=radius)
+
+                # Set arguments to pass to image simulation
                 args.filename = output_file_name
+                args.bandpass = bandpass
+                args.pretend_spectral = None
+
+                # Simulate image files
                 ris.simulate_image_file(args, metadata, cat, rng, persist)
 
             # Update persistence file if applicable

@@ -68,5 +68,5 @@ def gaia2romanisimcat(gaiacat, date, refepoch=2016.0, boost_parallax=1,
     outcat['pa'] = -1
     outcat['ba'] = -1
     for field in fluxfields:
-        outcat[field] = 10. ** (-gaiacat['phot_g_mean_mag'] / 2.5)
+        outcat[field] = 10. ** (-gaiacat['phot_g_mean_mag'].value / 2.5)
     return outcat

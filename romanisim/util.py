@@ -11,6 +11,7 @@ import gwcs as gwcsmod
 from romanisim import parameters, wcs, bandpass
 from romanisim.velocity_aberration import compute_va_effects
 from scipy import integrate
+from collections.abc import Mapping
 
 import crds
 from crds import api
@@ -576,7 +577,7 @@ def merge_dicts(a, b):
         a, mutated to contain keys from b.
     """
     for key in b:
-        if key in a and isinstance(a[key], dict) and isinstance(b[key], dict):
+        if key in a and isinstance(a[key], Mapping) and isinstance(b[key], Mapping):
             merge_dicts(a[key], b[key])
         else:
             a[key] = b[key]

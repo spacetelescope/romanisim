@@ -13,7 +13,7 @@ from astropy import table
 from astropy.stats import mad_std
 import asdf
 import pytest
-import roman_datamodels.maker_utils as maker_utils
+from roman_datamodels import datamodels as rdm
 import romanisim.bandpass
 from galsim import roman
 from astropy.coordinates import SkyCoord
@@ -29,8 +29,7 @@ def test_inject_sources_into_mosaic():
     rng_seed = 42
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
-    metadata['basic']['optical_element'] = filter_name
-    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
+    metadata['instrument']['optical_element'] = filter_name
 
     # Create WCS
     twcs = wcs.GWCS(wcs.get_mosaic_wcs(
@@ -53,7 +52,7 @@ def test_inject_sources_into_mosaic():
     g4 = galsim.GaussianDeviate(rng_seed, mean=meanflux, sigma=0.10 * meanflux)
 
     # Create level 3 mosaic model
-    l3_mos = maker_utils.mk_level3_mosaic(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
+    l3_mos = rdm.MosaicModel.create_fake_data(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
     l3_mos['meta']['wcs'] = twcs._wcs
 
     # Update metadata in the l3 model
@@ -145,7 +144,7 @@ def test_sim_mosaic():
 
     # Set metadata and capture filter
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
-    filter_name = metadata['basic']['optical_element']
+    filter_name = metadata['instrument']['optical_element']
 
     # Setting the SCA for proper flux calculations
     sca = parameters.default_sca
@@ -216,6 +215,10 @@ def test_sim_mosaic():
     # a substantial number of source pixels have flux, so the simple medians
     # and mads aren't terribly right.
     # if I repeat this after only including the first source I get 1.004.
+
+    af = asdf.AsdfFile()
+    af.tree = {'roman': mosaic}
+    af.validate()
 
     # Add log entries and artifacts
     log.info('DMS219 successfully created mosaic file with sources rendered '
@@ -307,7 +310,7 @@ def test_simulate_vs_cps():
     wcs.fill_in_parameters(meta, coord)
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
-    metadata['basic']['optical_element'] = filter_name
+    metadata['instrument']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
     # Adding the detector information as the simulations now support all 18 detectors with their own throughput curves
@@ -381,12 +384,11 @@ def test_simulate_cps():
     # Create metadata
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
-    metadata['basic']['optical_element'] = filter_name
+    metadata['instrument']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     wcs.fill_in_parameters(metadata, coord)
-    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
 
     # Test empty image
     l3.simulate_cps(
@@ -481,10 +483,9 @@ def test_exptime_array():
     wcs.fill_in_parameters(meta, coord)
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
-    metadata['basic']['optical_element'] = filter_name
+    metadata['instrument']['optical_element'] = filter_name
     metadata['wcsinfo']['ra_ref'] = 270
     metadata['wcsinfo']['dec_ref'] = 66
-    metadata['basic']['detector'] = parameters.default_parameters_dictionary['instrument']['detector']
 
     # Set variable exposure time array
     exptime = np.ones((roman.n_pix, roman.n_pix))
