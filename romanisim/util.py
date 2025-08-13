@@ -13,10 +13,6 @@ from romanisim.velocity_aberration import compute_va_effects
 from scipy import integrate
 from collections.abc import Mapping
 
-import crds
-from crds import api
-import asdf
-
 __all__ = ["skycoord",
            "celestialcoord",
            "scalergb",
@@ -214,8 +210,7 @@ def add_more_metadata(metadata, usecrds=False):
     nresultants = len(metadata['exposure']['read_pattern'])
     metadata['exposure']['nresultants'] = nresultants
 
-
-    if parameters.ma_table_reference != None:
+    if getattr(parameters, 'ma_table_reference', None) :
         matab = parameters.ma_table_reference
     
     if usecrds:
