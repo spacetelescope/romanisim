@@ -210,7 +210,7 @@ def add_more_metadata(metadata, usecrds=False):
     nresultants = len(metadata['exposure']['read_pattern'])
     metadata['exposure']['nresultants'] = nresultants
 
-    if getattr(parameters, 'ma_table_reference', None) :
+    if getattr(parameters, 'ma_table_reference', None):
         matab = parameters.ma_table_reference
     
     if usecrds:
