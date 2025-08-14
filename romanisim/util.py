@@ -207,9 +207,6 @@ def add_more_metadata(metadata, usecrds=False):
     manum = metadata['exposure']['ma_table_number']
     metadata['exposure']['ma_table_id'] = f'SCI{manum:04d}'
 
-    nresultants = len(metadata['exposure']['read_pattern'])
-    metadata['exposure']['nresultants'] = nresultants
-
     if getattr(parameters, 'ma_table_reference', None):
         matab = parameters.ma_table_reference
     
@@ -234,6 +231,7 @@ def add_more_metadata(metadata, usecrds=False):
         metadata['exposure']['exposure_time'] = round(openshuttertime, 4)
         effexptime = parameters.read_time * (np.mean(read_pattern[-1]))        
         metadata['exposure']['effective_exposure_time'] = round(effexptime, 4)
+    metadata['exposure']['nresultants'] = len(read_pattern)
 
     offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
                 end=openshuttertime * u.s)
