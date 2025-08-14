@@ -570,7 +570,7 @@ def simulate_counts(metadata, objlist,
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
                                  chromatic=chromatic, psftype=psftype,
-                                 variable=True, **psf_keywords)
+                                 variable=True, date=date, **psf_keywords)
     image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
