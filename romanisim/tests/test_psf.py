@@ -31,7 +31,8 @@ def test_make_psf():
     psfs.append(psf.make_psf(6, 'F184', pix=(1000, 1000), psftype='stpsf',
                              **pkw))
     psfs.append(psf.make_psf(7, 'F129', psftype='stpsf', wcs=FakeWCS(), **pkw))
-    chromatic = [False] * 7
+    psfs.append(psf.make_psf(8, 'F087', psftype='crds', **pkw))
+    chromatic = [False] * 8
     chromatic[3] = True
     bandpass = galsim.roman.getBandpasses(AB_zeropoint=True)['H158']
     vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
