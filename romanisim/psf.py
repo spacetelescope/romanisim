@@ -105,7 +105,7 @@ def get_gridded_psf_model(psf_ref_model):
     meta["grid_xypos"] = position_list
     meta["oversampling"] = oversample
     nd = NDData(psf_images, meta=meta)
-    model = GriddedPSFModel(nd)
+    model = GriddedPSFModel(nd, fill_value=None)
 
     return model
 
