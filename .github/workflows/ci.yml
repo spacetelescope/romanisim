@@ -25,6 +25,11 @@ jobs:
     with:
       envs: |
         - linux: check-style
+  check:
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
+    with:
+      envs: |
+        - linux: check-style
   latest_data_cache:
     uses: ./.github/workflows/retrieve_cache.yml
     with:
