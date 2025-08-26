@@ -1,4 +1,4 @@
-name: CI
+name: tests
 
 on:
   push:
@@ -20,23 +20,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@28e947497bed4d6ec3fa1d66d198e95a1d17bc63  # v2.2.1
-    with:
-      envs: |
-        - linux: check-style
-  check:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
-    with:
-      envs: |
-        - linux: check-style
   latest_data_cache:
     uses: ./.github/workflows/retrieve_cache.yml
     with:
       cache_path: /tmp/data
   test:
     needs: [ latest_data_cache ]
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@28e947497bed4d6ec3fa1d66d198e95a1d17bc63  # v2.2.1
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
     with:
       libraries: |
         apt:
