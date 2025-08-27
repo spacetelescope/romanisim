@@ -21,7 +21,7 @@ dependencies = [
   "defusedxml >=0.5.0",
   "galsim >=2.5.1",
   # "roman_datamodels>=0.26.0,<0.27.0",
-  "roman_datamodels",
+  "roman_datamodels>=0.27.0",
   "gwcs >=0.25.0",
   "jsonschema >=4.8",
   "numpy >1.26",
