@@ -111,6 +111,8 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     else:
         meta['exposure']['truncated'] = False
 
+    meta['exposure']['nresultants'] = len(meta['exposure']['read_pattern'])
+
     # Velocity aberration
     if scale_factor <= 0.:
         scale_factor = calc_scale_factor(meta['exposure']['start_time'], meta['wcsinfo']['ra_ref'], meta['wcsinfo']['dec_ref'])

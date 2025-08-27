@@ -210,14 +210,15 @@ def add_more_metadata(metadata, usecrds=False):
     if getattr(parameters, 'ma_table_reference', None):
         matab = parameters.ma_table_reference
 
-    # read_pattern in the metadata came updated from set_metadata in ris_make_utils.py
-    read_pattern = metadata['exposure'].get('read_pattern')
-    nresultants = len(read_pattern)
-    metadata['exposure']['nresultants'] = nresultants
 
     if usecrds:
         metadata['exposure']['frame_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['frame_time']
 
+        # nrsultant in the metadata is defined from set_metadata in ris_make_utils.py
+        nresultants = metadata['exposure']['nresultants']
+        read_pattern = metadata['exposure'].get(
+            'read_pattern',
+            matab['roman']['science_tables'][f'SCI{manum:04}']['science_read_pattern'][nresultants-1])
         openshuttertime = metadata['exposure']['frame_time'] * read_pattern[-1][-1]
 
         metadata['exposure']['exposure_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['accumulated_exposure_time'][nresultants-1]
@@ -225,6 +226,9 @@ def add_more_metadata(metadata, usecrds=False):
     else:
         metadata['exposure']['frame_time'] = parameters.read_time
 
+        read_pattern = metadata['exposure'].get(
+            'read_pattern',
+            parameters.read_pattern[metadata['exposure']['ma_table_number']])
         openshuttertime = parameters.read_time * read_pattern[-1][-1]
 
         metadata['exposure']['exposure_time'] = round(openshuttertime, 4)
