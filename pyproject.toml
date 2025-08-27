@@ -24,9 +24,9 @@ dependencies = [
     "galsim >=2.5.1",
     # "roman_datamodels>=0.26.0,<0.27.0",
     "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
-    "gwcs >=0.22.1, <0.24.0",
+    "gwcs >=0.25.0",
     "jsonschema >=4.8",
-    "numpy >=1.25",
+    "numpy >1.26",
     "stpsf >=2.1.0",
     "Cython >=0.29.21",
 ]
