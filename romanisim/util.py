@@ -210,19 +210,25 @@ def add_more_metadata(metadata, usecrds=False):
     if getattr(parameters, 'ma_table_reference', None):
         matab = parameters.ma_table_reference
 
+    if matab is None and usecrds:
+        raise ValueError('ma table reference file is not loaded!')
+
 
     if usecrds:
-        metadata['exposure']['frame_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['frame_time']
+        tmatab = matab['roman']['science_tables'][f'SCI{manum:04}']
+        metadata['exposure']['frame_time'] = tmatab['frame_time']
 
         # nrsultant in the metadata is defined from set_metadata in ris_make_utils.py
         nresultants = metadata['exposure']['nresultants']
         read_pattern = metadata['exposure'].get(
             'read_pattern',
-            matab['roman']['science_tables'][f'SCI{manum:04}']['science_read_pattern'][nresultants-1])
+            tmatab['science_read_pattern'][nresultants-1])
         openshuttertime = metadata['exposure']['frame_time'] * read_pattern[-1][-1]
 
-        metadata['exposure']['exposure_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['accumulated_exposure_time'][nresultants-1]
-        metadata['exposure']['effective_exposure_time'] = matab['roman']['science_tables'][f'SCI{manum:04}']['effective_exposure_time'][nresultants-1]
+        metadata['exposure']['exposure_time'] = (
+            tmatab['accumulated_exposure_time'][nresultants - 1])
+        metadata['exposure']['effective_exposure_time'] = (
+            tmatab['effective_exposure_time'][nresultants - 1])
     else:
         metadata['exposure']['frame_time'] = parameters.read_time
 
