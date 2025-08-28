@@ -57,14 +57,14 @@ repos:
     rev: 24.8.0
     hooks:
       - id: towncrier-check
-  # # format YAML and Markdown
-  # - repo: https://github.com/rbubley/mirrors-prettier
-  #   rev: v3.6.2
-  #   hooks:
-  #     - id: prettier
-  #       types_or:
-  #         - yaml
-  #         - markdown
+  # format YAML and Markdown
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.6.2
+    hooks:
+      - id: prettier
+        types_or:
+          - yaml
+          - markdown
   # # format TOML
   # - repo: https://github.com/ComPWA/taplo-pre-commit
   #   rev: v0.9.3

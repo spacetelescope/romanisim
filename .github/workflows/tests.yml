@@ -4,16 +4,16 @@ on:
   push:
     branches:
       - main
-      - '*.x'
+      - "*.x"
     tags:
-      - '*'
+      - "*"
   pull_request:
     branches:
       - main
   schedule:
     # Weekly Monday 9AM build
     # * is a special character in YAML so you have to quote this string
-    - cron: '0 9 * * 0'
+    - cron: "0 9 * * 0"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   check:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b # v2.1.0
     with:
       envs: |
         - linux: check-style
@@ -30,8 +30,8 @@ jobs:
     with:
       cache_path: /tmp/data
   test:
-    needs: [ latest_data_cache ]
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
+    needs: [latest_data_cache]
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b # v2.1.0
     with:
       libraries: |
         apt:
