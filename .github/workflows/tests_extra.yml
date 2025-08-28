@@ -16,6 +16,8 @@ jobs:
   latest_data_cache:
     if: (github.repository == 'spacetelescope/romanisim' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run extra tests')))
     uses: ./.github/workflows/retrieve_cache.yml
+    with:
+      cache_path: /tmp/data
   test:
     if: (github.repository == 'spacetelescope/romanisim' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run extra tests')))
     needs: [latest_data_cache]
