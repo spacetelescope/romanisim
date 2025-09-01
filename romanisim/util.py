@@ -207,6 +207,7 @@ def add_more_metadata(metadata, usecrds=False):
     manum = metadata['exposure']['ma_table_number']
     metadata['exposure']['ma_table_id'] = f'SCI{manum:04d}'
 
+    matab = None
     if getattr(parameters, 'ma_table_reference', None):
         matab = parameters.ma_table_reference
 
