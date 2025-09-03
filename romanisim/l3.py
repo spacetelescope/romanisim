@@ -4,6 +4,7 @@ Based on galsim's implementation of Roman image simulation.  Uses galsim Roman m
 for most of the real work.
 """
 
+import copy
 import math
 import numpy as np
 import galsim
@@ -135,20 +136,23 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     -------
     outinfo : np.ndarray with information about added sources
     """
+
+    res_model = copy.deepcopy(model)
+
     if seed is None:
         seed = 125
     if rng is None:
         rng = galsim.UniformDeviate(seed)
 
     if x is None or y is None:
-        x, y = model.meta.wcs.numerical_inverse(cat['ra'].value, cat['dec'].value,
+        x, y = res_model.meta.wcs.numerical_inverse(cat['ra'].value, cat['dec'].value,
                                                 with_bounding_box=False)
 
-    filter_name = model.meta.instrument.optical_element
+    filter_name = res_model.meta.instrument.optical_element
     cat = romanisim.catalog.table_to_catalog(cat, [filter_name])
 
-    wcs = romanisim.wcs.GWCS(model.meta.wcs)
-    pixscalefrac = get_pixscalefrac(wcs, model.data.shape)
+    wcs = romanisim.wcs.GWCS(res_model.meta.wcs)
+    pixscalefrac = get_pixscalefrac(wcs, res_model.data.shape)
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
@@ -162,28 +166,28 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         # Set scaling factor for injected sources
         # Flux / sigma_p^2
         xidx, yidx = int(np.round(x0)), int(np.round(y0))
-        if model.var_poisson[yidx, xidx] != 0:
+        if res_model.var_poisson[yidx, xidx] != 0:
             Ct.append(math.fabs(
-                model.data[yidx, xidx] /
-                model.var_poisson[yidx, xidx]))
+                res_model.data[yidx, xidx] /
+                res_model.var_poisson[yidx, xidx]))
         else:
             Ct.append(1.0)
     Ct = np.array(Ct)
     # etomjysr = 1/C; C converts fluxes to electrons
     exptimes = Ct * etomjysr
 
-    Ct_all = (model.data /
-              (model.var_poisson + (model.var_poisson == 0)))
+    Ct_all = (res_model.data /
+              (res_model.var_poisson + (res_model.var_poisson == 0)))
 
     # compute the total number of counts we got from the source
     res = add_objects_to_l3(
-        model, cat, exptimes, x, y, psf, etomjysr=etomjysr,
+        res_model, cat, exptimes, x, y, psf, etomjysr=etomjysr,
         maggytoes=maggytoes, filter_name=filter_name, bandpass=None,
         rng=rng)
 
-    model.var_poisson = (model.data / Ct_all)
+    res_model.var_poisson = (res_model.data / Ct_all)
 
-    return res
+    return res_model, res
 
 
 
