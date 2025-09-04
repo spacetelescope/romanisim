@@ -99,7 +99,7 @@ def test_inject_sources_into_mosaic():
     l3_mos_orig.var_poisson = l3_mos.var_poisson.copy()
 
     # Add source_cat objects to mosaic
-    l3_mos, _ = l3.inject_sources_into_l3(
+    l3_mos = l3.inject_sources_into_l3(
         l3_mos, sc_table, seed=rng_seed)
 
     # Ensure that every data pixel value has increased or

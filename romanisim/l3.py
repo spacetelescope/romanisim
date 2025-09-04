@@ -63,8 +63,8 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
 
     Returns
     -------
-    Information from romanisim.image.add_objects_to_image.  Note
-    that l3_mos is updated in place.
+    outinfo: Information from romanisim.image.add_objects_to_image.  Note
+        that l3_mos is updated in place.
     """
     # Obtain optical element
     if filter_name is None:
@@ -94,7 +94,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
 
 
 def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
-                           stpsf=True, exptimes=None, seed=None):
+                           stpsf=True, exptimes=None, seed=None, return_info=False):
     """Inject sources into an L3 image.
 
     This routine allows sources to be injected onto an existing L3 image.
@@ -131,10 +131,15 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         Seed to use for rng
     stpsf: bool
         if True, use Stpsf to model the PSF
+    return_info: bool
+        if True, return information from romanisim.image.add_objects_to_image.
 
     Returns
     -------
-    outinfo : np.ndarray with information about added sources
+    res_model : roman_datamodels.datamodels.WfiMosaic
+        model with additional sources
+    res : bool (optional)
+        information from romanisim.image.add_objects_to_image.
     """
 
     res_model = copy.deepcopy(model)
@@ -187,7 +192,10 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
 
     res_model.var_poisson = (res_model.data / Ct_all)
 
-    return res_model, res
+    if return_info:
+        return res_model, res
+    else:
+        return res_model
 
 
 
