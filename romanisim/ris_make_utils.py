@@ -18,6 +18,8 @@ from romanisim import catalog, image, wcs
 from romanisim import parameters, log
 from romanisim.util import calc_scale_factor
 import romanisim
+import crds
+from crds.client import api
 
 
 NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}
@@ -49,7 +51,7 @@ def merge_nested_dicts(dict1, dict2):
 
 
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
-                 ma_table_number=4, truncate=None, scale_factor=1.0):
+                 ma_table_number=4, truncate=None, scale_factor=1.0, usecrds=False):
     """
     Set / Update metadata parameters
 
@@ -67,6 +69,8 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
         Integer specifying which MA Table entry to use
     scale_factor : float
         Velocity aberration-induced scale factor
+    usecrds : bool
+        Use CRDS to get MA table reference file
 
     Returns
     -------
@@ -88,12 +92,26 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     # Observational metadata
     meta['instrument']['optical_element'] = bandpass
     meta['exposure']['ma_table_number'] = ma_table_number
-    meta['exposure']['read_pattern'] = parameters.read_pattern[ma_table_number]
+    if usecrds:
+        context = api.get_default_context('roman')
+        ref = crds.getreferences({'ROMAN.META.INSTRUMENT.NAME': 'wfi', 'ROMAN.META.EXPOSURE.START_TIME': meta['exposure']['start_time'].value}, reftypes=['matable'], context=context, observatory='roman')
+        matab_file = ref['matable']
+        matab = asdf.open(matab_file)
+
+        parameters.ma_table_reference = matab
+
+        meta['exposure']['read_pattern'] = matab['roman']['science_tables'][f'SCI{ma_table_number:04}']['science_read_pattern']
+    else:
+        meta['exposure']['read_pattern'] = parameters.read_pattern[ma_table_number]
+
+        
     if truncate is not None:
         meta['exposure']['read_pattern'] = meta['exposure']['read_pattern'][:truncate]
         meta['exposure']['truncated'] = True
     else:
         meta['exposure']['truncated'] = False
+
+    meta['exposure']['nresultants'] = len(meta['exposure']['read_pattern'])
 
     # Velocity aberration
     if scale_factor <= 0.:
@@ -180,7 +198,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
                 date = metadata['exposure']['start_time']
             else:
                 # Level 3
-                date = time.Time(metadata['basic']['time_mean_mjd'], format='mjd')
+                date = time.Time(metadata['coadd_info']['time_mean'], format='mjd')
         else:
             date = None
 

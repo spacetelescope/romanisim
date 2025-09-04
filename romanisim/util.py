@@ -187,7 +187,7 @@ def random_points_at_radii(coord, radii, rng=None):
     return c1
 
 
-def add_more_metadata(metadata):
+def add_more_metadata(metadata, usecrds=False):
     """Fill out the metadata dictionary, modifying it in place.
 
     Parameters
@@ -205,26 +205,52 @@ def add_more_metadata(metadata):
     if 'guide_star' not in metadata.keys():
         metadata['guide_star'] = {}
     manum = metadata['exposure']['ma_table_number']
-    read_pattern = metadata['exposure'].get(
-        'read_pattern',
-        parameters.read_pattern[metadata['exposure']['ma_table_number']])
-    metadata['exposure']['read_pattern'] = read_pattern
-    openshuttertime = parameters.read_time * read_pattern[-1][-1]
+    metadata['exposure']['ma_table_id'] = f'SCI{manum:04d}'
+
+    matab = None
+    if getattr(parameters, 'ma_table_reference', None):
+        matab = parameters.ma_table_reference
+
+    if matab is None and usecrds:
+        raise ValueError('ma table reference file is not loaded!')
+
+
+    if usecrds:
+        tmatab = matab['roman']['science_tables'][f'SCI{manum:04}']
+        metadata['exposure']['frame_time'] = tmatab['frame_time']
+
+        # nrsultant in the metadata is defined from set_metadata in ris_make_utils.py
+        nresultants = metadata['exposure']['nresultants']
+        read_pattern = metadata['exposure'].get(
+            'read_pattern',
+            tmatab['science_read_pattern'][nresultants-1])
+        openshuttertime = metadata['exposure']['frame_time'] * read_pattern[-1][-1]
+
+        metadata['exposure']['exposure_time'] = (
+            tmatab['accumulated_exposure_time'][nresultants - 1])
+        metadata['exposure']['effective_exposure_time'] = (
+            tmatab['effective_exposure_time'][nresultants - 1])
+    else:
+        metadata['exposure']['frame_time'] = parameters.read_time
+
+        read_pattern = metadata['exposure'].get(
+            'read_pattern',
+            parameters.read_pattern[metadata['exposure']['ma_table_number']])
+        openshuttertime = parameters.read_time * read_pattern[-1][-1]
+
+        metadata['exposure']['exposure_time'] = round(openshuttertime, 4)
+        effexptime = parameters.read_time * (np.mean(read_pattern[-1]))        
+        metadata['exposure']['effective_exposure_time'] = round(effexptime, 4)
+
     offsets = dict(start=0 * u.s, mid=openshuttertime * u.s / 2,
-                   end=openshuttertime * u.s)
+                end=openshuttertime * u.s)
     starttime = metadata['exposure']['start_time']
     if not isinstance(starttime, Time):
         starttime = Time(starttime, format='isot')
     for prefix, offset in offsets.items():
         metadata['exposure'][f'{prefix}_time'] = Time((
             starttime + offset).isot)
-    metadata['exposure']['nresultants'] = len(read_pattern)
-    metadata['exposure']['frame_time'] = parameters.read_time
-    metadata['exposure']['exposure_time'] = openshuttertime
-    metadata['exposure']['ma_table_id'] = f'sci{manum:04d}'
-    effexptime = parameters.read_time * (
-        np.mean(read_pattern[-1]) - np.mean(read_pattern[0]))
-    metadata['exposure']['effective_exposure_time'] = effexptime
+
     if 'window_xstart' in metadata['guide_star']:
         metadata['guide_star']['window_xstop'] = (
             metadata['guide_star']['window_xstart'] + 16)
@@ -233,6 +259,7 @@ def add_more_metadata(metadata):
     if 'visit' not in metadata.keys():
         metadata['visit'] = dict()
     metadata['visit']['status'] = 'SUCCESSFUL'
+
 
 
 def update_pointing_and_wcsinfo_metadata(metadata, gwcs):

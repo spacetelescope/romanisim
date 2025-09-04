@@ -42,7 +42,7 @@ def test_inject_sources_into_mosaic():
     # (total files contributed to each quadrant)
 
     # Create gaussian noise generators
-    # sky should generate ~0.2 electron / s / pix.  
+    # sky should generate ~0.2 electron / s / pix.
     # MJy / sr has similar magnitude to electron / s (i.e., within a factor
     # of several), so just use 0.2 here.
     meanflux = 0.2
@@ -99,7 +99,7 @@ def test_inject_sources_into_mosaic():
     l3_mos_orig.var_poisson = l3_mos.var_poisson.copy()
 
     # Add source_cat objects to mosaic
-    _ = l3.inject_sources_into_l3(
+    l3_mos = l3.inject_sources_into_l3(
         l3_mos, sc_table, seed=rng_seed)
 
     # Ensure that every data pixel value has increased or
@@ -124,8 +124,8 @@ def test_inject_sources_into_mosaic():
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
     if artifactdir is not None:
         af = asdf.AsdfFile()
-        af.tree = {'l3_mos': l3_mos,
-                   'l3_mos_orig': l3_mos_orig,
+        af.tree = {'l3_mos': l3_mos._instance,
+                   'l3_mos_orig': l3_mos_orig._instance,
                    'source_cat_table': sc_table,
                    }
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
@@ -536,13 +536,13 @@ def test_scaling():
         (npix / 2, npix / 2), pscale / 2, coord)
 
     im1, extras1 = l3.simulate(
-        (npix, npix), twcs1, exptime, imdict['filter_name'], 
+        (npix, npix), twcs1, exptime, imdict['filter_name'],
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0,
         )
 
     # half pixel scale
     im2, extras2 = l3.simulate(
-        (npix * 2, npix * 2), twcs2, exptime, imdict['filter_name'], 
+        (npix * 2, npix * 2), twcs2, exptime, imdict['filter_name'],
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on pixel scale (in calibrated units!)
@@ -560,7 +560,7 @@ def test_scaling():
 
     # doubled exposure time
     im3, extras3 = l3.simulate(
-        (npix, npix), twcs1, exptime * 10, imdict['filter_name'], 
+        (npix, npix), twcs1, exptime * 10, imdict['filter_name'],
         imdict['tabcatalog'], seed=rng_seed, effreadnoise=0)
 
     # check that sky level doesn't depend on exposure time (in calibrated units!)
