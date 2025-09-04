@@ -7,50 +7,48 @@ authors = [
     { name = "STScI", email = "help@stsci.edu" },
 ]
 classifiers = [
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Astronomy",
-    "Operating System :: MacOS :: MacOS X",
-    "Operating System :: POSIX",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.11",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
-    "asdf >=4.1.0",
-    "astropy >=6.0",
-    "astropy_healpix >= 1.1.2",
-    "crds >=13.0.2",
-    "defusedxml >=0.5.0",
-    "galsim >=2.5.1",
-    # "roman_datamodels>=0.26.0,<0.27.0",
-    "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
-    "gwcs >=0.25.0",
-    "jsonschema >=4.8",
-    "numpy >1.26",
-    "stpsf >=2.1.0",
-    "Cython >=0.29.21",
+  "asdf >=4.1.0",
+  "astropy >=6.0",
+  "astropy_healpix >= 1.1.2",
+  "crds >=13.0.2",
+  "defusedxml >=0.5.0",
+  "galsim >=2.5.1",
+  "roman_datamodels>=0.27.0",
+  # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
+  "gwcs >=0.25.0",
+  "jsonschema >=4.8",
+  "numpy >1.26",
+  "stpsf >=2.1.0",
+  "Cython >=0.29.21",
 ]
 license-files = ["LICENSE"]
-dynamic = [
-    "version",
-]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 docs = [
-    "sphinx <7",
-    "sphinx-automodapi",
-    "sphinx-rtd-theme",
-    "stsci-rtd-theme",
-    "sphinx-astropy",
-    "sphinx-asdf >=0.1.1",
-    "tomli; python_version <\"3.11\"",
+  "sphinx <7",
+  "sphinx-automodapi",
+  "sphinx-rtd-theme",
+  "stsci-rtd-theme",
+  "sphinx-astropy",
+  "sphinx-asdf >=0.1.1",
+  "tomli; python_version <\"3.11\"",
 ]
 test = [
-    "ci-watson >=0.3.0",
-    "pytest >=4.6.0, <=8.0",
-    "pytest-openfiles >=0.5.0",
-    "pytest-doctestplus >=0.10.0",
-    "pytest-cov >=2.9.0",
+  "ci-watson >=0.3.0",
+  "pytest >=4.6.0, <=8.0",
+  "pytest-openfiles >=0.5.0",
+  "pytest-doctestplus >=0.10.0",
+  "pytest-cov >=2.9.0",
 ]
 
 [project.urls]
@@ -60,11 +58,11 @@ Documentation = "https://romanisim.readthedocs.io/en/stable/"
 
 [build-system]
 requires = [
-    "setuptools >=61",
-    "setuptools_scm[toml] >=3.4",
-    "wheel",
-    "Cython >=0.29.21",
-    "numpy >=2.0.0",
+  "setuptools >=61",
+  "setuptools_scm[toml] >=3.4",
+  "wheel",
+  "Cython >=0.29.21",
+  "numpy >=2.0.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -74,56 +72,46 @@ build-backend = "setuptools.build_meta"
 zip-safe = false
 
 [tool.setuptools.packages.find]
-exclude = [
-    "examples",
-]
+exclude = ["examples"]
 
 [tool.pytest.ini_options]
 minversion = "4.6"
-norecursedirs = [
-    "docs/_build",
-    "docs/exts",
-    "scripts",
-    "build",
-    ".tox",
-]
+norecursedirs = ["docs/_build", "docs/exts", "scripts", "build", ".tox"]
 doctest_plus = "enabled"
 doctest_rst = "enabled"
 markers = [
-    "soctests: run only the SOC tests in the suite.",
-    "bigdata: uses a lot of data.",
+  "soctests: run only the SOC tests in the suite.",
+  "bigdata: uses a lot of data.",
 ]
 addopts = [
-    "--color=yes",  # Enable colored output by default
+  "--color=yes", # Enable colored output by default
 ]
 
 [tool.coverage.run]
 omit = [
-    "romanisim/conftest.py",
-    "romanisim/setup.py",
-    "romanisim/tests/test*",
-    "docs/*",
-    "*/romanisim/conftest.py",
-    "*/romanisim/tests/test*",
-    "*/romanisim/regtest/test*",
-    "*/romanisim/*/tests/*",
-    "*/docs/*",
+  "romanisim/conftest.py",
+  "romanisim/setup.py",
+  "romanisim/tests/test*",
+  "docs/*",
+  "*/romanisim/conftest.py",
+  "*/romanisim/tests/test*",
+  "*/romanisim/regtest/test*",
+  "*/romanisim/*/tests/*",
+  "*/docs/*",
 ]
 
 [tool.coverage.report]
 exclude_lines = [
-    "pragma: no cover",
-    "if self.debug:",
-    "except ImportError",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if __name__ == \"__main__\":",
+  "pragma: no cover",
+  "if self.debug:",
+  "except ImportError",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == \"__main__\":",
 ]
 
 [tool.ruff.lint]
-extend-ignore = [
-    "E501",
-]
+extend-ignore = ["E501"]
 
 [tool.cibuildwheel.macos]
 before-build = "brew install eigen fftw"
