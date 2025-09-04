@@ -124,8 +124,8 @@ def test_inject_sources_into_mosaic():
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
     if artifactdir is not None:
         af = asdf.AsdfFile()
-        af.tree = {'l3_mos': l3_mos,
-                   'l3_mos_orig': l3_mos_orig,
+        af.tree = {'l3_mos': l3_mos._instance,
+                   'l3_mos_orig': l3_mos_orig._instance,
                    'source_cat_table': sc_table,
                    }
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
