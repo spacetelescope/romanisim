@@ -198,7 +198,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
                 date = metadata['exposure']['start_time']
             else:
                 # Level 3
-                date = time.Time(metadata['basic']['time_mean_mjd'], format='mjd')
+                date = time.Time(metadata['coadd_info']['time_mean'], format='mjd')
         else:
             date = None
 

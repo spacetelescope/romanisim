@@ -518,7 +518,7 @@ def read_one_healpix(filename,
     """
 
     # Open healpix file
-    cat_table = table.Table.read(filename, bandpasses)
+    cat_table = table.Table.read(filename)
 
     # Check for RSIM Gaia catalog
     if 'phot_g_mean_mag' in cat_table.colnames:
