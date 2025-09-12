@@ -293,7 +293,7 @@ def format_filename(filename, sca, bandpass=None, pretend_spectral=None):
     return pname.with_name(bname.format(*args, **kwargs))
 
 
-def simulate_image_file(args, metadata, cat, rng=None, persist=None):
+def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
     """
     Simulate an image and write it to a file.
 
@@ -323,7 +323,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None):
     im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
         stpsf=args.stpsf, level=args.level, persistence=persist,
-        rng=rng)
+        rng=rng, **kwargs)
 
     # Create metadata for simulation parameter
     romanisimdict = deepcopy(vars(args))

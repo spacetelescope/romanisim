@@ -705,7 +705,8 @@ def gather_reference_data(image_mod, usecrds=False):
 def simulate(metadata, objlist,
              usecrds=True, stpsf=True, level=2, crparam=dict(),
              persistence=None, seed=None, rng=None,
-             psf_keywords=dict(), **kwargs
+             psf_keywords=dict(), extra_counts=None,
+             **kwargs
              ):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -743,7 +744,11 @@ def simulate(metadata, objlist,
         Seed for populating RNG.  Only used if rng is None.
     psf_keywords : dict
         Keywords passed to the PSF generation routine
-
+    extra_counts : ndarray, galsim.Image (optional)
+        An additional array that just gets added into the counts image. 
+        Useful for wrapping idealized images into L1/L2 images + the 
+        Roman datamodel.
+    
     Returns
     -------
     image : roman_datamodels model
@@ -803,6 +808,11 @@ def simulate(metadata, objlist,
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
         stpsf=stpsf, flat=flat, psf_keywords=psf_keywords)
+
+    # If extra_counts is passed in, add directly to counts
+    if extra_counts is not None:
+        counts += extra_counts
+
     util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
     if level == 0:
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
