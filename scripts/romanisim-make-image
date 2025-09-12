@@ -36,6 +36,7 @@ def go(args):
     metadata = ris.set_metadata(
         date=args.date, bandpass=args.bandpass,
         sca=args.sca, ma_table_number=args.ma_table_number,
+        usecrds=args.usecrds,
         truncate=args.truncate, scale_factor=args.scale_factor)
 
     if args.radec is not None:
