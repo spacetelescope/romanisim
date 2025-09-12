@@ -238,7 +238,8 @@ def main():
                 metadata = ris.set_metadata(meta=metadata,
                                             date=Time(args.date, format='isot') + time_offset,
                                             bandpass=entry['BANDPASS'], sca=sca,
-                                            ma_table_number=ma_table_number)
+                                            ma_table_number=ma_table_number,
+                                            usecrds=usecrds)
                 if apt_metadata:
                     util.merge_dicts(metadata, apt_metadata)
 
