@@ -773,11 +773,6 @@ def simulate(metadata, objlist,
 
     filter_name = image_mod.meta.instrument.optical_element
 
-    # This logic fails, if the default parameters dictionary does not 
-    # have the appropriate MA table. 
-    #read_pattern = metadata['exposure'].get(
-    #    'read_pattern',
-    #    parameters.read_pattern[metadata['exposure']['ma_table_number']])
     if 'read_pattern' in metadata['exposure']:
         read_pattern = metadata['exposure']['read_pattern']
     else:
