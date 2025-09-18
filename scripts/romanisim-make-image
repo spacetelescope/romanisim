@@ -9,6 +9,8 @@ import galsim
 from romanisim import log, wcs, persistence, parameters
 from romanisim import ris_make_utils as ris
 from copy import copy
+import numpy as np
+from astropy.io import fits
 
 
 def go(args):
@@ -58,8 +60,23 @@ def go(args):
     else:
         persist = persistence.Persistence()
 
+    # Set up for extra counts as needed
+    extra_counts = None
+    if args.extra_counts is not None:
+        if len(args.extra_counts) == 1:
+            extra_counts_file = args.extra_counts[0]
+            extra_counts_hdu = 0
+        elif len(args.extra_counts) == 2:
+            extra_counts_file = args.extra_counts[0]
+            extra_counts_hdu = int(args.extra_counts[1])
+        else:
+            raise ValueError("If --extra-counts is used, must provide one or two arguments only.")
+        with fits.open(extra_counts_file) as hdul:
+            extra_counts = hdul[extra_counts_hdu].data  
+
+
     # Simulate image and write to file
-    ris.simulate_image_file(args, metadata, cat, rng, persist)
+    ris.simulate_image_file(args, metadata, cat, rng, persist, extra_counts=extra_counts)
 
 
 if __name__ == '__main__':
@@ -112,6 +129,11 @@ if __name__ == '__main__':
                         help=('Do not store the optional simulated dq array.'))
     parser.add_argument('--scale-factor', type=float, default=-1.,
                         help=('Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris.'))
+    parser.add_argument('--extra-counts', type=str, default=None, nargs='+', help=(
+        'An optional FITS file to read to get an array of counts to add into the simulated image.'
+        'Useful for wrapping idealized images.'
+        'If 2 arguments are sent in, then the second argument is assumed to be the HDU to use (default=0)'
+    ))
 
     args = parser.parse_args()
 
