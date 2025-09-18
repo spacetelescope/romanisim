@@ -556,7 +556,7 @@ def simulate_counts(metadata, objlist,
         date = astropy.time.Time(date, format='isot')
 
     galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
-    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
+    bandpass = roman.getBandpasses(AB_zeropoint=True, include_all_bands=True)[galsim_filter_name]
     imwcs = wcs.get_wcs(metadata, usecrds=usecrds)
     chromatic = False
     if (len(objlist) > 0
@@ -639,6 +639,10 @@ def gather_reference_data(image_mod, usecrds=False):
                 flatfile = crds.getreferences(
                     image_mod.get_crds_parameters(),
                     reftypes=['flat'], observatory='roman')['flat']
+                # For GRISM, this returns the string "NOT FOUND n/a", so throw a LookupError
+                # if that happens, and use 1 instead.
+                if flatfile.startswith("NOT FOUND"):
+                    raise crds.core.exceptions.CrdsLookupError
 
                 flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
                 flat = flat_model.data[...].copy()
