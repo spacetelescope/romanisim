@@ -169,6 +169,7 @@ def make_dummy_table_catalog(coord,
     if cosmos:
         t1 = make_cosmos_galaxies(coord, radius=radius, rng=rng,
                                   bandpasses=bandpasses, **kwargs)
+        t1 = t1[:int(nobj * 0.8)]
     else:
         t1 = make_galaxies(coord, radius=radius, rng=rng, n=int(nobj * 0.8),
                            bandpasses=bandpasses)
