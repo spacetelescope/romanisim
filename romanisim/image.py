@@ -535,9 +535,10 @@ def simulate_counts(metadata, objlist,
         catalog of simulated objects in image
     """
 
-    read_pattern = metadata['exposure'].get(
-        'read_pattern',
-        parameters.read_pattern[metadata['exposure']['ma_table_number']])
+    if 'read_pattern' in metadata['exposure']:
+        read_pattern = metadata['exposure']['read_pattern']
+    else:
+        read_pattern = parameters.read_pattern[metadata['exposure']['ma_table_number']]
 
     sca = int(metadata['instrument']['detector'][3:])
     exptime = parameters.read_time * read_pattern[-1][-1]
