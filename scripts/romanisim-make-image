@@ -71,12 +71,8 @@ def go(args):
             extra_counts_hdu = int(args.extra_counts[1])
         else:
             raise ValueError("If --extra-counts is used, must provide one or two arguments only.")
-        # Undocumented, but useful for testing 
-        if extra_counts_file=="_testing":
-            extra_counts = np.zeros((4088, 4088), dtype=np.float32)+float(extra_counts_hdu)
-        else:
-            with fits.open(extra_counts_file) as hdul:
-                extra_counts = hdul[extra_counts_hdu].data  
+        with fits.open(extra_counts_file) as hdul:
+            extra_counts = hdul[extra_counts_hdu].data  
 
 
     # Simulate image and write to file
