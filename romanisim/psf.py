@@ -643,7 +643,13 @@ def make_one_psf_stpsf(
     filter_name = galsim2roman_bandpass[filter_name]
     wfi = wpsf.WFI()
     wfi.detector = f"SCA{sca:02d}"
-    wfi.filter = filter_name
+    # STPSF exposes the grism as two diffraction orders, GRISM0 (0th) and
+    # GRISM1 (1st).  Default to the 1st order, which is what callers asking
+    # for --bandpass GRISM almost always want.
+    if filter_name == "GRISM":
+        wfi.filter = "GRISM1"
+    else:
+        wfi.filter = filter_name
     wfi.detector_position = pix
 
     # Extract STPSF object options and function arguments separately
