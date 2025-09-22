@@ -189,7 +189,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
             coord = twcs.toWorld(galsim.PositionD(*coord))
 
         cat = catalog.make_dummy_table_catalog(
-            coord, bandpasses=bandpasses, nobj=nobj, rng=rng)
+            coord, bandpasses=bandpasses, nobj=nobj, rng=rng, cosmos=True)
     else:
         # Set date
         if metadata:

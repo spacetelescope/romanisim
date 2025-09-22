@@ -44,7 +44,7 @@ def go(args):
                          frame='icrs')
         wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, pa_aper=args.roll)
     else:
-        coord = None
+        coord = 2044, 2044
 
     rng = galsim.UniformDeviate(args.rng_seed)
 
