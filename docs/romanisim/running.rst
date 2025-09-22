@@ -15,7 +15,7 @@ The ``romanisim-make-image`` command line interface (CLI) has a number of argume
 this functionality::
 
     romanisim-make-image -h
-    usage: romanisim-make-image [-h] [--bandpass BANDPASS] [--boresight] [--catalog CATALOG] [--config CONFIG] [--date DATE] [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER] [--nobj NOBJ] [--previous PREVIOUS] [--radec RADEC RADEC] [--rng_seed RNG_SEED] [--roll ROLL] [--sca SCA] [--usecrds] [--stpsf] [--truncate TRUNCATE] [--pretend-spectral PRETEND_SPECTRAL] [--drop-extra-dq] [--scale-factor SCALE_FACTOR] filename
+    usage: romanisim-make-image [-h] [--bandpass BANDPASS] [--boresight] [--catalog CATALOG] [--config CONFIG] [--date DATE] [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER] [--nobj NOBJ] [--previous PREVIOUS] [--radec RADEC RADEC] [--rng_seed RNG_SEED] [--roll ROLL] [--sca SCA] [--usecrds] [--stpsf] [--truncate TRUNCATE] [--pretend-spectral PRETEND_SPECTRAL] [--drop-extra-dq] [--scale-factor SCALE_FACTOR] [--extra-counts EXTRA_COUNTS [EXTRA_COUNTS ...]] filename
 
     Make a demo image.
 
@@ -46,6 +46,10 @@ this functionality::
       --drop-extra-dq       Do not store the optional simulated dq array. (default: False)
       --scale-factor SCALE_FACTOR
                             Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris. (default: -1.0)
+      --extra-counts EXTRA_COUNTS [EXTRA_COUNTS ...]
+                        An optional FITS file to read to get an array of counts to add into the simulated image.Useful for wrapping
+                        idealized images.If 2 arguments are sent in, then the second argument is assumed to be the HDU to use
+                        (default=0) (default: None)
 
     EXAMPLE: romanisim-make-image output_image.asdf
 
@@ -73,6 +77,15 @@ and controls the number of objects that are simulated in that case.
 The ``previous`` argument specifies the previous simulated frame.
 This information is used to support :doc:`persistence </romanisim/l1>`
 modeling.
+
+The ``--extra-counts`` argument(s) allows the user to pass in a FITS file with an 
+array of counts (not counts/time). If a second argument is passed, it is assumed to be the HDU 
+number to read.
+This argument is useful to wrap idealized images into the Roman L1/L2 datamodel, 
+including detector effects. You will probably want to set ``--nobj 0`` here to avoid 
+simulating additional sources. We do not get any additional information/metadata from this 
+file, so you will need to set other parameters (e.g. ``--bandpass``, ``--date``, ``--radec``, etc)
+appropriately to match the image you are wrapping. 
 
 .. [#chromatic] An important exception is the chromatic PSF rendering and 
    photon-shooting modes of GalSim; the current catalog format does 
