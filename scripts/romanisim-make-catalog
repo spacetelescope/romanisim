@@ -50,7 +50,7 @@ def main():
 
     if args.debug:
         print("args = " + str(args))
-    
+
     q = f'select * from gaiadr3.gaia_source where distance({args.radecrad[0]}, {args.radecrad[1]}, ra, dec) < {args.radecrad[2]}'
     job = Gaia.launch_job_async(q)
     r = job.get_results()
