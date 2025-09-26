@@ -535,9 +535,10 @@ def simulate_counts(metadata, objlist,
         catalog of simulated objects in image
     """
 
-    read_pattern = metadata['exposure'].get(
-        'read_pattern',
-        parameters.read_pattern[metadata['exposure']['ma_table_number']])
+    if 'read_pattern' in metadata['exposure']:
+        read_pattern = metadata['exposure']['read_pattern']
+    else:
+        read_pattern = parameters.read_pattern[metadata['exposure']['ma_table_number']]
 
     sca = int(metadata['instrument']['detector'][3:])
     exptime = parameters.read_time * read_pattern[-1][-1]
@@ -650,6 +651,11 @@ def gather_reference_data(image_mod, usecrds=False):
         image_mod.meta.ref_file.crds.version = crds.__version__
         image_mod.meta.ref_file.crds.context = crds.get_context_name(
             observatory=image_mod.crds_observatory)
+
+    for reftype, reffile in reffiles.items():
+        if isinstance(reffile, str) and reffile.lower() == 'none':
+            reffiles[reftype] = None
+            out[reftype] = None
 
     # reffiles has all of the reference files / values we know about
 
