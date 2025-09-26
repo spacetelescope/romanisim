@@ -71,14 +71,32 @@ class VariablePSF:
         return out
 
 
-def get_gridded_psf_model(psf_ref_model):
+def get_gridded_psf_model(psf_ref_model, force_oversample=None):
     """Function to generate gridded PSF model from psf reference file
 
-    Compute a gridded PSF model for one SCA using the
-    reference files in CRDS.
-    The input reference files have 3 focus positions and this is using
-    the in-focus images. There are also three spectral types that are
-    available and this code uses the M5V spectal type.
+    Compute a gridded PSF model for one SCA using the reference files in CRDS.
+    The input reference files have 3 focus positions and this is using the
+    in-focus images. There are also three spectral types that are available and
+    this code uses the M5V spectal type.
+
+    The native oversampling of the EpsfRefModel is stored in the
+    GriddedPSFModel.meta['epsf_oversample']. This is needed since the
+    oversampling used by GriddedPSFModel can be changed using the
+    `force_oversample` argument.
+
+    Parameters
+    ----------
+    psf_ref_model : roman_datamodels.EpsfRefModel
+        The EPSF reference model
+
+    force_oversample : int or None
+        Oversample value to use when creating the GriddedPSFModel. If none,
+        the native oversampling defined in the EpsfRefModel is used.
+
+    Returns
+    -------
+    photutils.GriddedPSFModel
+
     """
     # Open the reference file data model
     # select the infocus images (0) and we have a selection of spectral types
@@ -95,7 +113,8 @@ def get_gridded_psf_model(psf_ref_model):
         position_list.append([psf_positions_x[index], psf_positions_y[index]])
 
     meta["grid_xypos"] = position_list
-    meta["oversampling"] = psf_ref_model.meta.oversample
+    meta["epsf_oversample"] = psf_ref_model.meta.oversample
+    meta['oversampling'] = force_oversample if force_oversample else psf_ref_model.meta.oversample
     nd = NDData(psf_images, meta=meta)
     model = GriddedPSFModel(nd, fill_value=None)
 
@@ -151,7 +170,7 @@ def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
                                  oversample=oversample, extra_convolution=extra_convolution, **kw)
     elif psftype == 'crds':
         psf = make_one_psf_crds(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic,
-                                oversample=oversample, extra_convolution=extra_convolution, date=date, **kw)
+                                extra_convolution=extra_convolution, date=date, **kw)
     else:  # Default is galsim
         psf = make_one_psf_galsim(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic, extra_convolution=extra_convolution, **kw)
 
@@ -159,7 +178,7 @@ def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
 
 
 def make_one_psf_crds(sca, filter_name, wcs=None, pix=None,
-                      chromatic=False, oversample=4, extra_convolution=None, date=None, **kw):
+                      chromatic=False, extra_convolution=None, date=None, **kw):
     """Make a PSF profile for Roman at a specific detector location using CRDS reftype epsf
 
     Parameters
@@ -175,8 +194,6 @@ def make_one_psf_crds(sca, filter_name, wcs=None, pix=None,
         pixel location of PSF on focal plane
     chromatic : bool
         Create a multiwavelength-based psf.
-    oversample : int
-        oversampling with which to sample Stpsf PSF
     extra_convolution : galsim.gsobject.GSObject or None
         Additional convolution to add to PSF
     date : astropy.time.Time or None
@@ -207,10 +224,11 @@ def make_one_psf_crds(sca, filter_name, wcs=None, pix=None,
     }
     epsf_ref = getreferences(header, reftypes=['epsf'], observatory='roman')
     epsf_ref_model = datamodels.open(epsf_ref['epsf'])
-    gridded_psf = get_gridded_psf_model(epsf_ref_model)
+    gridded_psf = get_gridded_psf_model(epsf_ref_model, force_oversample=1)
 
     psf = psf_from_grid(gridded_psf, *pix)
-    intimg = psf_to_galsimimage(psf, wcs=wcs, pix=pix, oversample=oversample, pixelscale=1., extra_convolution=extra_convolution)
+    intimg = psf_to_galsimimage(psf, wcs=wcs, pix=pix, oversample=gridded_psf.meta['epsf_oversample'],
+                                pixelscale=1., extra_convolution=extra_convolution)
     return intimg
 
 
@@ -363,7 +381,7 @@ def make_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     return VariablePSF(corners, psfs)
 
 
-def pix_coords(x_start=0, x_end=5, y_start=0, y_end=5):
+def pix_coords(x_start=0, x_end=5, y_start=0, y_end=5, n_x=None, n_y=None):
     """Generate coordinate arrays covering the specified domain
 
     Create array X and Y such that the corresponding values of each
@@ -396,8 +414,10 @@ def pix_coords(x_start=0, x_end=5, y_start=0, y_end=5):
     [3.75 3.75 3.75 3.75 3.75]
     [5.   5.   5.   5.   5.  ]]
     """
-    n_x = ceil(x_end - x_start)
-    n_y = ceil(y_end - y_start)
+    if n_x is None:
+        n_x = ceil(x_end - x_start)
+    if n_y is None:
+        n_y = ceil(y_end - y_start)
     rx = np.array([np.linspace(x_start, x_end, n_x)])
     x = rx.repeat(n_y, axis=0)
     ry = np.array([np.linspace(y_start, y_end, n_y)]).T
