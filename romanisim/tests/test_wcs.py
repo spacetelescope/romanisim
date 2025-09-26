@@ -118,12 +118,6 @@ def test_wcs_from_fits_header():
     assert np.max(sep) < 1e-5
 
 
-@pytest.mark.skipif(
-    os.environ.get("CI") == "true",
-    reason=(
-        "Roman CRDS servers are not currently available outside the internal network"
-    ),
-)
 def test_wcs_crds_match():
     # Set up parameters for simulation run
 
