@@ -52,6 +52,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    log.info(f'Running with args: {args}')
     log.info('Starting simulation...')
     log.warning("romanisim is under active development.  Its output has "
                 "not been formally validated; only limited testing has been "
