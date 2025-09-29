@@ -21,7 +21,7 @@ construct final DN image.
 
 import numpy as np
 from astropy import units as u
-from romanisim import parameters
+from romanisim import parameters, log
 
 
 def repair_coefficients(coeffs, dq):
@@ -115,7 +115,7 @@ class NL:
     """Keep track of non-linearity and inverse non-linearity coefficients.
 
     """
-    def __init__(self, coeffs, dq=None, gain=None):
+    def __init__(self, coeffs, dq=None, gain=None, saturation=None, inverse=False):
         """Construct an NL class handling non-linearity correction.
 
         Parameters
@@ -128,13 +128,36 @@ class NL:
 
         gain : float or np.ndarray[float]
             Gain (electrons / DN) for converting DN to electrons
+
+        saturation : float or None
+            Saturation level in DN
+
+        inverse: bool
+            True if this corresponds to the inverse linearity correction.
+
+            This changes the interpretation of the saturation keyword, which is
+            always the saturation level in observed DN.  This gets translated
+            internally to linearized DN if inverse is True.
         """
         if dq is None:
             dq = np.zeros(coeffs.shape[1:], dtype='uint32')
         if gain is None:
             gain = parameters.reference_data['gain'].to(u.electron / u.DN).value
+
         self.coeffs, self.dq = repair_coefficients(coeffs, dq)
         self.gain = gain
+
+        if saturation is not None and inverse:
+            new_saturation = evaluate_nl_polynomial(saturation, self.coeffs)
+            m = (new_saturation < 0 * u.DN) | (new_saturation > saturation * 1.5)
+            if np.any(m):
+                log.warning(
+                    f'{np.sum(m)} points with problematic saturation / inverse linearity '
+                    'values; setting saturation of these points to 10 DN!')
+            new_saturation[m] = 10 * u.DN
+            saturation = new_saturation
+
+        self.saturation = saturation
 
     def apply(self, counts, electrons=False, reversed=False):
         """Compute the correction of DN to linearized DN.
@@ -163,7 +186,20 @@ class NL:
         corrected : np.ndarray[nx, ny] (float)
             The corrected DN or electrons.
         """
-        if electrons:
-            return self.gain * evaluate_nl_polynomial(counts / self.gain, self.coeffs, reversed)
 
-        return evaluate_nl_polynomial(counts, self.coeffs, reversed)
+        gain = self.gain
+
+        if electrons:
+            if not isinstance(counts, u.Quantity):
+                gain = gain / u.electron
+            counts = counts / gain
+
+        if self.saturation is not None:
+            counts = np.clip(counts, -1000 * u.DN, self.saturation)
+
+        corrected = evaluate_nl_polynomial(counts, self.coeffs, reversed)
+
+        if electrons:
+            corrected = corrected * gain
+
+        return corrected

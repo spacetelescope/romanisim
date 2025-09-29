@@ -475,6 +475,7 @@ def test_simulate():
     filter_name = 'F158'
     meta = util.default_image_meta(time=time, filter_name=filter_name,
                                    coord=coord)
+    wcs.fill_in_parameters(meta, coord)
     sca = int(meta['instrument']['detector'][3:])
 
     chromcat = imdict['chromcatalog']
@@ -658,6 +659,7 @@ def test_inject_source_into_image():
     filt = 'F158'
     meta = util.default_image_meta(coord=coord, filter_name=filt,
                                    detector='WFI07', ma_table=4)
+    wcs.fill_in_parameters(meta, coord)
     rng_seed = 42
     rng = galsim.UniformDeviate(rng_seed)
     cat = catalog.make_dummy_table_catalog(coord, radius=0.1, bandpasses=[filt],
@@ -731,6 +733,7 @@ def test_image_input(tmpdir):
     roman.n_pix = 500
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     meta = util.default_image_meta(coord=coord, filter_name='F087')
+    wcs.fill_in_parameters(meta, coord)
     imwcs = wcs.get_wcs(meta, usecrds=False)
 
     # make a table of sources for us to render

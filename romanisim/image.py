@@ -681,13 +681,24 @@ def gather_reference_data(image_mod, usecrds=False):
     if isinstance(out['dark'], u.Quantity):
         out['dark'] = out['dark'].to(u.electron / u.s).value
 
+    if isinstance(reffiles['saturation'], str):
+        saturation = roman_datamodels.datamodels.SaturationRefModel(
+            reffiles['saturation'])
+        saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
+        saturation *= u.DN
+        out['saturation'] = saturation
+    else:
+        saturation = None
+
     if isinstance(reffiles['inverselinearity'], str):
         ilin_model = roman_datamodels.datamodels.InverselinearityRefModel(
             reffiles['inverselinearity'])
         out['inverselinearity'] = nonlinearity.NL(
             ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
-            gain=out['gain'])
+            gain=out['gain'],
+            saturation=saturation,
+            inverse=True)
 
     if isinstance(reffiles['linearity'], str):
         lin_model = roman_datamodels.datamodels.LinearityRefModel(
@@ -695,14 +706,8 @@ def gather_reference_data(image_mod, usecrds=False):
         out['linearity'] = nonlinearity.NL(
             lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
-            gain=out['gain'])
-
-    if isinstance(reffiles['saturation'], str):
-        saturation = roman_datamodels.datamodels.SaturationRefModel(
-            reffiles['saturation'])
-        saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
-        saturation *= u.DN
-        out['saturation'] = saturation
+            gain=out['gain'],
+            saturation=saturation)
 
     out['reffiles'] = reffiles
     return out
