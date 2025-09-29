@@ -690,16 +690,6 @@ def gather_reference_data(image_mod, usecrds=False):
     else:
         saturation = None
 
-    if isinstance(reffiles['inverselinearity'], str):
-        ilin_model = roman_datamodels.datamodels.InverselinearityRefModel(
-            reffiles['inverselinearity'])
-        out['inverselinearity'] = nonlinearity.NL(
-            ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
-            ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
-            gain=out['gain'],
-            saturation=saturation,
-            inverse=True)
-
     if isinstance(reffiles['linearity'], str):
         lin_model = roman_datamodels.datamodels.LinearityRefModel(
             reffiles['linearity'])
@@ -708,6 +698,26 @@ def gather_reference_data(image_mod, usecrds=False):
             lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
             gain=out['gain'],
             saturation=saturation)
+
+    if isinstance(reffiles['inverselinearity'], str):
+        if saturation is not None and 'linearity' in out:
+            inv_saturation = out['linearity'].apply(saturation)
+            m = (inv_saturation < 0 * u.DN) | (inv_saturation > saturation * 2)
+            if np.any(m):
+                log.warning(
+                    f'{np.sum(m)} points with problematic saturation / inverse linearity '
+                    'values; setting saturation of these points to 10 DN!')
+            inv_saturation[m] = 10 * u.DN
+        else:
+            inv_saturation = None
+
+        ilin_model = roman_datamodels.datamodels.InverselinearityRefModel(
+            reffiles['inverselinearity'])
+        out['inverselinearity'] = nonlinearity.NL(
+            ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
+            ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
+            gain=out['gain'],
+            saturation=inv_saturation)
 
     out['reffiles'] = reffiles
     return out
