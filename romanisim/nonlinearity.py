@@ -21,7 +21,7 @@ construct final DN image.
 
 import numpy as np
 from astropy import units as u
-from romanisim import parameters, log
+from romanisim import parameters
 
 
 def repair_coefficients(coeffs, dq):
