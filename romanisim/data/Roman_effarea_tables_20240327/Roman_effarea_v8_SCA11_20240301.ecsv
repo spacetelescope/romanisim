@@ -11,11 +11,11 @@
 # - {name: F184, datatype: float32}
 # - {name: F146, datatype: float32}
 # - {name: F213, datatype: float32}
-# - {name: Prism, datatype: float32}
-# - {name: Grism_1stOrder, datatype: float32}
+# - {name: PRISM, datatype: float32}
+# - {name: GRISM, datatype: float32}
 # - {name: Grism_0thOrder, datatype: float32}
 # schema: astropy-2.0
-Wave, F062, F087, F106, F129, F158, F184, F146, F213, Prism, Grism_1stOrder, Grism_0thOrder
+Wave, F062, F087, F106, F129, F158, F184, F146, F213, PRISM, GRISM, Grism_0thOrder
      0.400,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,     0.0000,     0.0000
      0.401,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,     0.0000,     0.0000
      0.402,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,    0.0000,     0.0000,     0.0000

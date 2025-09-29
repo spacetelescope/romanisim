@@ -27,6 +27,12 @@ from romanisim import parameters
 galsim_bandpasses = [
     'R062', 'Z087', 'Y106', 'J129', 'H158', 'F184', 'K213', 'W146']
 galsim2roman_bandpass = {x: 'F' + x[1:] for x in galsim_bandpasses}
+
+# Special cases for grism/prism 
+galsim2roman_bandpass.update({"Grism_1stOrder" : "GRISM", 
+                              "SNPrism" : "PRISM"})
+
+# Invert the mapping
 roman2galsim_bandpass = {v: k for k, v in galsim2roman_bandpass.items()}
 
 # provide some no-ops if we are given a key in the right bandpass
