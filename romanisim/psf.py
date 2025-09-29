@@ -209,6 +209,7 @@ def make_one_psf_crds(sca, filter_name, wcs=None, pix=None,
         galsim profile object for convolution with source profiles when
         rendering scenes.
     """
+    log.info('Creating PSF from CRDS reference type epsf')
     if chromatic:
         log.warning('romanisim does not yet support chromatic PSFs '
                     'with stpsf')
@@ -259,6 +260,7 @@ def make_one_psf_galsim(sca, filter_name, wcs=None, pix=None,
         galsim profile object for convolution with source profiles when
         rendering scenes.
     """
+    log.info('Creating PSF using galsim')
     filter_name = roman2galsim_bandpass[filter_name]
     defaultkw = {'pupil_bin': 8}
     if chromatic:
@@ -307,6 +309,7 @@ def make_one_psf_stpsf(sca, filter_name, wcs=None, pix=None,
         galsim profile object for convolution with source profiles when
         rendering scenes.
     """
+    log.info('Creating PSF using stpsf')
     if chromatic:
         log.warning('romanisim does not yet support chromatic PSFs '
                     'with stpsf')
