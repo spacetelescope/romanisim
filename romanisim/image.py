@@ -518,7 +518,7 @@ def simulate_counts(metadata, objlist,
         do not render sources more than this many pixels off edge of detector
     usecrds : bool
         use CRDS distortion map
-    psftype : One of [None, 'crds', 'galsim', 'stpsf]
+    psftype : One of [None, 'epsf', 'galsim', 'stpsf]
         How to determine the PSF. If None and `usecrds` then "crds" will be
         used otherwise "galsim".
     darkrate : float or np.ndarray[float]
@@ -538,7 +538,7 @@ def simulate_counts(metadata, objlist,
         catalog of simulated objects in image
     """
     if psftype is None:
-        psftype = 'crds' if usecrds else 'galsim'
+        psftype = 'epsf' if usecrds else 'galsim'
 
     if 'read_pattern' in metadata['exposure']:
         read_pattern = metadata['exposure']['read_pattern']
@@ -761,7 +761,7 @@ def simulate(metadata, objlist,
         List of objects in the field to simulate
     usecrds : bool
         use CRDS to get reference files
-    psftype : One of [None, 'crds', 'galsim', 'stpsf]
+    psftype : One of [None, 'epsf', 'galsim', 'stpsf]
         How to determine the PSF.
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
@@ -1020,7 +1020,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         galsim random number generator to use
     gain: float [electron / DN]
         gain to use when converting simulated electrons to DN
-    psftype : One of [None, 'crds', 'galsim', 'stpsf]
+    psftype : One of [None, 'epsf', 'galsim', 'stpsf]
         How to determine the PSF.
 
     Returns

@@ -29,7 +29,7 @@ class FakeWCS():
     ((5, 'F184'), {'pix': (1000, 1000), 'psftype': None}, None),
     ((6, 'F184'), {'pix': (1000, 1000), 'psftype': 'stpsf', 'nlambda': 1}, None),
     ((7, 'F129'), {'psftype': 'stpsf', 'wcs': FakeWCS(), 'nlambda': 1}, None),
-    ((8, 'F087'), {'psftype': 'crds', 'nlambda': 1}, None),
+    ((8, 'F087'), {'psftype': 'epsf', 'nlambda': 1}, None),
     ((9, 'F087'), {'psftype': 'stpsf', 'variable': True, 'nlambda': 1}, (100, 100)),
 ])
 def test_make_psf(args, kwargs, position):
@@ -42,7 +42,7 @@ def test_make_psf(args, kwargs, position):
 
     if not kwargs.get('chromatic', False):
         method = 'auto'
-        if kwargs.get('psftype', None) in ('crds', 'stpsf'):
+        if kwargs.get('psftype', None) in ('epsf', 'stpsf'):
             method = 'real_space'
         im = p.drawImage(method=method).array
     else:

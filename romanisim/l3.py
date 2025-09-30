@@ -129,7 +129,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         galsim random number generator to use
     seed : int
         Seed to use for rng
-    psftype : One of ['crds', 'galsim', 'stpsf']
+    psftype : One of ['epsf', 'galsim', 'stpsf']
         How to determine the PSF.
     return_info: bool
         if True, return information from romanisim.image.add_objects_to_image.
@@ -326,7 +326,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         where chromatic profiles & PSFs are being used.
     rng : galsim.BaseDeviate
         random number generator to use
-    psftype : One of ['crds', 'galsim', 'stpsf']
+    psftype : One of ['epsf', 'galsim', 'stpsf']
         How to determine the PSF.
     seed : int
         seed to use for random number generator
