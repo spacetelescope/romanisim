@@ -792,6 +792,7 @@ def simulation_input(tmp_path_factory):
     roman.n_pix = 500
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     meta = util.default_image_meta(coord=coord, filter_name='F087')
+    wcs.fill_in_parameters(meta, coord)
     imwcs = wcs.get_wcs(meta, usecrds=False)
 
     # make a table of sources for us to render
