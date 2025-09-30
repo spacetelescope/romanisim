@@ -115,7 +115,7 @@ class NL:
     """Keep track of non-linearity and inverse non-linearity coefficients.
 
     """
-    def __init__(self, coeffs, dq=None, gain=None):
+    def __init__(self, coeffs, dq=None, gain=None, saturation=None):
         """Construct an NL class handling non-linearity correction.
 
         Parameters
@@ -128,13 +128,18 @@ class NL:
 
         gain : float or np.ndarray[float]
             Gain (electrons / DN) for converting DN to electrons
+
+        saturation : float or None
+            Saturation level in DN
         """
         if dq is None:
             dq = np.zeros(coeffs.shape[1:], dtype='uint32')
         if gain is None:
             gain = parameters.reference_data['gain'].to(u.electron / u.DN).value
+
         self.coeffs, self.dq = repair_coefficients(coeffs, dq)
         self.gain = gain
+        self.saturation = saturation
 
     def apply(self, counts, electrons=False, reversed=False):
         """Compute the correction of DN to linearized DN.
@@ -163,7 +168,20 @@ class NL:
         corrected : np.ndarray[nx, ny] (float)
             The corrected DN or electrons.
         """
-        if electrons:
-            return self.gain * evaluate_nl_polynomial(counts / self.gain, self.coeffs, reversed)
 
-        return evaluate_nl_polynomial(counts, self.coeffs, reversed)
+        gain = self.gain
+
+        if electrons:
+            if not isinstance(counts, u.Quantity):
+                gain = gain / u.electron
+            counts = counts / gain
+
+        if self.saturation is not None:
+            counts = np.clip(counts, -1000 * u.DN, self.saturation)
+
+        corrected = evaluate_nl_polynomial(counts, self.coeffs, reversed)
+
+        if electrons:
+            corrected = corrected * gain
+
+        return corrected
