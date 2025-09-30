@@ -46,7 +46,7 @@ if __name__ == '__main__':
                         help='number of exposures on field.  Used only '
                         'to compute the effective read noise.')
     parser.add_argument('--rng_seed', type=int, default=None)
-    parser.add_argument('--psftype', nargs=1, type=str, default='galsim',
+    parser.add_argument('--psftype', type=str, default='galsim',
                         choices=['crds', 'galsim', 'stpsf'],
                         help='Type of PSF generator to use.')
 
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     im, extras = l3.simulate(
         (args.npix, args.npix), twcs, args.exptime, args.bandpass,
         cat, effreadnoise=args.effreadnoise, nexposures=args.nexposures,
-        metadata=metadata)
+        metadata=metadata, psftype=args.psftype)
 
     # Create metadata for simulation parameter
     romanisimdict = deepcopy(vars(args))
