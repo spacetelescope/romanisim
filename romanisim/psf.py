@@ -71,32 +71,46 @@ class VariablePSF:
         return out
 
 
-def get_gridded_psf_model(psf_ref_model, force_oversample=None):
-    """Function to generate gridded PSF model from psf reference file
-
-    Compute a gridded PSF model for one SCA using the reference files in CRDS.
-    The input reference files have 3 focus positions and this is using the
-    in-focus images. There are also three spectral types that are available and
-    this code uses the M5V spectal type.
-
-    The native oversampling of the EpsfRefModel is stored in the
-    GriddedPSFModel.meta['epsf_oversample']. This is needed since the
-    oversampling used by GriddedPSFModel can be changed using the
-    `force_oversample` argument.
+def get_epsf_from_crds(sca, filter_name, date=None):
+    """Retrieve EPSF reference model from CRDS
 
     Parameters
     ----------
-    psf_ref_model : roman_datamodels.EpsfRefModel
-        The EPSF reference model
-
-    force_oversample : int or None
-        Oversample value to use when creating the GriddedPSFModel. If none,
-        the native oversampling defined in the EpsfRefModel is used.
+    sca : int
+        SCA number
+    filter_name : str
+        name of filter
+    date : astropy.time.Time or None
+        Date of simulation. If None, current date is used.
 
     Returns
     -------
-    photutils.GriddedPSFModel
+    model : roman_datamodels.EpsfRefModel
+    """
+    from crds import getreferences
 
+    if date is None:
+        date = Time.now()
+    header = {
+        'ROMAN.META.INSTRUMENT.NAME': 'wfi',
+        'ROMAN.META.INSTRUMENT.DETECTOR': f'SCA{sca:02d}',
+        'ROMAN.META.INSTRUMENT.OPTICAL_ELEMENT': galsim2roman_bandpass[filter_name],
+        'ROMAN.META.EXPOSURE.START_TIME': date.isot
+    }
+    ref_paths = getreferences(header, reftypes=['epsf'], observatory='roman')
+    model = datamodels.open(ref_paths['epsf'])
+
+    return model
+
+
+def get_gridded_psf_model(psf_ref_model):
+    """Function to generate gridded PSF model from psf reference file
+
+    Compute a gridded PSF model for one SCA using the
+    reference files in CRDS.
+    The input reference files have 3 focus positions and this is using
+    the in-focus images. There are also three spectral types that are
+    available and this code uses the M5V spectal type.
     """
     # Open the reference file data model
     # select the infocus images (0) and we have a selection of spectral types
@@ -112,11 +126,18 @@ def get_gridded_psf_model(psf_ref_model, force_oversample=None):
     for index in range(len(psf_positions_x)):
         position_list.append([psf_positions_x[index], psf_positions_y[index]])
 
+    # integrate over the native pixel scale
+    oversample = psf_ref_model.meta.oversample
+    pixel_response_kernel = Box2DKernel(width=oversample)
+    for i in range(psf_images.shape[0]):
+        psf = psf_images[i, :, :]
+        im = convolve(psf, pixel_response_kernel) * oversample**2
+        psf_images[i, :, :] = im
+
     meta["grid_xypos"] = position_list
-    meta["epsf_oversample"] = psf_ref_model.meta.oversample
-    meta['oversampling'] = force_oversample if force_oversample else psf_ref_model.meta.oversample
+    meta["oversampling"] = oversample
     nd = NDData(psf_images, meta=meta)
-    model = GriddedPSFModel(nd, fill_value=None)
+    model = GriddedPSFModel(nd)
 
     return model
 
@@ -213,22 +234,11 @@ def make_one_psf_crds(sca, filter_name, wcs=None, pix=None,
     if chromatic:
         log.warning('romanisim does not yet support chromatic PSFs '
                     'with stpsf')
-
-    from crds import getreferences
-    if date is None:
-        date = Time.now()
-    header = {
-        'ROMAN.META.INSTRUMENT.NAME': 'wfi',
-        'ROMAN.META.INSTRUMENT.DETECTOR': f'SCA{sca:02d}',
-        'ROMAN.META.INSTRUMENT.OPTICAL_ELEMENT': galsim2roman_bandpass[filter_name],
-        'ROMAN.META.EXPOSURE.START_TIME': date.isot
-    }
-    epsf_ref = getreferences(header, reftypes=['epsf'], observatory='roman')
-    epsf_ref_model = datamodels.open(epsf_ref['epsf'])
-    gridded_psf = get_gridded_psf_model(epsf_ref_model, force_oversample=1)
+    epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
+    gridded_psf = get_gridded_psf_model(epsf_ref_model)
 
     psf = psf_from_grid(gridded_psf, *pix)
-    intimg = psf_to_galsimimage(psf, wcs=wcs, pix=pix, oversample=gridded_psf.meta['epsf_oversample'],
+    intimg = psf_to_galsimimage(psf, wcs=wcs, pix=pix, oversample=gridded_psf.meta['oversampling'],
                                 pixelscale=1., extra_convolution=extra_convolution)
     return intimg
 
