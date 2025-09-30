@@ -94,9 +94,9 @@ def main():
                         help='Use CRDS for distortion map')
 
     parser.add_argument('--psftype', nargs=1, type=str, default=None,
-                        choices=[None, 'crds', 'galsim', 'stpsf'],
+                        choices=[None, 'epsf', 'galsim', 'stpsf'],
                         help=('Type of PSF generator to use.'
-                              ' If None and --usecrds, then "crds" will be used'
+                              ' If None and --usecrds, then "epsf" will be used'
                               ' otherwise "galsim" is used.'))
     parser.add_argument('-w', '--webbpsf',
                         action='store_true',

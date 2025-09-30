@@ -47,7 +47,7 @@ if __name__ == '__main__':
                         'to compute the effective read noise.')
     parser.add_argument('--rng_seed', type=int, default=None)
     parser.add_argument('--psftype', type=str, default='galsim',
-                        choices=['crds', 'galsim', 'stpsf'],
+                        choices=['epsf', 'galsim', 'stpsf'],
                         help='Type of PSF generator to use.')
 
     args = parser.parse_args()

@@ -158,7 +158,7 @@ def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     wcs : callable (optional)
         function giving mapping from pixels to sky for use in computing local
         scale of image for stpsf PSFs
-    psftype : One of ['crds', 'galsim', 'stpsf']
+    psftype : One of ['epsf', 'galsim', 'stpsf']
         How to determine the PSF.
     pix : tuple (float, float)
         pixel location of PSF on focal plane
@@ -169,7 +169,7 @@ def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     extra_convolution : galsim.gsobject.GSObject or None
         Additional convolution to add to PSF
     date : astropy.time.Time or None
-        Date of simulation. If None, current date is used. Needed for psftype='crds'
+        Date of simulation. If None, current date is used. Needed for psftype='epsf'
         to choose the appropriate epsf reference.
     **kw : dict
         Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
@@ -189,7 +189,7 @@ def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     if psftype == 'stpsf':
         psf = make_one_psf_stpsf(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic,
                                  oversample=oversample, extra_convolution=extra_convolution, **kw)
-    elif psftype == 'crds':
+    elif psftype == 'epsf':
         psf = make_one_psf_crds(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic,
                                 extra_convolution=extra_convolution, date=date, **kw)
     else:  # Default is galsim
@@ -218,7 +218,7 @@ def make_one_psf_crds(sca, filter_name, wcs=None, pix=None,
     extra_convolution : galsim.gsobject.GSObject or None
         Additional convolution to add to PSF
     date : astropy.time.Time or None
-        Date of simulation. If None, current date is used. Needed for psftype='crds'
+        Date of simulation. If None, current date is used. Needed for psftype='epsf'
         to choose the appropriate epsf reference.
     **kw : dict
         Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
@@ -353,14 +353,14 @@ def make_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     wcs : callable (optional)
         function giving mapping from pixels to sky for use in computing local
         scale of image for stpsf PSFs
-    psftype : One of ['crds', 'galsim', 'stpsf]
+    psftype : One of ['epsf', 'galsim', 'stpsf]
         How to determine the PSF.
     pix : tuple (float, float)
         pixel location of PSF on focal plane
     variable : bool
         True if a variable PSF object is desired
     date : astropy.time.Time or None
-        Date of simulation. If None, current date is used. Needed for psftype='crds'
+        Date of simulation. If None, current date is used. Needed for psftype='epsf'
         to choose the appropriate epsf reference.
     extra_convolution : galsim.gsobject.GSObject or None
         Additional convolution to add to PSF profiles
