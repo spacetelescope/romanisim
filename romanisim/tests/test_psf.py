@@ -41,7 +41,10 @@ def test_make_psf(args, kwargs, position):
     vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
 
     if not kwargs.get('chromatic', False):
-        im = p.drawImage().array
+        method = 'auto'
+        if kwargs.get('psftype', None) in ('crds', 'stpsf'):
+            method = 'real_space'
+        im = p.drawImage(method=method).array
     else:
         im = (p * vega_sed.withFlux(1, bandpass)).drawImage(bandpass).array
     totsum = np.sum(im)
