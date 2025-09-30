@@ -14,6 +14,7 @@ should consider the following:
   evaluateAtWavelength, using the _shoot code from ChromaticOpticalPSF.
 """
 from collections import OrderedDict
+from functools import cache
 from math import ceil
 
 from astropy.convolution import Box2DKernel, convolve
@@ -70,7 +71,7 @@ class VariablePSF:
                + self.psf['ur'] * (1 - wleft) * (1 - wlow))
         return out
 
-
+@cache
 def get_epsf_from_crds(sca, filter_name, date=None):
     """Retrieve EPSF reference model from CRDS
 
@@ -103,6 +104,7 @@ def get_epsf_from_crds(sca, filter_name, date=None):
     return model
 
 
+@cache
 def get_gridded_psf_model(psf_ref_model):
     """Function to generate gridded PSF model from psf reference file
 
