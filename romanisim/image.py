@@ -1048,7 +1048,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     if psf is None:
         psf = romanisim.psf.make_psf(
             sca, filter_name, wcs=wcs,
-            chromatic=False, psftype=psftype)
+            chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
 
     if gain is None:
         gain = parameters.reference_data['gain']

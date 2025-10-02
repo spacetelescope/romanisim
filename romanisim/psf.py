@@ -92,6 +92,7 @@ def get_epsf_from_crds(sca, filter_name, date=None):
 
     if date is None:
         date = Time.now()
+        log.warning('No date has been specified for CRDS EPSF retrieval. Using %s', date)
     header = {
         'ROMAN.META.INSTRUMENT.NAME': 'wfi',
         'ROMAN.META.INSTRUMENT.DETECTOR': f'SCA{sca:02d}',
