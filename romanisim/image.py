@@ -518,7 +518,7 @@ def simulate_counts(metadata, objlist,
         do not render sources more than this many pixels off edge of detector
     usecrds : bool
         use CRDS distortion map
-    psftype : One of [None, 'epsf', 'galsim', 'stpsf]
+    psftype : One of [None, 'epsf', 'galsim', 'stpsf']
         How to determine the PSF. If None and `usecrds` then "crds" will be
         used otherwise "galsim".
     darkrate : float or np.ndarray[float]

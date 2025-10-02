@@ -235,7 +235,7 @@ def make_one_psf_crds(sca, filter_name, wcs=None, pix=None,
     log.info('Creating PSF from CRDS reference type epsf')
     if chromatic:
         log.warning('romanisim does not yet support chromatic PSFs '
-                    'with stpsf')
+                    'with stpsf or crds epsf')
     epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
     gridded_psf = get_gridded_psf_model(epsf_ref_model)
 

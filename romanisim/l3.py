@@ -94,7 +94,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
 
 
 def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
-                           psftype='stpsf', exptimes=None, seed=None, return_info=False):
+                           psftype='galsim', exptimes=None, seed=None, return_info=False):
     """Inject sources into an L3 image.
 
     This routine allows sources to be injected onto an existing L3 image.
