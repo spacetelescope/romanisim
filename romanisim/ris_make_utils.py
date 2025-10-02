@@ -313,6 +313,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
         log.warning('Warning: webbpsf and stpsf arguments are deprecated, please use '
                     '"--psftype stpsf" instead.')
         del args.stpsf
+        del args.webbpsf
         args.psftype = 'stpsf'
 
     filename = format_filename(args.filename, args.sca, bandpass=args.bandpass,
