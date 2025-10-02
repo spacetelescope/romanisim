@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--date', type=str, default=None,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
     parser.add_argument('--radec', type=float, nargs=2,
-                        help='ra and dec (deg)', default=(270, 66))
+                        help='ra and dec (deg)', default=None)
     parser.add_argument('--npix', type=int, default=4000,
                         help='number of pixels across image')
     parser.add_argument('--pixscalefrac', type=float, default=1.0,
