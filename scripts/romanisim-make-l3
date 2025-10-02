@@ -28,7 +28,7 @@ if __name__ == '__main__':
                         default='F087')
     parser.add_argument('--config', type=str, help='input parameter override file (yaml)',
                         default=None)
-    parser.add_argument('--date', type=str, default=None,
+    parser.add_argument('--date', type=str, default=parameters.default_date.isot,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
     parser.add_argument('--radec', type=float, nargs=2,
                         help='ra and dec (deg)', default=None)
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     if args.date is not None:
         metadata['coadd_info']['time_mean'] = Time(args.date, format='isot')
     else:
-        metadata['coadd_info']['time_mean'] = Time.now()
+        metadata['coadd_info']['time_mean'] = parameters.default_date
 
     metadata['filename'] = os.path.basename(args.filename)
 

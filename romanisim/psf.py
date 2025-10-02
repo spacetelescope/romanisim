@@ -26,6 +26,8 @@ from galsim import roman
 from photutils.psf import GriddedPSFModel
 
 from roman_datamodels import datamodels
+
+from . import parameters
 from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
 from romanisim import log
 
@@ -82,7 +84,7 @@ def get_epsf_from_crds(sca, filter_name, date=None):
     filter_name : str
         name of filter
     date : astropy.time.Time or None
-        Date of simulation. If None, current date is used.
+        Date of simulation. If None, the default from the parameters configuration `default_date` is used
 
     Returns
     -------
@@ -91,8 +93,8 @@ def get_epsf_from_crds(sca, filter_name, date=None):
     from crds import getreferences
 
     if date is None:
-        date = Time.now()
-        log.warning('No date has been specified for CRDS EPSF retrieval. Using %s', date)
+        date = parameters.default_date
+        log.warning('No date has been specified for CRDS EPSF retrieval. Using %s', date.isot)
     header = {
         'ROMAN.META.INSTRUMENT.NAME': 'wfi',
         'ROMAN.META.INSTRUMENT.DETECTOR': f'SCA{sca:02d}',
