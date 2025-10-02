@@ -53,7 +53,7 @@ def main():
     # Date & Time argument
     parser.add_argument('-d', '--date',
                         type=str,
-                        default='2026-01-01T00:00:00',
+                        default=parameters.default_date.isot,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
 
     # Level argument
@@ -242,7 +242,7 @@ def main():
                                             date=Time(args.date, format='isot') + time_offset,
                                             bandpass=entry['BANDPASS'], sca=sca,
                                             ma_table_number=ma_table_number,
-                                            usecrds=usecrds)
+                                            usecrds=args.usecrds)
                 if apt_metadata:
                     util.merge_dicts(metadata, apt_metadata)
 

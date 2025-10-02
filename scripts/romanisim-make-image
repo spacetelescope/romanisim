@@ -8,8 +8,6 @@ from astropy import units as u
 import galsim
 from romanisim import log, wcs, persistence, parameters
 from romanisim import ris_make_utils as ris
-from copy import copy
-import numpy as np
 from astropy.io import fits
 
 
@@ -98,7 +96,7 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument('--config', type=str, help='input parameter override file (yaml)',
                         default=None)
-    parser.add_argument('--date', type=str, default=None,
+    parser.add_argument('--date', type=str, default=parameters.default_date.isot,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
     parser.add_argument('--level', type=int, default=2,
                         help='1 or 2, for L1 or L2 output')
