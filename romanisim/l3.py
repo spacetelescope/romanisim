@@ -161,7 +161,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
-        psf = l3_psf(filter_name, pixscalefrac, psftype=psftype, chromatic=False)
+        psf = l3_psf(filter_name, pixscalefrac, psftype=psftype, chromatic=False, date=model.meta.coadd_info.time_mean)
     sca = romanisim.parameters.default_sca
     maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
     etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
@@ -427,7 +427,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
         psf = l3_psf(filter_name, pixscalefrac, psftype=psftype,
-                     chromatic=chromatic)
+                     chromatic=chromatic, date=meta['coadd_info']['time_mean'])
 
     # Simulate mosaic cps
     mosaic, extras = simulate_cps(
