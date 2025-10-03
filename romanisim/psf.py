@@ -399,7 +399,7 @@ def make_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     return VariablePSF(corners, psfs)
 
 
-def pix_coords(x_start=0, x_end=5, y_start=0, y_end=5, n_x=None, n_y=None):
+def meshgrid(x_start=0, x_end=5, y_start=0, y_end=5, n_x=None, n_y=None):
     """Generate coordinate arrays covering the specified domain
 
     Create array X and Y such that the corresponding values of each
@@ -418,7 +418,7 @@ def pix_coords(x_start=0, x_end=5, y_start=0, y_end=5, n_x=None, n_y=None):
 
     Examples
     --------
-    >>> x, y = pix_coords()
+    >>> x, y = meshgrid()
     >>> print(x)
     [[0.   1.25 2.5  3.75 5.  ]
     [0.   1.25 2.5  3.75 5.  ]
@@ -436,12 +436,11 @@ def pix_coords(x_start=0, x_end=5, y_start=0, y_end=5, n_x=None, n_y=None):
         n_x = ceil(x_end - x_start)
     if n_y is None:
         n_y = ceil(y_end - y_start)
-    rx = np.array([np.linspace(x_start, x_end, n_x)])
-    x = rx.repeat(n_y, axis=0)
-    ry = np.array([np.linspace(y_start, y_end, n_y)]).T
-    y = ry.repeat(n_x, axis=1)
+    x = np.array([np.linspace(x_start, x_end, n_x)])
+    y = np.array([np.linspace(y_start, y_end, n_y)])
+    grid = np.meshgrid(x, y)
 
-    return x, y
+    return grid
 
 
 def psf_from_grid(psfgrid, x_0=None, y_0=None):
@@ -463,7 +462,7 @@ def psf_from_grid(psfgrid, x_0=None, y_0=None):
     x_0 = 0. if x_0 is None else x_0
     y_0 = 0. if y_0 is None else y_0
     bb = psfgrid.get_bounding_box()
-    x, y = pix_coords(x_0 + bb.intervals[0].lower, x_0 + bb.intervals[0].upper,
+    x, y = meshgrid(x_0 + bb.intervals[0].lower, x_0 + bb.intervals[0].upper,
                       y_0 + bb.intervals[1].lower, y_0 + bb.intervals[1].upper)
     psf = psfgrid.evaluate(x, y, 1, x_0, y_0)
     return psf
