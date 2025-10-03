@@ -42,8 +42,8 @@ def test_make_psf(args, kwargs, position):
 
     if not kwargs.get('chromatic', False):
         method = 'auto'
-        if kwargs.get('psftype', None) in ('epsf', 'stpsf'):
-            method = 'real_space'
+        # if kwargs.get('psftype', None) in ('epsf', 'stpsf'):
+        #     method = 'real_space'
         im = p.drawImage(method=method).array
     else:
         im = (p * vega_sed.withFlux(1, bandpass)).drawImage(bandpass).array

@@ -464,7 +464,7 @@ def psf_from_grid(psfgrid, x_0=None, y_0=None):
     y_0 = 0. if y_0 is None else y_0
     bb = psfgrid.get_bounding_box()
     x, y = meshgrid(x_0 + bb.intervals[0].lower, x_0 + bb.intervals[0].upper,
-                      y_0 + bb.intervals[1].lower, y_0 + bb.intervals[1].upper)
+                    y_0 + bb.intervals[1].lower, y_0 + bb.intervals[1].upper)
     psf = psfgrid.evaluate(x, y, 1, x_0, y_0)
     return psf
 
