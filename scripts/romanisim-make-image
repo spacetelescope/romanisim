@@ -71,7 +71,7 @@ def go(args):
         else:
             raise ValueError("If --extra-counts is used, must provide one or two arguments only.")
         with fits.open(extra_counts_file) as hdul:
-            extra_counts = hdul[extra_counts_hdu].data  
+            extra_counts = hdul[extra_counts_hdu].data
 
 
     # Simulate image and write to file
@@ -115,7 +115,7 @@ if __name__ == '__main__':
         'to indicate where the detector number should be filled, e.g. l1_{}.asdf'))
     parser.add_argument('--usecrds', action='store_true',
                         help='Use CRDS references.')
-    parser.add_argument('--psftype', nargs=1, type=str, default=None,
+    parser.add_argument('--psftype', type=str, default=None,
                         choices=[None, 'epsf', 'galsim', 'stpsf'],
                         help=('Type of PSF generator to use.'
                               ' If None and --usecrds, then "epsf" will be used'
