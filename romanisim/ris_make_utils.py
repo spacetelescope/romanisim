@@ -103,7 +103,6 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     else:
         meta['exposure']['read_pattern'] = parameters.read_pattern[ma_table_number]
 
-        
     if truncate is not None:
         meta['exposure']['read_pattern'] = meta['exposure']['read_pattern'][:truncate]
         meta['exposure']['truncated'] = True
