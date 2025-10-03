@@ -195,7 +195,7 @@ def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
         psf = make_one_psf_stpsf(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic,
                                  oversample=oversample, extra_convolution=extra_convolution, **kw)
     elif psftype == 'epsf':
-        psf = make_one_psf_crds(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic,
+        psf = make_one_psf_epsf(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic,
                                 extra_convolution=extra_convolution, date=date, **kw)
     else:  # Default is galsim
         psf = make_one_psf_galsim(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic, extra_convolution=extra_convolution, **kw)
@@ -203,7 +203,7 @@ def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     return psf
 
 
-def make_one_psf_crds(sca, filter_name, wcs=None, pix=None,
+def make_one_psf_epsf(sca, filter_name, wcs=None, pix=None,
                       chromatic=False, extra_convolution=None, date=None, **kw):
     """Make a PSF profile for Roman at a specific detector location using CRDS reftype epsf
 
