@@ -568,7 +568,8 @@ def make_l1(counts, read_pattern,
     # this maybe should be better applied at read time?
     # it's not actually clear to me what the right thing to do
     # is in detail.
-    resultants = np.clip(resultants, 0 * u.DN, saturation)
+    # let things go a little higher than saturation
+    resultants = np.clip(resultants, 0 * u.DN, saturation * 1.1)
     m = resultants >= saturation
     dq[m] |= parameters.dqbits['saturated']
 

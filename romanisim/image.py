@@ -706,8 +706,7 @@ def gather_reference_data(image_mod, usecrds=False):
             if np.any(m):
                 log.warning(
                     f'{np.sum(m)} points with problematic saturation / inverse linearity '
-                    'values; setting saturation of these points to 10 DN!')
-            inv_saturation[m] = 10 * u.DN
+                    'values!')
         else:
             inv_saturation = None
 
@@ -717,7 +716,12 @@ def gather_reference_data(image_mod, usecrds=False):
             ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
             gain=out['gain'],
-            saturation=inv_saturation)
+            saturation=inv_saturation * 1.1)
+        # fudge factor of 10% on the inverse saturation ensures that we'll
+        # continue to fill up pixels above their nominal saturation limits
+        # so that we can robustly see these pixels as saturated.
+        # It relies on the linearity polynomials not going immediately
+        # insane beyond saturation, though.
 
     out['reffiles'] = reffiles
     return out
