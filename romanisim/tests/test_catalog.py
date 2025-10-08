@@ -178,7 +178,7 @@ def test_cosmos_table_catalog(tmp_path):
 
     for bp in OPTICAL_ELEMS:
         assert cat[0][bp] is not None
-        assert np.all(cat[bp] > 0)
+        assert np.all(cat[bp] >= 0)
 
 
 def test_make_gaia_stars(tmp_path):

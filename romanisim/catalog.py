@@ -276,7 +276,7 @@ def make_cosmos_galaxies(coord,
 
     # Only keep items with positive fluxes in required filters
     for opt_elem in cos_filt:
-        cos_cat_all = cos_cat_all[cos_cat_all[opt_elem] > 0]
+        cos_cat_all[cos_cat_all[opt_elem] < 0] = 0
 
     # Filter for flags
     cos_filt += ["ID", "FLUX_RADIUS", "ACS_A_WORLD", "ACS_B_WORLD"]
