@@ -108,7 +108,7 @@ def get_epsf_from_crds(sca, filter_name, date=None):
 
 
 @cache
-def get_gridded_psf_model(psf_ref_model):
+def get_gridded_psf_model(psf_ref_model, oversample=None):
     """Function to generate gridded PSF model from psf reference file
 
     Compute a gridded PSF model for one SCA using the
@@ -134,7 +134,10 @@ def get_gridded_psf_model(psf_ref_model):
     for index in range(len(psf_positions_x)):
         position_list.append([psf_positions_x[index], psf_positions_y[index]])
     meta["grid_xypos"] = position_list
-    meta["oversampling"] = psf_ref_model.meta.oversample
+    if oversample is None:
+        oversample = psf_ref_model.meta.oversample
+    meta["oversampling"] = oversample
+    meta['epsf_oversample'] = psf_ref_model.meta.oversample
     nd = NDData(psf_images, meta=meta)
     model = GriddedPSFModel(nd)
 
@@ -234,10 +237,10 @@ def make_one_psf_epsf(sca, filter_name, wcs=None, pix=None,
         log.warning('romanisim does not yet support chromatic PSFs '
                     'with stpsf or crds epsf')
     epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
-    gridded_psf = get_gridded_psf_model(epsf_ref_model)
+    gridded_psf = get_gridded_psf_model(epsf_ref_model, oversample=1)
 
     psf = psf_from_grid(gridded_psf, *pix)
-    pixelscale = parameters.pixel_scale / gridded_psf.meta['oversampling']
+    pixelscale = parameters.pixel_scale / gridded_psf.meta['epsf_oversample']
     intimg = psfstamp_to_galsimimange(psf, pixelscale, wcs=wcs, pix=pix,
                                 extra_convolution=extra_convolution)
     return intimg
