@@ -332,7 +332,8 @@ def make_one_psf_stpsf(sca, filter_name, wcs=None, pix=None,
     wfi.filter = filter_name
     wfi.detector_position = pix
     psf = wfi.calc_psf(oversample=oversample, **kw)
-    intimg = psfstamp_to_galsimimange(psf[0].data, wfi.pixelscale, wcs=wcs, pix=pix,
+    pixelscale = wfi.pixelscale / oversample
+    intimg = psfstamp_to_galsimimange(psf[0].data, pixelscale, wcs=wcs, pix=pix,
                                 extra_convolution=extra_convolution)
     return intimg
 
