@@ -688,7 +688,7 @@ def gather_reference_data(image_mod, usecrds=False):
         saturation *= u.DN
         out['saturation'] = saturation
     else:
-        saturation = None
+        saturation = out['saturation']
 
     if isinstance(reffiles['linearity'], str):
         lin_model = roman_datamodels.datamodels.LinearityRefModel(
@@ -697,10 +697,14 @@ def gather_reference_data(image_mod, usecrds=False):
             lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
             gain=out['gain'],
-            saturation=saturation)
+            saturation=saturation * 1.1 if saturation is not None else None)
+        # fudge factor on saturation to let us correct to slightly beyond
+        # saturation, even if we mask at saturation and don't use those
+        # corrected results
 
     if isinstance(reffiles['inverselinearity'], str):
-        if saturation is not None and 'linearity' in out:
+        if ((saturation is not None) and ('linearity' in out) and
+                (out['linearity'] is not None)):
             inv_saturation = out['linearity'].apply(saturation)
             m = (inv_saturation < 0 * u.DN) | (inv_saturation > saturation * 2)
             if np.any(m):
@@ -716,7 +720,7 @@ def gather_reference_data(image_mod, usecrds=False):
             ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
             gain=out['gain'],
-            saturation=inv_saturation * 1.1)
+            saturation=inv_saturation * 1.1 if inv_saturation is not None else None)
         # fudge factor of 10% on the inverse saturation ensures that we'll
         # continue to fill up pixels above their nominal saturation limits
         # so that we can robustly see these pixels as saturated.
