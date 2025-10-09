@@ -214,7 +214,6 @@ def add_more_metadata(metadata, usecrds=False):
     if matab is None and usecrds:
         raise ValueError('ma table reference file is not loaded!')
 
-
     if usecrds:
         tmatab = matab['roman']['science_tables'][f'SCI{manum:04}']
         metadata['exposure']['frame_time'] = tmatab['frame_time']

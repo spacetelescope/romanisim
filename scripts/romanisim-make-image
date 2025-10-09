@@ -14,6 +14,11 @@ from astropy.io import fits
 
 
 def go(args):
+    if args.usecrds:
+        # don't use default values
+        for k in parameters.reference_data:
+            parameters.reference_data[k] = None
+
     if args.config is not None:
         # Open and parse overrides file
         with open(args.config, "r") as config_file:
@@ -21,10 +26,6 @@ def go(args):
             combo_dict = parameters.__dict__
             ris.merge_nested_dicts(combo_dict, config)
             parameters.__dict__.update(combo_dict)
-    elif args.usecrds:
-        # don't use default values
-        for k in parameters.reference_data:
-            parameters.reference_data[k] = None
 
     if args.sca == -1:
         # simulate all 18 SCAs sequentially

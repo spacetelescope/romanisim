@@ -41,12 +41,12 @@ def test_wcs():
     distortion = make_fake_distortion_function()
     cc = SkyCoord(ra=0 * u.deg, dec=0 * u.deg)
     gwcs = wcs.make_wcs(cc, distortion)
-    assert cc.separation(gwcs(0, 0, with_units=True)).to(u.arcsec).value < 1e-3
+    assert cc.separation(gwcs.pixel_to_world(0, 0)).to(u.arcsec).value < 1e-3
     cc2 = SkyCoord(ra=0 * u.deg, dec=0.11 * u.arcsec)
-    assert cc2.separation(gwcs(0, 1, with_units=True)).to(u.arcsec).value < 1e-2
+    assert cc2.separation(gwcs.pixel_to_world(0, 1)).to(u.arcsec).value < 1e-2
     # a tenth of a pixel
     cc3 = SkyCoord(ra=0.11 * u.arcsec, dec=0 * u.deg)
-    assert cc3.separation(gwcs(1, 0, with_units=True)).to(u.arcsec).value < 1e-2
+    assert cc3.separation(gwcs.pixel_to_world(1, 0)).to(u.arcsec).value < 1e-2
     wcsgalsim = wcs.GWCS(gwcs)
     assert wcsgalsim.wcs is gwcs
     assert ((wcsgalsim.origin.x == 0) and (wcsgalsim.origin.y == 0))

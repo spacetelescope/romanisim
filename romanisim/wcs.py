@@ -27,6 +27,7 @@ import astropy.time
 import roman_datamodels
 import gwcs.geometry
 from gwcs import coordinate_frames as cf
+import galsim
 import gwcs.wcs
 import galsim.wcs
 from galsim import roman
@@ -150,7 +151,8 @@ def get_wcs(image, usecrds=True, distortion=None):
         # therefore requires a date.
         wcs_dict = roman.getWCS(world_pos=util.celestialcoord(world_pos),
                                 SCAs=sca,
-                                date=date.datetime)
+                                date=date.datetime,
+                                PA=image_mod.meta.pointing.pa_aperture * galsim.degrees)
         wcs = wcs_dict[sca]
     return wcs
 
