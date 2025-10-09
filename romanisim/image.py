@@ -688,7 +688,7 @@ def gather_reference_data(image_mod, usecrds=False):
         saturation *= u.DN
         out['saturation'] = saturation
     else:
-        saturation = None
+        saturation = out['saturation']
 
     if isinstance(reffiles['linearity'], str):
         lin_model = roman_datamodels.datamodels.LinearityRefModel(
@@ -703,7 +703,8 @@ def gather_reference_data(image_mod, usecrds=False):
         # corrected results
 
     if isinstance(reffiles['inverselinearity'], str):
-        if saturation is not None and 'linearity' in out:
+        if ((saturation is not None) and ('linearity' in out) and
+                (out['linearity'] is not None)):
             inv_saturation = out['linearity'].apply(saturation)
             m = (inv_saturation < 0 * u.DN) | (inv_saturation > saturation * 2)
             if np.any(m):
