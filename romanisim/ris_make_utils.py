@@ -13,7 +13,6 @@ from astropy import units as u
 import galsim
 from galsim import roman
 import roman_datamodels
-from roman_datamodels import stnode
 from romanisim import catalog, image, wcs
 from romanisim import parameters, log
 from romanisim.util import calc_scale_factor
@@ -336,7 +335,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
     obsdata = parse_filename(basename)
     if obsdata is not None:
         im['meta']['observation'].update(**obsdata)
-    im['meta']['filename'] = stnode.Filename(basename)
+    im['meta']['filename'] = basename
 
     pretend_spectral = getattr(args, 'pretend_spectral', None)
     if pretend_spectral is not None:
