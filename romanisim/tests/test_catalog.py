@@ -162,8 +162,11 @@ def test_table_catalog(tmp_path):
 def test_cosmos_table_catalog(tmp_path):
     """Test population of sources with COSMOS objects
     """
+    # Please do not change the seed or reduce the radius as these
+    # parameters are neccesary to make the positive flux test useful
     cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
     radius = 0.01
+
     cat = catalog.make_cosmos_galaxies(
         cen, radius=radius, seed=11)
     assert len(cat) > 0
@@ -175,6 +178,7 @@ def test_cosmos_table_catalog(tmp_path):
 
     for bp in OPTICAL_ELEMS:
         assert cat[0][bp] is not None
+        assert np.all(cat[bp] >= 0)
 
 
 def test_make_gaia_stars(tmp_path):
