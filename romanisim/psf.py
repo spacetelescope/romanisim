@@ -237,12 +237,18 @@ def make_one_psf_epsf(sca, filter_name, wcs=None, pix=None,
         log.warning('romanisim does not yet support chromatic PSFs '
                     'with stpsf or crds epsf')
     epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
-    gridded_psf = get_gridded_psf_model(epsf_ref_model, oversample=1)
 
-    psf = psf_from_grid(gridded_psf, *pix)
-    pixelscale = parameters.pixel_scale / gridded_psf.meta['epsf_oversample']
+    # Open the reference file data model
+    # select the infocus images (0) and we have a selection of spectral types
+    # A0V, G2V, and M6V, pick G2V (1)
+    focus = 0
+    spectral_type = 1
+    psf_images = epsf_ref_model.psf[focus, spectral_type, :, :, :].copy()
+    psf = psf_images[4]
+
+    pixelscale = parameters.pixel_scale / epsf_ref_model.meta.oversample
     intimg = psfstamp_to_galsimimange(psf, pixelscale, wcs=wcs, pix=pix,
-                                extra_convolution=extra_convolution)
+                                      extra_convolution=extra_convolution)
     return intimg
 
 
