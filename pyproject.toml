@@ -26,7 +26,6 @@ dependencies = [
   # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
   "gwcs >=0.25.0",
   "numpy >1.26",
-  "stpsf >=2.1.0",
   "Cython >=0.29.21",
 ]
 license-files = ["LICENSE"]
@@ -48,6 +47,7 @@ test = [
   "pytest-openfiles >=0.5.0",
   "pytest-doctestplus >=0.10.0",
   "pytest-cov >=2.9.0",
+  "stpsf >=2.1.0",
 ]
 
 [project.urls]
