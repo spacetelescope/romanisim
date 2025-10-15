@@ -24,7 +24,6 @@ from astropy import units as u
 from astropy.time import Time
 from astropy import table
 import asdf
-import stpsf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
@@ -164,6 +163,8 @@ def test_image_rendering():
     - RUSBREQ-830 / DMS214: point source generation.
     - RSUBREQ-874 / DMS215: analytic model source generation
     """
+    stpsf = pytest.importorskip('stpsf')
+
     oversample = 4
     filter_name = 'F158'
     sca = 1
