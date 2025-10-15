@@ -110,7 +110,7 @@ def test_make_l2():
 def set_up_image_rendering_things():
     im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
     filter_name = 'F158'
-    impsfgray = psf.make_psf(1, filter_name, psftype='stpsf', chromatic=False,
+    impsfgray = psf.make_psf(1, filter_name, psftype='epsf', chromatic=False,
                              nlambda=1)  # nlambda = 1 speeds tests
     impsfchromatic = psf.make_psf(1, filter_name, psftype=None,
                                   chromatic=True)
@@ -449,7 +449,7 @@ def test_simulate_counts():
     im1 = image.simulate_counts(meta, chromcat, usecrds=False,
                                 psftype=None, ignore_distant_sources=100)
     im2 = image.simulate_counts(meta, graycat,
-                                usecrds=False, psftype='stpsf',
+                                usecrds=False, psftype='epsf',
                                 ignore_distant_sources=100,
                                 psf_keywords=dict(nlambda=1))
     im1 = im1[0].array
@@ -493,10 +493,10 @@ def test_simulate():
     imdict['tabcatalog']['dec'] = center.dec.to(u.deg).value
     imdict['tabcatalog'][filter_name] = (
         imdict['tabcatalog'][filter_name] / abfluxdict[f'SCA{sca:02}'][filter_name])
-    l0 = image.simulate(meta, graycat, psftype='stpsf', level=0,
+    l0 = image.simulate(meta, graycat, psftype='epsf', level=0,
                         usecrds=False, psf_keywords=dict(nlambda=1))
     l0tab = image.simulate(
-        meta, imdict['tabcatalog'], psftype='stpsf', level=0, usecrds=False,
+        meta, imdict['tabcatalog'], psftype='epsf', level=0, usecrds=False,
         psf_keywords=dict(nlambda=1))
     # seed = 0 is special and means "don't actually use a seed."  Any other
     # choice of seed gives deterministic behavior
@@ -506,7 +506,7 @@ def test_simulate():
     # CRs are detected, except in a 100x100 region instead of a 4kx4k region;
     # i.e., there are 1600x too many CRs.  Fine for unit tests?
     rng = galsim.BaseDeviate(1)
-    l1 = image.simulate(meta, graycat, psftype='stpsf', level=1,
+    l1 = image.simulate(meta, graycat, psftype='epsf', level=1,
                         crparam=dict(), usecrds=False, rng=rng,
                         psf_keywords=dict(nlambda=1))
     peakloc = np.nonzero(l0[0]['data'] == np.max(l0[0]['data']))
@@ -526,12 +526,12 @@ def test_simulate():
         af.write_to(os.path.join(artifactdir, 'dms218.asdf'))
 
     rng = galsim.BaseDeviate(1)
-    l1_nocr = image.simulate(meta, graycat, psftype='stpsf', level=1,
+    l1_nocr = image.simulate(meta, graycat, psftype='epsf', level=1,
                              usecrds=False, crparam=None, rng=rng,
                              psf_keywords=dict(nlambda=1))
     assert np.all(l1[0].data >= l1_nocr[0].data)
     log.info('DMS221: Successfully added cosmic rays to an L1 image.')
-    l2 = image.simulate(meta, graycat, psftype='stpsf', level=2,
+    l2 = image.simulate(meta, graycat, psftype='epsf', level=2,
                         usecrds=False, crparam=dict(),
                         psf_keywords=dict(nlambda=1))
     # throw in some CRs for fun
@@ -542,7 +542,7 @@ def test_simulate():
     persist.update(l0[0]['data'] * 0 + fluence, time.mjd - 100 / 60 / 60 / 24)
     # zap the whole frame, 100 seconds ago.
     rng = galsim.BaseDeviate(1)
-    l1p = image.simulate(meta, graycat, psftype='stpsf', level=1, usecrds=False,
+    l1p = image.simulate(meta, graycat, psftype='epsf', level=1, usecrds=False,
                          persistence=persist, crparam=None, rng=rng,
                          psf_keywords=dict(nlambda=1))
     # the random number gets instatiated from the same seed, but the order in
@@ -628,7 +628,7 @@ def test_reference_file_crds_match(level):
     rng = galsim.UniformDeviate(None)
     im, simcatobj = image.simulate(
         metadata, cat, usecrds=True,
-        psftype='stpsf', level=level,
+        psftype='epsf', level=level,
         rng=rng, psf_keywords=dict(nlambda=1))
 
     # Confirm that CRDS keyword was updated
@@ -660,7 +660,7 @@ def test_inject_source_into_image():
                                            nobj=2000, rng=rng)
     # Create starting image
     im, simcatobj = image.simulate(
-        meta, cat, usecrds=False, psftype='stpsf', level=2,
+        meta, cat, usecrds=False, psftype='epsf', level=2,
         rng=rng, psf_keywords=dict(nlambda=1),
         crparam=None)
 
