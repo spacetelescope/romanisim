@@ -25,7 +25,6 @@ dependencies = [
   "roman_datamodels>=0.28.0",
   # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
   "gwcs >=0.25.0",
-  "jsonschema >=4.8",
   "numpy >1.26",
   "stpsf >=2.1.0",
   "Cython >=0.29.21",
