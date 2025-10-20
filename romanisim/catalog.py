@@ -244,6 +244,7 @@ def make_cosmos_galaxies(coord,
                 cos_filt.append('UVISTA_Ks_FLUX_AUTO')
             if opt_elem in ("F158", "F184", "F146"):
                 cos_filt.append('UVISTA_H_FLUX_AUTO')
+    cos_filt = list(set(cos_filt))
 
     # Open COSMOS file and pare to required tabs
     if filename:
@@ -276,15 +277,16 @@ def make_cosmos_galaxies(coord,
 
     # Set negative fluxes to zero
     for opt_elem in cos_filt:
-        cos_cat_all[opt_elem][cos_cat_all[opt_elem] < 0]= 0
+        cos_cat_all[opt_elem][cos_cat_all[opt_elem] < 0] = 0
 
     # Drop sources with no flux in the requested bandpasses
-    cos_cat_zero = np.lib.recfunctions.structured_to_unstructured(cos_cat_all[cos_filt].as_array())
-    cos_cat_all = cos_cat_all[cos_cat_zero.max(axis=1) > 0]
+    good = np.zeros(len(cos_cat_all), dtype='bool')
+    for filt in cos_filt:
+        good |= cos_cat_all[filt] > 0
+    cos_cat_all = cos_cat_all[good]
 
     # Filter for flags
     cos_filt += ["ID", "FLUX_RADIUS", "ACS_A_WORLD", "ACS_B_WORLD"]
-    cos_filt = list(set(cos_filt))
 
     # Trim catalog
     cos_cat = cos_cat_all[cos_filt]
