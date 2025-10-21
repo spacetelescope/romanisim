@@ -336,6 +336,9 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
     obsdata = parse_filename(basename)
     if obsdata is not None:
         im['meta']['observation'].update(**obsdata)
+    im['meta']['observation']['visit_file_group'] = 0
+    im['meta']['observation']['visit_file_sequence'] = 1
+    im['meta']['observation']['visit_file_activity'] = '01'
     im['meta']['filename'] = stnode.Filename(basename)
 
     pretend_spectral = getattr(args, 'pretend_spectral', None)
