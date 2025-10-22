@@ -79,7 +79,12 @@ def make_one_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
     filter_name = galsim2roman_bandpass[filter_name]
     wfi = wpsf.WFI()
     wfi.detector = f'SCA{sca:02d}'
-    wfi.filter = filter_name
+    # Special case for the grism, which has two options in stpsf, GRISM0 and GRISM1
+    # We just use GRISM1, since this is what we assume we will want.
+    if filter_name == "GRISM":
+        wfi.filter = "GRISM1"
+    else:
+        wfi.filter = filter_name
     wfi.detector_position = pix
     psf = wfi.calc_psf(oversample=oversample, **kw)
     # stpsf doesn't do distortion
