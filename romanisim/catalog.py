@@ -17,6 +17,7 @@ from astroquery.gaia import Gaia
 from romanisim import gaia as rsim_gaia
 from . import util, log, parameters
 import romanisim.bandpass
+import yaml
 
 # COSMOS constants taken from the COSMOS2020 paper:
 # https://arxiv.org/pdf/2110.13923
@@ -861,9 +862,16 @@ def read_catalog(filename,
         cat = make_gaia_stars(coord, radius=radius, date=date, **kwargs)
     elif os.path.isdir(filename):
         # Healpix catalogs within a directory
+        metafilename = os.path.join(filename, 'meta.yaml')
+        if os.path.exists(metafilename):
+            meta = yaml.safe_load(metafilename)
+        else:
+            meta = dict()
+        nside = meta.get('nside', 128)
 
         # Set parameters of Healpix
-        hp = astropy_healpix.HEALPix(nside=128, order='nested', frame=coordinates.Galactic())
+        hp = astropy_healpix.HEALPix(
+            nside=nside, order='nested', frame=coordinates.Galactic())
 
         # Find Healpix
         hp_cone = hp.cone_search_skycoord(util.skycoord(coord), radius=radius * u.deg)
