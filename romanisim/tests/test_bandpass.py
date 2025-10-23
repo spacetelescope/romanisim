@@ -22,7 +22,7 @@ IFILTLIST = ['F062', 'F087', 'F106', 'F129', 'F158', 'F184', 'F213', 'F146']
 # List of select filters with calculated AB fluxes for AB Flux test
 FILTERLIST = ['F062', 'F158', 'F213']
 # ABVLIST = [4.938e10, 4.0225e10, 2.55e10]  # Old value
-ABVLIST = [4.268e10, 3.3809e10, 2.12e10]   # AB fluxes changed by 14-17% with the new throughput files.  
+ABVLIST = [4.268e10, 3.3809e10, 2.12e10]   # AB fluxes changed by 14-17% with the new throughput files.
 
 
 # Testing with SCA = 1
@@ -36,7 +36,7 @@ def test_read_gsfc_effarea(tmpdir_factory, sca=1):
 
     # with open(table_file, 'r') as tmp_file:
     #     file_data = tmp_file.read()
-    # Removing the followings as the ECSV files should start with the ECSV version    
+    # Removing the followings as the ECSV files should start with the ECSV version
     # with open(table_file, 'w') as tmp_file:
     #     tmp_file.write("Header Comment line \n" + file_data)
 
@@ -258,9 +258,6 @@ def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
 
         # Computed flux
         computed_flux = bandpass.compute_count_rate(flux=total_flux, bandpass=filter, sca=sca, wavedist=total_wavedist)
-        print(filter)
-        print(an_counts_sum.value, computed_flux)
-        print(np.isclose(an_counts_sum.value, computed_flux, rtol=4.0e-2))
 
         # Test that proper results (within 4%) are returned for select bands.
         assert np.isclose(an_counts_sum.value, computed_flux, rtol=4.0e-2)
