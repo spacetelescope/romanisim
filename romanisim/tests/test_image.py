@@ -111,7 +111,7 @@ def set_up_image_rendering_things():
     filter_name = 'F158'
     impsfgray = psf.make_psf(1, filter_name, psftype='epsf', chromatic=False,
                              nlambda=1)  # nlambda = 1 speeds tests
-    impsfchromatic = psf.make_psf(1, filter_name, psftype=None,
+    impsfchromatic = psf.make_psf(1, filter_name, psftype='galsim',
                                   chromatic=True)
     bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
@@ -448,7 +448,7 @@ def test_simulate_counts():
     meta = util.default_image_meta(filter_name='F158')
     wcs.fill_in_parameters(meta, coord)
     im1 = image.simulate_counts(meta, chromcat, usecrds=False,
-                                psftype=None, ignore_distant_sources=100)
+                                psftype='galsim', ignore_distant_sources=100)
     im2 = image.simulate_counts(meta, graycat,
                                 usecrds=False, psftype='epsf',
                                 ignore_distant_sources=100,
@@ -536,7 +536,7 @@ def test_simulate():
                         usecrds=False, crparam=dict(),
                         psf_keywords=dict(nlambda=1))
     # throw in some CRs for fun
-    l2c = image.simulate(meta, chromcat, psftype=None, level=2,
+    l2c = image.simulate(meta, chromcat, psftype='galsim', level=2,
                          usecrds=False)
     persist = persistence.Persistence()
     fluence = 30000
@@ -598,7 +598,7 @@ def test_make_test_catalog_and_images():
         fn = str(fn)
     res = image.make_test_catalog_and_images(usecrds=False,
                                              galaxy_sample_file_name=fn,
-                                             psftype=None,
+                                             psftype='galsim',
                                              filters=['Y106'])
     assert len(res) > 0
 
@@ -700,13 +700,55 @@ def test_inject_source_into_image():
 
 
 @pytest.mark.soctests
-def test_image_input(tmpdir, simulation_input):
-    """Test actual image simulation"""
+def test_image_input(tmpdir):
+    # make some simple example images
+    imsz = 99
+    cenpix = imsz // 2
+    yy, xx = np.meshgrid(np.arange(imsz) - cenpix, np.arange(imsz) - cenpix)
+    im1 = ((xx ** 2 + yy ** 2) < 30 ** 2) * 1.0  # circle
+    im2 = im1 * 0
+    im2[35:65, 10:-10] = 1  # rectangle
 
-    meta, tab, imwcs, im1, im2 = simulation_input
+    # make a PSF for these
+    psf = im1 * 0
+    psf[cenpix, cenpix] = 1
+    from scipy.ndimage import gaussian_filter
+    sigma = 1
+    psf = gaussian_filter(psf, sigma)
+
+    # set up the image catalog
+    from astropy.io import fits
+    filenames = [tmpdir.join('im1.fits'), tmpdir.join('im2.fits')]
+    fits.writeto(filenames[0], gaussian_filter(im1, sigma))
+    fits.writeto(filenames[1], gaussian_filter(im2, sigma))
+    base_rgc_filename = tmpdir.join('test_image_catalog')
+    catalog.make_image_catalog(filenames, psf, base_rgc_filename)
+
+    # make some metadata to describe an image for us to render
+    roman.n_pix = 500
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+    meta = util.default_image_meta(coord=coord, filter_name='F087')
+    wcs.fill_in_parameters(meta, coord)
+    imwcs = wcs.get_wcs(meta, usecrds=False)
+
+    # make a table of sources for us to render
+    tab = table.Table()
+    cen = imwcs.toWorld(galsim.PositionD(roman.n_pix / 2, roman.n_pix / 2))
+    offsets = np.array([[-300, 300, -100, -200, 0, 0],
+                        [0, 100, -200, -100, 0, -300]])
+    offsets = offsets * 0.1 / 60 / 60
+    tab['ra'] = util.skycoord(cen).ra.to(u.degree).value + offsets[0, :]
+    tab['dec'] = util.skycoord(cen).dec.to(u.degree).value + offsets[1, :]
+    tab['ident'] = np.arange(6) % 2  # alternate circles and rectangles
+    tab['rotate'] = np.arange(6) * 60
+    tab['shear_pa'] = (5 - np.arange(6)) * 60
+    tab['shear_ba'] = [0.5, 0.3, 0.9, 0.8, 1, 1]
+    tab['dilate'] = [0.5, 0.1, 0.9, 1.1, 2, 0.8]
+    tab['F087'] = [1e-7, 2e-7, 3e-7, 3e-7, 2e-7, 1e-7]
+    tab.meta['real_galaxy_catalog_filename'] = str(base_rgc_filename) + '.fits'
 
     # render the image
-    res = image.simulate(meta, tab, usecrds=False, psftype=None, )
+    res = image.simulate(meta, tab, usecrds=False, psftype='galsim')
 
     # did we get all the flux?
     totflux = np.sum(res[0].data - np.median(res[0].data))
@@ -733,83 +775,3 @@ def test_image_input(tmpdir, simulation_input):
                    'output': res[0].data,
                    }
         af.write_to(os.path.join(artifactdir, 'dms228.asdf'))
-
-
-@pytest.mark.parametrize('psftype', (None, 'galsim', 'stpsf', 'epsf'))
-def test_psftypes(tmpdir, simulation_input, psftype):
-    """Test actual image simulation"""
-
-    meta, tab, imwcs, im1, im2 = simulation_input
-
-    # render the image
-    res = image.simulate(meta, tab, usecrds=False, psftype=psftype)
-
-    # did we get all the flux?
-    totflux = np.sum(res[0].data - np.median(res[0].data))
-    expectedflux = (romanisim.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
-                    / parameters.reference_data['gain'].value)
-    assert np.abs(totflux / expectedflux - 1) < 0.1
-
-    # are there sources where there should be?
-    for r, d in zip(tab['ra'], tab['dec']):
-        x, y = imwcs.toImage(r, d, units=galsim.degrees)
-        x = int(x)
-        y = int(y)
-        assert res[0].data[y, x] > np.median(res[0].data) * 5
-
-
-# ######################
-# Fixtures and utilities
-# ######################
-@pytest.fixture(scope='module')
-def simulation_input(tmp_path_factory):
-    """Create initial data for simulations"""
-    path = tmp_path_factory.mktemp('simulation_input')
-
-    # make some simple example images
-    imsz = 99
-    cenpix = imsz // 2
-    yy, xx = np.meshgrid(np.arange(imsz) - cenpix, np.arange(imsz) - cenpix)
-    im1 = ((xx ** 2 + yy ** 2) < 30 ** 2) * 1.0  # circle
-    im2 = im1 * 0
-    im2[35:65, 10:-10] = 1  # rectangle
-
-    # make a PSF for these
-    psf = im1 * 0
-    psf[cenpix, cenpix] = 1
-    from scipy.ndimage import gaussian_filter
-    sigma = 1
-    psf = gaussian_filter(psf, sigma)
-
-    # set up the image catalog
-    from astropy.io import fits
-    filenames = [path / 'im1.fits', path / 'im2.fits']
-    fits.writeto(filenames[0], gaussian_filter(im1, sigma))
-    fits.writeto(filenames[1], gaussian_filter(im2, sigma))
-    base_rgc_filename = path / 'test_image_catalog'
-    catalog.make_image_catalog(filenames, psf, str(base_rgc_filename))
-
-    # make some metadata to describe an image for us to render
-    roman.n_pix = 500
-    coord = SkyCoord(270 * u.deg, 66 * u.deg)
-    meta = util.default_image_meta(coord=coord, filter_name='F087')
-    wcs.fill_in_parameters(meta, coord)
-    imwcs = wcs.get_wcs(meta, usecrds=False)
-
-    # make a table of sources for us to render
-    tab = table.Table()
-    cen = imwcs.toWorld(galsim.PositionD(roman.n_pix / 2, roman.n_pix / 2))
-    offsets = np.array([[-300, 300, -100, -200, 0, 0],
-                        [0, 100, -200, -100, 0, -300]])
-    offsets = offsets * 0.1 / 60 / 60
-    tab['ra'] = util.skycoord(cen).ra.to(u.degree).value + offsets[0, :]
-    tab['dec'] = util.skycoord(cen).dec.to(u.degree).value + offsets[1, :]
-    tab['ident'] = np.arange(6) % 2  # alternate circles and rectangles
-    tab['rotate'] = np.arange(6) * 60
-    tab['shear_pa'] = (5 - np.arange(6)) * 60
-    tab['shear_ba'] = [0.5, 0.3, 0.9, 0.8, 1, 1]
-    tab['dilate'] = [0.5, 0.1, 0.9, 1.1, 2, 0.8]
-    tab['F087'] = [1e-7, 2e-7, 3e-7, 3e-7, 2e-7, 1e-7]
-    tab.meta['real_galaxy_catalog_filename'] = str(base_rgc_filename) + '.fits'
-
-    return meta, tab, imwcs, im1, im2
