@@ -17,9 +17,7 @@ from collections import OrderedDict
 from functools import cache
 from math import ceil
 
-from astropy.convolution import Box2DKernel, convolve
 from astropy.nddata import NDData
-from astropy.time import Time
 import numpy as np
 import galsim
 from galsim import roman

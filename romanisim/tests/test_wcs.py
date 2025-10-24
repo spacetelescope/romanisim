@@ -1,7 +1,6 @@
 """
 Unit tests for wcs module.
 """
-import os
 import copy
 import numpy as np
 from astropy.modeling import rotations, projections, models
@@ -10,7 +9,6 @@ from astropy import units as u
 from astropy.time import Time
 from romanisim import wcs, util, parameters
 import galsim
-import pytest
 
 import roman_datamodels
 

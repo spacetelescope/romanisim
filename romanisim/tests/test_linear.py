@@ -5,8 +5,6 @@ Routines tested:
 - evaluate_nl_polynomial
 - apply
 """
-import os
-import pytest
 import numpy as np
 from astropy import units as u
 from astropy import stats
