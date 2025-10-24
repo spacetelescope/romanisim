@@ -106,46 +106,6 @@ def test_make_l2():
     assert np.allclose(slopes, 0, atol=1e-6)
 
 
-def set_up_image_rendering_things():
-    im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
-    filter_name = 'F158'
-    impsfgray = psf.make_psf(1, filter_name, psftype='epsf', chromatic=False,
-                             nlambda=1)  # nlambda = 1 speeds tests
-    impsfchromatic = psf.make_psf(1, filter_name, psftype='galsim',
-                                  chromatic=True)
-    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
-    counts = 1000
-    fluxdict = {filter_name: counts}
-    from copy import deepcopy
-    graycatalog = [
-        catalog.CatalogObject(None, galsim.DeltaFunction(), deepcopy(fluxdict)),
-        catalog.CatalogObject(None, galsim.Sersic(1, half_light_radius=0.2),
-                              deepcopy(fluxdict))
-    ]
-    vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
-    vega_sed = vega_sed.withFlux(counts, bandpass)
-    chromcatalog = [
-        catalog.CatalogObject(None, galsim.DeltaFunction() * vega_sed, None),
-        catalog.CatalogObject(
-            None, galsim.Sersic(1, half_light_radius=0.2) * vega_sed, None)
-    ]
-    tabcat = table.Table()
-    tabcat['ra'] = [270.0]
-    tabcat['dec'] = [66.0]
-    tabcat[filter_name] = counts
-    tabcat['type'] = 'PSF'
-    tabcat['n'] = -1
-    tabcat['half_light_radius'] = -1
-    tabcat['pa'] = -1
-    tabcat['ba'] = -1
-    return dict(im=im, impsfgray=impsfgray,
-                impsfchromatic=impsfchromatic,
-                bandpass=bandpass, counts=counts, fluxdict=fluxdict,
-                graycatalog=graycatalog,
-                chromcatalog=chromcatalog, filter_name=filter_name,
-                tabcatalog=tabcat)
-
-
 def central_stamp(im, sz):
     for s in im.shape:
         if (s % 2) != (sz % 2):
@@ -279,11 +239,11 @@ def test_image_rendering():
     # Poisson errors and containing 100k counts.
 
 
-def test_add_objects():
+def test_add_objects(set_up_image_rendering_things):
     """Test adding objects to images.
     Demonstrates profile sensitivity to distortion component of DMS218.
     """
-    imdict = set_up_image_rendering_things()
+    imdict = set_up_image_rendering_things
     im, impsfgray = imdict['im'], imdict['impsfgray']
     impsfchromatic = imdict['impsfchromatic']
     bandpass, counts = imdict['bandpass'], imdict['counts']
@@ -323,11 +283,11 @@ def test_add_objects():
     # the actual ratio was 42.
 
 
-def test_simulate_counts_generic():
+def test_simulate_counts_generic(set_up_image_rendering_things):
     """Test adding poisson noise to images.
     Demonstrates DMS230: poisson noise
     """
-    imdict = set_up_image_rendering_things()
+    imdict = set_up_image_rendering_things
     im = imdict['im']
     im.array[:] = 0
     npix = np.prod(im.array.shape)
@@ -429,9 +389,8 @@ def test_simulate_counts_generic():
         np.seterr(all='print')
 
 
-
-def test_simulate_counts():
-    imdict = set_up_image_rendering_things()
+def test_simulate_counts(set_up_image_rendering_things):
+    imdict = set_up_image_rendering_things
     chromcat = imdict['chromcatalog']
     graycat = imdict['graycatalog']
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
@@ -461,14 +420,14 @@ def test_simulate_counts():
 
 
 @pytest.mark.soctests
-def test_simulate():
+def test_simulate(set_up_image_rendering_things):
     """Test convolved image generation and L2 simulation framework.
     Demonstrates DMS216: convolved image generation - Level 2
     Demonstrates DMS218: WCS & distortions
     Demonstrates DMS221: cosmic rays
     Demonstrates DMS224: persistence.
     """
-    imdict = set_up_image_rendering_things()
+    imdict = set_up_image_rendering_things
     # simulate gray, chromatic, level0, level1, level2 images
     roman.n_pix = 100
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
@@ -775,3 +734,47 @@ def test_image_input(tmpdir):
                    'output': res[0].data,
                    }
         af.write_to(os.path.join(artifactdir, 'dms228.asdf'))
+
+
+# ##################
+# Fixtures and tools
+# ##################
+@pytest.fixture
+def set_up_image_rendering_things():
+    im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
+    filter_name = 'F158'
+    impsfgray = psf.make_psf(1, filter_name, psftype='epsf', chromatic=False,
+                             nlambda=1)  # nlambda = 1 speeds tests
+    impsfchromatic = psf.make_psf(1, filter_name, psftype='galsim',
+                                  chromatic=True)
+    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
+    counts = 1000
+    fluxdict = {filter_name: counts}
+    from copy import deepcopy
+    graycatalog = [
+        catalog.CatalogObject(None, galsim.DeltaFunction(), deepcopy(fluxdict)),
+        catalog.CatalogObject(None, galsim.Sersic(1, half_light_radius=0.2),
+                              deepcopy(fluxdict))
+    ]
+    vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
+    vega_sed = vega_sed.withFlux(counts, bandpass)
+    chromcatalog = [
+        catalog.CatalogObject(None, galsim.DeltaFunction() * vega_sed, None),
+        catalog.CatalogObject(
+            None, galsim.Sersic(1, half_light_radius=0.2) * vega_sed, None)
+    ]
+    tabcat = table.Table()
+    tabcat['ra'] = [270.0]
+    tabcat['dec'] = [66.0]
+    tabcat[filter_name] = counts
+    tabcat['type'] = 'PSF'
+    tabcat['n'] = -1
+    tabcat['half_light_radius'] = -1
+    tabcat['pa'] = -1
+    tabcat['ba'] = -1
+    return dict(im=im, impsfgray=impsfgray,
+                impsfchromatic=impsfchromatic,
+                bandpass=bandpass, counts=counts, fluxdict=fluxdict,
+                graycatalog=graycatalog,
+                chromcatalog=chromcatalog, filter_name=filter_name,
+                tabcatalog=tabcat)
