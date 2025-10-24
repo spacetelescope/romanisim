@@ -24,8 +24,8 @@ class FakeWCS():
 @pytest.mark.parametrize("args, kwargs, position", [
     ((1, 'F087'), {'psftype': 'stpsf', 'nlambda': 1}, None),
     ((2, 'F184'), {'psftype': 'stpsf', 'nlambda': 1}, None),
-    ((3, 'F184'), {'psftype': None}, None),
-    ((4, 'H158'), {'psftype': None}, None),
+    ((3, 'F184'), {'psftype': 'galsim'}, None),
+    ((4, 'H158'), {'psftype': 'galsim'}, None),
     ((5, 'F184'), {'pix': (1000, 1000), 'psftype': None}, None),
     ((6, 'F184'), {'pix': (1000, 1000), 'psftype': 'stpsf', 'nlambda': 1}, None),
     ((7, 'F129'), {'psftype': 'stpsf', 'wcs': FakeWCS(), 'nlambda': 1}, None),
