@@ -98,12 +98,6 @@ def test_reverse():
     assert np.all(res_rev[:] == res[:])
 
 
-@pytest.mark.skipif(
-    os.environ.get("CI") == "true",
-    reason=(
-        "Roman CRDS servers are not currently available outside the internal network"
-    ),
-)
 def test_inverse_then_linearity():
     # Test that applying inverse linearity and then linearity returns the results to
     # the original value
