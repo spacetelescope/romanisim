@@ -17,8 +17,10 @@ operate.  See the `docs
 <https://stpsf.readthedocs.io/en/latest/installation.html#installing-the-required-data-files>`_
 for instructions on obtaining the relevant data files and pointing the
 ``STPSF_PATH`` environment variable to them.  This issue can be
-avoided by not setting the ``--stpsf`` argument, in which case
-``romanisim`` uses the GalSim modeling of the Roman PSF.
+avoided by not setting the ``--psftype=stpsf`` argument, in which case
+``romanisim`` uses the GalSim modeling of the Roman PSF. Alternatively, setting
+``--psftype=epsf`` will cause the use of CRDS EPSF reference files; see below
+for general CRDS usage.
 
 Additionally, some synthetic scene generation tools use images of galaxies
 distributed separately from the main GalSim source.  See `here

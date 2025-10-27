@@ -107,7 +107,7 @@ def get_epsf_from_crds(sca, filter_name, date=None):
 
 @cache
 def get_gridded_psf_model(psf_ref_model, oversample=None):
-    """Function to generate gridded PSF model from psf reference file
+    """Generate the gridded PSF model from an EPSF reference model
 
     Compute a gridded PSF model for one SCA using the
     reference files in CRDS.
