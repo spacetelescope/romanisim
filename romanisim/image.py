@@ -888,7 +888,7 @@ def simulate(metadata, objlist,
 
 def make_test_catalog_and_images(
         seed=12345, sca=7, filters=None, nobj=1000,
-        usecrds=True, psftype='stpsf', galaxy_sample_file_name=None, **kwargs):
+        usecrds=True, psftype='epsf', galaxy_sample_file_name=None, **kwargs):
     """This is a test routine that exercises many options but is not intended for
     general use."""
     log.info('Making catalog...')
@@ -979,7 +979,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
 
 
 def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
-                           gain=None, psftype='stpsf'):
+                           gain=None, psftype='epsf'):
     """Inject sources into an L2 image.
 
     This routine allows sources to be injected into an existing L2 image.
