@@ -746,6 +746,19 @@ def test_psftypes_location(psftype):
     np.testing.assert_allclose(max_loc, center, atol=1)
 
 
+@pytest.mark.parametrize('psftype', ['stpsf', 'epsf'])
+def test_psftypes_similar(psftype):
+    """Test similarity between psftype and galsim"""
+    galsim_image = make_image_psftype(psftype='galsim').data
+    image = make_image_psftype(psftype=psftype).data
+    center = [x // 2 for x in image.data.shape]
+
+    s = 10  # box half-size
+    galsim_sum = np.sum(galsim_image[center[0]-s: center[0]+s, center[1]-s: center[1]+s])
+    image_sum = np.sum(image[center[0]-s: center[0]+s, center[1]-s: center[1]+s])
+    assert (abs(image_sum / galsim_sum - 1.)) < 0.1  # This isn't great but sufficient.
+
+
 # ######################
 # Fixtures and utilities
 # ######################
