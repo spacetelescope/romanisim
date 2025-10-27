@@ -737,9 +737,10 @@ def test_image_input(tmpdir):
         af.write_to(os.path.join(artifactdir, 'dms228.asdf'))
 
 
-def test_psftypes_location(make_image_psftype):
+@pytest.mark.parametrize('psftype', ['galsim', 'stpsf', 'epsf'])
+def test_psftypes_location(psftype):
     """Ensure the psf is located where it is supposed to be"""
-    image = make_image_psftype
+    image = make_image_psftype(psftype=psftype)
     center = [x // 2 for x in image.data.shape]
     max_loc = np.unravel_index(image.data.argmax(), image.data.shape)
     np.testing.assert_allclose(max_loc, center, atol=1)
@@ -748,9 +749,7 @@ def test_psftypes_location(make_image_psftype):
 # ######################
 # Fixtures and utilities
 # ######################
-@pytest.fixture(params=['galsim', 'stpsf', 'epsf'])
-def make_image_psftype(request):
-    psftype = request.param
+def make_image_psftype(psftype='epsf'):
     psf_keywords = {}
     if psftype != 'galsim':
         psf_keywords = dict(nlambda=1)
