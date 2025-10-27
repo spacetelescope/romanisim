@@ -106,46 +106,6 @@ def test_make_l2():
     assert np.allclose(slopes, 0, atol=1e-6)
 
 
-def set_up_image_rendering_things():
-    im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
-    filter_name = 'F158'
-    impsfgray = psf.make_psf(1, filter_name, psftype='epsf', chromatic=False,
-                             nlambda=1)  # nlambda = 1 speeds tests
-    impsfchromatic = psf.make_psf(1, filter_name, psftype='galsim',
-                                  chromatic=True)
-    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
-    counts = 1000
-    fluxdict = {filter_name: counts}
-    from copy import deepcopy
-    graycatalog = [
-        catalog.CatalogObject(None, galsim.DeltaFunction(), deepcopy(fluxdict)),
-        catalog.CatalogObject(None, galsim.Sersic(1, half_light_radius=0.2),
-                              deepcopy(fluxdict))
-    ]
-    vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
-    vega_sed = vega_sed.withFlux(counts, bandpass)
-    chromcatalog = [
-        catalog.CatalogObject(None, galsim.DeltaFunction() * vega_sed, None),
-        catalog.CatalogObject(
-            None, galsim.Sersic(1, half_light_radius=0.2) * vega_sed, None)
-    ]
-    tabcat = table.Table()
-    tabcat['ra'] = [270.0]
-    tabcat['dec'] = [66.0]
-    tabcat[filter_name] = counts
-    tabcat['type'] = 'PSF'
-    tabcat['n'] = -1
-    tabcat['half_light_radius'] = -1
-    tabcat['pa'] = -1
-    tabcat['ba'] = -1
-    return dict(im=im, impsfgray=impsfgray,
-                impsfchromatic=impsfchromatic,
-                bandpass=bandpass, counts=counts, fluxdict=fluxdict,
-                graycatalog=graycatalog,
-                chromcatalog=chromcatalog, filter_name=filter_name,
-                tabcatalog=tabcat)
-
-
 def central_stamp(im, sz):
     for s in im.shape:
         if (s % 2) != (sz % 2):
@@ -775,3 +735,88 @@ def test_image_input(tmpdir):
                    'output': res[0].data,
                    }
         af.write_to(os.path.join(artifactdir, 'dms228.asdf'))
+
+
+def test_psftypes_location(make_image_psftype):
+    """Ensure the psf is located where it is supposed to be"""
+    image = make_image_psftype
+    center = [x // 2 for x in image.data.shape]
+    max_loc = np.unravel_index(image.data.argmax(), image.data.shape)
+    np.testing.assert_allclose(max_loc, center, atol=1)
+
+
+# ######################
+# Fixtures and utilities
+# ######################
+@pytest.fixture(params=['galsim', 'stpsf', 'epsf'])
+def make_image_psftype(request):
+    psftype = request.param
+    psf_keywords = {}
+    if psftype != 'galsim':
+        psf_keywords = dict(nlambda=1)
+
+    imdict = set_up_image_rendering_things(psftype=psftype)
+    roman.n_pix = 100
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+    time = Time('2020-01-01T00:00:00')
+    filter_name = 'F158'
+    meta = util.default_image_meta(time=time, filter_name=filter_name,
+                                   coord=coord)
+    wcs.fill_in_parameters(meta, coord)
+    sca = int(meta['instrument']['detector'][3:])
+    graycat = imdict['graycatalog']
+    imwcs = wcs.get_wcs(meta, usecrds=False)
+    sourcecen = (50, 50)
+    center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
+    abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    for o in graycat:
+        o.sky_pos = center
+        o.flux[filter_name] /= abfluxdict[f'SCA{sca:02}'][filter_name]
+    l2 = image.simulate(meta, graycat, psftype=psftype, level=2,
+                        usecrds=False, crparam=dict(),
+                        psf_keywords=psf_keywords)
+    return l2[0]
+
+
+def set_up_image_rendering_things(psftype='epsf'):
+    im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
+    filter_name = 'F158'
+    if psftype is None or  psftype == 'galsim':
+        psf_keywords = {}
+    else:
+        psf_keywords = dict(nlambda = 1)  # nlambda = 1 speeds tests
+    impsfgray = psf.make_psf(1, filter_name, psftype=psftype, chromatic=False,
+                             **psf_keywords)
+    impsfchromatic = psf.make_psf(1, filter_name, psftype='galsim',
+                                  chromatic=True)
+    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
+    counts = 1000
+    fluxdict = {filter_name: counts}
+    from copy import deepcopy
+    graycatalog = [
+        catalog.CatalogObject(None, galsim.DeltaFunction(), deepcopy(fluxdict)),
+        catalog.CatalogObject(None, galsim.Sersic(1, half_light_radius=0.2),
+                              deepcopy(fluxdict))
+    ]
+    vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
+    vega_sed = vega_sed.withFlux(counts, bandpass)
+    chromcatalog = [
+        catalog.CatalogObject(None, galsim.DeltaFunction() * vega_sed, None),
+        catalog.CatalogObject(
+            None, galsim.Sersic(1, half_light_radius=0.2) * vega_sed, None)
+    ]
+    tabcat = table.Table()
+    tabcat['ra'] = [270.0]
+    tabcat['dec'] = [66.0]
+    tabcat[filter_name] = counts
+    tabcat['type'] = 'PSF'
+    tabcat['n'] = -1
+    tabcat['half_light_radius'] = -1
+    tabcat['pa'] = -1
+    tabcat['ba'] = -1
+    return dict(im=im, impsfgray=impsfgray,
+                impsfchromatic=impsfchromatic,
+                bandpass=bandpass, counts=counts, fluxdict=fluxdict,
+                graycatalog=graycatalog,
+                chromcatalog=chromcatalog, filter_name=filter_name,
+                tabcatalog=tabcat)
