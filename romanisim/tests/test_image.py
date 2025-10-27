@@ -15,6 +15,7 @@ These routines exercise the following:
 
 import os
 import copy
+from functools import cache
 import numpy as np
 import galsim
 from galsim import roman
@@ -762,6 +763,7 @@ def test_psftypes_similar(psftype):
 # ######################
 # Fixtures and utilities
 # ######################
+@cache
 def make_image_psftype(psftype='epsf'):
     psf_keywords = {}
     if psftype != 'galsim':
