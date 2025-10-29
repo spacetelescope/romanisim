@@ -242,7 +242,7 @@ def set_up_image_rendering_things():
     sca = 1
     impsfgray = psf.make_psf(sca, filter_name, psftype='stpsf', chromatic=False,
                              nlambda=1)  # nlambda = 1 speeds tests
-    impsfchromatic = psf.make_psf(sca, filter_name, psftype='stpsf',
+    impsfchromatic = psf.make_psf(sca, filter_name, psftype='galsim',
                                   chromatic=True)
     bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000

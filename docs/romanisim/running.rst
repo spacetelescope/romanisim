@@ -44,7 +44,7 @@ this functionality::
                             l1_{}.asdf (default: 7)
       --usecrds             Use CRDS references. (default: False)
       --psftype {None,epsf,galsim,stpsf}
-                            Type of PSF generator to use. If None and --usecrds, then "epsf" will be used otherwise "galsim" is used. (default: None)
+                            Type of PSF to use. If None and --usecrds, then "epsf" will be used otherwise "galsim" is used. (default: None)
       --webbpsf             Use stpsf for PSF (deprecated, use `--psftype stpsf`) (default: False)
       --stpsf               Use stpsf for PSF (deprecated, use `--psftype stpsf`) (default: False)
       --truncate TRUNCATE   If set, truncate the MA table at given number of resultants. (default: None)

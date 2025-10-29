@@ -24,7 +24,7 @@ class FakeWCS():
 @pytest.mark.parametrize("args, kwargs, position", [
     ((1, 'F087'), {'psftype': 'stpsf', 'nlambda': 1}, None),
     ((2, 'F184'), {'psftype': 'stpsf', 'nlambda': 1}, None),
-    ((3, 'F087'), {'psftype': 'epsf', 'nlambda': 1}, None),
+    ((3, 'F087'), {'psftype': 'epsf'}, None),
     ((4, 'F184'), {'psftype': 'galsim'}, None),
     ((5, 'H158'), {'psftype': 'galsim'}, None),
     ((6, 'F184'), {'pix': (1000, 1000), 'psftype': None}, None),
@@ -33,8 +33,8 @@ class FakeWCS():
     ((9, 'F184'), {'pix': (1000, 1000), 'psftype': 'epsf', 'nlambda': 1}, None),
     ((10, 'F129'), {'psftype': 'stpsf', 'wcs': FakeWCS(), 'nlambda': 1}, None),
     ((11, 'F087'), {'psftype': 'stpsf', 'variable': True, 'nlambda': 1}, (100, 100)),
-    ((12, 'F129'), {'psftype': 'epsf', 'wcs': FakeWCS(), 'nlambda': 1}, None),
-    ((13, 'F087'), {'psftype': 'epsf', 'variable': True, 'nlambda': 1}, (100, 100)),
+    ((12, 'F129'), {'psftype': 'epsf', 'wcs': FakeWCS()}, None),
+    ((13, 'F087'), {'psftype': 'epsf', 'variable': True}, (100, 100)),
 ])
 def test_make_psf(args, kwargs, position):
     p = psf.make_psf(*args, **kwargs)

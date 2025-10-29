@@ -16,49 +16,36 @@ which would make an F158 image with 2000x2000 pixels, slightly oversampled, corr
 There are a number of possible input arguments::
 
     romanisim-make-l3 -h
-    usage: romanisim-make-image [-h] [--bandpass BANDPASS] [--boresight] [--catalog CATALOG] [--config CONFIG] [--date DATE] [--level LEVEL] [--ma_table_number MA_TABLE_NUMBER]
-                                [--nobj NOBJ] [--previous PREVIOUS] [--radec RADEC RADEC] [--rng_seed RNG_SEED] [--roll ROLL] [--sca SCA] [--usecrds] [--psftype {None,epsf,galsim,stpsf}]
-                                [--webbpsf] [--stpsf] [--truncate TRUNCATE] [--pretend-spectral PRETEND_SPECTRAL] [--drop-extra-dq] [--scale-factor SCALE_FACTOR]
-                                [--extra-counts EXTRA_COUNTS [EXTRA_COUNTS ...]]
-                                filename
 
-    Make a demo image.
+    usage: romanisim-make-l3 [-h] [--bandpass BANDPASS] [--config CONFIG] [--date DATE] [--radec RADEC RADEC] [--npix NPIX] [--pixscalefrac PIXSCALEFRAC] [--exptime EXPTIME]
+                             [--effreadnoise EFFREADNOISE] [--nexposures NEXPOSURES] [--rng_seed RNG_SEED] [--psftype {epsf,galsim,stpsf}]
+                             filename catalog
+
+    Make an L3 image.
 
     positional arguments:
-      filename              output image (asdf). {} and {bandpass} strings will be automatically populated with detector and bandpass information.
+      filename              output image (asdf)
+      catalog               input catalog (ecsv)
 
     options:
       -h, --help            show this help message and exit
       --bandpass BANDPASS   bandpass to simulate (default: F087)
-      --boresight           radec specifies location of boresight, not center of WFI. (default: False)
-      --catalog CATALOG     input catalog (ecsv) (default: None)
       --config CONFIG       input parameter override file (yaml) (default: None)
       --date DATE           UTC Date and Time of observation to simulate in ISOT format. (default: 2026-01-01T00:00:00.000)
-      --level LEVEL         1 or 2, for L1 or L2 output (default: 2)
-      --ma_table_number MA_TABLE_NUMBER
-      --nobj NOBJ
-      --previous PREVIOUS   previous simulated file in chronological order used for persistence modeling. (default: None)
       --radec RADEC RADEC   ra and dec (deg) (default: None)
+      --npix NPIX           number of pixels across image (default: 4000)
+      --pixscalefrac PIXSCALEFRAC
+                            pixel scale as fraction of original (default: 1.0)
+      --exptime EXPTIME     total exposure time on field; roughly time per exposure times number of exposures (default: 100.0)
+      --effreadnoise EFFREADNOISE
+                            effective readnoise per pixel in MJy/sr. If None, a pessimistic estimate is computed. (default: None)
+      --nexposures NEXPOSURES
+                            number of exposures on field. Used only to compute the effective read noise. (default: 1)
       --rng_seed RNG_SEED
-      --roll ROLL           Position angle (North towards YIdl) measured at the V2Ref/V3Ref of the aperture used. (default: 0)
-      --sca SCA             SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this mode to indicate where the detector number should be filled, e.g.
-                            l1_{}.asdf (default: 7)
-      --usecrds             Use CRDS references. (default: False)
-      --psftype {None,epsf,galsim,stpsf}
-                            Type of PSF generator to use. If None and --usecrds, then "epsf" will be used otherwise "galsim" is used. (default: None)
-      --webbpsf             Use stpsf for PSF (deprecated, use `--psftype stpsf`) (default: False)
-      --stpsf               Use stpsf for PSF (deprecated, use `--psftype stpsf`) (default: False)
-      --truncate TRUNCATE   If set, truncate the MA table at given number of resultants. (default: None)
-      --pretend-spectral PRETEND_SPECTRAL
-                            Pretend the image is spectral. exposure.type and instrument.element are updated to be grism / prism. (default: None)
-      --drop-extra-dq       Do not store the optional simulated dq array. (default: False)
-      --scale-factor SCALE_FACTOR
-                            Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris. (default: -1.0)
-      --extra-counts EXTRA_COUNTS [EXTRA_COUNTS ...]
-                            An optional FITS file to read to get an array of counts to add into the simulated image.Useful for wrapping idealized images.If 2 arguments are sent in, then
-                            the second argument is assumed to be the HDU to use (default=0) (default: None)
+      --psftype {epsf,galsim,stpsf}
+                            Type of PSF generator to use. (default: galsim)
 
-      EXAMPLE: romanisim-make-image output_image.asdf
+      EXAMPLE: romanisim-make-l3 output_image.asdf catalog.ecsv
 
 The arguments control things like the filter used, the date of observation (used
 to estimate the sky background), the right ascension and declination of the

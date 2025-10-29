@@ -106,7 +106,7 @@ def get_epsf_from_crds(sca, filter_name, date=None):
 
 
 @cache
-def get_gridded_psf_model(psf_ref_model, oversample=None):
+def get_gridded_psf_model(psf_ref_model, oversample=None, focus=0, spectral_type=1):
     """Generate the gridded PSF model from an EPSF reference model
 
     Compute a gridded PSF model for one SCA using the
@@ -118,8 +118,6 @@ def get_gridded_psf_model(psf_ref_model, oversample=None):
     # Open the reference file data model
     # select the infocus images (0) and we have a selection of spectral types
     # A0V, G2V, and M6V, pick G2V (1)
-    focus = 0
-    spectral_type = 1
     psf_images = psf_ref_model.psf[focus, spectral_type, :, :, :].copy()
 
     # get the central position of the cutouts in a list
