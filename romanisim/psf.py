@@ -233,7 +233,7 @@ def make_one_psf_epsf(sca, filter_name, wcs=None, pix=None,
         log.warning('romanisim does not yet support chromatic PSFs '
                     'with stpsf or crds epsf')
     epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
-    gridded_psf = get_gridded_psf_model(epsf_ref_model, oversample=1)
+    gridded_psf = get_gridded_psf_model(epsf_ref_model)
 
     psf = psf_from_grid(gridded_psf, *pix)
     pixelscale = parameters.pixel_scale / gridded_psf.meta['epsf_oversample']
@@ -456,9 +456,8 @@ def psf_from_grid(psfgrid, x_0=None, y_0=None):
     """
     x_0 = 0. if x_0 is None else x_0
     y_0 = 0. if y_0 is None else y_0
-    bb = psfgrid.get_bounding_box()
-    x, y = meshgrid(x_0 + bb.intervals[0].lower, x_0 + bb.intervals[0].upper,
-                    y_0 + bb.intervals[1].lower, y_0 + bb.intervals[1].upper)
+    cc = (np.arange(361) - 180) / 4
+    x, y = np.meshgrid(cc + x_0, cc + y_0)
     psf = psfgrid.evaluate(x, y, 1, x_0, y_0)
     return psf
 
