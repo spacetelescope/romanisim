@@ -20,7 +20,7 @@ on:
         description: CRDS context (leave blank for latest)
         type: string
         required: false
-        default: ''
+        default: ""
       crds_server:
         description: CRDS server
         type: string
@@ -40,7 +40,7 @@ jobs:
   latest_crds_contexts:
     uses: ./.github/workflows/contexts.yml
   crds_context:
-    needs: [ latest_crds_contexts ]
+    needs: [latest_crds_contexts]
     runs-on: ubuntu-latest
     steps:
       - id: context

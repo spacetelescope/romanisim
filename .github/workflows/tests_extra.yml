@@ -16,7 +16,7 @@ on:
         description: CRDS context (leave blank for latest)
         type: string
         required: false
-        default: ''
+        default: ""
       crds_server:
         description: CRDS server
         type: string
@@ -29,7 +29,7 @@ jobs:
     uses: ./.github/workflows/contexts.yml
   crds_context:
     if: (github.repository == 'spacetelescope/romancal' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run extra tests')))
-    needs: [ latest_crds_contexts ]
+    needs: [latest_crds_contexts]
     runs-on: ubuntu-latest
     steps:
       - id: context
