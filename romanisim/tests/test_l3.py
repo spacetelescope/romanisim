@@ -240,8 +240,7 @@ def set_up_image_rendering_things():
     im = galsim.ImageF(100, 100, scale=0.11, xmin=0, ymin=0)
     filter_name = 'F158'
     sca = 1
-    impsfgray = psf.make_psf(sca, filter_name, psftype='stpsf', chromatic=False,
-                             nlambda=1)  # nlambda = 1 speeds tests
+    impsfgray = psf.make_psf(sca, filter_name, psftype='epsf', chromatic=False)
     impsfchromatic = psf.make_psf(sca, filter_name, psftype='galsim',
                                   chromatic=True)
     bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']

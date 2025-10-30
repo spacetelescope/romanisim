@@ -495,7 +495,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 def simulate_counts(metadata, objlist,
                     rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
-                    psftype=None,
+                    psftype='galsim',
                     darkrate=None, flat=None,
                     psf_keywords=dict()):
     """Simulate total electrons in a single SCA.
@@ -518,7 +518,7 @@ def simulate_counts(metadata, objlist,
         do not render sources more than this many pixels off edge of detector
     usecrds : bool
         use CRDS distortion map
-    psftype : One of [None, 'epsf', 'galsim', 'stpsf']
+    psftype : One of ['epsf', 'galsim', 'stpsf']
         How to determine the PSF. If None and `usecrds` then "crds" will be
         used otherwise "galsim".
     darkrate : float or np.ndarray[float]
@@ -537,9 +537,6 @@ def simulate_counts(metadata, objlist,
     simcatobj : np.ndarray
         catalog of simulated objects in image
     """
-    if psftype is None:
-        psftype = 'epsf' if usecrds else 'galsim'
-
     if 'read_pattern' in metadata['exposure']:
         read_pattern = metadata['exposure']['read_pattern']
     else:
@@ -737,7 +734,7 @@ def gather_reference_data(image_mod, usecrds=False):
 
 
 def simulate(metadata, objlist,
-             usecrds=True, psftype=None, level=2, crparam=dict(),
+             usecrds=True, psftype='galsim', level=2, crparam=dict(),
              persistence=None, seed=None, rng=None,
              psf_keywords=dict(), extra_counts=None,
              **kwargs
@@ -761,7 +758,7 @@ def simulate(metadata, objlist,
         List of objects in the field to simulate
     usecrds : bool
         use CRDS to get reference files
-    psftype : One of [None, 'epsf', 'galsim', 'stpsf]
+    psftype : One of ['epsf', 'galsim', 'stpsf]
         How to determine the PSF.
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
@@ -1020,7 +1017,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         galsim random number generator to use
     gain: float [electron / DN]
         gain to use when converting simulated electrons to DN
-    psftype : One of [None, 'epsf', 'galsim', 'stpsf]
+    psftype : One of ['epsf', 'galsim', 'stpsf]
         How to determine the PSF.
 
     Returns

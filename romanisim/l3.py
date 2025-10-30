@@ -290,7 +290,7 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
 def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
              metadata={},
              effreadnoise=None, sky=None, psf=None,
-             bandpass=None, seed=None, rng=None, psftype='epsf',
+             bandpass=None, seed=None, rng=None, psftype='galsim',
              **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 

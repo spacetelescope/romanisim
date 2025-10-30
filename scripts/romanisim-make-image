@@ -115,8 +115,8 @@ if __name__ == '__main__':
         'to indicate where the detector number should be filled, e.g. l1_{}.asdf'))
     parser.add_argument('--usecrds', action='store_true',
                         help='Use CRDS references.')
-    parser.add_argument('--psftype', type=str, default=None,
-                        choices=[None, 'epsf', 'galsim', 'stpsf'],
+    parser.add_argument('--psftype', type=str, default='galsim',
+                        choices=['epsf', 'galsim', 'stpsf'],
                         help=('Type of PSF generator to use.'
                               ' If None and --usecrds, then "epsf" will be used'
                               ' otherwise "galsim" is used.'))
