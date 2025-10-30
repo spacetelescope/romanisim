@@ -412,8 +412,7 @@ def test_simulate_counts():
                                 psftype='galsim', ignore_distant_sources=100)
     im2 = image.simulate_counts(meta, graycat,
                                 usecrds=False, psftype='epsf',
-                                ignore_distant_sources=100,
-                                psf_keywords=dict(nlambda=1))
+                                ignore_distant_sources=100)
     im1 = im1[0].array
     im2 = im2[0].array
     maxim = np.where(im1 > im2, im1, im2)
@@ -456,10 +455,9 @@ def test_simulate():
     imdict['tabcatalog'][filter_name] = (
         imdict['tabcatalog'][filter_name] / abfluxdict[f'SCA{sca:02}'][filter_name])
     l0 = image.simulate(meta, graycat, psftype='epsf', level=0,
-                        usecrds=False, psf_keywords=dict(nlambda=1))
+                        usecrds=False)
     l0tab = image.simulate(
-        meta, imdict['tabcatalog'], psftype='epsf', level=0, usecrds=False,
-        psf_keywords=dict(nlambda=1))
+        meta, imdict['tabcatalog'], psftype='epsf', level=0, usecrds=False)
     # seed = 0 is special and means "don't actually use a seed."  Any other
     # choice of seed gives deterministic behavior
     # note that we have scaled down the size of the image to 100x100 pix
@@ -469,8 +467,7 @@ def test_simulate():
     # i.e., there are 1600x too many CRs.  Fine for unit tests?
     rng = galsim.BaseDeviate(1)
     l1 = image.simulate(meta, graycat, psftype='epsf', level=1,
-                        crparam=dict(), usecrds=False, rng=rng,
-                        psf_keywords=dict(nlambda=1))
+                        crparam=dict(), usecrds=False, rng=rng)
     peakloc = np.nonzero(l0[0]['data'] == np.max(l0[0]['data']))
 
     # check that the location with the most flux is the location where the
@@ -489,13 +486,11 @@ def test_simulate():
 
     rng = galsim.BaseDeviate(1)
     l1_nocr = image.simulate(meta, graycat, psftype='epsf', level=1,
-                             usecrds=False, crparam=None, rng=rng,
-                             psf_keywords=dict(nlambda=1))
+                             usecrds=False, crparam=None, rng=rng)
     assert np.all(l1[0].data >= l1_nocr[0].data)
     log.info('DMS221: Successfully added cosmic rays to an L1 image.')
     l2 = image.simulate(meta, graycat, psftype='epsf', level=2,
-                        usecrds=False, crparam=dict(),
-                        psf_keywords=dict(nlambda=1))
+                        usecrds=False, crparam=dict())
     # throw in some CRs for fun
     l2c = image.simulate(meta, chromcat, psftype='galsim', level=2,
                          usecrds=False)
@@ -505,8 +500,7 @@ def test_simulate():
     # zap the whole frame, 100 seconds ago.
     rng = galsim.BaseDeviate(1)
     l1p = image.simulate(meta, graycat, psftype='epsf', level=1, usecrds=False,
-                         persistence=persist, crparam=None, rng=rng,
-                         psf_keywords=dict(nlambda=1))
+                         persistence=persist, crparam=None, rng=rng)
     # the random number gets instatiated from the same seed, but the order in
     # which the numbers are generated is different so we can't guarantee, e.g.,
     # that all of the new values are strictly greater than the old ones.
@@ -591,7 +585,7 @@ def test_reference_file_crds_match(level):
     im, simcatobj = image.simulate(
         metadata, cat, usecrds=True,
         psftype='epsf', level=level,
-        rng=rng, psf_keywords=dict(nlambda=1))
+        rng=rng)
 
     # Confirm that CRDS keyword was updated
     assert im.meta.ref_file.crds.version != '12.3.1'
@@ -623,8 +617,7 @@ def test_inject_source_into_image():
     # Create starting image
     im, simcatobj = image.simulate(
         meta, cat, usecrds=False, psftype='epsf', level=2,
-        rng=rng, psf_keywords=dict(nlambda=1),
-        crparam=None)
+        rng=rng, crparam=None)
 
     # Create catalog with one source for injection
     xpos, ypos = 10, 10
@@ -766,7 +759,7 @@ def test_psftypes_similar(psftype):
 @cache
 def make_image_psftype(psftype='epsf'):
     psf_keywords = {}
-    if psftype != 'galsim':
+    if psftype == 'stpsf':
         psf_keywords = dict(nlambda=1)
 
     imdict = set_up_image_rendering_things(psftype=psftype)
@@ -795,9 +788,8 @@ def make_image_psftype(psftype='epsf'):
 def set_up_image_rendering_things(psftype='epsf'):
     im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
     filter_name = 'F158'
-    if psftype is None or  psftype == 'galsim':
-        psf_keywords = {}
-    else:
+    psf_keywords = {}
+    if psftype == 'stpsf':
         psf_keywords = dict(nlambda = 1)  # nlambda = 1 speeds tests
     impsfgray = psf.make_psf(1, filter_name, psftype=psftype, chromatic=False,
                              **psf_keywords)
