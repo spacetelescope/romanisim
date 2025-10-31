@@ -27,14 +27,14 @@ class FakeWCS():
     ((3, 'F087'), {'psftype': 'epsf'}, None),
     ((4, 'F184'), {'psftype': 'galsim'}, None),
     ((5, 'H158'), {'psftype': 'galsim'}, None),
-    ((6, 'F184'), {'pix': (1000, 1000), 'psftype': 'galsim'}, None),
-    ((7, 'F184'), {'pix': (1000, 1000), 'psftype': 'stpsf', 'nlambda': 1}, None),
-    ((8, 'F184'), {'pix': (1000, 1000), 'psftype': 'epsf'}, None),
-    ((9, 'F129'), {'psftype': 'stpsf', 'wcs': FakeWCS(), 'nlambda': 1}, None),
-    ((10, 'F087'), {'psftype': 'stpsf', 'variable': True, 'nlambda': 1}, (100, 100)),
-    ((11, 'F129'), {'psftype': 'epsf', 'wcs': FakeWCS()}, None),
-    ((12, 'F087'), {'psftype': 'epsf', 'variable': True}, (100, 100)),
-])
+    ((6, 'H158'), {'psftype': 'galsim', 'chromatic': True}),
+    ((7, 'F184'), {'pix': (1000, 1000), 'psftype': 'galsim'}, None),
+    ((8, 'F184'), {'pix': (1000, 1000), 'psftype': 'stpsf', 'nlambda': 1}, None),
+    ((9, 'F184'), {'pix': (1000, 1000), 'psftype': 'epsf'}, None),
+    ((10, 'F129'), {'psftype': 'stpsf', 'wcs': FakeWCS(), 'nlambda': 1}, None),
+    ((11, 'F087'), {'psftype': 'stpsf', 'variable': True, 'nlambda': 1}, (100, 100)),
+    ((12, 'F129'), {'psftype': 'epsf', 'wcs': FakeWCS()}, None),
+    ((13, 'F087'), {'psftype': 'epsf', 'variable': True}, (100, 100))])
 def test_make_psf(args, kwargs, position):
     p = psf.make_psf(*args, **kwargs)
     if position is not None:

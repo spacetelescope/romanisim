@@ -134,9 +134,9 @@ if __name__ == '__main__':
     parser.add_argument('--scale-factor', type=float, default=-1.,
                         help=('Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris.'))
     parser.add_argument('--extra-counts', type=str, default=None, nargs='+', help=(
-        'An optional FITS file to read to get an array of counts to add into the simulated image.'
-        'Useful for wrapping idealized images.'
-        'If 2 arguments are sent in, then the second argument is assumed to be the HDU to use (default=0)'
+        'An optional FITS file to read to get an array of counts to add into the simulated image. '
+        'Useful for wrapping idealized images. '
+        'If 2 arguments are sent in, then the second argument is assumed to be the HDU to use (default=0).'
     ))
 
     args = parser.parse_args()
