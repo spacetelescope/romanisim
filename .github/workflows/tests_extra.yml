@@ -43,7 +43,7 @@ jobs:
       cache_path: /tmp/data
   test:
     if: (github.repository == 'spacetelescope/romanisim' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run extra tests')))
-    needs: [crds_context latest_data_cache]
+    needs: [crds_context, latest_data_cache]
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@28e947497bed4d6ec3fa1d66d198e95a1d17bc63 # v2.2.1
     with:
       libraries: |

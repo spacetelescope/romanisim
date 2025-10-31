@@ -52,7 +52,7 @@ jobs:
     with:
       cache_path: /tmp/data
   test:
-    needs: [crds_context latest_data_cache]
+    needs: [crds_context, latest_data_cache]
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@28e947497bed4d6ec3fa1d66d198e95a1d17bc63 # v2.2.1
     with:
       libraries: |
