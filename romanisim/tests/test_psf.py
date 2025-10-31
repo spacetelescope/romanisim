@@ -27,7 +27,7 @@ class FakeWCS():
     ((3, 'F087'), {'psftype': 'epsf'}, None),
     ((4, 'F184'), {'psftype': 'galsim'}, None),
     ((5, 'H158'), {'psftype': 'galsim'}, None),
-    ((6, 'H158'), {'psftype': 'galsim', 'chromatic': True}),
+    ((6, 'H158'), {'psftype': 'galsim', 'chromatic': True}, None),
     ((7, 'F184'), {'pix': (1000, 1000), 'psftype': 'galsim'}, None),
     ((8, 'F184'), {'pix': (1000, 1000), 'psftype': 'stpsf', 'nlambda': 1}, None),
     ((9, 'F184'), {'pix': (1000, 1000), 'psftype': 'epsf'}, None),
