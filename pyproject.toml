@@ -27,6 +27,7 @@ dependencies = [
   # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
   "gwcs >=0.25.0",
   "numpy >1.26",
+  "photutils >=2.3.0",
   "Cython >=0.29.21",
 ]
 license-files = ["LICENSE"]
