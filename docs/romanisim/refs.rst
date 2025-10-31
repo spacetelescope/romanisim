@@ -5,6 +5,7 @@ romanisim uses reference files from `CRDS <https://hst-crds.stsci.edu/static/use
 
 * read noise
 * dark current
+* epsf
 * flat field
 * gain
 * distortion map
@@ -15,11 +16,28 @@ The usage of these is mostly straightforward, but we provide here a few notes.
 
 Read Noise
 ----------
-The random noise on reading a sample contributing to a ramp in an L1 image is scaled by the read noise reference file.
+The random noise on reading a sample contributing to a
+ramp in an L1 image is scaled by the read noise reference file.
 
 Dark Current
 ------------
-CRDS provides dark current images for each possible MA table, including the averaging of the dark current into resultants.  This simplifies subtraction from L1 images and allows effects beyond a simple Poisson sampling of dark current electrons in each read.  But it's unwieldy for a simulator because any effects beyond simple Poisson sampling of dark current electrons are not presently defined well enough to allow simulation.  So the simulator ignores the primary dark reference array and instead uses the "dark rate" field to give the number of DN / s attributed to dark current.  This rate is then scaled by the gain to get the number of dark electrons per second.   This rate then goes into the idealized "total electrons" image which is then apportioned into the reads making up the resultants of an L1 image.
+CRDS provides dark current images for each possible MA
+table, including the averaging of the dark current into resultants. This
+simplifies subtraction from L1 images and allows effects beyond a simple Poisson
+sampling of dark current electrons in each read. But it's unwieldy for a
+simulator because any effects beyond simple Poisson sampling of dark current
+electrons are not presently defined well enough to allow simulation. So the
+simulator ignores the primary dark reference array and instead uses the "dark
+rate" field to give the number of DN / s attributed to dark current. This rate
+is then scaled by the gain to get the number of dark electrons per second. This
+rate then goes into the idealized "total electrons" image which is then
+apportioned into the reads making up the resultants of an L1 image.
+
+EPSF
+----
+The EPSF reference provides pre-determined PSF models for all detectors and nine
+different locations on each detector. For rendering at any given position, the
+PSF is interpolated between the nearest calculated PSFs from the reference file.
 
 Flat field
 ----------

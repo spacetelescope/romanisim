@@ -53,7 +53,7 @@ def main():
     # Date & Time argument
     parser.add_argument('-d', '--date',
                         type=str,
-                        default='2026-01-01T00:00:00',
+                        default=parameters.default_date.isot,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
 
     # Level argument
@@ -93,15 +93,18 @@ def main():
                         action='store_true',
                         help='Use CRDS for distortion map')
 
-    # Use CRDS stored PSFs
-    # Deprecated!
+    parser.add_argument('--psftype', type=str, default='galsim',
+                        choices=['epsf', 'galsim', 'stpsf'],
+                        help=('Type of PSF generator to use.'
+                              ' If None and --usecrds, then "epsf" will be used'
+                              ' otherwise "galsim" is used.'))
     parser.add_argument('-w', '--webbpsf',
                         action='store_true',
-                        help='Use stpsf for PSFs. (deprecated, use stpsf)')
+                        help='Use stpsf for PSFs. (deprecated, use `--psftype stpsf`)')
 
     parser.add_argument('--stpsf',
                         action='store_true',
-                        help='Use stpsf for PSFs.')
+                        help='Use stpsf for PSFs. (deprecated, use `--psftype stpsf`)')
 
     parser.add_argument('-f', '--force-ma-table-number', type=int, default=-1,
                         help='Force MA table number, ignoring file content.')
@@ -239,7 +242,7 @@ def main():
                                             date=Time(args.date, format='isot') + time_offset,
                                             bandpass=entry['BANDPASS'], sca=sca,
                                             ma_table_number=ma_table_number,
-                                            usecrds=usecrds)
+                                            usecrds=args.usecrds)
                 if apt_metadata:
                     util.merge_dicts(metadata, apt_metadata)
 

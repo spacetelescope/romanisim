@@ -16,10 +16,10 @@ which would make an F158 image with 2000x2000 pixels, slightly oversampled, corr
 There are a number of possible input arguments::
 
     romanisim-make-l3 -h
-    usage: romanisim-make-l3 [-h] [--bandpass BANDPASS] [--config CONFIG] [--date DATE] [--nobj NOBJ] [--radec RADEC RADEC] [--npix NPIX]
-			     [--pixscalefrac PIXSCALEFRAC] [--exptime EXPTIME] [--effreadnoise EFFREADNOISE] [--nexposures NEXPOSURES]
-			     [--rng_seed RNG_SEED]
-			     filename catalog
+
+    usage: romanisim-make-l3 [-h] [--bandpass BANDPASS] [--config CONFIG] [--date DATE] [--radec RADEC RADEC] [--npix NPIX] [--pixscalefrac PIXSCALEFRAC] [--exptime EXPTIME]
+                             [--effreadnoise EFFREADNOISE] [--nexposures NEXPOSURES] [--rng_seed RNG_SEED] [--psftype {epsf,galsim,stpsf}]
+                             filename catalog
 
     Make an L3 image.
 
@@ -31,29 +31,48 @@ There are a number of possible input arguments::
       -h, --help            show this help message and exit
       --bandpass BANDPASS   bandpass to simulate (default: F087)
       --config CONFIG       input parameter override file (yaml) (default: None)
-      --date DATE           UTC Date and Time of observation to simulate in ISOT format. (default: None)
+      --date DATE           UTC Date and Time of observation to simulate in ISOT format. (default: 2026-01-01T00:00:00.000)
       --radec RADEC RADEC   ra and dec (deg) (default: None)
       --npix NPIX           number of pixels across image (default: 4000)
       --pixscalefrac PIXSCALEFRAC
-			    pixel scale as fraction of original (default: 1.0)
+                            pixel scale as fraction of original (default: 1.0)
       --exptime EXPTIME     total exposure time on field; roughly time per exposure times number of exposures (default: 100.0)
       --effreadnoise EFFREADNOISE
-			    effective readnoise per pixel in MJy/sr. If None, a pessimistic estimate is computed. (default: None)
+                            effective readnoise per pixel in MJy/sr. If None, a pessimistic estimate is computed. (default: None)
       --nexposures NEXPOSURES
-			    number of exposures on field. Used only to compute the effective read noise. (default: 1)
+                            number of exposures on field. Used only to compute the effective read noise. (default: 1)
       --rng_seed RNG_SEED
+      --psftype {epsf,galsim,stpsf}
+                            Type of PSF generator to use. (default: galsim)
 
-    EXAMPLE: romanisim-make-l3 output_image.asdf catalog.ecsv
+      EXAMPLE: romanisim-make-l3 output_image.asdf catalog.ecsv
 
-The arguments control things like the filter used, the date of observation (used to estimate the sky background), the right ascension and declination of the center of the mosaic, the number of pixels in the mosaic, and the degree of oversampling of the output mosaic.  Parameters also control the effective depth of the mosaic, through the exposure time, effective read noise, and number of exposures.
+The arguments control things like the filter used, the date of observation (used
+to estimate the sky background), the right ascension and declination of the
+center of the mosaic, the number of pixels in the mosaic, and the degree of
+oversampling of the output mosaic. Parameters also control the effective depth
+of the mosaic, through the exposure time, effective read noise, and number of
+exposures.
 
 L3 source injection
 -------------------
 
-We support injecting sources into L3 files.  L3 source injection is very similar to L3 image creation, except we do not need to invent effective read noises or exposure times or WCSes.  Instead we only change the Poisson noise, since we are only adding additional new sources.
+We support injecting sources into L3 files. L3 source injection is very similar
+to L3 image creation, except we do not need to invent effective read noises or
+exposure times or WCSes. Instead we only change the Poisson noise, since we are
+only adding additional new sources.
 
-Conceptually we just add more sources to the image in the same way as in L3 image creation.  The primary challenge is picking the correct exposure time so that the Poisson noise in the simulation is correct; we (optionally) simulate individual photons and so the conversion between calibrated units and electrons is still relevant in the L3 files.  We do this by using the relationship between the calibrated flux and corresponding Poisson variance to figure out the effective calibrated-flux-to-electron relationship, and then simulate the appropriate number of electrons and convert back.
+Conceptually we just add more sources to the image in the same way as in L3
+image creation. The primary challenge is picking the correct exposure time so
+that the Poisson noise in the simulation is correct; we (optionally) simulate
+individual photons and so the conversion between calibrated units and electrons
+is still relevant in the L3 files. We do this by using the relationship between
+the calibrated flux and corresponding Poisson variance to figure out the
+effective calibrated-flux-to-electron relationship, and then simulate the
+appropriate number of electrons and convert back.
 
-The function :meth:`romanisim.l3.inject_sources_into_l3` is the intended entry point for L3 source injection; see its documentation for more details about how to add sources to an L3 image.
+The function :meth:`romanisim.l3.inject_sources_into_l3` is the intended entry
+point for L3 source injection; see its documentation for more details about how
+to add sources to an L3 image.
 
 .. automodapi:: romanisim.l3
