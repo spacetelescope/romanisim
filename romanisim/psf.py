@@ -15,7 +15,6 @@ should consider the following:
 """
 from collections import OrderedDict
 from functools import cache
-from math import ceil
 
 from astropy.nddata import NDData
 import numpy as np
