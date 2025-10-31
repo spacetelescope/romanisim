@@ -341,10 +341,12 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
     im['meta']['filename'] = basename
 
     pretend_spectral = getattr(args, 'pretend_spectral', None)
-    if pretend_spectral is not None:
+    if (pretend_spectral is not None) or (args.bandpass=="GRISM") or (args.bandpass=="PRISM"):
         im['meta']['exposure']['type'] = 'WFI_SPECTRAL'
-        im['meta']['instrument']['optical_element'] = (
-            args.pretend_spectral.upper())
+        # grism/prism already sets this. 
+        if pretend_spectral is not None:
+            im['meta']['instrument']['optical_element'] = (
+                args.pretend_spectral.upper())
         gs = im['meta']['guide_star']
         if 'window_xstart' in gs:
             gs['window_xstop'] = gs['window_xstart'] + 170

@@ -541,7 +541,9 @@ def simulate_counts(metadata, objlist,
         read_pattern = parameters.read_pattern[metadata['exposure']['ma_table_number']]
 
     sca = int(metadata['instrument']['detector'][3:])
-    exptime = parameters.read_time * read_pattern[-1][-1]
+    read_time = metadata['exposure'].get('frame_time', parameters.read_time)
+    exptime = read_time * read_pattern[-1][-1]
+    log.info(f"Using an exposure time of {exptime}")
     if rng is None and seed is None:
         seed = 43
         log.warning(
@@ -556,7 +558,7 @@ def simulate_counts(metadata, objlist,
         date = astropy.time.Time(date, format='isot')
 
     galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
-    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
+    bandpass = roman.getBandpasses(AB_zeropoint=True, include_all_bands=True)[galsim_filter_name]
     imwcs = wcs.get_wcs(metadata, usecrds=usecrds)
     chromatic = False
     if (len(objlist) > 0
@@ -639,6 +641,10 @@ def gather_reference_data(image_mod, usecrds=False):
                 flatfile = crds.getreferences(
                     image_mod.get_crds_parameters(),
                     reftypes=['flat'], observatory='roman')['flat']
+                # For GRISM, this returns the string "NOT FOUND n/a", so throw a LookupError
+                # if that happens, and use 1 instead.
+                if flatfile.startswith("NOT FOUND"):
+                    raise crds.core.exceptions.CrdsLookupError
 
                 flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
                 flat = flat_model.data[...].copy()
@@ -1055,6 +1061,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
     abflux = romanisim.bandpass.get_abflux(filter_name, sca)
     read_pattern = model.meta.exposure.read_pattern
+    # Should we update read_time to model.meta.exposure.frame_time?
     exptime = parameters.read_time * read_pattern[-1][-1]
     tij = romanisim.l1.read_pattern_to_tij(read_pattern)
     tbar = ramp.read_pattern_to_tbar(read_pattern)
