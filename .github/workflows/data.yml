@@ -33,7 +33,7 @@ on:
 
 jobs:
   download_stpsf_data:
-    uses: ./.github/workflows/download_data.yml
+    uses: spacetelescope/stpsf/.github/workflows/download_data.yml@60d7145d53f9d54488fd3f23d7b7d92d60a99b73 # 2.1.0
     with:
       minimal: ${{ github.event_name != 'workflow_dispatch' && true || inputs.stpsf_minimal }}
   combine_data_cache:
