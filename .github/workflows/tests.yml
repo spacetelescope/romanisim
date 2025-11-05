@@ -74,7 +74,9 @@ jobs:
         GALSIM_CAT_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}/galsim_data/real_galaxy_catalog_23.5_example.fits
         FFTW_DIR: /opt/homebrew/opt/fftw/lib/
       cache-path: ${{ needs.latest_data_cache.outputs.cache_path }}
-      cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}
+      cache-restore-keys: |
+        ${{ needs.latest_data_cache.outputs.cache_key }}
+      cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}-${{ needs.crds_context.outputs.context }}
       envs: |
         - linux: py311-oldestdeps-cov-xdist
         - linux: py311-xdist
