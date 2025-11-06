@@ -69,8 +69,8 @@ jobs:
         ${{ needs.latest_data_cache.outputs.cache_key }}
       cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}-${{ needs.crds_context.outputs.context }}
       envs: |
-        - macos: py311-xdist
-        - macos: py312-xdist
-        - macos: py313-xdist
-        - macos: py313-devdeps-xdist
-        - linux: py313-devdeps-xdist
+        - macos: py311
+        - macos: py312
+        - macos: py313
+        - macos: py313-devdeps
+        - linux: py313-devdeps

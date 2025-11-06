@@ -78,12 +78,12 @@ jobs:
         ${{ needs.latest_data_cache.outputs.cache_key }}
       cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}-${{ needs.crds_context.outputs.context }}
       envs: |
-        - linux: py311-oldestdeps-cov-xdist
-        - linux: py311-xdist
-        - linux: py312-xdist
-        - linux: py313-xdist
+        - linux: py311-oldestdeps-cov
+        - linux: py311
+        - linux: py312
+        - linux: py313
         # `tox` does not currently respect `requires-python` versions when creating testing environments;
         # if this breaks, add an upper pin to `requires-python` and revert this py3 to the latest working version
-        - linux: py313-cov-xdist
+        - linux: py313-cov
           coverage: codecov
-        - macos: py313-xdist
+        - macos: py313
