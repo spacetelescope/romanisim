@@ -112,12 +112,6 @@ def main():
     args = parser.parse_args()
 
     log.info('Starting simulation...')
-    log.warning("romanisim is under active development.  Its output has "
-                "not been formally validated; only limited testing has been "
-                "performed.  For this reason, use of romanisim for "
-                "preparation of ROSES proposals is not advised.  Other "
-                "packages like galsim's roman package or STIPS may better "
-                "serve such purposes.")
 
     if args.config is not None:
         # Open and parse overrides file
