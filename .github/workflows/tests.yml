@@ -14,9 +14,21 @@ on:
     # Weekly Monday 9AM build
     # * is a special character in YAML so you have to quote this string
     - cron: "0 9 * * 0"
+  workflow_dispatch:
+    inputs:
+      crds_context:
+        description: CRDS context (leave blank for latest)
+        type: string
+        required: false
+        default: ""
+      crds_server:
+        description: CRDS server
+        type: string
+        required: false
+        default: https://roman-crds.stsci.edu
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.crds_context }}
   cancel-in-progress: true
 
 jobs:
@@ -25,12 +37,24 @@ jobs:
     with:
       envs: |
         - linux: check-style
+  latest_crds_contexts:
+    uses: spacetelescope/crds/.github/workflows/contexts.yml@main
+    with:
+      observatory: roman
+  crds_context:
+    needs: [latest_crds_contexts]
+    runs-on: ubuntu-latest
+    steps:
+      - id: context
+        run: echo context=${{ github.event_name == 'workflow_dispatch' && (inputs.crds_context != '' && inputs.crds_context || needs.latest_crds_contexts.outputs.roman) || needs.latest_crds_contexts.outputs.roman }} >> $GITHUB_OUTPUT
+    outputs:
+      context: ${{ steps.context.outputs.context }}
   latest_data_cache:
     uses: ./.github/workflows/retrieve_cache.yml
     with:
       cache_path: /tmp/data
   test:
-    needs: [latest_data_cache]
+    needs: [crds_context, latest_data_cache]
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@28e947497bed4d6ec3fa1d66d198e95a1d17bc63 # v2.2.1
     with:
       libraries: |
@@ -41,17 +65,25 @@ jobs:
           - eigen
           - fftw
       setenv: |
+        CRDS_PATH: /tmp/data/crds_cache/
+        CRDS_SERVER_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.crds_server || 'https://roman-crds.stsci.edu' }}
+        CRDS_CONTEXT: ${{ needs.crds_context.outputs.context }}
+        CRDS_CLIENT_RETRY_COUNT: 3
+        CRDS_CLIENT_RETRY_DELAY_SECONDS: 20
         STPSF_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}/stpsf-data/
         GALSIM_CAT_PATH: ${{ needs.latest_data_cache.outputs.cache_path }}/galsim_data/real_galaxy_catalog_23.5_example.fits
         FFTW_DIR: /opt/homebrew/opt/fftw/lib/
       cache-path: ${{ needs.latest_data_cache.outputs.cache_path }}
-      cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}
+      cache-restore-keys: |
+        ${{ needs.latest_data_cache.outputs.cache_key }}
+      cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}-${{ needs.crds_context.outputs.context }}
       envs: |
-        - linux: py311-oldestdeps-cov-xdist
-        - linux: py311-xdist
-        - linux: py312-xdist
+        - linux: py311-oldestdeps-cov
+        - linux: py311
+        - linux: py312
+        - linux: py313
         # `tox` does not currently respect `requires-python` versions when creating testing environments;
         # if this breaks, add an upper pin to `requires-python` and revert this py3 to the latest working version
-        - linux: py3-cov-xdist
+        - linux: py313-cov
           coverage: codecov
-        - macos: py3-xdist
+        - macos: py313

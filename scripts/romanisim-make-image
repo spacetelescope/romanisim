@@ -8,8 +8,6 @@ from astropy import units as u
 import galsim
 from romanisim import log, wcs, persistence, parameters
 from romanisim import ris_make_utils as ris
-from copy import copy
-import numpy as np
 from astropy.io import fits
 
 
@@ -73,7 +71,7 @@ def go(args):
         else:
             raise ValueError("If --extra-counts is used, must provide one or two arguments only.")
         with fits.open(extra_counts_file) as hdul:
-            extra_counts = hdul[extra_counts_hdu].data  
+            extra_counts = hdul[extra_counts_hdu].data
 
 
     # Simulate image and write to file
@@ -98,7 +96,7 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument('--config', type=str, help='input parameter override file (yaml)',
                         default=None)
-    parser.add_argument('--date', type=str, default=None,
+    parser.add_argument('--date', type=str, default=parameters.default_date.isot,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
     parser.add_argument('--level', type=int, default=2,
                         help='1 or 2, for L1 or L2 output')
@@ -116,11 +114,16 @@ if __name__ == '__main__':
         'SCA to simulate. Use -1 to generate images for all SCAs; include {} in filename for this mode '
         'to indicate where the detector number should be filled, e.g. l1_{}.asdf'))
     parser.add_argument('--usecrds', action='store_true',
-                        help='Use CRDS for distortion map')
+                        help='Use CRDS references.')
+    parser.add_argument('--psftype', type=str, default='galsim',
+                        choices=['epsf', 'galsim', 'stpsf'],
+                        help=('Type of PSF generator to use.'
+                              ' If None and --usecrds, then "epsf" will be used'
+                              ' otherwise "galsim" is used.'))
     parser.add_argument('--webbpsf', action='store_true',
-                        help='Use stpsf for PSF (deprecated, use stpsf)')
+                        help='Use stpsf for PSF (deprecated, use `--psftype stpsf`)')
     parser.add_argument('--stpsf', action='store_true',
-                        help='Use stpsf for PSF')
+                        help='Use stpsf for PSF (deprecated, use `--psftype stpsf`)')
     parser.add_argument('--truncate', type=int, default=None, help=(
         'If set, truncate the MA table at given number of resultants.'))
     parser.add_argument('--pretend-spectral', type=str, default=None, help=(
@@ -131,9 +134,9 @@ if __name__ == '__main__':
     parser.add_argument('--scale-factor', type=float, default=-1.,
                         help=('Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris.'))
     parser.add_argument('--extra-counts', type=str, default=None, nargs='+', help=(
-        'An optional FITS file to read to get an array of counts to add into the simulated image.'
-        'Useful for wrapping idealized images.'
-        'If 2 arguments are sent in, then the second argument is assumed to be the HDU to use (default=0)'
+        'An optional FITS file to read to get an array of counts to add into the simulated image. '
+        'Useful for wrapping idealized images. '
+        'If 2 arguments are sent in, then the second argument is assumed to be the HDU to use (default=0).'
     ))
 
     args = parser.parse_args()

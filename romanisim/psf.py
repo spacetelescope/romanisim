@@ -13,169 +13,31 @@ should consider the following:
   It's possible we can just subclass ChromaticObject and implement
   evaluateAtWavelength, using the _shoot code from ChromaticOpticalPSF.
 """
+from collections import OrderedDict
+from functools import cache
 
+from astropy.nddata import NDData
 import numpy as np
 import galsim
 from galsim import roman
+from photutils.psf import GriddedPSFModel
+
+from roman_datamodels import datamodels
+
+from . import parameters
 from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass
 from romanisim import log
 
-
-def make_one_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
-                 chromatic=False, oversample=4, extra_convolution=None, **kw):
-    """Make a PSF profile for Roman at a specific detector location.
-
-    Can construct both PSFs using galsim's built-in galsim.roman.roman_psfs
-    routine, or can use stpsf.
-
-    Parameters
-    ----------
-    sca : int
-        SCA number
-    filter_name : str
-        name of filter
-    wcs : callable (optional)
-        function giving mapping from pixels to sky for use in computing local
-        scale of image for stpsf PSFs
-    pix : tuple (float, float)
-        pixel location of PSF on focal plane
-    oversample : int
-        oversampling with which to sample Stpsf PSF
-    extra_convolution : galsim.gsobject.GSObject or None
-        Additional convolution to add to PSF
-    **kw : dict
-        Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
-        depending on whether stpsf is set.
-
-    Returns
-    -------
-    profile : galsim.gsobject.GSObject
-        galsim profile object for convolution with source profiles when
-        rendering scenes.
-    """
-    pix = pix if pix is not None else (roman.n_pix // 2, roman.n_pix // 2)
-    if wcs is None:
-        log.warning('wcs is None; unlikely to get orientation of PSF correct.')
-    if not stpsf:
-        filter_name = roman2galsim_bandpass[filter_name]
-        defaultkw = {'pupil_bin': 8}
-        if chromatic:
-            defaultkw['n_waves'] = 10
-            bandpass = None
-        else:
-            bandpass = roman.getBandpasses(AB_zeropoint=True)[filter_name]
-            filter_name = None
-        defaultkw.update(**kw)
-        scapos = galsim.PositionD(*pix) if pix is not None else None
-        res = roman.getPSF(sca, filter_name, wcs=wcs, SCA_pos=scapos,
-                           wavelength=bandpass, **defaultkw)
-        if extra_convolution is not None:
-            res = galsim.Convolve(res, extra_convolution)
-        return res
-    if chromatic:
-        log.warning('romanisim does not yet support chromatic PSFs '
-                    'with stpsf')
-    import stpsf as wpsf
-    filter_name = galsim2roman_bandpass[filter_name]
-    wfi = wpsf.WFI()
-    wfi.detector = f'SCA{sca:02d}'
-    wfi.filter = filter_name
-    wfi.detector_position = pix
-    psf = wfi.calc_psf(oversample=oversample, **kw)
-    # stpsf doesn't do distortion
-    # calc_psf gives something aligned with the pixels, but with
-    # a constant pixel scale equal to wfi.pixelscale / oversample.
-    # we need to get the appropriate rotated WCS that matches this
-    newscale = wfi.pixelscale / oversample
-    if wcs is not None:
-        local_jacobian = wcs.local(image_pos=galsim.PositionD(pix)).getMatrix()
-        # angle of [du/dx, du/dy]
-        ang = np.arctan2(local_jacobian[0, 1], local_jacobian[0, 0])
-        rotmat = np.array([[np.cos(ang), np.sin(ang)], [-np.sin(ang), np.cos(ang)]])
-        newwcs = galsim.JacobianWCS(*(rotmat.ravel() * newscale))
-        # we are making a new, orthogonal, isotropic matrix for the PSF with the
-        # appropriate pixel scale.  This is intended to be the WCS for the PSF
-        # produced by stpsf.
-    else:
-        newwcs = galsim.JacobianWCS(*(np.array([1, 0, 0, 1]) * newscale))
-        # just use a default North = up WCS
-    gimg = galsim.Image(psf[0].data, wcs=newwcs)
-
-    # This code block could be used to fix the centroid of Stpsf calculated
-    # PSFs to be zero.  This makes downstream comparisons with Stpsf
-    # PSFs a little harder, and so is currently disabled.  But it is
-    # recommended by Marshall Perrin and is probably what we should do.
-
-    #  centroid = []
-    #  for i, ll in enumerate(psf[0].data.shape):
-    #      cc = np.arange(ll) - (ll - 1) / 2
-    #      newshape = [1] * len(psf[0].data.shape)
-    #      newshape[-(i + 1)] = -1
-    #      cen = np.sum(cc.reshape(newshape) * psf[0].data) / np.sum(psf[0].data)
-    #      centroid.append(cen)
-    #  centroid = np.array(centroid)
-
-    centroid = None
-    intimg = galsim.InterpolatedImage(
-        gimg, normalization='flux', use_true_center=True, offset=centroid)
-
-    if extra_convolution is not None:
-        intimg = galsim.Convolve(intimg, extra_convolution)
-
-    return intimg
-
-
-def make_psf(sca, filter_name, wcs=None, stpsf=True, pix=None,
-             chromatic=False, variable=False, extra_convolution=None, **kw):
-    """Make a PSF profile for Roman.
-
-    Optionally supports spatially variable PSFs via interpolation between
-    the four corners of an SCA.
-
-    Parameters
-    ----------
-    sca : int
-        SCA number
-    filter_name : str
-        name of filter
-    wcs : callable (optional)
-        function giving mapping from pixels to sky for use in computing local
-        scale of image for stpsf PSFs
-    pix : tuple (float, float)
-        pixel location of PSF on focal plane
-    variable : bool
-        True if a variable PSF object is desired
-    extra_convolution : galsim.gsobject.GSObject or None
-        Additional convolution to add to PSF profiles
-    **kw : dict
-        Additional keywords passed to make_one_psf
-
-    Returns
-    -------
-    profile : galsim.gsobject.GSObject
-        galsim profile object for convolution with source profiles when
-        rendering scenes.
-    """
-    if not variable:
-        return make_one_psf(sca, filter_name, wcs=wcs, stpsf=stpsf,
-                            pix=pix, chromatic=chromatic,
-                            extra_convolution=extra_convolution, **kw)
-    elif pix is not None:
-        raise ValueError('cannot set both pix and variable')
-    buf = 49
-    # Stpsf complains if we get too close to (0, 0) for some reason.
-    # For other corners one can go to within a fraction of a pixel.
-    # if we go larger than 49 we have to change some of the tests, which use a 100x100 image.
-    corners = dict(
-        ll=[buf, buf], lr=[roman.n_pix - buf, buf],
-        ul=[buf, roman.n_pix - buf], ur=[roman.n_pix - buf, roman.n_pix - buf])
-    psfs = dict()
-    for corner, pix in corners.items():
-        psfs[corner] = make_one_psf(sca, filter_name, wcs=wcs, stpsf=stpsf,
-                                    pix=pix, chromatic=chromatic,
-                                    extra_convolution=extra_convolution, **kw)
-    return VariablePSF(corners, psfs)
-
+__all__ =  ['VariablePSF',
+            'get_epsf_from_crds',
+            'get_gridded_psf_model',
+            'make_one_psf',
+            'make_one_psf_epsf',
+            'make_one_psf_galsim',
+            'make_one_psf_stpsf',
+            'make_psf',
+            'psf_from_grid',
+            'psfstamp_to_galsimimange',]
 
 class VariablePSF:
     """Spatially variable PSF wrapping GalSim profiles.
@@ -217,3 +79,401 @@ class VariablePSF:
                + self.psf['ul'] * wleft * (1 - wlow)
                + self.psf['ur'] * (1 - wleft) * (1 - wlow))
         return out
+
+@cache
+def get_epsf_from_crds(sca, filter_name, date=None):
+    """Retrieve EPSF reference model from CRDS
+
+    Parameters
+    ----------
+    sca : int
+        SCA number
+    filter_name : str
+        name of filter
+    date : astropy.time.Time or None
+        Date of simulation. If None, the default from the parameters configuration `default_date` is used
+
+    Returns
+    -------
+    model : roman_datamodels.EpsfRefModel
+    """
+    from crds import getreferences
+
+    if date is None:
+        date = parameters.default_date
+        log.warning('No date has been specified for CRDS EPSF retrieval. Using %s', date.isot)
+    header = {
+        'ROMAN.META.INSTRUMENT.NAME': 'wfi',
+        'ROMAN.META.INSTRUMENT.DETECTOR': f'SCA{sca:02d}',
+        'ROMAN.META.INSTRUMENT.OPTICAL_ELEMENT': galsim2roman_bandpass[filter_name],
+        'ROMAN.META.EXPOSURE.START_TIME': date.isot
+    }
+    ref_paths = getreferences(header, reftypes=['epsf'], observatory='roman')
+    model = datamodels.open(ref_paths['epsf'])
+
+    return model
+
+
+@cache
+def get_gridded_psf_model(psf_ref_model, oversample=None, focus=0, spectral_type=1):
+    """Generate the gridded PSF model from an EPSF reference model
+
+    Compute a gridded PSF model for one SCA using the
+    reference files in CRDS.
+    The input reference files have 3 focus positions and this is using
+    the in-focus images. There are also three spectral types that are
+    available and this code uses the M5V spectal type.
+    """
+    # Open the reference file data model
+    # select the infocus images (0) and we have a selection of spectral types
+    # A0V, G2V, and M6V, pick G2V (1)
+    psf_images = psf_ref_model.psf[focus, spectral_type, :, :, :].copy()
+
+    # get the central position of the cutouts in a list
+    psf_positions_x = psf_ref_model.meta.pixel_x.data.data
+    psf_positions_y = psf_ref_model.meta.pixel_y.data.data
+    meta = OrderedDict()
+
+    # Create the GriddedPSFModel
+    position_list = []
+    for index in range(len(psf_positions_x)):
+        position_list.append([psf_positions_x[index], psf_positions_y[index]])
+    meta["grid_xypos"] = position_list
+    if oversample is None:
+        oversample = psf_ref_model.meta.oversample
+    meta["oversampling"] = oversample
+    meta['epsf_oversample'] = psf_ref_model.meta.oversample
+    nd = NDData(psf_images, meta=meta)
+    model = GriddedPSFModel(nd)
+
+    return model
+
+
+def make_one_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
+                 chromatic=False, oversample=4, extra_convolution=None, date=None, **kw):
+    """Make a PSF profile for Roman at a specific detector location.
+
+    Can construct both PSFs using galsim's built-in galsim.roman.roman_psfs
+    routine, or can use stpsf.
+
+    Parameters
+    ----------
+    sca : int
+        SCA number
+    filter_name : str
+        name of filter
+    wcs : callable (optional)
+        function giving mapping from pixels to sky for use in computing local
+        scale of image for stpsf PSFs
+    psftype : One of ['epsf', 'galsim', 'stpsf']
+        How to determine the PSF.
+    pix : tuple (float, float)
+        pixel location of PSF on focal plane
+    chromatic : bool
+        Create a multiwavelength-based psf.
+    oversample : int
+        oversampling with which to sample Stpsf PSF
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to PSF
+    date : astropy.time.Time or None
+        Date of simulation. If None, current date is used. Needed for psftype='epsf'
+        to choose the appropriate epsf reference.
+    **kw : dict
+        Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
+        depending on whether stpsf is set.
+
+    Returns
+    -------
+    profile : galsim.gsobject.GSObject
+        galsim profile object for convolution with source profiles when
+        rendering scenes.
+    """
+    pix = pix if pix is not None else (roman.n_pix // 2, roman.n_pix // 2)
+    if wcs is None:
+        log.warning('wcs is None; unlikely to get orientation of PSF correct.')
+
+    # Create the PSF depending on method desired.
+    if psftype == 'stpsf':
+        psf = make_one_psf_stpsf(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic,
+                                 oversample=oversample, extra_convolution=extra_convolution, **kw)
+    elif psftype == 'epsf':
+        psf = make_one_psf_epsf(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic,
+                                extra_convolution=extra_convolution, date=date, **kw)
+    else:  # Default is galsim
+        psf = make_one_psf_galsim(sca, filter_name, wcs=wcs, pix=pix, chromatic=chromatic, extra_convolution=extra_convolution, **kw)
+
+    return psf
+
+
+def make_one_psf_epsf(sca, filter_name, wcs=None, pix=None,
+                      chromatic=False, extra_convolution=None, date=None, **kw):
+    """Make a PSF profile for Roman at a specific detector location using CRDS reftype epsf
+
+    Parameters
+    ----------
+    sca : int
+        SCA number
+    filter_name : str
+        name of filter
+    wcs : callable (optional)
+        function giving mapping from pixels to sky for use in computing local
+        scale of image for stpsf PSFs
+    pix : tuple (float, float)
+        pixel location of PSF on focal plane
+    chromatic : bool
+        Create a multiwavelength-based psf.
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to PSF
+    date : astropy.time.Time or None
+        Date of simulation. If None, current date is used. Needed for psftype='epsf'
+        to choose the appropriate epsf reference.
+    **kw : dict
+        Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
+        depending on whether stpsf is set.
+
+    Returns
+    -------
+    profile : galsim.gsobject.GSObject
+        galsim profile object for convolution with source profiles when
+        rendering scenes.
+    """
+    log.info('Creating PSF from CRDS reference type epsf')
+    if chromatic:
+        log.warning('romanisim does not yet support chromatic PSFs '
+                    'with stpsf or crds epsf')
+    epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
+    gridded_psf = get_gridded_psf_model(epsf_ref_model)
+
+    psf = psf_from_grid(gridded_psf, *pix)
+    pixelscale = parameters.pixel_scale / gridded_psf.meta['epsf_oversample']
+    intimg = psfstamp_to_galsimimange(psf, pixelscale, wcs=wcs, pix=pix,
+                                extra_convolution=extra_convolution)
+    return intimg
+
+
+def make_one_psf_galsim(sca, filter_name, wcs=None, pix=None,
+                        chromatic=False, extra_convolution=None, **kw):
+    """Make a PSF profile for Roman at a specific detector location using the galsim library
+
+    Parameters
+    ----------
+    sca : int
+        SCA number
+    filter_name : str
+        name of filter
+    wcs : callable (optional)
+        function giving mapping from pixels to sky for use in computing local
+        scale of image for stpsf PSFs
+    pix : tuple (float, float)
+        pixel location of PSF on focal plane
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to PSF
+    **kw : dict
+        Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
+        depending on whether stpsf is set.
+
+    Returns
+    -------
+    profile : galsim.gsobject.GSObject
+        galsim profile object for convolution with source profiles when
+        rendering scenes.
+    """
+    log.info('Creating PSF using galsim')
+    filter_name = roman2galsim_bandpass[filter_name]
+    defaultkw = {'pupil_bin': 8}
+    if chromatic:
+        defaultkw['n_waves'] = 10
+        bandpass = None
+    else:
+        bandpass = roman.getBandpasses(AB_zeropoint=True)[filter_name]
+        filter_name = None
+    defaultkw.update(**kw)
+    scapos = galsim.PositionD(*pix) if pix is not None else None
+    res = roman.getPSF(sca, filter_name, wcs=wcs, SCA_pos=scapos,
+                       wavelength=bandpass, **defaultkw)
+    if extra_convolution is not None:
+        res = galsim.Convolve(res, extra_convolution)
+    return res
+
+
+def make_one_psf_stpsf(sca, filter_name, wcs=None, pix=None,
+                       chromatic=False, oversample=4, extra_convolution=None, **kw):
+    """Make a PSF profile for Roman at a specific detector location using the galsim library
+
+    Parameters
+    ----------
+    sca : int
+        SCA number
+    filter_name : str
+        name of filter
+    wcs : callable (optional)
+        function giving mapping from pixels to sky for use in computing local
+        scale of image for stpsf PSFs
+    pix : tuple (float, float)
+        pixel location of PSF on focal plane
+    chromatic : bool
+        Create a multiwavelength-based psf.
+    oversample : int
+        oversampling with which to sample Stpsf PSF
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to PSF
+    **kw : dict
+        Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
+        depending on whether stpsf is set.
+
+    Returns
+    -------
+    profile : galsim.gsobject.GSObject
+        galsim profile object for convolution with source profiles when
+        rendering scenes.
+    """
+    log.info('Creating PSF using stpsf')
+    if chromatic:
+        log.warning('romanisim does not yet support chromatic PSFs '
+                    'with stpsf')
+
+    import stpsf as wpsf
+
+    filter_name = galsim2roman_bandpass[filter_name]
+    wfi = wpsf.WFI()
+    wfi.detector = f'SCA{sca:02d}'
+    wfi.filter = filter_name
+    wfi.detector_position = pix
+    psf = wfi.calc_psf(oversample=oversample, **kw)
+    pixelscale = wfi.pixelscale / oversample
+    intimg = psfstamp_to_galsimimange(psf[0].data, pixelscale, wcs=wcs, pix=pix,
+                                extra_convolution=extra_convolution)
+    return intimg
+
+
+def make_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
+             chromatic=False, variable=False, extra_convolution=None, date=None, **kw):
+    """Make a PSF profile for Roman.
+
+    Optionally supports spatially variable PSFs via interpolation between
+    the four corners of an SCA.
+
+    Parameters
+    ----------
+    sca : int
+        SCA number
+    filter_name : str
+        name of filter
+    wcs : callable (optional)
+        function giving mapping from pixels to sky for use in computing local
+        scale of image for stpsf PSFs
+    psftype : One of ['epsf', 'galsim', 'stpsf]
+        How to determine the PSF.
+    pix : tuple (float, float)
+        pixel location of PSF on focal plane
+    variable : bool
+        True if a variable PSF object is desired
+    date : astropy.time.Time or None
+        Date of simulation. If None, current date is used. Needed for psftype='epsf'
+        to choose the appropriate epsf reference.
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to PSF profiles
+    **kw : dict
+        Additional keywords passed to make_one_psf
+
+    Returns
+    -------
+    profile : galsim.gsobject.GSObject
+        galsim profile object for convolution with source profiles when
+        rendering scenes.
+    """
+    if not variable:
+        return make_one_psf(sca, filter_name, wcs=wcs, psftype=psftype,
+                            pix=pix, chromatic=chromatic,
+                            extra_convolution=extra_convolution, date=date, **kw)
+    elif pix is not None:
+        raise ValueError('cannot set both pix and variable')
+    buf = 49
+    # Stpsf complains if we get too close to (0, 0) for some reason.
+    # For other corners one can go to within a fraction of a pixel.
+    # if we go larger than 49 we have to change some of the tests, which use a 100x100 image.
+    corners = dict(
+        ll=[buf, buf], lr=[roman.n_pix - buf, buf],
+        ul=[buf, roman.n_pix - buf], ur=[roman.n_pix - buf, roman.n_pix - buf])
+    psfs = dict()
+    for corner, pix in corners.items():
+        psfs[corner] = make_one_psf(sca, filter_name, wcs=wcs, psftype=psftype,
+                                    pix=pix, chromatic=chromatic,
+                                    extra_convolution=extra_convolution, **kw)
+    return VariablePSF(corners, psfs)
+
+
+def psf_from_grid(psfgrid, x_0=None, y_0=None, size=185):
+    """Calculate a PSF profile from a GriddedPSFModel at the specified position
+
+    Parameters
+    ----------
+    psfgrid : GriddedPSFModel
+        The PSF model to calculate from
+
+    x_0, y_0 : float or None
+        Position to calculate the psf. If None, (0., 0.) is used
+
+    size : int
+        Stamp size. Must be odd.
+        The default, 185, is the default stamp size for the STPSF stamp.
+
+    Returns
+    -------
+    psf : nd.array
+        The psf profile.
+    """
+    if size % 2 == 0:
+        raise ValueError(f'Argument `size` is required to be odd. Given: {size}')
+
+    x_0 = 2048 if x_0 is None else x_0
+    y_0 = 2048 if y_0 is None else y_0
+    cc = (np.arange(size) - (size // 2)) / psfgrid.meta['epsf_oversample']
+    x, y = np.meshgrid(cc + x_0, cc + y_0)
+    psf = psfgrid.evaluate(x, y, 1, x_0, y_0)
+    return psf
+
+
+def psfstamp_to_galsimimange(psf, pixelscale, wcs=None, pix=None, extra_convolution=None):
+    """Convert an STPSF/CRDS PSF profile to galsim.Image"""
+
+    # stpsf doesn't do distortion
+    # calc_psf gives something aligned with the pixels, but with
+    # a constant pixel scale equal to wfi.pixelscale / oversample.
+    # we need to get the appropriate rotated WCS that matches this
+    if wcs is not None:
+        local_jacobian = wcs.local(image_pos=galsim.PositionD(pix)).getMatrix()
+        # angle of [du/dx, du/dy]
+        ang = np.arctan2(local_jacobian[0, 1], local_jacobian[0, 0])
+        rotmat = np.array([[np.cos(ang), np.sin(ang)], [-np.sin(ang), np.cos(ang)]])
+        newwcs = galsim.JacobianWCS(*(rotmat.ravel() * pixelscale))
+        # we are making a new, orthogonal, isotropic matrix for the PSF with the
+        # appropriate pixel scale.  This is intended to be the WCS for the PSF
+        # produced by stpsf.
+    else:
+        newwcs = galsim.JacobianWCS(*(np.array([1, 0, 0, 1]) * pixelscale))
+        # just use a default North = up WCS
+    gimg = galsim.Image(psf, wcs=newwcs)
+
+    # This code block could be used to fix the centroid of Stpsf calculated
+    # PSFs to be zero.  This makes downstream comparisons with Stpsf
+    # PSFs a little harder, and so is currently disabled.  But it is
+    # recommended by Marshall Perrin and is probably what we should do.
+
+    #  centroid = []
+    #  for i, ll in enumerate(psf[0].data.shape):
+    #      cc = np.arange(ll) - (ll - 1) / 2
+    #      newshape = [1] * len(psf[0].data.shape)
+    #      newshape[-(i + 1)] = -1
+    #      cen = np.sum(cc.reshape(newshape) * psf[0].data) / np.sum(psf[0].data)
+    #      centroid.append(cen)
+    #  centroid = np.array(centroid)
+
+    centroid = None
+    intimg = galsim.InterpolatedImage(
+        gimg, normalization='flux', use_true_center=True, offset=centroid)
+
+    if extra_convolution is not None:
+        intimg = galsim.Convolve(intimg, extra_convolution)
+
+    return intimg
