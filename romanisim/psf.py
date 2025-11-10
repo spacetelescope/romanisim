@@ -403,7 +403,7 @@ def make_psf(sca, filter_name, wcs=None, psftype='galsim', pix=None,
     return VariablePSF(corners, psfs)
 
 
-def psf_from_grid(psfgrid, x_0=None, y_0=None):
+def psf_from_grid(psfgrid, x_0=None, y_0=None, size=185):
     """Calculate a PSF profile from a GriddedPSFModel at the specified position
 
     Parameters
@@ -414,14 +414,21 @@ def psf_from_grid(psfgrid, x_0=None, y_0=None):
     x_0, y_0 : float or None
         Position to calculate the psf. If None, (0., 0.) is used
 
+    size : int
+        Stamp size. Must be odd.
+        The default, 185, is the default stamp size for the STPSF stamp.
+
     Returns
     -------
     psf : nd.array
         The psf profile.
     """
+    if size % 2 == 0:
+        raise ValueError(f'Argument `size` is required to be odd. Given: {size}')
+
     x_0 = 0. if x_0 is None else x_0
     y_0 = 0. if y_0 is None else y_0
-    cc = (np.arange(361) - 180) / 4
+    cc = (np.arange(size) - (size // 2)) / psfgrid.meta['epsf_oversample']
     x, y = np.meshgrid(cc + x_0, cc + y_0)
     psf = psfgrid.evaluate(x, y, 1, x_0, y_0)
     return psf
