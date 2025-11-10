@@ -426,8 +426,8 @@ def psf_from_grid(psfgrid, x_0=None, y_0=None, size=185):
     if size % 2 == 0:
         raise ValueError(f'Argument `size` is required to be odd. Given: {size}')
 
-    x_0 = 0. if x_0 is None else x_0
-    y_0 = 0. if y_0 is None else y_0
+    x_0 = 2048 if x_0 is None else x_0
+    y_0 = 2048 if y_0 is None else y_0
     cc = (np.arange(size) - (size // 2)) / psfgrid.meta['epsf_oversample']
     x, y = np.meshgrid(cc + x_0, cc + y_0)
     psf = psfgrid.evaluate(x, y, 1, x_0, y_0)
