@@ -15,6 +15,7 @@ These routines exercise the following:
 
 import os
 import copy
+from functools import cache
 import numpy as np
 import galsim
 from galsim import roman
@@ -24,7 +25,6 @@ from astropy import units as u
 from astropy.time import Time
 from astropy import table
 import asdf
-import stpsf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
@@ -107,46 +107,6 @@ def test_make_l2():
     assert np.allclose(slopes, 0, atol=1e-6)
 
 
-def set_up_image_rendering_things():
-    im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
-    filter_name = 'F158'
-    impsfgray = psf.make_psf(1, filter_name, stpsf=True, chromatic=False,
-                             nlambda=1)  # nlambda = 1 speeds tests
-    impsfchromatic = psf.make_psf(1, filter_name, stpsf=False,
-                                  chromatic=True)
-    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
-    counts = 1000
-    fluxdict = {filter_name: counts}
-    from copy import deepcopy
-    graycatalog = [
-        catalog.CatalogObject(None, galsim.DeltaFunction(), deepcopy(fluxdict)),
-        catalog.CatalogObject(None, galsim.Sersic(1, half_light_radius=0.2),
-                              deepcopy(fluxdict))
-    ]
-    vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
-    vega_sed = vega_sed.withFlux(counts, bandpass)
-    chromcatalog = [
-        catalog.CatalogObject(None, galsim.DeltaFunction() * vega_sed, None),
-        catalog.CatalogObject(
-            None, galsim.Sersic(1, half_light_radius=0.2) * vega_sed, None)
-    ]
-    tabcat = table.Table()
-    tabcat['ra'] = [270.0]
-    tabcat['dec'] = [66.0]
-    tabcat[filter_name] = counts
-    tabcat['type'] = 'PSF'
-    tabcat['n'] = -1
-    tabcat['half_light_radius'] = -1
-    tabcat['pa'] = -1
-    tabcat['ba'] = -1
-    return dict(im=im, impsfgray=impsfgray,
-                impsfchromatic=impsfchromatic,
-                bandpass=bandpass, counts=counts, fluxdict=fluxdict,
-                graycatalog=graycatalog,
-                chromcatalog=chromcatalog, filter_name=filter_name,
-                tabcatalog=tabcat)
-
-
 def central_stamp(im, sz):
     for s in im.shape:
         if (s % 2) != (sz % 2):
@@ -164,11 +124,13 @@ def test_image_rendering():
     - RUSBREQ-830 / DMS214: point source generation.
     - RSUBREQ-874 / DMS215: analytic model source generation
     """
+    stpsf = pytest.importorskip('stpsf')
+
     oversample = 4
     filter_name = 'F158'
     sca = 1
     pos = [50, 50]
-    impsfgray = psf.make_psf(sca, filter_name, stpsf=True, chromatic=False,
+    impsfgray = psf.make_psf(sca, filter_name, psftype='stpsf', chromatic=False,
                              pix=pos, oversample=oversample, nlambda=1)
     counts = 100000
     fluxdict = {filter_name: counts}
@@ -447,11 +409,10 @@ def test_simulate_counts():
     meta = util.default_image_meta(filter_name='F158')
     wcs.fill_in_parameters(meta, coord)
     im1 = image.simulate_counts(meta, chromcat, usecrds=False,
-                                stpsf=False, ignore_distant_sources=100)
+                                psftype='galsim', ignore_distant_sources=100)
     im2 = image.simulate_counts(meta, graycat,
-                                usecrds=False, stpsf=True,
-                                ignore_distant_sources=100,
-                                psf_keywords=dict(nlambda=1))
+                                usecrds=False, psftype='epsf',
+                                ignore_distant_sources=100)
     im1 = im1[0].array
     im2 = im2[0].array
     maxim = np.where(im1 > im2, im1, im2)
@@ -493,11 +454,10 @@ def test_simulate():
     imdict['tabcatalog']['dec'] = center.dec.to(u.deg).value
     imdict['tabcatalog'][filter_name] = (
         imdict['tabcatalog'][filter_name] / abfluxdict[f'SCA{sca:02}'][filter_name])
-    l0 = image.simulate(meta, graycat, stpsf=True, level=0,
-                        usecrds=False, psf_keywords=dict(nlambda=1))
+    l0 = image.simulate(meta, graycat, psftype='epsf', level=0,
+                        usecrds=False)
     l0tab = image.simulate(
-        meta, imdict['tabcatalog'], stpsf=True, level=0, usecrds=False,
-        psf_keywords=dict(nlambda=1))
+        meta, imdict['tabcatalog'], psftype='epsf', level=0, usecrds=False)
     # seed = 0 is special and means "don't actually use a seed."  Any other
     # choice of seed gives deterministic behavior
     # note that we have scaled down the size of the image to 100x100 pix
@@ -506,9 +466,8 @@ def test_simulate():
     # CRs are detected, except in a 100x100 region instead of a 4kx4k region;
     # i.e., there are 1600x too many CRs.  Fine for unit tests?
     rng = galsim.BaseDeviate(1)
-    l1 = image.simulate(meta, graycat, stpsf=True, level=1,
-                        crparam=dict(), usecrds=False, rng=rng,
-                        psf_keywords=dict(nlambda=1))
+    l1 = image.simulate(meta, graycat, psftype='epsf', level=1,
+                        crparam=dict(), usecrds=False, rng=rng)
     peakloc = np.nonzero(l0[0]['data'] == np.max(l0[0]['data']))
 
     # check that the location with the most flux is the location where the
@@ -526,25 +485,22 @@ def test_simulate():
         af.write_to(os.path.join(artifactdir, 'dms218.asdf'))
 
     rng = galsim.BaseDeviate(1)
-    l1_nocr = image.simulate(meta, graycat, stpsf=True, level=1,
-                             usecrds=False, crparam=None, rng=rng,
-                             psf_keywords=dict(nlambda=1))
+    l1_nocr = image.simulate(meta, graycat, psftype='epsf', level=1,
+                             usecrds=False, crparam=None, rng=rng)
     assert np.all(l1[0].data >= l1_nocr[0].data)
     log.info('DMS221: Successfully added cosmic rays to an L1 image.')
-    l2 = image.simulate(meta, graycat, stpsf=True, level=2,
-                        usecrds=False, crparam=dict(),
-                        psf_keywords=dict(nlambda=1))
+    l2 = image.simulate(meta, graycat, psftype='epsf', level=2,
+                        usecrds=False, crparam=dict())
     # throw in some CRs for fun
-    l2c = image.simulate(meta, chromcat, stpsf=False, level=2,
+    l2c = image.simulate(meta, chromcat, psftype='galsim', level=2,
                          usecrds=False)
     persist = persistence.Persistence()
     fluence = 30000
     persist.update(l0[0]['data'] * 0 + fluence, time.mjd - 100 / 60 / 60 / 24)
     # zap the whole frame, 100 seconds ago.
     rng = galsim.BaseDeviate(1)
-    l1p = image.simulate(meta, graycat, stpsf=True, level=1, usecrds=False,
-                         persistence=persist, crparam=None, rng=rng,
-                         psf_keywords=dict(nlambda=1))
+    l1p = image.simulate(meta, graycat, psftype='epsf', level=1, usecrds=False,
+                         persistence=persist, crparam=None, rng=rng)
     # the random number gets instatiated from the same seed, but the order in
     # which the numbers are generated is different so we can't guarantee, e.g.,
     # that all of the new values are strictly greater than the old ones.
@@ -597,7 +553,7 @@ def test_make_test_catalog_and_images():
         fn = str(fn)
     res = image.make_test_catalog_and_images(usecrds=False,
                                              galaxy_sample_file_name=fn,
-                                             stpsf=False,
+                                             psftype='galsim',
                                              filters=['Y106'])
     assert len(res) > 0
 
@@ -607,12 +563,6 @@ def test_make_test_catalog_and_images():
     [
         1, 2,
     ],
-)
-@pytest.mark.skipif(
-    os.environ.get("CI") == "true",
-    reason=(
-        "Roman CRDS servers are not currently available outside the internal network"
-    ),
 )
 def test_reference_file_crds_match(level):
     # Set up parameters for simulation run
@@ -634,8 +584,8 @@ def test_reference_file_crds_match(level):
     rng = galsim.UniformDeviate(None)
     im, simcatobj = image.simulate(
         metadata, cat, usecrds=True,
-        stpsf=True, level=level,
-        rng=rng, psf_keywords=dict(nlambda=1))
+        psftype='epsf', level=level,
+        rng=rng)
 
     # Confirm that CRDS keyword was updated
     assert im.meta.ref_file.crds.version != '12.3.1'
@@ -666,9 +616,8 @@ def test_inject_source_into_image():
                                            nobj=2000, rng=rng)
     # Create starting image
     im, simcatobj = image.simulate(
-        meta, cat, usecrds=False, stpsf=True, level=2,
-        rng=rng, psf_keywords=dict(nlambda=1),
-        crparam=None)
+        meta, cat, usecrds=False, psftype='epsf', level=2,
+        rng=rng, crparam=None)
 
     # Create catalog with one source for injection
     xpos, ypos = 10, 10
@@ -753,7 +702,7 @@ def test_image_input(tmpdir):
     tab.meta['real_galaxy_catalog_filename'] = str(base_rgc_filename) + '.fits'
 
     # render the image
-    res = image.simulate(meta, tab, usecrds=False, stpsf=False)
+    res = image.simulate(meta, tab, usecrds=False, psftype='galsim')
 
     # did we get all the flux?
     totflux = np.sum(res[0].data - np.median(res[0].data))
@@ -780,3 +729,100 @@ def test_image_input(tmpdir):
                    'output': res[0].data,
                    }
         af.write_to(os.path.join(artifactdir, 'dms228.asdf'))
+
+
+@pytest.mark.parametrize('psftype', ['galsim', 'stpsf', 'epsf'])
+def test_psftypes_location(psftype):
+    """Ensure the psf is located where it is supposed to be"""
+    image = make_image_psftype(psftype=psftype)
+    center = [x // 2 for x in image.data.shape]
+    max_loc = np.unravel_index(image.data.argmax(), image.data.shape)
+    np.testing.assert_allclose(max_loc, center, atol=1)
+
+
+@pytest.mark.parametrize('psftype', ['stpsf', 'epsf'])
+def test_psftypes_similar(psftype):
+    """Test similarity between psftype and galsim"""
+    galsim_image = make_image_psftype(psftype='galsim').data
+    image = make_image_psftype(psftype=psftype).data
+    center = [x // 2 for x in image.data.shape]
+
+    s = 10  # box half-size
+    galsim_sum = np.sum(galsim_image[center[0]-s: center[0]+s, center[1]-s: center[1]+s])
+    image_sum = np.sum(image[center[0]-s: center[0]+s, center[1]-s: center[1]+s])
+    assert (abs(image_sum / galsim_sum - 1.)) < 0.1  # This isn't great but sufficient.
+
+
+# ######################
+# Fixtures and utilities
+# ######################
+@cache
+def make_image_psftype(psftype='epsf'):
+    psf_keywords = {}
+    if psftype == 'stpsf':
+        psf_keywords = dict(nlambda=1)
+
+    imdict = set_up_image_rendering_things(psftype=psftype)
+    roman.n_pix = 100
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+    time = Time('2020-01-01T00:00:00')
+    filter_name = 'F158'
+    meta = util.default_image_meta(time=time, filter_name=filter_name,
+                                   coord=coord)
+    wcs.fill_in_parameters(meta, coord)
+    sca = int(meta['instrument']['detector'][3:])
+    graycat = imdict['graycatalog']
+    imwcs = wcs.get_wcs(meta, usecrds=False)
+    sourcecen = (50, 50)
+    center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
+    abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    for o in graycat:
+        o.sky_pos = center
+        o.flux[filter_name] /= abfluxdict[f'SCA{sca:02}'][filter_name]
+    l2 = image.simulate(meta, graycat, psftype=psftype, level=2,
+                        usecrds=False, crparam=dict(),
+                        psf_keywords=psf_keywords)
+    return l2[0]
+
+
+def set_up_image_rendering_things(psftype='epsf'):
+    im = galsim.Image(100, 100, scale=0.1, xmin=0, ymin=0)
+    filter_name = 'F158'
+    psf_keywords = {}
+    if psftype == 'stpsf':
+        psf_keywords = dict(nlambda = 1)  # nlambda = 1 speeds tests
+    impsfgray = psf.make_psf(1, filter_name, psftype=psftype, chromatic=False,
+                             **psf_keywords)
+    impsfchromatic = psf.make_psf(1, filter_name, psftype='galsim',
+                                  chromatic=True)
+    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
+    counts = 1000
+    fluxdict = {filter_name: counts}
+    from copy import deepcopy
+    graycatalog = [
+        catalog.CatalogObject(None, galsim.DeltaFunction(), deepcopy(fluxdict)),
+        catalog.CatalogObject(None, galsim.Sersic(1, half_light_radius=0.2),
+                              deepcopy(fluxdict))
+    ]
+    vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
+    vega_sed = vega_sed.withFlux(counts, bandpass)
+    chromcatalog = [
+        catalog.CatalogObject(None, galsim.DeltaFunction() * vega_sed, None),
+        catalog.CatalogObject(
+            None, galsim.Sersic(1, half_light_radius=0.2) * vega_sed, None)
+    ]
+    tabcat = table.Table()
+    tabcat['ra'] = [270.0]
+    tabcat['dec'] = [66.0]
+    tabcat[filter_name] = counts
+    tabcat['type'] = 'PSF'
+    tabcat['n'] = -1
+    tabcat['half_light_radius'] = -1
+    tabcat['pa'] = -1
+    tabcat['ba'] = -1
+    return dict(im=im, impsfgray=impsfgray,
+                impsfchromatic=impsfchromatic,
+                bandpass=bandpass, counts=counts, fluxdict=fluxdict,
+                graycatalog=graycatalog,
+                chromcatalog=chromcatalog, filter_name=filter_name,
+                tabcatalog=tabcat)
