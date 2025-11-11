@@ -864,7 +864,7 @@ def read_catalog(filename,
         # Healpix catalogs within a directory
         metafilename = os.path.join(filename, 'meta.yaml')
         if os.path.exists(metafilename):
-            meta = yaml.safe_load(metafilename)
+            meta = yaml.safe_load(open(metafilename, 'rb'))
         else:
             meta = dict()
         nside = meta.get('nside', 128)
