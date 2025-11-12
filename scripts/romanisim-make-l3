@@ -54,12 +54,6 @@ if __name__ == '__main__':
 
     log.info(f'Running with args: {args}')
     log.info('Starting simulation...')
-    log.warning("romanisim is under active development.  Its output has "
-                "not been formally validated; only limited testing has been "
-                "performed.  For this reason, use of romanisim for "
-                "preparation of ROSES proposals is not advised.  Other "
-                "packages like galsim's roman package or STIPS may better "
-                "serve such purposes.")
 
     pixscale = args.pixscalefrac * parameters.pixel_scale
     midpoint = (args.npix - 1) / 2
