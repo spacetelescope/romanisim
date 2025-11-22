@@ -774,7 +774,8 @@ def simulate(metadata, objlist,
     seed : int
         Seed for populating RNG.  Only used if rng is None.
     psf_keywords : dict
-        Keywords passed to the PSF generation routine
+        Keywords passed to the PSF generation routine. 
+        For STPSF, this dict can also include an "stpsf_options" dictionary to specify WFI object options (e.g. defocus, jitter).
     extra_counts : ndarray, galsim.Image (optional)
         An additional array that just gets added into the counts image. 
         Useful for wrapping idealized images into L1/L2 images + the 
