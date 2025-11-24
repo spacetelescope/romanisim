@@ -319,7 +319,8 @@ def make_one_psf_stpsf(sca, filter_name, wcs=None, pix=None,
         Additional convolution to add to PSF
     **kw : dict
         Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
-        depending on whether stpsf is set.
+        depending on whether stpsf is set. May also include "stpsf_options"
+        dictionary to specify WFI object options (e.g. defocus, jitter)
 
     Returns
     -------
@@ -339,7 +340,14 @@ def make_one_psf_stpsf(sca, filter_name, wcs=None, pix=None,
     wfi.detector = f'SCA{sca:02d}'
     wfi.filter = filter_name
     wfi.detector_position = pix
-    psf = wfi.calc_psf(oversample=oversample, **kw)
+
+    # Extract STPSF object options and function arguments separately
+    opts = kw.pop("stpsf_options", {})
+    args = kw
+    for key, value in opts.items():
+        wfi.options[key] = value
+    
+    psf = wfi.calc_psf(oversample=oversample, **args)
     pixelscale = wfi.pixelscale / oversample
     intimg = psfstamp_to_galsimimange(psf[0].data, pixelscale, wcs=wcs, pix=pix,
                                 extra_convolution=extra_convolution)

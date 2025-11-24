@@ -291,7 +291,7 @@ def format_filename(filename, sca, bandpass=None, pretend_spectral=None):
     return pname.with_name(bname.format(*args, **kwargs))
 
 
-def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
+def simulate_image_file(args, metadata, cat, rng=None, persist=None, psf_keywords=dict(), **kwargs):
     """
     Simulate an image and write it to a file.
 
@@ -307,6 +307,9 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
         Uniform distribution based off of a random seed
     persist : romanisim.persistence.Persistence
         Persistence object
+    psf_keywords : dict
+        Keywords passed to the PSF generation routine. 
+        For STPSF, this dict can also include an "stpsf_options" dictionary to specify WFI object options (e.g. defocus, jitter).
     """
     if getattr(args, 'webbpsf', False) or getattr(args, 'stpsf', False):
         log.warning('Warning: webbpsf and stpsf arguments are deprecated, please use '
@@ -322,7 +325,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, **kwargs):
     im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
         psftype=args.psftype, level=args.level, persistence=persist,
-        rng=rng, **kwargs)
+        rng=rng, psf_keywords=psf_keywords, **kwargs)
 
     # Create metadata for simulation parameter
     romanisimdict = deepcopy(vars(args))
