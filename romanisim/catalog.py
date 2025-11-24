@@ -308,6 +308,11 @@ def make_cosmos_galaxies(coord,
                 ((1 - F184_KS_COEFF) * sim_cat['UVISTA_H_FLUX_AUTO'])
         elif opt_elem == "F213":
             sim_cat['FLUX_F213'] = sim_cat['UVISTA_Ks_FLUX_AUTO']
+        # Special cases for the GRISM and PRISM to avoid test failures
+        elif opt_elem == "GRISM":
+            sim_cat['FLUX_GRISM'] = sim_cat['UVISTA_H_FLUX_AUTO']
+        elif opt_elem == "PRISM":
+            sim_cat['FLUX_PRISM'] = sim_cat['UVISTA_J_FLUX_AUTO']
         else:
             log.warning(f'Unknown filter {opt_elem} skipped in object catalog creation.')
 
