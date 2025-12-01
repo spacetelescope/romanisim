@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   check:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@28e947497bed4d6ec3fa1d66d198e95a1d17bc63 # v2.2.1
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@9f1fedda61294df4c004c05519a3fbf3b8e1f32f # v2.3.1
     with:
       envs: |
         - linux: check-style
@@ -55,7 +55,7 @@ jobs:
       cache_path: /tmp/data
   test:
     needs: [crds_context, latest_data_cache]
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@28e947497bed4d6ec3fa1d66d198e95a1d17bc63 # v2.2.1
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@9f1fedda61294df4c004c05519a3fbf3b8e1f32f # v2.3.1
     with:
       libraries: |
         apt:
