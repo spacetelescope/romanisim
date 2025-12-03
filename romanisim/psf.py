@@ -130,7 +130,7 @@ class VariablePSF:
 
         """
 
-        if not order in [0, 1, 2]:
+        if order not in [0, 1, 2]:
             raise ValueError("Fast PSF interpolation only available for"
                              " orders 0, 1, or 2.")
 
