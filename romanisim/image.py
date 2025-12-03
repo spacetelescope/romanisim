@@ -270,8 +270,19 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         raise ValueError('must specify filter when using achromatic PSF '
                          'rendering.')
 
-    if fastpointsources and not chromatic and hasattr(psf, 'at_position'):
-        psf.build_epsf_interpolator(image)
+    if (fastpointsources and
+        not chromatic and
+        hasattr(psf, 'build_epsf_interpolator') and
+        not hasattr(psf.psf['ll'], 'chromatic')):
+
+        # Check whether the interpolator has already been instantiated.
+        # If not, we need to build the interpolators.
+
+        if psf.psfinterpolators is None:
+            psf.build_epsf_interpolator(image)
+
+        # Make an array of flux-to-counts conversion for later use.
+
         if not isinstance(flux_to_counts_factor, list):
             flux2counts = flux_to_counts_factor*np.ones(len(objlist))
         else:
