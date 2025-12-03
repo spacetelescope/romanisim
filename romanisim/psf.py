@@ -83,7 +83,8 @@ class VariablePSF:
 
 
     def build_epsf_interpolator(self, image, oversamp_render=8,
-                                oversamp_taylor=50, order=1, epsf=False):
+                                oversamp_taylor=50, order=1,
+                                max_radius=100, epsf=False):
 
         """Build the spatial Taylor expansions for an ePSF profile.
 
@@ -109,6 +110,11 @@ class VariablePSF:
             Higher order = more RAM, more computational cost, but gives
             a higher accuracy at fixed oversamp_taylor.
             Default 1
+        max_radius : int
+            Maximum half-width of the box for the ePSF in pixels.  A very
+            large box will be expensive in compute time and memory for
+            the Taylor expansion.
+            Default 100
         epsf : boolean
             Has the input PSF already been convolved with the pixel response
             function (is it an ePSF)?  If True, use no_pixel to render with
@@ -141,6 +147,8 @@ class VariablePSF:
 
         bounds = p.drawImage(center=(-0.5, -0.5), wcs=pwcs).bounds
         ncenter = max(-bounds.getXMin(), -bounds.getYMin())
+        ncenter = min(ncenter, max_radius)
+
         bounds = galsim.BoundsI(-ncenter, ncenter, -ncenter, ncenter)
 
         dn = 2 * ncenter + 1
