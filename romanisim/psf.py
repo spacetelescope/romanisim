@@ -15,7 +15,7 @@ should consider the following:
 """
 from collections import OrderedDict
 from functools import cache
-
+from scipy import interpolate
 from astropy.nddata import NDData
 import numpy as np
 import galsim
@@ -49,6 +49,7 @@ class VariablePSF:
     def __init__(self, corners, psf):
         self.corners = corners
         self.psf = psf
+        self.psfinterpolators = None
 
     def at_position(self, x, y):
         """Instantiate a PSF profile at (x, y).
@@ -79,6 +80,221 @@ class VariablePSF:
                + self.psf['ul'] * wleft * (1 - wlow)
                + self.psf['ur'] * (1 - wleft) * (1 - wlow))
         return out
+
+
+    def build_epsf_interpolator(self, image, oversamp_render=8,
+                                oversamp_taylor=50, order=1, epsf=False):
+
+        """Build the spatial Taylor expansions for an ePSF profile.
+
+        Parameters
+        ----------
+        image : galsim.Image
+            image within which we will inject PSFs
+        oversamp_render : int
+            Oversampling with which to render ePSFs using galsim.
+            Should probably be an integer multiple of the native
+            oversampling if using CRDS PSFs.
+            Default 8
+        oversamp_taylor : int
+            Oversampling for the Taylor expansion.  Total RAM requirements
+            will be ~oversamp_taylor**2*4*nterms*PSFstampsize times 4 bytes
+            where nterms is 1, 3, or 6 depending on the desired order.
+            For a 100x100 PSF, order=1, and oversampling of 50, this is
+            about 1.2 GB.
+            Default 50
+        order : int
+            Order of the Taylor expansion.  Must be 0, 1, or 2.  The number
+            of terms in the Taylor expansion is 1, 3, or 6, respectively.
+            Higher order = more RAM, more computational cost, but gives
+            a higher accuracy at fixed oversamp_taylor.
+            Default 1
+        epsf : boolean
+            Has the input PSF already been convolved with the pixel response
+            function (is it an ePSF)?  If True, use no_pixel to render with
+            galsim.
+            Default False
+
+        Returns
+        -------
+        None
+
+        This routine builds the bounds and Taylor expansion arrays needed for
+        draw_epsf; they are stored as self.bounds and self.psfinterpolators
+
+        """
+
+        if not order in [0, 1, 2]:
+            raise ValueError("Fast PSF interpolation only available for"
+                             " orders 0, 1, or 2.")
+
+        # First, figure out how large to make the stamps.  Use the lower
+        # left corner of the detector for this (we could use any spot).
+        # Render one PSF and adopt the size of that stamp.
+
+        pointsource = galsim.DeltaFunction()
+        p = galsim.Convolve(pointsource, self.psf['ll'])
+
+        image_pos = galsim.PositionD(self.corners['ll'][0],
+                                     self.corners['ll'][1])
+        pwcs = image.wcs.local(image_pos)
+
+        bounds = p.drawImage(center=(-0.5, -0.5), wcs=pwcs).bounds
+        ncenter = max(-bounds.getXMin(), -bounds.getYMin())
+        bounds = galsim.BoundsI(-ncenter, ncenter, -ncenter, ncenter)
+
+        dn = 2 * ncenter + 1
+
+        self.bounds = bounds
+        self.oversamp_taylor = oversamp_taylor
+        self.order = order
+        self.stampshape = (dn, dn)
+
+        # These interpolate within the oversampled rendered PSFs.
+
+        xinterp = np.arange(dn * oversamp_render) * 1. / oversamp_render
+        yinterp = np.arange(dn * oversamp_render) * 1. / oversamp_render
+
+        self.psfinterpolators = {'ll' : None, 'lr' : None,
+                                 'ul' : None, 'ur' : None}
+
+        # Number of terms needed for a Taylor expansion of the desired order
+
+        nterms = [1, 3, 6][order]
+
+        shape = (oversamp_taylor + 1, oversamp_taylor + 1, 4, nterms, dn, dn)
+        self.allarrays = np.zeros(shape, order='C', dtype=np.float32)
+
+        # At each PSF location, render a PSF at many subpixel dithers.  Use
+        # these together with bicubic interpolation to define the values and
+        # derivatives on a very oversampled grid.
+
+        for iloc, key in enumerate(['ll', 'lr', 'ul', 'ur']):
+
+            image_pos = galsim.PositionD(self.corners[key][1],
+                                         self.corners[key][0])
+            pwcs = image.wcs.local(image_pos)
+            p = galsim.Convolve(pointsource, self.psf[key])
+
+            # Render the PSF at subpixel positions using galsim
+
+            nover = oversamp_render
+            method = 'no_pixel' if epsf else 'auto'
+            allrendered = np.zeros((dn * nover, dn * nover))
+
+            for i in range(nover):
+                for j in range(nover):
+
+                    im = p.drawImage(center=(-j / nover, -i / nover),
+                                     wcs=pwcs, bounds=bounds, method=method)
+                    allrendered[i::nover, j::nover] = im.array
+
+            f = interpolate.RectBivariateSpline(xinterp, yinterp, allrendered,
+                                                kx=3, ky=3)
+            fullarr_derivs = np.zeros(self.allarrays[:, :, 0].shape)
+
+            # Save the Taylor expansion to an array
+
+            for i in range(oversamp_taylor + 1):
+                for j in range(oversamp_taylor + 1):
+                    x = np.arange(dn) + i / oversamp_taylor
+                    y = np.arange(dn) + j / oversamp_taylor
+                    fullarr_derivs[i, j, 0] = f(x, y)
+                    if order >= 1:
+                        fullarr_derivs[i, j, 1] = f(x, y, dx=1)
+                        fullarr_derivs[i, j, 2] = f(x, y, dy=1)
+                    if order == 2:
+                        fullarr_derivs[i, j, 3] = f(x, y, dx=2)
+                        fullarr_derivs[i, j, 4] = f(x, y, dx=1, dy=1)
+                        fullarr_derivs[i, j, 5] = f(x, y, dy=2)
+
+            # Use this structure for an efficient memory layout,
+            # since we will need the expansion at different PSF
+            # locations at the same subpixel dither.
+
+            self.allarrays[:, :, iloc] = fullarr_derivs
+            self.psfinterpolators[key] = self.allarrays[:, :, iloc]
+
+
+    def draw_epsf(self, x, y, fluxfactor=1):
+        """Draw an ePSF at (x, y) using a Taylor expansion.
+
+        Linearly interpolate between the four corners to obtain the
+        PSF at this location.
+
+        Parameters
+        ----------
+        x : float
+            x position
+        y : float
+            y position
+        fluxfactor : float
+            factor by which to multiply the ePSF
+            Default 1
+
+        Returns
+        -------
+        GalSim image representing the ePSF at (x, y), including bounds.
+        """
+
+        npix = self.corners['ur'][-1]
+        off = self.corners['ll'][0]
+
+        wleft = np.clip((npix - x) / (npix - off), 0, 1)
+        wlow = np.clip((npix - y) / (npix - off), 0, 1)
+
+        # x = [0, off] -> 1
+        # x = [npix, infinity] -> 0
+        # linearly between those, likewise for y.
+
+        # integer pixel:
+
+        offset_x = int(np.ceil(x))
+        offset_y = int(np.ceil(y))
+
+        # Fractional part of a pixel we need to interpolate to
+
+        dx = offset_x - x
+        dy = offset_y - y
+
+        # These are the integer and fractional parts of the fractional part
+        # above, after converting to units of oversampled pixels.
+        # Example: The Taylor expanion has oversampling of 10, and the
+        # subpixel offset is 0.53.  The offset is 5 integer units plus
+        # 0.3 fractional unit where the unit is oversampled pixels.
+
+        int_x = int(self.oversamp_taylor * dx + 0.5)
+        int_y = int(self.oversamp_taylor * dy + 0.5)
+        frac_x = np.float32(dx - int_x / self.oversamp_taylor)
+        frac_y = np.float32(dy - int_y / self.oversamp_taylor)
+
+        # Blank stamp.  Keep everything in float32 for efficiency.
+
+        epsf_out = np.zeros(self.stampshape, dtype=np.float32)
+
+        weights = {'ll' : wleft * wlow, 'lr' : (1 - wleft) * wlow,
+                   'ul' : wleft * (1 - wlow), 'ur' : (1 - wleft) * (1 - wlow)}
+
+        for key in ['ll', 'lr', 'ul', 'ur']:
+
+            M = self.psfinterpolators[key]
+            w = np.float32(weights[key] * fluxfactor)
+
+            epsf_out += w * M[int_y, int_x, 0]
+
+            if self.order >= 1:
+                epsf_out += w * frac_y * M[int_y, int_x, 1]
+                epsf_out += w * frac_x * M[int_y, int_x, 2]
+
+            if self.order == 2:
+                epsf_out += w / 2 * frac_y**2 * M[int_y, int_x, 3]
+                epsf_out += w * frac_y * frac_x * M[int_y, int_x, 4]
+                epsf_out += w / 2 * frac_x**2 * M[int_y, int_x, 5]
+
+        stampbounds = self.bounds.shift(galsim.PositionI(offset_x, offset_y))
+
+        return galsim.Image(epsf_out, bounds=stampbounds)
+
 
 @cache
 def get_epsf_from_crds(sca, filter_name, date=None):
