@@ -240,6 +240,55 @@ def test_image_rendering():
     # Poisson errors and containing 100k counts.
 
 
+def test_fast_epsf():
+
+    """
+    Make sure that the fast point source ePSF renderer is not creating
+    large errors in the rendered PSFs.  Fail if the largest error is at
+    least one part in 1000.  The largest error with the default
+    parameters should be about 10 times less than this.
+
+    """
+
+    sca = 1
+    filtname = 'F087'
+
+    # Use pi to avoid integer pixel values or fixed fractional values.
+
+    x, y = np.meshgrid(np.arange(50)*np.pi, np.arange(50)*np.pi)
+    x = x*20 + 50
+    y = y*20 + 50
+    x = x.flatten()
+    y = y.flatten()
+
+    # Create a catalog of point sources and draw them into images
+    # using two different approaches.
+
+    from copy import deepcopy
+    cat = [catalog.CatalogObject(None, galsim.DeltaFunction(),
+                                 deepcopy({filtname : 1000}))]*len(x)
+
+    impsf = psf.make_psf(sca, filtname, psftype='galsim', chromatic=False,
+                         variable=True)
+
+    # Draw point sources using the fast method
+
+    im1 = galsim.Image(4000, 4000, scale=0.1, xmin=0, ymin=0)
+    image.add_objects_to_image(im1, cat, x, y, impsf, flux_to_counts_factor=1,
+                               filter_name=filtname, fastpointsources=True)
+
+    # Draw point sources using galsim
+
+    im2 = galsim.Image(4000, 4000, scale=0.1, xmin=0, ymin=0)
+    image.add_objects_to_image(im2, cat, x, y, impsf, flux_to_counts_factor=1,
+                               filter_name=filtname, fastpointsources=False)
+
+    # Ensure that the worst error is no worse than 1 part in 1000.
+    maxdiff = np.amax(np.abs(im2.array - im1.array))
+    maxdiff_div_maxval = maxdiff / np.amax(im2.array)
+    assert (maxdiff_div_maxval < 1e-3)
+
+
 def test_add_objects():
     """Test adding objects to images.
     Demonstrates profile sensitivity to distortion component of DMS218.
