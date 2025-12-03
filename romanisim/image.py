@@ -273,7 +273,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     if (fastpointsources and
         not chromatic and
         hasattr(psf, 'build_epsf_interpolator') and
-        not hasattr(psf.psf['ll'], 'chromatic')):
+        (len(objlist) > 0)):
 
         # Check whether the interpolator has already been instantiated.
         # If not, we need to build the interpolators.

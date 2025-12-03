@@ -456,12 +456,12 @@ def test_simulate_counts():
     roman.n_pix = 100
 
     meta = util.default_image_meta(filter_name='F158')
-    wcs.fill_in_parameters(meta, coord)
+    wcs.fill_in_parameters(meta, coord, boresight=False)
     im1 = image.simulate_counts(meta, chromcat, usecrds=False,
-                                psftype='galsim', ignore_distant_sources=100)
+                                psftype='galsim', ignore_distant_sources=4000)
     im2 = image.simulate_counts(meta, graycat,
                                 usecrds=False, psftype='epsf',
-                                ignore_distant_sources=100)
+                                ignore_distant_sources=4000)
     im1 = im1[0].array
     im2 = im2[0].array
     maxim = np.where(im1 > im2, im1, im2)
@@ -603,7 +603,8 @@ def test_make_test_catalog_and_images():
     res = image.make_test_catalog_and_images(usecrds=False,
                                              galaxy_sample_file_name=fn,
                                              psftype='galsim',
-                                             filters=['Y106'])
+                                             filters=['Y106'],
+                                             nobj=10000)
     assert len(res) > 0
 
 
