@@ -290,6 +290,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         if outputunit_to_electrons is not None:
             flux2counts /= np.array(outputunit_to_electrons)
     else:
+        log.warning('You requested fastpointsources, but the PSF and/or '
+                    'chromaticity are incompatible with this setting.  '
+                    'Disabling fastpointsources.')
         fastpointsources = False
 
     outinfo = np.zeros(len(objlist), dtype=[('counts', 'f4'), ('time', 'f4')])
