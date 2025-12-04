@@ -883,7 +883,7 @@ def read_catalog(filename,
         # Create initial catalog
         cat = None
         for healpix_index in hp_cone:
-            hp_filename = filename + f"/cat-{hp_cone[0]}.fits"
+            hp_filename = filename + f"/cat-{healpix_index}.fits"
             if os.path.isfile(hp_filename):
                 hp_table = read_one_healpix(hp_filename, date, bandpasses, **kwargs)
                 if cat is None:
