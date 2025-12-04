@@ -296,7 +296,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         fastpointsources = False
 
     outinfo = np.zeros(len(objlist), dtype=[('counts', 'f4'), ('time', 'f4')])
-    pointsources = np.zeros(len(objlist), dtype=np.bool)
+    pointsources = np.zeros(len(objlist), dtype=bool)
 
     tstart = time.time()
 
