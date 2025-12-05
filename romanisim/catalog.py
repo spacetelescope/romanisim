@@ -686,10 +686,16 @@ def image_table_to_catalog(table, bandpasses):
         raise ValueError(
             'catalog file name must be present in table metadata.')
     rgc = galsim.RealGalaxyCatalog(table.meta['real_galaxy_catalog_filename'])
+
+    # Convert coordinates to radians to be loaded into GalSim objects.
+
+    allpos = coordinates.SkyCoord(table['ra'] * u.deg, table['dec'] * u.deg,
+                                  frame='icrs')
+    all_ra_radians = allpos.ra.to(u.rad).value * galsim.radians
+    all_dec_radians = allpos.dec.to(u.rad).value * galsim.radians
+
     for i in range(len(table)):
-        pos = coordinates.SkyCoord(table['ra'][i] * u.deg, table['dec'][i] * u.deg,
-                                   frame='icrs')
-        pos = util.celestialcoord(pos)
+        pos = galsim.CelestialCoord(all_ra_radians[i], all_dec_radians[i])
         fluxes = {bp: table[bp][i] for bp in bandpasses}
         obj = galsim.RealGalaxy(rgc, id=table['ident'][i])
         obj = obj.shear(
@@ -802,6 +808,8 @@ def table_to_catalog(table, bandpasses):
 
     out = list()
 
+    # Convert coordinates to radians to be loaded into GalSim objects.
+
     allpos = coordinates.SkyCoord(table['ra'] * u.deg, table['dec'] * u.deg,
                                   frame='icrs')
     all_ra_radians = allpos.ra.to(u.rad).value * galsim.radians
@@ -880,7 +888,10 @@ def read_catalog(filename,
         # Find Healpix
         hp_cone = hp.cone_search_skycoord(util.skycoord(coord), radius=radius * u.deg)
 
-        # Create initial catalog
+        # Create catalog from one or more of the input healpix files.
+        # If an expected file is missing, skip it.  If none of the
+        # expected files are present, raise a FileNotFoundError.
+
         cat = None
         for healpix_index in hp_cone:
             hp_filename = filename + f"/cat-{healpix_index}.fits"
