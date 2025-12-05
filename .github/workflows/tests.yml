@@ -76,7 +76,7 @@ jobs:
       cache-path: ${{ needs.latest_data_cache.outputs.cache_path }}
       cache-restore-keys: |
         ${{ needs.latest_data_cache.outputs.cache_key }}
-      cache-key: ${{ needs.latest_data_cache.outputs.cache_key }}-${{ needs.crds_context.outputs.context }}
+      cache-key: crds-${{ needs.crds_context.outputs.context }}-${{ needs.latest_data_cache.outputs.cache_key }}
       envs: |
         - linux: py311-oldestdeps-cov
         - linux: py311
