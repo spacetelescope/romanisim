@@ -13,7 +13,6 @@ from astropy import units as u
 from astropy.io import fits
 import astropy_healpix
 import astropy.time
-from astroquery.gaia import Gaia
 from romanisim import gaia as rsim_gaia
 from . import util, log, parameters
 import romanisim.bandpass
@@ -490,6 +489,7 @@ def make_gaia_stars(coord,
     if date is None:
         date = astropy.time.Time('2026-01-01T00:00:00')
 
+    from astroquery.gaia import Gaia
     # Perform Gaia search
     q = f'select * from gaiadr3.gaia_source where distance({coord.ra.value}, {coord.dec.value}, ra, dec) < {radius}'
     job = Gaia.launch_job_async(q)

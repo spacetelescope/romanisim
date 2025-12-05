@@ -92,7 +92,10 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     meta['instrument']['optical_element'] = bandpass
     meta['exposure']['ma_table_number'] = ma_table_number
     if usecrds:
-        context = api.get_default_context('roman')
+        try:
+            context = api.get_default_context('roman')
+        except:
+            context = None
         ref = crds.getreferences({'ROMAN.META.INSTRUMENT.NAME': 'wfi', 'ROMAN.META.EXPOSURE.START_TIME': meta['exposure']['start_time'].value}, reftypes=['matable'], context=context, observatory='roman')
         matab_file = ref['matable']
         matab = asdf.open(matab_file)
@@ -133,7 +136,7 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
 
 def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
                    rng=None, nobj=1000, usecrds=True,
-                   coord=(roman.n_pix / 2, roman.n_pix / 2), radius=0.01):
+                   coord=None, radius=0.01):
     """
     Create catalog object.
 
@@ -155,6 +158,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         location at which to generate catalog
         If around a particular location on the sky, a SkyCoord,
         otherwise a tuple (x, y) with the desired pixel coordinates.
+        None does the center of the SCA.
     x : float or quantity
         X [float] or RA [quantity] position at the center to simulate
     y : float or quantity
@@ -170,6 +174,9 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
     """
     if catalog_name is None and metadata is None:
         raise ValueError('Must set either catalog_name or metadata')
+
+    if coord is None:
+        coord = (roman.n_pix / 2, roman.n_pix / 2)
 
     # Create catalog
     if catalog_name is None:
