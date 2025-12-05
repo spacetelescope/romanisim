@@ -901,7 +901,7 @@ def read_catalog(filename,
                     cat = hp_table
                 else:
                     cat = table.vstack([cat, hp_table])
-        if not cat:
+        if cat is None:
             raise FileNotFoundError("No files found in healpix cone search!")
     else:
         # Catalog file
