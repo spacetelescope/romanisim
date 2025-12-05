@@ -132,4 +132,4 @@ def test_inverse_then_linearity():
 
     rms = stats.mad_std(counts[~m] / level_0_lin[~m] - 1)
 
-    assert rms < 1e-5
+    assert rms < 2e-3

@@ -25,7 +25,7 @@ jobs:
         run: |
           # use actions/gh-actions-cache to allow filtering by key
           gh extension install actions/gh-actions-cache
-          CACHE_KEY=$(gh actions-cache list -R ${{ github.repository }} --key data- --sort created-at | cut -f 1 | head -n 1)
+          CACHE_KEY=$(gh actions-cache list -R ${{ github.repository }} --key stpsf-data- --sort created-at | cut -f 1 | head -n 1)
           if [ "$CACHE_KEY" == '' ]; then exit 1; fi
           echo cache_key=$CACHE_KEY >> $GITHUB_OUTPUT
         env:

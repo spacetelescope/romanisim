@@ -206,7 +206,7 @@ def trim_objlist(objlist, image):
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
                          flux_to_counts_factor, outputunit_to_electrons=None,
                          bandpass=None, filter_name=None, add_noise=False,
-                         rng=None, seed=None):
+                         rng=None, seed=None, fastpointsources=True):
     """Add sources to an image.
 
     Note: this includes Poisson noise when photon shooting is used
@@ -270,8 +270,45 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         raise ValueError('must specify filter when using achromatic PSF '
                          'rendering.')
 
+    if (fastpointsources and
+        not chromatic and
+        hasattr(psf, 'build_epsf_interpolator') and
+        (len(objlist) > 0)):
+
+        # Check whether the interpolator has already been instantiated.
+        # If not, we need to build the interpolators.
+
+        if psf.psfinterpolators is None:
+            psf.build_epsf_interpolator(image)
+
+        # Make an array of flux-to-counts conversion for later use.
+
+        if not isinstance(flux_to_counts_factor, list):
+            flux2counts = flux_to_counts_factor*np.ones(len(objlist))
+        else:
+            flux2counts = np.asarray(flux_to_counts_factor).astype(np.float32)
+        if outputunit_to_electrons is not None:
+            flux2counts /= np.array(outputunit_to_electrons)
+    else:
+        log.warning('You requested fastpointsources, but the PSF and/or '
+                    'chromaticity are incompatible with this setting.  '
+                    'Disabling fastpointsources.')
+        fastpointsources = False
+
     outinfo = np.zeros(len(objlist), dtype=[('counts', 'f4'), ('time', 'f4')])
+    pointsources = np.zeros(len(objlist), dtype=bool)
+
+    tstart = time.time()
+
     for i, obj in enumerate(objlist):
+
+        # We will come back and do the point sources in the following loop
+        # if we want to do them quickly.
+
+        if fastpointsources and isinstance(obj.profile, galsim.DeltaFunction):
+            pointsources[i] = True
+            continue
+
         t0 = time.time()
         image_pos = galsim.PositionD(xpos[i], ypos[i])
         pwcs = image.wcs.local(image_pos)
@@ -311,7 +348,36 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             counts = 0
         nrender += 1
         outinfo[i] = (counts, time.time() - t0)
-    log.info('Rendered %d sources...' % nrender)
+
+    # Make a blank image to add stars to.  This will facilitate injecting
+    # photon noise here at the end if requested rather than for every star
+    # in turn.
+
+    image_pointsources = image*0
+
+    tpoint = time.time()
+    for i in np.where(pointsources)[0]:
+        obj = objlist[i]
+        if obj.flux is None:
+            raise ValueError('Non-chromatic sources must have specified '
+                             'fluxes!')
+
+        fluxfactor = obj.flux[filter_name] * flux2counts[i]
+        stamp = psf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
+        bounds = stamp.bounds & image_pointsources.bounds
+        if bounds.area() > 0:
+            image_pointsources[bounds] += stamp[bounds]
+        nrender += 1
+
+    if np.sum(pointsources) > 0 and add_noise:
+        image_pointsources.addNoise(galsim.PoissonNoise(rng))
+    image += image_pointsources
+
+    log.info('Rendered %d point sources in %.3g seconds' %
+             (np.sum(pointsources), time.time() - tpoint))
+    log.info('Rendered %d total sources in %.3g seconds' %
+             (nrender, time.time() - tstart))
+
     return outinfo
 
 
