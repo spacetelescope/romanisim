@@ -903,7 +903,7 @@ def read_catalog(filename,
                     cat = table.vstack([cat, hp_table])
             else:
                 log.warning(f'Healpix index {healpix_index} is within the '
-                            f'cone search but the file was not found.')
+                            f'cone search but its catalog file was not found.')
         if cat is None:
             raise FileNotFoundError("No files found in healpix cone search!")
     else:
