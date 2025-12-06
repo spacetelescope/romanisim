@@ -58,7 +58,7 @@ jobs:
           mkdir -p ${{ env.GALSIM_PATH }}
           mv ./galsim_data/* ${{ env.GALSIM_PATH }}
       - run: echo GALSIM_CAT_PATH=${{ env.GALSIM_PATH }}real_galaxy_catalog_23.5_example.fits >> $GITHUB_ENV
-      - name: retrieve cached STPSF data
+      - name: retrieve STPSF data cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ needs.download_stpsf_data.outputs.cache_path }}
@@ -68,9 +68,9 @@ jobs:
       - run: ls ${{ steps.cache_path.outputs.cache_path }}/*
       - run: echo STPSF_PATH=${{ steps.cache_path.outputs.cache_path }}/stpsf-data/ >> $GITHUB_ENV
       - id: cache_key
-        run: echo cache_key=data-${{ needs.download_stpsf_data.outputs.cache_key }}-galsim-data-${{ steps.galsim_data.outputs.hash }} >> $GITHUB_OUTPUT
+        run: echo cache_key=${{ needs.download_stpsf_data.outputs.cache_key }}-galsim-${{ steps.galsim_data.outputs.hash }} >> $GITHUB_OUTPUT
       # save a new cache to the same generalized data directory, combined with extra data
-      - name: save a single combined data cache
+      - name: cache combined data
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.cache_path.outputs.cache_path }}
