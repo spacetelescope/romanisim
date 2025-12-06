@@ -136,7 +136,7 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
 
 def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
                    rng=None, nobj=1000, usecrds=True,
-                   coord=None, radius=0.01):
+                   coord=None, radius=0.1):
     """
     Create catalog object.
 
@@ -178,20 +178,23 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
     if coord is None:
         coord = (roman.n_pix / 2, roman.n_pix / 2)
 
-    # Create catalog
-    if catalog_name is None:
-        # Create a catalog from scratch
-        # Create wcs object
-        distortion_file = parameters.reference_data["distortion"]
-        if distortion_file is not None:
-            dist_model = roman_datamodels.datamodels.DistortionRefModel(distortion_file)
-            distortion = dist_model.coordinate_distortion_transform
-        else:
-            distortion = None
+    distortion_file = parameters.reference_data["distortion"]
+    if distortion_file is not None:
+        dist_model = roman_datamodels.datamodels.DistortionRefModel(distortion_file)
+        distortion = dist_model.coordinate_distortion_transform
+    else:
+        distortion = None
+
+    if metadata is not None:
         twcs = wcs.get_wcs(metadata, usecrds=usecrds, distortion=distortion)
 
         if not isinstance(coord, coordinates.SkyCoord):
             coord = twcs.toWorld(galsim.PositionD(*coord))
+
+    # Create catalog
+    if catalog_name is None:
+        # Create a catalog from scratch
+        # Create wcs object
 
         cat = catalog.make_dummy_table_catalog(
             coord, bandpasses=bandpasses, nobj=nobj, rng=rng, cosmos=True)
@@ -207,7 +210,8 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         else:
             date = None
 
-        cat = catalog.read_catalog(catalog_name, coord, date=date, bandpasses=bandpasses)
+        cat = catalog.read_catalog(catalog_name, coord, date=date,
+                                   radius=radius, bandpasses=bandpasses)
 
     return cat
 

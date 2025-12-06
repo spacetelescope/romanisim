@@ -42,14 +42,12 @@ def go(args):
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
                          frame='icrs')
         wcs.fill_in_parameters(metadata, coord, boresight=args.boresight, pa_aper=args.roll)
-    else:
-        coord = 2044, 2044
 
     rng = galsim.UniformDeviate(args.rng_seed)
 
     # Create catalog
     cat = ris.create_catalog(metadata=metadata, catalog_name=args.catalog,
-                             bandpasses=[args.bandpass], coord=coord, rng=rng,
+                             bandpasses=[args.bandpass], radius=0.1, rng=rng,
                              nobj=args.nobj, usecrds=args.usecrds)
 
     # Create persistence object
