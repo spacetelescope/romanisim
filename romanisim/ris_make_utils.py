@@ -92,7 +92,10 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     meta['instrument']['optical_element'] = bandpass
     meta['exposure']['ma_table_number'] = ma_table_number
     if usecrds:
-        context = api.get_default_context('roman')
+        try:
+            context = api.get_default_context('roman')
+        except crds.ServiceError:
+            context = None
         ref = crds.getreferences({'ROMAN.META.INSTRUMENT.NAME': 'wfi', 'ROMAN.META.EXPOSURE.START_TIME': meta['exposure']['start_time'].value}, reftypes=['matable'], context=context, observatory='roman')
         matab_file = ref['matable']
         matab = asdf.open(matab_file)
