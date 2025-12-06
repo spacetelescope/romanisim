@@ -299,8 +299,8 @@ class GWCS(galsim.wcs.CelestialWCS):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            # x, y = self.wcs.world_to_pixel(r1, d1)
-            x, y = self.wcs.numerical_inverse(r1, d1, with_bounding_box=False)
+            x, y = self.wcs.backward_transform(r1, d1)
+            #x, y = self.wcs.numerical_inverse(r1, d1, with_bounding_box=False)
 
         if np.ndim(ra) == np.ndim(dec) == 0:
             return x[0], y[0]
