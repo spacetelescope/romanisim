@@ -181,10 +181,12 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         distortion = dist_model.coordinate_distortion_transform
     else:
         distortion = None
-    twcs = wcs.get_wcs(metadata, usecrds=usecrds, distortion=distortion)
 
-    if not isinstance(coord, coordinates.SkyCoord):
-        coord = twcs.toWorld(galsim.PositionD(*coord))
+    if metadata is not None:
+        twcs = wcs.get_wcs(metadata, usecrds=usecrds, distortion=distortion)
+
+        if not isinstance(coord, coordinates.SkyCoord):
+            coord = twcs.toWorld(galsim.PositionD(*coord))
 
     # Create catalog
     if catalog_name is None:
