@@ -133,7 +133,7 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
 
 def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
                    rng=None, nobj=1000, usecrds=True,
-                   coord=None, radius=0.01):
+                   coord=None, radius=0.1):
     """
     Create catalog object.
 
