@@ -263,7 +263,7 @@ persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
                    half_well=50000, ignorerate=0.01)
 
 # arbitrary constant to add to initial L1 image so that pixels aren't clipped at zero.
-pedestal = 100 * u.DN
+pedestal = 5000 * u.DN
 
 # Addd this much extra noise as correlated extra noise in all resultants.
 pedestal_extra_noise = 4 * u.DN
