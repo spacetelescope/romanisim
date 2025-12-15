@@ -19,7 +19,7 @@ import romanisim.bandpass
 import romanisim.psf
 import romanisim.persistence
 
-import roman_datamodels
+from roman_datamodels.datamodels import ImageModel, InverselinearityRefModel, LinearityRefModel, SaturationRefModel, DarkRefModel, GainRefModel, ReadnoiseRefModel, FlatRefModel
 
 
 # galsim fluxes are in photons / cm^2 / s
@@ -708,7 +708,7 @@ def gather_reference_data(image_mod, usecrds=False):
                     image_mod.get_crds_parameters(),
                     reftypes=['flat'], observatory='roman')['flat']
 
-                flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
+                flat_model = FlatRefModel(flatfile)
                 flat = flat_model.data[...].copy()
                 image_mod.meta.ref_file['flat'] = (
                     'crds://' + os.path.basename(flatfile))
@@ -731,18 +731,18 @@ def gather_reference_data(image_mod, usecrds=False):
 
     # we now need to extract the relevant fields
     if isinstance(reffiles['readnoise'], str):
-        model = roman_datamodels.datamodels.ReadnoiseRefModel(
+        model = ReadnoiseRefModel(
             reffiles['readnoise'])
         out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
         out['readnoise'] *= u.DN
 
     if isinstance(reffiles['gain'], str):
-        model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
+        model = GainRefModel(reffiles['gain'])
         out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
         out['gain'] *= u.electron / u.DN
 
     if isinstance(reffiles['dark'], str):
-        model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
+        model = DarkRefModel(reffiles['dark'])
         out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy()
         out['dark'] *= u.DN / u.s
         out['dark'] *= out['gain']
@@ -750,7 +750,7 @@ def gather_reference_data(image_mod, usecrds=False):
         out['dark'] = out['dark'].to(u.electron / u.s).value
 
     if isinstance(reffiles['saturation'], str):
-        saturation = roman_datamodels.datamodels.SaturationRefModel(
+        saturation = SaturationRefModel(
             reffiles['saturation'])
         saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
         saturation *= u.DN
@@ -759,7 +759,7 @@ def gather_reference_data(image_mod, usecrds=False):
         saturation = out['saturation']
 
     if isinstance(reffiles['linearity'], str):
-        lin_model = roman_datamodels.datamodels.LinearityRefModel(
+        lin_model = LinearityRefModel(
             reffiles['linearity'])
         out['linearity'] = nonlinearity.NL(
             lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
@@ -782,7 +782,7 @@ def gather_reference_data(image_mod, usecrds=False):
         else:
             inv_saturation = None
 
-        ilin_model = roman_datamodels.datamodels.InverselinearityRefModel(
+        ilin_model = InverselinearityRefModel(
             reffiles['inverselinearity'])
         out['inverselinearity'] = nonlinearity.NL(
             ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
@@ -862,7 +862,7 @@ def simulate(metadata, objlist,
                     'files from CRDS.  The WCS may be incorrect and up-to-date '
                     'calibration information will not be used.')
 
-    image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
+    image_mod = ImageModel.create_fake_data()
     meta = image_mod.meta
     meta['wcs'] = None
 
@@ -983,7 +983,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     """
 
     n_groups = len(metadata['exposure']['read_pattern'])
-    out = roman_datamodels.stnode.WfiImage.create_fake_data()
+    out = ImageModel._node_type.create_fake_data()
     # ephemeris contains a lot of angles that could be computed.
     # exposure contains
     #     ngroups, nframes, sca_number, gain_factor, integration_time,
