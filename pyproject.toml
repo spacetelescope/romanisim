@@ -18,7 +18,7 @@ classifiers = [
 dependencies = [
   "asdf >=4.1.0",
   # "astropy >=6.0",
-  "astropy @ git+https://github.com/nden/astropy.git@wcsapi-hov",
+  #"astropy @ git+https://github.com/nden/astropy.git@wcsapi-hov",
   "astropy_healpix >= 1.1.2",
   "astroquery >=0.4.11",
   "crds >=13.0.2",
