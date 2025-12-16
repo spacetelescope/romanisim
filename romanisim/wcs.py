@@ -294,9 +294,11 @@ class GWCS(galsim.wcs.CelestialWCS):
 
     def _xy(self, ra, dec, color=None):
         # _xy accepts ra/dec in radians.
-        r1 = np.atleast_1d(ra)
-        d1 = np.atleast_1d(dec)
+        # Convert ra/dec to degrees before passing them to the WCS
+        # which defines the output units to be "deg".
 
+        r1 = np.rad2deg(np.atleast_1d(ra))
+        d1 = np.rad2deg(np.atleast_1d(dec))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             x, y = self.wcs.invert(r1, d1, with_bounding_box=False)
