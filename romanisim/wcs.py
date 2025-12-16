@@ -293,9 +293,9 @@ class GWCS(galsim.wcs.CelestialWCS):
             return r, d
 
     def _xy(self, ra, dec, color=None):
-        # _xy accepts ra/dec in radians; we decorate r1, d1 appropriately.
-        r1 = np.atleast_1d(ra) * u.rad
-        d1 = np.atleast_1d(dec) * u.rad
+        # _xy accepts ra/dec in radians.
+        r1 = np.atleast_1d(ra)
+        d1 = np.atleast_1d(dec)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
