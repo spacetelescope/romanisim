@@ -90,10 +90,9 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     if gain is None:
         gain = parameters.reference_data['gain']
-    try:
-        gain = gain.astype('f4')
-    except AttributeError:  # gain is not a Quantity
-        gain = np.float32(gain)
+    if not isinstance(gain, u.Quantity):
+        gain = gain * u.electron / u.DN
+    gain = gain.astype('f4')
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
@@ -740,6 +739,8 @@ def gather_reference_data(image_mod, usecrds=False):
         model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
         out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
         out['gain'] *= u.electron / u.DN
+    elif not isinstance(out['gain'], u.Quantity):
+        out['gain'] *= u.electron / u.DN
 
     if isinstance(reffiles['dark'], str):
         model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
@@ -917,6 +918,7 @@ def simulate(metadata, objlist,
     else:
         l1, l1dq = romanisim.l1.make_l1(
             counts, read_pattern, read_noise=read_noise,
+            pedestal=parameters.pedestal,
             pedestal_extra_noise=pedestal_extra_noise,
             rng=rng, gain=gain,
             crparam=crparam,

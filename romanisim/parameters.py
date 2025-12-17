@@ -262,11 +262,13 @@ v2v3_wficen = (1546.3846181707652, -892.7916365721071)  # arcsec
 persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
                    half_well=50000, ignorerate=0.01)
 
-# arbitrary constant to add to initial L1 image so that pixels aren't clipped at zero.
-pedestal = 5000 * u.DN
+# Initial detector reset level in electrons (before non-linearity is applied).
+# Old value was 5000 DN; converting with typical gain of 2 electron/DN gives 10000 electrons.
+pedestal = 10000
 
-# Addd this much extra noise as correlated extra noise in all resultants.
-pedestal_extra_noise = 4 * u.DN
+# Extra noise in the pedestal/reset level in electrons (correlated across all resultants).
+# Old value was 4 DN; converting with typical gain of 2 electron/DN gives 8 electrons.
+pedestal_extra_noise = 8
 
 dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
 dq_do_not_use = dqbits['saturated'] | dqbits['jump_det']
