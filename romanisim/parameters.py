@@ -263,11 +263,9 @@ persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
                    half_well=50000, ignorerate=0.01)
 
 # Initial detector reset level in electrons (before non-linearity is applied).
-# Old value was 5000 DN; converting with typical gain of 2 electron/DN gives 10000 electrons.
 pedestal = 10000
 
 # Extra noise in the pedestal/reset level in electrons (correlated across all resultants).
-# Old value was 4 DN; converting with typical gain of 2 electron/DN gives 8 electrons.
 pedestal_extra_noise = 8
 
 dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
