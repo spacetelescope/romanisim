@@ -18,9 +18,8 @@ import romanisim.psf
 import romanisim.image
 import romanisim.persistence
 import romanisim.parameters
+from roman_datamodels.datamodels import MosaicModel
 import romanisim.util
-import roman_datamodels.datamodels as rdm
-from roman_datamodels.stnode import WfiMosaic
 import astropy.units as u
 import astropy
 from galsim import roman
@@ -71,7 +70,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
         filter_name = l3_mos.meta.instrument.optical_element
 
     # Create Image canvas to add objects to
-    if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
+    if isinstance(l3_mos, (MosaicModel, MosaicModel._node_type)):
         sourcecountsall = galsim.ImageF(
             np.array(l3_mos.data), wcs=romanisim.wcs.GWCS(l3_mos.meta.wcs),
             xmin=0, ymin=0)
@@ -87,7 +86,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
         rng=rng, seed=seed, add_noise=True)
 
     # Save array with added sources
-    if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
+    if isinstance(l3_mos, (MosaicModel, MosaicModel._node_type)):
         l3_mos.data = sourcecountsall.array
 
     return outinfo
@@ -342,7 +341,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     """
 
     # Create metadata object
-    mosaic_node = WfiMosaic.create_fake_data()
+    mosaic_node = MosaicModel._node_type.create_fake_data()
     meta = mosaic_node.meta
 
     # add romanisim defaults

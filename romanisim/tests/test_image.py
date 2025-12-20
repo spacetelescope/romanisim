@@ -28,7 +28,7 @@ import asdf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
-from roman_datamodels.stnode import WfiScienceRaw, WfiImage
+from roman_datamodels.datamodels import ImageModel, ScienceRawModel
 import romanisim.bandpass
 
 
@@ -641,10 +641,10 @@ def test_reference_file_crds_match(level):
     assert im.meta.ref_file.crds.version != '12.3.1'
 
     if (level == 1):
-        assert (type(im) is WfiScienceRaw)
+        assert (type(im) is ScienceRawModel._node_type)
     else:
         # level = 2
-        assert (type(im) is WfiImage)
+        assert (type(im) is ImageModel._node_type)
 
 
 @pytest.mark.soctests
