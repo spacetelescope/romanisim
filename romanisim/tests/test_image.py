@@ -77,12 +77,12 @@ def test_make_l2():
         resultants, read_pattern, gain=1, flat=1, darkrate=0)
     assert np.allclose(slopes, 0)
     resultants[:, :, :] = np.arange(4)[:, None, None]
-    resultants *= u.DN
-    gain = 1 * u.electron / u.DN
+    # resultants in DN, gain in electron/DN
+    gain = 1  # electron/DN
     slopes, readvar, poissonvar = image.make_l2(
         resultants, read_pattern,
         gain=gain, flat=1, darkrate=0)
-    assert np.allclose(slopes, 1 / parameters.read_time / 4 * u.DN / u.s)
+    assert np.allclose(slopes, 1 / parameters.read_time / 4)  # DN/s
     assert np.all(np.array(slopes.shape) == np.array(readvar.shape))
     assert np.all(np.array(slopes.shape) == np.array(poissonvar.shape))
     assert np.all(readvar >= 0)
@@ -568,7 +568,7 @@ def test_simulate():
     roughguess = roughguess * 140  # seconds of integration
     gain = parameters.reference_data['gain']
     assert np.abs(
-        np.log(np.mean(diff * gain).value / roughguess)) < 1
+        np.log(np.mean(diff * gain) / roughguess)) < 1
     # within a factor of e
     log.info('DMS224: added persistence to an image.')
 
@@ -686,8 +686,8 @@ def test_inject_source_into_image():
     assert np.all(im.data[-10:, -10:] == iminj.data[-10:, -10:])
 
     # Test that the amount of added flux makes sense
-    fluxeps = flux * romanisim.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # u.electron / u.s
-    assert np.abs(np.sum(iminj.data - im.data) * parameters.reference_data['gain'].value /
+    fluxeps = flux * romanisim.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
+    assert np.abs(np.sum(iminj.data - im.data) * parameters.reference_data['gain'] /
                   fluxeps - 1) < 0.1
 
     # Create log entry and artifacts
@@ -757,7 +757,7 @@ def test_image_input(tmpdir):
     # did we get all the flux?
     totflux = np.sum(res[0].data - np.median(res[0].data))
     expectedflux = (romanisim.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
-                    / parameters.reference_data['gain'].value)
+                    / parameters.reference_data['gain'])
     assert np.abs(totflux / expectedflux - 1) < 0.1
 
     # are there sources where there should be?

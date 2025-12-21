@@ -412,7 +412,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         # note that we are ignoring all of the individual reads, which also
         # contribute to reducing the effective read noise.  Pass --effreadnoise
         # if you want to do better than this!
-        effreadnoise = effreadnoise.to(u.electron).value * etomjysr
+        effreadnoise = effreadnoise * etomjysr  # electron -> MJy/sr
         # converting to MJy/sr units
     else:
         effreadnoise = 0
