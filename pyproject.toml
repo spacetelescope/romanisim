@@ -27,7 +27,7 @@ dependencies = [
   "roman_datamodels>=0.28.0",
   # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
   #"gwcs >=0.25.0",
-  "gwcs @ git+https://github.com/nden/gwcs.git@new-api-2",
+  "gwcs @ git+https://github.com/nden/gwcs.git@new-api",
   "numpy >1.26",
   "photutils >=2.3.0",  
 ]
