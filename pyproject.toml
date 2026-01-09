@@ -27,8 +27,7 @@ dependencies = [
   # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
   "gwcs >=0.25.0",
   "numpy >1.26",
-  "photutils >=2.3.0",
-  "Cython >=0.29.21",
+  "photutils >=2.3.0",  
 ]
 license-files = ["LICENSE"]
 dynamic = ["version"]
@@ -45,7 +44,7 @@ docs = [
 ]
 test = [
   "ci-watson >=0.3.0",
-  "pytest >=4.6.0, <=8.0",
+  "pytest>=9.0",
   "pytest-openfiles >=0.5.0",
   "pytest-doctestplus >=0.10.0",
   "pytest-cov >=2.9.0",
@@ -75,8 +74,8 @@ zip-safe = false
 [tool.setuptools.packages.find]
 exclude = ["examples"]
 
-[tool.pytest.ini_options]
-minversion = "4.6"
+[tool.pytest]
+minversion = "9.0"
 norecursedirs = ["docs/_build", "docs/exts", "scripts", "build", ".tox"]
 doctest_plus = "enabled"
 doctest_rst = "enabled"
