@@ -16,7 +16,6 @@ from romanisim import l1, log, parameters, nonlinearity
 import galsim
 import galsim.roman
 import asdf
-from astropy import units as u
 import os
 
 
