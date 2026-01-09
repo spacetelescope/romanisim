@@ -34,7 +34,6 @@ import numpy as np
 from . import parameters, l1
 import romanisim.ramp_fit_casertano
 from scipy import interpolate
-from astropy import units as u
 
 
 def read_pattern_to_tbar(read_pattern):
@@ -315,13 +314,9 @@ class RampFitInterpolator:
         """
         # clip points outside range to edges.
         fluxonreadvar = flux / read_noise**2
-        if isinstance(fluxonreadvar, u.Quantity):
-            unit = fluxonreadvar.unit
-        else:
-            unit = 1
         fluxonreadvar = np.clip(
-            fluxonreadvar, self.flux_on_readvar_pts[0] * unit,
-            self.flux_on_readvar_pts[-1] * unit)
+            fluxonreadvar, self.flux_on_readvar_pts[0],
+            self.flux_on_readvar_pts[-1])
 
         return self.ki_interpolator(fluxonreadvar).astype('f4')
 
@@ -343,13 +338,9 @@ class RampFitInterpolator:
         """
         # clip points outside range to edges.
         fluxonreadvar = flux / read_noise**2
-        if isinstance(fluxonreadvar, u.Quantity):
-            unit = fluxonreadvar.unit
-        else:
-            unit = 1
         fluxonreadvar = np.clip(
-            fluxonreadvar, self.flux_on_readvar_pts[0] * unit,
-            self.flux_on_readvar_pts[-1] * unit)
+            fluxonreadvar, self.flux_on_readvar_pts[0],
+            self.flux_on_readvar_pts[-1])
         var = self.var_interpolator(fluxonreadvar).astype('f4')
         read_noise = np.array(read_noise)
         read_noise = read_noise.reshape(
@@ -493,10 +484,6 @@ def fit_ramps_casertano(resultants, dq, read_noise, read_pattern):
         the covariance matrix of par, for each of three noise terms:
         the read noise, Poisson source noise, and total noise.
     """
-
-    resultants_unit = getattr(resultants, 'unit', None)
-    if resultants_unit is not None:
-        resultants = resultants.to(u.electron).value
 
     resultants = np.array(resultants).astype('f4')
 

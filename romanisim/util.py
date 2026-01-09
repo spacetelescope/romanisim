@@ -528,12 +528,11 @@ def update_photom_keywords(im, gain=None):
     ----------
     im : roman_datamodels.ImageModel
         Image whose metadata should be updated with photometry keywords
-    gain : float, Quantity, array
-        Gain image to use
+    gain : float or np.ndarray, optional
+        Gain in electron/DN (scalar or image)
     """
     gain = (np.median(gain)
             if gain is not None else parameters.reference_data['gain'])
-    gain = gain.value if isinstance(gain, u.Quantity) else gain
     if 'wcs' in im['meta']:
         wcs = im['meta']['wcs']
         cenpix = (im.data.shape[0] // 2, im.data.shape[1] // 2)

@@ -3,7 +3,6 @@
 
 import numpy as np
 from astropy.time import Time
-from astropy import units as u
 
 # If left unspecified anywhere, define a date of simulation.
 default_date = Time('2026-01-01T00:00:00', format='isot')
@@ -228,14 +227,14 @@ default_mosaic_parameters_dictionary = {
 }
 
 reference_data = {
-    "dark": 0.01 * u.electron / u.s,
+    "dark": 0.01,  # electron/s
     "distortion": None,
     "flat": None,
-    "gain": 2 * u.electron / u.DN,
+    "gain": 2,  # electron/DN
     "inverselinearity": None,
     "linearity": None,
-    "readnoise": 5.0 * u.DN,
-    "saturation": 55000 * u.DN,
+    "readnoise": 5.0,  # DN
+    "saturation": 55000,  # DN
 }
 
 nborder = 4  # number of border pixels used for reference pixels.
@@ -263,10 +262,10 @@ persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
                    half_well=50000, ignorerate=0.01)
 
 # arbitrary constant to add to initial L1 image so that pixels aren't clipped at zero.
-pedestal = 5000 * u.DN
+pedestal = 5000  # DN
 
 # Addd this much extra noise as correlated extra noise in all resultants.
-pedestal_extra_noise = 4 * u.DN
+pedestal_extra_noise = 4  # DN
 
 dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
 dq_do_not_use = dqbits['saturated'] | dqbits['jump_det']
