@@ -28,6 +28,9 @@ package also implements WFI up-the-ramp sampled and averaged images like those
 that will be downlinked from the telescope, and the official Roman WFI file
 format (asdf).
 
+For examples of using romanisim's Python interface, see the
+`romanisim example notebook <https://github.com/spacetelescope/roman_notebooks/blob/main/notebooks/romanisim/romanisim.ipynb>`_.
+
 The best way to interact with romanisim is to make an image.  Running ::
 
     romanisim-make-image out.asdf
