@@ -55,8 +55,11 @@ def test_wcs():
     cc2 = wcsgalsim2.toWorld(pos)
     assert np.allclose([cc1.ra / galsim.degrees, cc1.dec / galsim.degrees],
                        [cc2.ra / galsim.degrees, cc2.dec / galsim.degrees])
-    pos2 = wcsgalsim.toImage(cc1)
-    assert np.allclose([pos.x, pos.y], [pos2.x, pos2.y])
+    # The units parameter is the desired units of  the output
+    # The GWCS object's output_frame has units of "deg" so it expects
+    # the input to be in degrees.
+    pos2 = wcsgalsim.toImage(cc1.ra.deg, cc1.dec.deg, units="deg")
+    assert np.allclose([pos.x, pos.y], pos2)
     # also try some arrays
     xx = np.random.uniform(0, 4096, 100)
     yy = np.random.uniform(0, 4096, 100)

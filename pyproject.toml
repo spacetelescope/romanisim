@@ -17,7 +17,8 @@ classifiers = [
 ]
 dependencies = [
   "asdf >=4.1.0",
-  "astropy >=6.0",
+  # "astropy >=6.0",
+  #"astropy @ git+https://github.com/nden/astropy.git@wcsapi-hov",
   "astropy_healpix >= 1.1.2",
   "astroquery >=0.4.11",
   "crds >=13.0.2",
@@ -25,7 +26,8 @@ dependencies = [
   "galsim >=2.5.1",
   "roman_datamodels>=0.28.0",
   # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
-  "gwcs >=0.25.0",
+  #"gwcs >=0.25.0",
+  "gwcs @ git+https://github.com/nden/gwcs.git@new-api",
   "numpy >1.26",
   "photutils >=2.3.0",  
 ]
