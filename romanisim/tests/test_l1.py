@@ -68,13 +68,16 @@ def test_apportion_counts_to_resultants():
     counts_no_poisson_noise = 100
     counts = np.random.poisson(counts_no_poisson_noise, size=(100, 100))
     read_noise = 10
-    pedestal_extra_noise = 20
+    pedestal = 1000  # pedestal in electrons
+    pedestal_extra_noise = 20  # pedestal noise in electrons
     res1out = []
     res2out = []
     res3out = []
     res4out = []
     for tij in tijlist:
-        resultants, dq = l1.apportion_counts_to_resultants(counts, tij)
+        # Test without pedestal
+        rng1 = galsim.UniformDeviate(42)
+        resultants, dq = l1.apportion_counts_to_resultants(counts, tij, rng=rng1)
         assert np.all(np.diff(resultants, axis=0) >= 0)
         assert np.all(resultants >= 0)
         assert np.all(resultants <= counts[None, :, :])
@@ -82,15 +85,28 @@ def test_apportion_counts_to_resultants():
                                                tij)
         res3 = l1.add_read_noise_to_resultants(resultants.copy(), tij,
                                                read_noise=read_noise)
-        res4 = l1.add_read_noise_to_resultants(
-            resultants.copy(), tij, read_noise=0,
-            pedestal_extra_noise=pedestal_extra_noise)
         assert np.all(res2 != resultants)
         assert np.all(res3 != resultants)
+
+        # Test with pedestal but no pedestal noise (use same RNG seed for counts)
+        rng2 = galsim.UniformDeviate(42)
+        resultants_with_ped, dq2 = l1.apportion_counts_to_resultants(
+            counts, tij, pedestal=pedestal, rng=rng2)
+        # Should be offset by pedestal (before any linearity applied)
+        assert np.all(resultants_with_ped >= pedestal)
+        assert np.all(np.diff(resultants_with_ped, axis=0) >= 0)
+
+        # Test with pedestal and pedestal noise
+        rng3 = galsim.UniformDeviate(42)
+        resultants_with_ped_noise, dq3 = l1.apportion_counts_to_resultants(
+            counts, tij, pedestal=pedestal, pedestal_extra_noise=pedestal_extra_noise,
+            rng=rng3)
+
         res1out.append(resultants)
         res2out.append(res2)
         res3out.append(res3)
-        res4out.append(res4)
+        res4out.append(resultants_with_ped_noise)
+
         for restij, plane_index in zip(tij, np.arange(res3.shape[0])):
             predcounts = (np.mean(restij) * counts_no_poisson_noise
                           / tij[-1][-1])
@@ -100,12 +116,15 @@ def test_apportion_counts_to_resultants():
             sdev = np.std(res3[plane_index] - resultants[plane_index])
             assert (np.abs(sdev - read_noise / np.sqrt(len(restij)))
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
-            sdev = np.std(res4[plane_index] - resultants[plane_index])
+            # Test pedestal noise: difference between resultants with/without pedestal noise
+            sdev = np.std(resultants_with_ped_noise[plane_index]
+                         - resultants_with_ped[plane_index])
             assert (np.abs(sdev - pedestal_extra_noise)
                     < 20 * sdev / np.sqrt(2 * len(counts.ravel())))
-        # pedestal extra read noise should be correlated and cancel out of the
-        # first difference, and so should agree exactly with resultants
-        assert np.allclose(np.diff(res4 - resultants, axis=0), 0, atol=1e-4)
+        # pedestal extra noise should be correlated and cancel out of the
+        # first difference (allowing for small floating point precision differences)
+        assert np.allclose(np.diff(resultants_with_ped_noise - resultants_with_ped, axis=0),
+                          0, atol=1e-3)
     log.info('DMS220: successfully added read noise to resultants.')
     log.info('DMS229: successfully generated ramp from counts.')
     log.info('DMS223: successfully added correlated noise associated '
@@ -267,8 +286,9 @@ def test_make_l1_and_asdf(tmp_path):
         # check that that is working?  But that is slightly annoying.
         resultants, dq = l1.make_l1(galsim.Image(counts), read_pattern,
                                     read_noise=0 * u.DN,
+                                    pedestal_extra_noise=0,
                                     gain=1 * u.electron / u.DN)
-        assert np.all(resultants - parameters.pedestal
+        assert np.all(resultants - parameters.pedestal * u.DN
                       <= np.max(counts[None, ...] * u.DN))
         # because of IPC, one can't require that each pixel is smaller
         # than the number of counts
@@ -285,7 +305,8 @@ def test_make_l1_and_asdf(tmp_path):
         assert np.all((dq[-1] & parameters.dqbits['saturated']) != 0)
         resultants, dq = l1.make_l1(galsim.Image(np.zeros((100, 100))),
                                     read_pattern, gain=1 * u.electron / u.DN,
-                                    read_noise=0 * u.DN, crparam=dict())
-        assert np.all((resultants[0] - parameters.pedestal == 0)
+                                    read_noise=0 * u.DN, pedestal_extra_noise=0,
+                                    crparam=dict())
+        assert np.all((resultants[0] - parameters.pedestal * u.DN == 0)
                       | ((dq[0] & parameters.dqbits['jump_det']) != 0))
     log.info('DMS227: successfully made an L1 file that validates.')
