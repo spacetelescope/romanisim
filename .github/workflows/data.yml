@@ -33,7 +33,7 @@ on:
 
 jobs:
   download_stpsf_data:
-    uses: spacetelescope/stpsf/.github/workflows/download_data.yml@60d7145d53f9d54488fd3f23d7b7d92d60a99b73 # 2.1.0
+    uses: spacetelescope/stpsf/.github/workflows/download_data.yml@c7453e95d48474f94e753860b40e9ea7bf5bfa11 # 2.2.0
     with:
       minimal: ${{ github.event_name != 'workflow_dispatch' && true || inputs.stpsf_minimal }}
   combine_data_cache:
@@ -59,7 +59,7 @@ jobs:
           mv ./galsim_data/* ${{ env.GALSIM_PATH }}
       - run: echo GALSIM_CAT_PATH=${{ env.GALSIM_PATH }}real_galaxy_catalog_23.5_example.fits >> $GITHUB_ENV
       - name: retrieve STPSF data cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: ${{ needs.download_stpsf_data.outputs.cache_path }}
           key: ${{ needs.download_stpsf_data.outputs.cache_key }}
@@ -71,7 +71,7 @@ jobs:
         run: echo cache_key=${{ needs.download_stpsf_data.outputs.cache_key }}-galsim-${{ steps.galsim_data.outputs.hash }} >> $GITHUB_OUTPUT
       # save a new cache to the same generalized data directory, combined with extra data
       - name: cache combined data
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: ${{ steps.cache_path.outputs.cache_path }}
           key: ${{ steps.cache_key.outputs.cache_key }}

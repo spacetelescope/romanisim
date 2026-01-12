@@ -345,7 +345,7 @@ def test_simulate_counts_generic():
     zpflux = 10
     image.simulate_counts_generic(
         im, exptime, objlist=[], psf=imdict['impsfgray'],
-        sky=None, dark=None, flat=None, xpos=[], ypos=[],
+        sky=None, dark=None, qe=None, xpos=[], ypos=[],
         bandpass=None, filter_name=None, zpflux=zpflux)
     assert np.all(im.array == 0)  # verify nothing in -> nothing out
     sky = im.copy()
@@ -388,15 +388,15 @@ def test_simulate_counts_generic():
     assert (np.abs(np.mean(im3.array) - exptime)
             < 20 * np.sqrt(skycountspersecond * exptime / npix))
     im4 = im.copy()
-    image.simulate_counts_generic(im4, exptime, dark=sky, flat=0.5,
+    image.simulate_counts_generic(im4, exptime, dark=sky, qe=0.5,
                                   zpflux=zpflux)
-    # verify that dark electrons are not hit by the flat
+    # verify that dark electrons are not hit by the QE
     assert np.all(im3.array - im4.array
                   < 20 * np.sqrt(exptime * skycountspersecond))
     im5 = im.copy()
-    image.simulate_counts_generic(im5, exptime, sky=sky, flat=0.5,
+    image.simulate_counts_generic(im5, exptime, sky=sky, qe=0.5,
                                   zpflux=zpflux)
-    # verify that sky photons are hit by the flat
+    # verify that sky photons are hit by the QE
     poisson_rate = skycountspersecond * exptime * 0.5
     assert (np.abs(np.mean(im5.array) - poisson_rate)
             < 20 * np.sqrt(poisson_rate / npix))
@@ -433,7 +433,7 @@ def test_simulate_counts_generic():
         # Test simulating with a value that is out of range for an int32
         im9 = im.copy()
         im9.array[0][0] = np.float32(2**40)
-        image.simulate_counts_generic(im9, exptime, sky=sky, flat=0.5, zpflux=zpflux)
+        image.simulate_counts_generic(im9, exptime, sky=sky, qe=0.5, zpflux=zpflux)
     finally:
         # revert numpy warning settings to default
         np.seterr(all='print')
@@ -800,7 +800,10 @@ def test_psftypes_similar(psftype):
     s = 10  # box half-size
     galsim_sum = np.sum(galsim_image[center[0]-s: center[0]+s, center[1]-s: center[1]+s])
     image_sum = np.sum(image[center[0]-s: center[0]+s, center[1]-s: center[1]+s])
-    assert (abs(image_sum / galsim_sum - 1.)) < 0.1  # This isn't great but sufficient.
+    flux_ratio = image_sum / galsim_sum
+    log.info(f'test_psftypes_similar: {psftype} vs galsim flux ratio = {flux_ratio:.6f}, '
+             f'difference = {abs(flux_ratio - 1.0):.6f}')
+    assert (abs(flux_ratio - 1.)) < 0.1  # This isn't great but sufficient.
 
 
 # ######################
@@ -821,7 +824,7 @@ def make_image_psftype(psftype='epsf'):
                                    coord=coord)
     wcs.fill_in_parameters(meta, coord)
     sca = int(meta['instrument']['detector'][3:])
-    graycat = imdict['graycatalog']
+    graycat = imdict['graycatalog'].copy()
     imwcs = wcs.get_wcs(meta, usecrds=False)
     sourcecen = (50, 50)
     center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
@@ -829,6 +832,7 @@ def make_image_psftype(psftype='epsf'):
     for o in graycat:
         o.sky_pos = center
         o.flux[filter_name] /= abfluxdict[f'SCA{sca:02}'][filter_name]
+        o.flux[filter_name] *= 10  # Make source 10x brighter for better SNR
     l2 = image.simulate(meta, graycat, psftype=psftype, level=2,
                         usecrds=False, crparam=dict(),
                         psf_keywords=psf_keywords)
