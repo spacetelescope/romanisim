@@ -20,7 +20,6 @@ construct final DN image.
 """
 
 import numpy as np
-from astropy import units as u
 from romanisim import parameters
 
 
@@ -97,16 +96,7 @@ def evaluate_nl_polynomial(counts, coeffs, reversed=False):
     else:
         cc = coeffs[::-1, ...]
 
-    if isinstance(counts, u.Quantity):
-        unit = counts.unit
-        counts = counts.value
-    else:
-        unit = None
-
     res = np.polyval(cc, counts)
-
-    if unit is not None:
-        res = res * unit
 
     return res
 
@@ -127,7 +117,7 @@ class NL:
             Data Quality array
 
         gain : float or np.ndarray[float]
-            Gain (electrons / DN) for converting DN to electrons
+            Gain in electron/DN for converting DN to electrons
 
         saturation : float or None
             Saturation level in DN
@@ -135,7 +125,7 @@ class NL:
         if dq is None:
             dq = np.zeros(coeffs.shape[1:], dtype='uint32')
         if gain is None:
-            gain = parameters.reference_data['gain'].to(u.electron / u.DN).value
+            gain = parameters.reference_data['gain']
 
         self.coeffs, self.dq = repair_coefficients(coeffs, dq)
         self.gain = gain
@@ -151,7 +141,7 @@ class NL:
         Parameters
         ----------
         counts : np.ndarray[nx, ny] (float)
-            The observed counts
+            The observed counts in DN (or electrons if electrons=True)
 
         electrons : bool
             Set to True for 'counts' being in electrons, with coefficients
@@ -166,18 +156,16 @@ class NL:
         Returns
         -------
         corrected : np.ndarray[nx, ny] (float)
-            The corrected DN or electrons.
+            The corrected DN or electrons (matching input units).
         """
 
         gain = self.gain
 
         if electrons:
-            if not isinstance(counts, u.Quantity):
-                gain = gain / u.electron
             counts = counts / gain
 
         if self.saturation is not None:
-            counts = np.clip(counts, -1000 * u.DN, self.saturation)
+            counts = np.clip(counts, -1000, self.saturation)
 
         corrected = evaluate_nl_polynomial(counts, self.coeffs, reversed)
 

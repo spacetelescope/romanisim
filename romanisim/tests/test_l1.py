@@ -16,7 +16,6 @@ from romanisim import l1, log, parameters, nonlinearity
 import galsim
 import galsim.roman
 import asdf
-from astropy import units as u
 import os
 
 
@@ -81,7 +80,7 @@ def test_apportion_counts_to_resultants():
         assert np.all(np.diff(resultants, axis=0) >= 0)
         assert np.all(resultants >= 0)
         assert np.all(resultants <= counts[None, :, :])
-        res2 = l1.add_read_noise_to_resultants(resultants.copy() * u.DN,
+        res2 = l1.add_read_noise_to_resultants(resultants.copy(),  # DN
                                                tij)
         res3 = l1.add_read_noise_to_resultants(resultants.copy(), tij,
                                                read_noise=read_noise)
@@ -275,7 +274,7 @@ def test_make_l1_and_asdf(tmp_path):
     galsim.roman.n_pix = 100
     for read_pattern in read_pattern_list:
         resultants, dq = l1.make_l1(galsim.Image(counts), read_pattern,
-                                    gain=1 * u.electron / u.DN)
+                                    gain=1)  # electron/DN
         assert resultants.shape[0] == len(read_pattern)
         assert resultants.shape[1] == counts.shape[0]
         assert resultants.shape[2] == counts.shape[1]
@@ -285,28 +284,33 @@ def test_make_l1_and_asdf(tmp_path):
         # we could look for non-zero correlations from the IPC to
         # check that that is working?  But that is slightly annoying.
         resultants, dq = l1.make_l1(galsim.Image(counts), read_pattern,
-                                    read_noise=0 * u.DN,
-                                    pedestal_extra_noise=0,
-                                    gain=1 * u.electron / u.DN)
-        assert np.all(resultants - parameters.pedestal * u.DN
-                      <= np.max(counts[None, ...] * u.DN))
+                                    read_noise=0,  # DN
+                                    pedestal_extra_noise=0,  # electron
+                                    gain=1)  # electron/DN
+        # technically, resultants are in DN and pedestal is in electrons,
+        # but in this test the gain is one and so we ignore this distinction.
+        assert np.all(resultants - parameters.pedestal
+                      <= np.max(counts[None, ...]))
         # because of IPC, one can't require that each pixel is smaller
         # than the number of counts
-        assert np.all(resultants >= 0 * u.DN)
-        assert np.all(np.diff(resultants, axis=0) >= 0 * u.DN)
+        assert np.all(resultants >= 0)  # DN
+        assert np.all(np.diff(resultants, axis=0) >= 0)  # DN
         res_forasdf, extras = l1.make_asdf(
             resultants, filepath=tmp_path / 'tmp.asdf')
         af = asdf.AsdfFile()
         af.tree = {'roman': res_forasdf}
         af.validate()
         resultants, dq = l1.make_l1(galsim.Image(np.full((100, 100), 10**7)),
-                                    read_pattern, gain=1 * u.electron / u.DN,
-                                    saturation=10**6 * u.DN)
+                                    read_pattern, gain=1,  # electron/DN
+                                    saturation=10**6)  # DN
         assert np.all((dq[-1] & parameters.dqbits['saturated']) != 0)
         resultants, dq = l1.make_l1(galsim.Image(np.zeros((100, 100))),
-                                    read_pattern, gain=1 * u.electron / u.DN,
-                                    read_noise=0 * u.DN, pedestal_extra_noise=0,
+                                    read_pattern, gain=1,  # electron/DN
+                                    read_noise=0,  # DN
+                                    pedestal_extra_noise=0,  # electron
                                     crparam=dict())
-        assert np.all((resultants[0] - parameters.pedestal * u.DN == 0)
+        # technically, resultants are in DN and pedestal is in electrons,
+        # but in this test the gain is one and so we ignore this distinction.
+        assert np.all((resultants[0] - parameters.pedestal == 0)
                       | ((dq[0] & parameters.dqbits['jump_det']) != 0))
     log.info('DMS227: successfully made an L1 file that validates.')

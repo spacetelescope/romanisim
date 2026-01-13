@@ -61,28 +61,30 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     Parameters
     ----------
     resultants : np.ndarray[nresultants, ny, nx]
-        resultants array
+        Resultants array in DN
     read_pattern : list[list] (int)
-        list of lists of indices of reads entering each resultant
-    read_noise : np.ndarray[ny, nx] (float)
-        read_noise image to use.  If None, use galsim.roman.read_noise.
-    flat : np.ndarray[ny, nx] (float)
-        flat field to use
-    linearity : romanisim.nonlinearity.NL object or None
-        non-linearity correction to use.
-    darkrate : np.ndarray[ny, nx] (float)
-        dark rate image to subtract from ramps (electron / s)
-    dq : np.ndarray[nresultants, ny, nx] (int)
+        List of lists of indices of reads entering each resultant
+    read_noise : np.ndarray[ny, nx] (float), optional
+        Read noise in DN. If None, use parameters.reference_data['readnoise'].
+    gain : float or np.ndarray, optional
+        Gain in electron/DN. If None, use parameters.reference_data['gain'].
+    flat : np.ndarray[ny, nx] (float), optional
+        Flat field to use
+    linearity : romanisim.nonlinearity.NL object, optional
+        Non-linearity correction to use.
+    darkrate : np.ndarray[ny, nx] (float), optional
+        Dark current rate in electron/s to subtract from ramps
+    dq : np.ndarray[nresultants, ny, nx] (int), optional
         DQ image corresponding to resultants
 
     Returns
     -------
     im : np.ndarray
-        best fitting slopes
+        Best fitting slopes in DN/s
     var_rnoise : np.ndarray
-        variance in slopes from read noise
+        Variance in slopes from read noise in (DN/s)^2
     var_poisson : np.ndarray
-        variance in slopes from source noise
+        Variance in slopes from source noise in (DN/s)^2
     """
 
     if read_noise is None:
@@ -90,13 +92,13 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     if gain is None:
         gain = parameters.reference_data['gain']
-    if not isinstance(gain, u.Quantity):
-        gain = gain * u.electron / u.DN
-    gain = gain.astype('f4')
+    # gain in electron/DN
+    try:
+        gain = gain.astype('f4')
+    except AttributeError:  # gain is a scalar
+        gain = np.float32(gain)
 
-    # Ensure resultants have DN units if they're dimensionless
-    if not isinstance(resultants, u.Quantity):
-        resultants = resultants * u.DN
+    # resultants in DN
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
@@ -124,19 +126,10 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     if darkrate is not None:
         ramppar[..., 1] -= darkrate
 
-    if isinstance(gain, u.Quantity):
-        gain = gain.value  # no values make sense except for electron / DN
-
-    # The ramp fitter is not presently unit-aware; fix up the units by hand.
-    # To do this right the ramp fitter should be made unit aware.
-    # It takes a bit of work to get this right because we use the fact
-    # that the variance of a Poisson distribution is equal to its mean,
-    # which isn't true as soon as things start having units and requires
-    # special handling.  And we use read_time without units a lot throughout
-    # the code base.
-    slopes = ramppar[..., 1] / gain * u.DN / u.s
-    readvar = rampvar[..., 0, 1, 1] / gain**2 * (u.DN / u.s)**2
-    poissonvar = rampvar[..., 1, 1, 1] / gain**2 * (u.DN / u.s)**2
+    # Ramp fitter works in electrons, convert slopes and variances to DN/s
+    slopes = ramppar[..., 1] / gain  # DN/s
+    readvar = rampvar[..., 0, 1, 1] / gain**2  # (DN/s)^2
+    poissonvar = rampvar[..., 1, 1, 1] / gain**2  # (DN/s)^2
 
     if flat is not None:
         flat = np.clip(flat, 1e-9, np.inf).astype('f4')
@@ -795,28 +788,23 @@ def gather_reference_data(image_mod, usecrds=False):
         model = ReadnoiseRefModel(
             reffiles['readnoise'])
         out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
-        out['readnoise'] *= u.DN
+        # readnoise in DN
 
     if isinstance(reffiles['gain'], str):
         model = GainRefModel(reffiles['gain'])
         out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
-        out['gain'] *= u.electron / u.DN
-    elif not isinstance(out['gain'], u.Quantity):
-        out['gain'] *= u.electron / u.DN
+        # gain in electron/DN
 
     if isinstance(reffiles['dark'], str):
         model = DarkRefModel(reffiles['dark'])
-        out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy()
-        out['dark'] *= u.DN / u.s
-        out['dark'] *= out['gain']
-    if isinstance(out['dark'], u.Quantity):
-        out['dark'] = out['dark'].to(u.electron / u.s).value
+        # dark_slope from CRDS is in DN/s, convert to electron/s
+        out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * out['gain']
 
     if isinstance(reffiles['saturation'], str):
         saturation = SaturationRefModel(
             reffiles['saturation'])
         saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
-        saturation *= u.DN
+        # saturation in DN
         out['saturation'] = saturation
     else:
         saturation = out['saturation']
@@ -837,7 +825,7 @@ def gather_reference_data(image_mod, usecrds=False):
         if ((saturation is not None) and ('linearity' in out) and
                 (out['linearity'] is not None)):
             inv_saturation = out['linearity'].apply(saturation)
-            m = (inv_saturation < 0 * u.DN) | (inv_saturation > saturation * 2)
+            m = (inv_saturation < 0) | (inv_saturation > saturation * 2)
             if np.any(m):
                 log.warning(
                     f'{np.sum(m)} points with problematic saturation / inverse linearity '
@@ -1076,13 +1064,13 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
 
     util.update_photom_keywords(out, gain=gain)
 
-    out['data'] = slope.value
+    out['data'] = slope
     out['dq'] = np.zeros(slope.shape, dtype='u4')
     if dq is not None:
         out['dq'][:, :] = dq
-    out['var_poisson'] = slopevar_poisson.value
-    out['var_rnoise'] = slopevar_rn.value
-    out['var_flat'] = slopevar_rn.value * 0
+    out['var_poisson'] = slopevar_poisson
+    out['var_rnoise'] = slopevar_rn
+    out['var_flat'] = slopevar_rn * 0
     out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
     out['amp33'] = np.zeros((n_groups, 4096, 128), dtype=out.amp33.dtype)
     for side in ('left', 'right', 'top', 'bottom'):
@@ -1221,12 +1209,13 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     # create injected source ramp resultants
     resultants, dq = romanisim.l1.apportion_counts_to_resultants(
         sourcecounts.array[m], tij, rng=rng)
-    resultants = resultants * u.electron
+    # resultants are in electrons
 
     # Inject source to original image
-    newramp = model.data[None, :] * tbar[:, None, None] * u.DN
-    newramp[:, m] += resultants / gain
-    # newramp has units of DN
+    # model.data is in DN/s, multiply by tbar (time) to get DN
+    newramp = model.data[None, :] * tbar[:, None, None]  # DN
+    newramp[:, m] += resultants / gain  # resultants/gain converts electrons to DN
+    # newramp is in DN
 
     # Make new image of the combination
     newimage, readvar, poissonvar = make_l2(
@@ -1235,7 +1224,8 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
 
     res = copy.deepcopy(model)
     res.data[m] = newimage
-    res.var_rnoise[m] = readvar
+    if hasattr(res, 'var_rnoise'):
+        res.var_rnoise[m] = readvar
     res.var_poisson[m] = poissonvar
     res.err[m] = np.sqrt(readvar + poissonvar)
     return res
