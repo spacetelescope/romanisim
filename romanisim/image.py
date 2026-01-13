@@ -92,10 +92,13 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     if gain is None:
         gain = parameters.reference_data['gain']
-    try:
-        gain = gain.astype('f4')
-    except AttributeError:  # gain is not a Quantity
-        gain = np.float32(gain)
+    if not isinstance(gain, u.Quantity):
+        gain = gain * u.electron / u.DN
+    gain = gain.astype('f4')
+
+    # Ensure resultants have DN units if they're dimensionless
+    if not isinstance(resultants, u.Quantity):
+        resultants = resultants * u.DN
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
@@ -374,10 +377,48 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     return outinfo
 
 
+def flat_to_qe(flat, gain, area=None):
+    """Convert flat field to relative QE.
+
+    The CRDS flat field is area * QE / gain / <(area * QE / gain)>.
+    This function extracts the relative QE component by dividing out
+    the area and gain dependencies and renormalizing.
+
+    Parameters
+    ----------
+    flat : float or np.ndarray
+        Flat field from CRDS
+    gain : float or np.ndarray
+        Gain in electrons/DN (can have astropy units)
+    area : float or np.ndarray, optional
+        Pixel area (collecting area per pixel). If None, assumes area=1.
+        Can be obtained via imwcs.makeSkyImage with sky_level=1.
+
+    Returns
+    -------
+    qe : float or np.ndarray
+        Relative QE normalized so median = 1
+    """
+    if area is None:
+        area = 1
+
+    # Extract numerical value from gain if it has units
+    if hasattr(gain, 'value'):
+        gain = gain.value
+
+    # Remove gain and area dependencies
+    qe = flat * gain / area
+
+    # Renormalize so median is 1
+    qe = qe / np.median(qe)
+
+    return qe
+
+
 def simulate_counts_generic(image, exptime, objlist=None, psf=None,
                             zpflux=None,
                             sky=None, dark=None,
-                            flat=None, xpos=None, ypos=None,
+                            qe=None, xpos=None, ypos=None,
                             ignore_distant_sources=10, bandpass=None,
                             filter_name=None, rng=None, seed=None,
                             **kwargs):
@@ -397,9 +438,9 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     * objlist: a list of CatalogObjects to render, or a Table.  Can be chromatic
       or not.  This will have all your normal PSF and galaxy profiles.
     * sky: a sky background model.  This is different from a dark in that
-      it is sensitive to the flat field.
+      it is sensitive to the quantum efficiency (QE).
     * dark: a dark model.
-    * flat: a flat field for modulating the object and sky electrons
+    * qe: relative quantum efficiency for modulating the object and sky electrons
 
     Parameters
     ----------
@@ -417,7 +458,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         Image or constant with the electrons / pix / sec from sky.
     dark : float or array_like
         Image or constant with the electrons / pix / sec from dark current.
-    flat : array_like
+    qe : array_like
         Image giving the relative QE of different pixels.
     xpos, ypos : array_like (float)
         x, y positions of each source in objlist
@@ -475,25 +516,27 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     if len(objlist) > 0 and psf is None:
         raise ValueError('Must provide a PSF if you want to render objects.')
 
-    if flat is None:
-        flat = 1
+    if qe is None:
+        qe = 1
 
     # for some reason, galsim doesn't like multiplying an SED by 1, but it's
     # okay with multiplying an SED by 1.0, so we cast to float.
-    maxflat = float(np.max(flat))
-    if maxflat > 1.1:
-        log.warning('max(flat) > 1.1; this seems weird?!')
-    if maxflat > 2:
-        log.error('max(flat) > 2; this seems really weird?!')
-    # how to deal with the flat field?  We artificially inflate the
-    # exposure time of each source by maxflat when rendering.  And then we
+    maxqe = float(np.max(qe))
+    if maxqe > 1.1:
+        log.warning('max(qe) > 1.1; this seems weird?!')
+    nbad = np.sum(qe > 2)
+    if nbad > 0:
+        log.warning(f'Found {nbad} pixels with implied qe > 2; clipping these to qe 2')
+        qe = np.clip(qe, 0, 2)
+    # how to deal with the QE?  We artificially inflate the
+    # exposure time of each source by maxqe when rendering.  And then we
     # do a binomial sampling of the total number of photons obtained per pixel
     # to figure out how many "should" have entered the pixel.
 
     chromatic = False
     if len(objlist) > 0 and objlist[0].profile.spectral:
         chromatic = True
-    flux_to_counts_factor = exptime * maxflat
+    flux_to_counts_factor = exptime * maxqe
     if not chromatic:
         flux_to_counts_factor *= zpflux
     xposk = xpos[keep] if xpos is not None else None
@@ -519,11 +562,11 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 
     if sky is not None:
         workim = image * 0
-        workim += sky * maxflat * exptime
+        workim += sky * maxqe * exptime
         workim.addNoise(poisson_noise)
         image += workim
 
-    if not np.all(flat == 1):
+    if not np.all(qe == 1):
         image.quantize()
         rng_numpy_seed = rng.raw()
         rng_numpy = np.random.default_rng(rng_numpy_seed)
@@ -538,7 +581,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         # point number, which is roughly 2^31 - 128.
         MAX_SAFE_VALUE = np.nextafter(2**31 - 1, 0, dtype=np.float32)
         image.array[:, :] = rng_numpy.binomial(
-            np.clip(image.array, 0, MAX_SAFE_VALUE).astype("i4"), flat / maxflat
+            np.clip(image.array, 0, MAX_SAFE_VALUE).astype("i4"), qe / maxqe
         )
 
     if dark is not None:
@@ -555,7 +598,7 @@ def simulate_counts(metadata, objlist,
                     rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
                     psftype='galsim',
-                    darkrate=None, flat=None,
+                    darkrate=None, flat=None, gain=None,
                     psf_keywords=dict()):
     """Simulate total electrons in a single SCA.
 
@@ -583,7 +626,9 @@ def simulate_counts(metadata, objlist,
     darkrate : float or np.ndarray[float]
         dark rate image to use (electrons / s)
     flat : float or np.ndarray[float]
-        flat field to use
+        flat field
+    gain : float or np.ndarray[float]
+        gain (electrons / DN)
     psf_keywords : dict
         keywords passed to PSF generation routine
 
@@ -634,12 +679,28 @@ def simulate_counts(metadata, objlist,
     sky_level *= (1.0 + roman.stray_light_fraction)
     sky_image = image * 0
     imwcs.makeSkyImage(sky_image, sky_level)
+    # Extract pixel area from sky image (before adding thermal backgrounds)
+    # makeSkyImage multiplies sky_level by pixel area, so area = sky_image / sky_level
+    area = sky_image.array / sky_level
     sky_image += roman.thermal_backgrounds[galsim_filter_name]
     abflux = romanisim.bandpass.get_abflux(filter_name, sca)
 
+    # Convert flat field to QE
+    if gain is None:
+        gain = parameters.reference_data.get('gain', 1)
+    if flat is None:
+        flat = parameters.reference_data.get('flat', 1)
+    # Handle case where flat or gain exist in dict but are None
+    if flat is None:
+        flat = 1
+    if gain is None:
+        gain = 1
+
+    qe = flat_to_qe(flat, gain, area=area)
+
     simcatobj = simulate_counts_generic(
         image, exptime, objlist=objlist, psf=psf, zpflux=abflux, sky=sky_image,
-        dark=darkrate, flat=flat,
+        dark=darkrate, qe=qe,
         ignore_distant_sources=ignore_distant_sources, bandpass=bandpass,
         filter_name=filter_name, rng=rng, seed=seed)
 
@@ -895,7 +956,7 @@ def simulate(metadata, objlist,
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
-        psftype=psftype, flat=flat, psf_keywords=psf_keywords)
+        psftype=psftype, flat=flat, gain=gain, psf_keywords=psf_keywords)
 
     # If extra_counts is passed in, add directly to counts
     if extra_counts is not None:
@@ -907,6 +968,7 @@ def simulate(metadata, objlist,
     else:
         l1, l1dq = romanisim.l1.make_l1(
             counts, read_pattern, read_noise=read_noise,
+            pedestal=parameters.pedestal,
             pedestal_extra_noise=pedestal_extra_noise,
             rng=rng, gain=gain,
             crparam=crparam,
