@@ -92,13 +92,13 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     if gain is None:
         gain = parameters.reference_data['gain']
-    if not isinstance(gain, u.Quantity):
-        gain = gain * u.electron / u.DN
-    gain = gain.astype('f4')
+    # gain in electron/DN
+    try:
+        gain = gain.astype('f4')
+    except AttributeError:  # gain is a scalar
+        gain = np.float32(gain)
 
-    # Ensure resultants have DN units if they're dimensionless
-    if not isinstance(resultants, u.Quantity):
-        resultants = resultants * u.DN
+    # resultants in DN
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
@@ -1224,7 +1224,8 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
 
     res = copy.deepcopy(model)
     res.data[m] = newimage
-    res.var_rnoise[m] = readvar
+    if hasattr(res, 'var_rnoise'):
+        res.var_rnoise[m] = readvar
     res.var_poisson[m] = poissonvar
     res.err[m] = np.sqrt(readvar + poissonvar)
     return res

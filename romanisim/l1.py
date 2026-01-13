@@ -572,8 +572,7 @@ def make_l1(counts, read_pattern,
 
     if saturation is None:
         saturation = parameters.reference_data['saturation']
-    if not isinstance(saturation, u.Quantity):
-        saturation = saturation * u.DN
+    # saturation in DN
 
     # this maybe should be better applied at read time?
     # it's not actually clear to me what the right thing to do
