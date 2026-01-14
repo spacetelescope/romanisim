@@ -1071,7 +1071,8 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     out['var_poisson'] = slopevar_poisson
     out['var_rnoise'] = slopevar_rn
     out['var_flat'] = slopevar_rn * 0
-    out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
+    err = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
+    out['err'] = err.astype(out['err'].dtype)
     out['amp33'] = np.zeros((n_groups, 4096, 128), dtype=out.amp33.dtype)
     for side in ('left', 'right', 'top', 'bottom'):
         if side in ('left', 'right'):
