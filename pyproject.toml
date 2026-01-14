@@ -4,7 +4,7 @@ description = "Nancy Grace Roman Space Telescope WFI Simulator"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 authors = [
-    { name = "STScI", email = "help@stsci.edu" },
+    { name = "STScI" },
 ]
 classifiers = [
   "Intended Audience :: Science/Research",
