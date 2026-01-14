@@ -108,7 +108,6 @@ import galsim
 from scipy import ndimage
 from . import parameters
 from . import log
-from astropy import units as u
 from . import cr
 
 from roman_datamodels.datamodels import ScienceRawModel
@@ -175,7 +174,8 @@ def tij_to_pij(tij, remaining=False):
 
 
 def apportion_counts_to_resultants(
-        counts, tij, inv_linearity=None, crparam=None, persistence=None,
+        counts, tij, pedestal=None, pedestal_extra_noise=None,
+        inv_linearity=None, crparam=None, persistence=None,
         tstart=None, rng=None, seed=None):
     """Apportion counts to resultants given read times.
 
@@ -197,6 +197,10 @@ def apportion_counts_to_resultants(
       where to start the next resultant
     * the resultants so far
 
+    An initial reset level can be supported by setting the pedestal and
+    pedestal extra noise levels.  These need to be correct to probe the correct
+    portion of the linearity & inverse linearity polynomials.
+
     Parameters
     ----------
     counts : np.ndarray[ny, nx] (int)
@@ -207,6 +211,10 @@ def apportion_counts_to_resultants(
         included beyond PSF & distortion.
     tij : list[list[float]]
         list of lists of readout times for each read entering a resultant
+    pedestal: int
+        initial instrumental count level (electrons)
+    pedestal_extra_noise: float
+        pedestal noise (electrons)
     inv_linearity : romanisim.nonlinearity.NL or None
         Object implementing inverse non-linearity correction
     crparam : dict
@@ -247,8 +255,9 @@ def apportion_counts_to_resultants(
     rng_numpy = np.random.default_rng(rng_numpy_seed)
     rng_numpy_cr = np.random.default_rng(rng_numpy_seed + 1)
     rng_numpy_ps = np.random.default_rng(rng_numpy_seed + 2)
-    # two separate generators so that if you turn off CRs / persistence
-    # you don't change the image
+    rng_numpy_pedestal = np.random.default_rng(rng_numpy_seed + 3)
+    # separate generators so that turning on/off CRs / persistence / pedestal noise
+    # doesn't change the other random sequences
 
     # Convert readout times for each read entering a resultant to probabilities,
     # corresponding to the chance that a photon not yet assigned to a read so far
@@ -261,11 +270,18 @@ def apportion_counts_to_resultants(
     resultant_counts = np.zeros(counts.shape, dtype='f4')
     dq = np.zeros(resultants.shape, dtype=np.uint32)
 
-    # Set initial instrument counts
-    instrumental_so_far = 0
+    # Set initial instrument counts (always create as array for simplicity)
+    # Includes pedestal (detector reset level) and instrumental effects
+    instrumental_so_far = np.zeros(counts.shape, dtype='f4')
 
-    if crparam is not None or persistence is not None:
-        instrumental_so_far = np.zeros(counts.shape, dtype='i4')
+    # Add pedestal (detector reset level in electrons) if specified
+    if pedestal is not None:
+        instrumental_so_far += pedestal
+
+    # Add pedestal noise if specified (sampled once per pixel)
+    if pedestal_extra_noise is not None:
+        pedestal_noise = rng_numpy_pedestal.normal(0, pedestal_extra_noise, counts.shape)
+        instrumental_so_far += pedestal_noise
 
     if persistence is not None and tstart is None:
         raise ValueError('tstart must be set if persistence is set!')
@@ -323,13 +339,16 @@ def apportion_counts_to_resultants(
 
 
 def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
-                                 seed=None, pedestal_extra_noise=None):
+                                 seed=None):
     """Adds read noise to resultants.
 
     The resultants get Gaussian read noise with sigma = sigma_read/sqrt(N).
     This is not quite right.  In reality read noise is added during each read.
     This is the same as adding to the resultants and dividing by sqrt(N) except
     for quantization; this additional subtlety is currently ignored.
+
+    Note: Pedestal noise is now added in apportion_counts_to_resultants before
+    non-linearity is applied, not here.
 
     Parameters
     ----------
@@ -343,9 +362,6 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
         Random number generator to use
     seed : int
         Seed for populating RNG.  Only used if rng is None.
-    pedestal_extra_noise : float
-        Extra read noise to add to each pixel across all groups.
-        Equivalent to noise in the reference read.
 
     Returns
     -------
@@ -361,9 +377,6 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     else:
         rng = galsim.GaussianDeviate(rng)
 
-    # separate noise generator for pedestals so we can turn it on and off.
-    pedestalrng = galsim.GaussianDeviate(rng.raw())
-
     if read_noise is None:
         read_noise = parameters.reference_data['readnoise']
     if read_noise is None:
@@ -375,12 +388,6 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     noise = noise * read_noise / np.array(
         [len(x)**0.5 for x in tij]).reshape(-1, 1, 1)
     resultants += noise
-
-    if pedestal_extra_noise is not None:
-        noise = np.zeros(resultants.shape[1:], dtype='f4')
-        amplitude = np.hypot(pedestal_extra_noise, read_noise)
-        pedestalrng.generate(noise)
-        resultants += noise[None, ...] * amplitude
 
     return resultants
 
@@ -418,7 +425,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     if metadata is not None:
         out['meta'].update(metadata)
     extras = dict()
-    out['data'][:, nborder:-nborder, nborder:-nborder] = resultants.value
+    out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if dq is not None:
         extras['dq'] = np.zeros(out['data'].shape, dtype='i4')
         extras['dq'][:, nborder:-nborder, nborder:-nborder] = dq
@@ -478,7 +485,7 @@ def add_ipc(resultants, ipc_kernel=None):
 
 
 def make_l1(counts, read_pattern,
-            read_noise=None, pedestal_extra_noise=None,
+            read_noise=None, pedestal=None, pedestal_extra_noise=None,
             rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None):
@@ -490,43 +497,55 @@ def make_l1(counts, read_pattern,
     Parameters
     ----------
     counts : galsim.Image
-        total electrons delivered to each pixel
+        Total electrons delivered to each pixel
     read_pattern : int or list[list]
         MA table number or list of lists giving indices of reads entering each
         resultant.
     read_noise : np.ndarray[ny, nx] (float) or float
-        Read noise entering into each read
+        Read noise in DN entering into each read
+    pedestal : np.ndarray[ny, nx] (float) or float
+        Reset level in electrons
     pedestal_extra_noise : np.ndarray[ny, nx] (float) or float
-        Extra noise entering into each pixel (i.e., degenerate with pedestal)
+        Extra noise in electrons entering into each pixel (i.e., degenerate with pedestal)
     rng : galsim.BaseDeviate
         Random number generator to use
-    seed : int
+    seed : int, optional
         Seed for populating RNG.  Only used if rng is None.
-    gain : float or np.ndarray[float]
-        Gain (electrons / DN) for converting DN to electrons
-    inv_linearity : romanisim.nonlinearity.NL or None
+    gain : float or np.ndarray[float], optional
+        Gain in electron/DN for converting electrons to DN
+    inv_linearity : romanisim.nonlinearity.NL, optional
         Object describing the inverse non-linearity corrections.
-    crparam : dict
+    crparam : dict, optional
         Keyword arguments to romanisim.cr.simulate_crs.  If None, no
         cosmic rays are simulated.
-    persistence : romanisim.persistence.Persistence
+    persistence : romanisim.persistence.Persistence, optional
         Persistence instance describing persistence-affected pixels
-    tstart : astropy.time.Time
-        time of exposure start
+    tstart : astropy.time.Time, optional
+        Time of exposure start
+    saturation : float, optional
+        Saturation level in DN
 
     Returns
     -------
-    l1, dq
-    l1: np.ndarray[n_resultant, ny, nx]
-        resultants image array including systematic effects
-    dq: np.ndarray[n_resultant, ny, nx]
+    l1 : np.ndarray[n_resultant, ny, nx]
+        Resultants image array in DN including systematic effects
+    dq : np.ndarray[n_resultant, ny, nx]
         DQ array marking saturated pixels and cosmic rays
     """
 
     tij = read_pattern_to_tij(read_pattern)
+
+    # Set defaults for pedestal parameters if not specified
+    if pedestal is None:
+        pedestal = parameters.pedestal
+    if pedestal_extra_noise is None:
+        pedestal_extra_noise = parameters.pedestal_extra_noise
+
     log.info('Apportioning electrons to resultants...')
     resultants, dq = apportion_counts_to_resultants(
-        counts.array, tij, inv_linearity=inv_linearity, crparam=crparam,
+        counts.array, tij,
+        pedestal=pedestal, pedestal_extra_noise=pedestal_extra_noise,
+        inv_linearity=inv_linearity, crparam=crparam,
         persistence=persistence, tstart=tstart,
         rng=rng, seed=seed)
 
@@ -534,43 +553,32 @@ def make_l1(counts, read_pattern,
 
     add_ipc(resultants)
 
-    if not isinstance(resultants, u.Quantity):
-        resultants *= u.electron
-
+    # resultants are in electrons
     if gain is None:
         gain = parameters.reference_data['gain']
-    if gain is not None and not isinstance(gain, u.Quantity):
-        gain = gain * u.electron / u.DN
-        log.warning('Making up units for gain.')
 
-    resultants /= gain
+    # Convert electrons to DN
+    resultants /= gain  # gain is electron/DN
 
-    if read_noise is not None and not isinstance(read_noise, u.Quantity):
-        read_noise = read_noise * u.DN
-        log.warning('Making up units for read noise.')
-
-    # resultants are now in counts.
-    # read noise is in counts.
+    # resultants are now in DN
+    # read noise is in DN
     log.info('Adding read noise...')
     resultants = add_read_noise_to_resultants(
         resultants, tij, rng=rng, seed=seed,
-        read_noise=read_noise,
-        pedestal_extra_noise=pedestal_extra_noise)
+        read_noise=read_noise)
 
     # quantize
     resultants = np.round(resultants)
 
-    # add pedestal
-    resultants += parameters.pedestal
-
     if saturation is None:
         saturation = parameters.reference_data['saturation']
+    # saturation in DN
 
     # this maybe should be better applied at read time?
     # it's not actually clear to me what the right thing to do
     # is in detail.
     # let things go a little higher than saturation
-    resultants = np.clip(resultants, 0 * u.DN, saturation * 1.1)
+    resultants = np.clip(resultants, 0, saturation * 1.1)  # DN
     m = resultants >= saturation
     dq[m] |= parameters.dqbits['saturated']
 
