@@ -1070,18 +1070,19 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         out['dq'][:, :] = dq
 
     def assign_with_default_types(fielddict, out):
+        # assign fields with existing types, only if they're already
+        # present.
         for field in fielddict:
-            if out.get(field, None) is not None:
-                dtype = out[field].dtype
-            else:
-                dtype = fielddict[field][1]
-            out[field] = fielddict[field][0].astype(dtype)
+            if out.get(field, None) is None:
+                continue
+            dtype = out[field].dtype
+            out[field] = fielddict[field].astype(dtype)
 
     fielddict = dict(
-        var_poisson=(slopevar_poisson, np.float16),
-        var_rnoise=(slopevar_rn, np.float16),
-        var_flat=(slopevar_rn * 0, np.float16),
-        err=(np.sqrt(slopevar_poisson + slopevar_rn), np.float16),
+        var_poisson=slopevar_poisson,
+        var_rnoise=slopevar_rn,
+        var_flat=slopevar_rn * 0,
+        err=np.sqrt(slopevar_poisson + slopevar_rn),
     )
     assign_with_default_types(fielddict, out)
 
