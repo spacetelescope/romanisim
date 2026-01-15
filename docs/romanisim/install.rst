@@ -10,6 +10,8 @@ and you should be largely set!
 The most frequently encountered difficulty installing romanisim is
 when GalSim is unable to find FFTW.  If your system does not have the
 FFTW library, these should be installed before romanisim and GalSim.
+Only python <= 3.13 is support at present due to the lack of a Python 3.14
+wheel for galsim.
 
 Another problematic dependency is `STPSF
 <https://stpsf.readthedocs.io>`_, which requires data files to
