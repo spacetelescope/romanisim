@@ -64,3 +64,4 @@ The simulator allows for passage of a user-specified COSMOS file (one which must
 The simulator can also generate place Gaia stars at the appropriate locations using the ``make_gaia_stars`` method, in place of the random stars in ``make_stars``.  Note that these stars have fluxes exactly equal to the Gaia G band fluxes in all bands; i.e., no attempt is made to predict accurate colors of stars.
 
 .. automodapi:: romanisim.catalog
+.. automodapi:: romanisim.gaia

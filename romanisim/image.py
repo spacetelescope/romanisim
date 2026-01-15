@@ -1068,10 +1068,24 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     out['dq'] = np.zeros(slope.shape, dtype='u4')
     if dq is not None:
         out['dq'][:, :] = dq
-    out['var_poisson'] = slopevar_poisson
-    out['var_rnoise'] = slopevar_rn
-    out['var_flat'] = slopevar_rn * 0
-    out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
+
+    def assign_with_default_types(fielddict, out):
+        # assign fields with existing types, only if they're already
+        # present.
+        for field in fielddict:
+            if out.get(field, None) is None:
+                continue
+            dtype = out[field].dtype
+            out[field] = fielddict[field].astype(dtype)
+
+    fielddict = dict(
+        var_poisson=slopevar_poisson,
+        var_rnoise=slopevar_rn,
+        var_flat=slopevar_rn * 0,
+        err=np.sqrt(slopevar_poisson + slopevar_rn),
+    )
+    assign_with_default_types(fielddict, out)
+
     out['amp33'] = np.zeros((n_groups, 4096, 128), dtype=out.amp33.dtype)
     for side in ('left', 'right', 'top', 'bottom'):
         if side in ('left', 'right'):
