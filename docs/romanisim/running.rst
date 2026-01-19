@@ -64,13 +64,21 @@ simulate, the right ascension and declination of the telescope
 [#boresight]_, the :doc:`bandpass </romanisim/bandpass>`, the Sensor
 Chip Assembly (SCA) to
 simulate, the level of the image to simulate (:doc:`L1 </romanisim/l1>`
-or :doc:`L2 </romanisim/l2>`), the MA table to use, and the time of
+or :doc:`L2 </romanisim/l2>`), the multi-accumulation (MA) table to use, and the time of
 the observation.
 
 Additional arguments control some details of the simulation.  The
 ``--usecrds`` argument indicates that reference files should be pulled
 from the Roman CRDS server, and is recommended. If ``--psftype`` has not been
 specified, the CRDS EPSF references will be used to determine PSFs.
+
+The ``--ma_table_number`` parameter indicates the MA table
+to use when simulating the image. The choice of MA table controls the exposure
+time and read pattern used in the image simulation. If use of CRDS is requested via the
+``--usecrds`` argument, then MA tables from CRDS are used (see
+[here](https://roman-docs.stsci.edu/roman-instruments/the-wide-field-instrument/observing-with-the-wfi/wfi-multiaccum-ma-tables/imaging-multiaccum-tables)
+for the associated Roman documentation page on the available MA tables).
+If ``--usecrds`` is not provided, a limited set of legacy MA tables are supported.
 
 The ``--psftype=stpsf`` argument indicates that the `STPSF
 <https://stpsf.readthedocs.io>`_ package should be used to simulate the PSF.
