@@ -76,7 +76,7 @@ The ``--ma_table_number`` parameter indicates the MA table
 to use when simulating the image. The choice of MA table controls the exposure
 time and read pattern used in the image simulation. If use of CRDS is requested via the
 ``--usecrds`` argument, then MA tables from CRDS are used (see
-[here](https://roman-docs.stsci.edu/roman-instruments/the-wide-field-instrument/observing-with-the-wfi/wfi-multiaccum-ma-tables/imaging-multiaccum-tables)
+`here <https://roman-docs.stsci.edu/roman-instruments/the-wide-field-instrument/observing-with-the-wfi/wfi-multiaccum-ma-tables/imaging-multiaccum-tables>`_
 for the associated Roman documentation page on the available MA tables).
 If ``--usecrds`` is not provided, a limited set of legacy MA tables are supported.
 
