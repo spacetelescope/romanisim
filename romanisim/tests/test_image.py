@@ -608,6 +608,7 @@ def test_make_test_catalog_and_images():
     assert len(res) > 0
 
 
+@pytest.mark.bigdata
 @pytest.mark.parametrize(
     "level",
     [
