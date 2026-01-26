@@ -49,6 +49,8 @@ if __name__ == '__main__':
     parser.add_argument('--psftype', type=str, default='galsim',
                         choices=['epsf', 'galsim', 'stpsf'],
                         help='Type of PSF generator to use.')
+    parser.add_argument('--fastpointsources', type=bool, default=True, 
+                        help='use fastpointsources')
 
     args = parser.parse_args()
 
@@ -76,7 +78,7 @@ if __name__ == '__main__':
     im, extras = l3.simulate(
         (args.npix, args.npix), twcs, args.exptime, args.bandpass,
         cat, effreadnoise=args.effreadnoise, nexposures=args.nexposures,
-        metadata=metadata, psftype=args.psftype)
+        metadata=metadata, psftype=args.psftype, fastpointsources=args.fastpointsources)
 
     # Create metadata for simulation parameter
     romanisimdict = deepcopy(vars(args))
