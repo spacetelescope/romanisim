@@ -283,8 +283,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             flux2counts = flux_to_counts_factor*np.ones(len(objlist))
         else:
             flux2counts = np.asarray(flux_to_counts_factor).astype(np.float32)
-        if outputunit_to_electrons is not None:
-            flux2counts /= np.array(outputunit_to_electrons)
+        # if outputunit_to_electrons is not None:
+            # flux2counts /= np.array(outputunit_to_electrons)
     else:
         log.warning('You requested fastpointsources, but the PSF and/or '
                     'chromaticity are incompatible with this setting.  '
@@ -366,7 +366,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         nrender += 1
 
     if np.sum(pointsources) > 0 and add_noise:
-        image_pointsources.addNoise(galsim.PoissonNoise(rng))
+        image_pointsources.addNoise(galsim.PoissonNoise(rng)) # noise should be added when the unit is electrons
+    if outputunit_to_electrons is not None:
+        image_pointsources /= np.array(outputunit_to_electrons).mean()
     image += image_pointsources
 
     log.info('Rendered %d point sources in %.3g seconds' %
