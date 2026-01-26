@@ -348,7 +348,10 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     # in turn.
 
     image_pointsources = image*0
-    different_output_units_factors = (arr.size == 0) or np.all(arr == arr[0])
+    different_output_units_factors = (
+        outputunit_to_electrons is not None and
+        (len(outputunit_to_electrons) != 0) and
+        not np.all(outputunit_to_electrons == outputunit_to_electrons[0]))
 
     tpoint = time.time()
     for i in np.where(pointsources)[0]:
