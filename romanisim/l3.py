@@ -93,7 +93,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
 
 
 def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
-                           psftype='galsim', exptimes=None, seed=None, return_info=False):
+                           psftype='galsim', fastpointsources=True, exptimes=None, seed=None, return_info=False):
     """Inject sources into an L3 image.
 
     This routine allows sources to be injected onto an existing L3 image.
@@ -160,7 +160,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
-        psf = l3_psf(filter_name, pixscalefrac, psftype=psftype, chromatic=False, date=model.meta.coadd_info.time_mean)
+        psf = l3_psf(filter_name, pixscalefrac, psftype=psftype, chromatic=False, date=model.meta.coadd_info.time_mean, variable=fastpointsources)
     sca = romanisim.parameters.default_sca
     maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
     etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
@@ -289,7 +289,8 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
 def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
              metadata={},
              effreadnoise=None, sky=None, psf=None,
-             bandpass=None, seed=None, rng=None, psftype='galsim',
+             bandpass=None, seed=None, rng=None, psftype='galsim', 
+             fastpointsources=True,
              **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -425,7 +426,8 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
-        psf = l3_psf(filter_name, pixscalefrac, psftype=psftype,
+        psf = l3_psf(filter_name, pixscalefrac, psftype=psftype, 
+                     variable=fastpointsources, # enabling fastpointsources
                      chromatic=chromatic, date=meta['coadd_info']['time_mean'])
 
     # Simulate mosaic cps
@@ -760,7 +762,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
         pscale.to(u.arcsec).value / romanisim.parameters.pixel_scale)
     metadata['resample']['pixfrac'] = 0
     # our simulations sort of imply idealized 0 droplet size
-    metadata['resample']['pointings'] = nexposures
+    metadata['resample']['pointings'] = int(nexposures)
     xref, yref = wcs.world_to_pixel_values(
         metadata['wcsinfo']['ra_ref'], metadata['wcsinfo']['dec_ref'])
     metadata['wcsinfo']['x_ref'] = xref
