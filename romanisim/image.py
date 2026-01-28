@@ -364,6 +364,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         stamp = psf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
         if different_output_units_factors and add_noise:
             stamp.addNoise(galsim.PoissonNoise(rng))
+            # note that this likely dominates the computational cost
+            # of this routine.  If this turns out to be relevant,
+            # see the discussion in #313 for a more efficient approach.
         if outputunit_to_electrons is not None:
             stamp[...] /= outputunit_to_electrons[i]
         bounds = stamp.bounds & image_pointsources.bounds
