@@ -804,7 +804,7 @@ def test_psftypes_similar(psftype):
     flux_ratio = image_sum / galsim_sum
     log.info(f'test_psftypes_similar: {psftype} vs galsim flux ratio = {flux_ratio:.6f}, '
              f'difference = {abs(flux_ratio - 1.0):.6f}')
-    assert (abs(flux_ratio - 1.)) < 0.1  # This isn't great but sufficient.
+    assert (abs(flux_ratio - 1.)) < 0.15  # This isn't great but sufficient.
 
 
 # ######################

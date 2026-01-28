@@ -275,8 +275,9 @@ def apportion_counts_to_resultants(
     instrumental_so_far = np.zeros(counts.shape, dtype='f4')
 
     # Add pedestal (detector reset level in electrons) if specified
-    if pedestal is not None:
-        instrumental_so_far += pedestal
+    if pedestal is None:
+        pedestal = 0
+    instrumental_so_far += pedestal
 
     # Add pedestal noise if specified (sampled once per pixel)
     if pedestal_extra_noise is not None:
@@ -333,7 +334,8 @@ def apportion_counts_to_resultants(
         # should the electrons from persistence contribute to future
         # persistence?  Here they do.  But hopefully this choice is second
         # order enough that either decision would be fine.
-        persistence.update(counts_so_far + instrumental_so_far, tnow)
+        # the pedestal should _not_ contribute to persistence
+        persistence.update(counts_so_far + instrumental_so_far - pedestal, tnow)
 
     return resultants, dq
 
