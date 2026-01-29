@@ -19,7 +19,8 @@ import romanisim.bandpass
 import romanisim.psf
 import romanisim.persistence
 
-from roman_datamodels.datamodels import ImageModel, InverselinearityRefModel, LinearityRefModel, SaturationRefModel, DarkRefModel, GainRefModel, ReadnoiseRefModel, FlatRefModel
+from roman_datamodels.datamodels import ImageModel
+from roman_datamodels import datamodels
 
 
 # galsim fluxes are in photons / cm^2 / s
@@ -736,8 +737,9 @@ def gather_reference_data(image_mod, usecrds=False):
         read_noise
         darkrate
         gain
-        inv_linearity
+        inverselinearity
         linearity
+        integralnonlinearity
         saturation
         reffiles
     These have the reference images or constant values for the various
@@ -772,7 +774,7 @@ def gather_reference_data(image_mod, usecrds=False):
                     image_mod.get_crds_parameters(),
                     reftypes=['flat'], observatory='roman')['flat']
 
-                flat_model = FlatRefModel(flatfile)
+                flat_model = datamodels.open(flatfile)
                 flat = flat_model.data[...].copy()
                 image_mod.meta.ref_file['flat'] = (
                     'crds://' + os.path.basename(flatfile))
@@ -795,23 +797,23 @@ def gather_reference_data(image_mod, usecrds=False):
 
     # we now need to extract the relevant fields
     if isinstance(reffiles['readnoise'], str):
-        model = ReadnoiseRefModel(
+        model = datamodels.open(
             reffiles['readnoise'])
         out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
         # readnoise in DN
 
     if isinstance(reffiles['gain'], str):
-        model = GainRefModel(reffiles['gain'])
+        model = datamodels.open(reffiles['gain'])
         out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
         # gain in electron/DN
 
     if isinstance(reffiles['dark'], str):
-        model = DarkRefModel(reffiles['dark'])
+        model = datamodels.open(reffiles['dark'])
         # dark_slope from CRDS is in DN/s, convert to electron/s
         out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * out['gain']
 
     if isinstance(reffiles['saturation'], str):
-        saturation = SaturationRefModel(
+        saturation = datamodels.open(
             reffiles['saturation'])
         saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
         # saturation in DN
@@ -819,14 +821,20 @@ def gather_reference_data(image_mod, usecrds=False):
     else:
         saturation = out['saturation']
 
+    if isinstance(reffiles['integralnonlinearity'], str):
+        inl_model = datamodels.open(reffiles['integralnonlinearity'])
+    else:
+        inl_model = None
+
     if isinstance(reffiles['linearity'], str):
-        lin_model = LinearityRefModel(
+        lin_model = datamodels.open(
             reffiles['linearity'])
         out['linearity'] = nonlinearity.NL(
             lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
             gain=out['gain'],
-            saturation=saturation * 1.1 if saturation is not None else None)
+            saturation=saturation * 1.1 if saturation is not None else None,
+            integralnonlinearity=inl_model)
         # fudge factor on saturation to let us correct to slightly beyond
         # saturation, even if we mask at saturation and don't use those
         # corrected results
@@ -843,13 +851,15 @@ def gather_reference_data(image_mod, usecrds=False):
         else:
             inv_saturation = None
 
-        ilin_model = InverselinearityRefModel(
+        ilin_model = datamodels.open(
             reffiles['inverselinearity'])
         out['inverselinearity'] = nonlinearity.NL(
             ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
             gain=out['gain'],
-            saturation=inv_saturation * 1.1 if inv_saturation is not None else None)
+            saturation=inv_saturation * 1.1 if inv_saturation is not None else None,
+            integralnonlinearity=inl_model,
+            inverse=True)
         # fudge factor of 10% on the inverse saturation ensures that we'll
         # continue to fill up pixels above their nominal saturation limits
         # so that we can robustly see these pixels as saturated.

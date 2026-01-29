@@ -93,6 +93,46 @@ def test_reverse():
     assert np.all(res_rev[:] == res[:])
 
 
+def test_inl_correction():
+    """Test integral nonlinearity correction with a simple +1 correction."""
+    from types import SimpleNamespace
+
+    # Create a mock INL model with all corrections = 1
+    ncols = 256  # 2 channels
+    inl_model = SimpleNamespace(
+        value=np.arange(65536, dtype='f4'),
+        inl_table=SimpleNamespace()
+    )
+    for start_col in range(0, ncols, 128):
+        channel_num = start_col // 128 + 1
+        attr_name = f"science_channel_{channel_num:02d}"
+        setattr(inl_model.inl_table, attr_name,
+                SimpleNamespace(correction=np.ones(65536, dtype='f4')))
+
+    # Identity polynomial coefficients (output = input)
+    identity_coeffs = np.zeros((5, 100, ncols), dtype='f4')
+    identity_coeffs[1, :, :] = 1.0  # linear term = 1
+
+    # Test forward (linearity) adds +1
+    linearity = nonlinearity.NL(
+        identity_coeffs, gain=1.0, integralnonlinearity=inl_model, inverse=False
+    )
+    counts = np.ones((100, ncols), dtype='f4') * 1000
+    result = linearity.apply(counts)
+    np.testing.assert_allclose(result, counts + 1)
+
+    # Test inverse subtracts 1 (correction is negated)
+    inv_linearity = nonlinearity.NL(
+        identity_coeffs, gain=1.0, integralnonlinearity=inl_model, inverse=True
+    )
+    result_inv = inv_linearity.apply(counts)
+    np.testing.assert_allclose(result_inv, counts - 1)
+
+    # Test round-trip: apply inverse then forward recovers original
+    round_trip = linearity.apply(inv_linearity.apply(counts))
+    np.testing.assert_allclose(round_trip, counts)
+
+
 def test_inverse_then_linearity():
     # Test that applying inverse linearity and then linearity returns the results to
     # the original value
