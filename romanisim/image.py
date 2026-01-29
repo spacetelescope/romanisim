@@ -762,7 +762,7 @@ def gather_reference_data(image_mod, usecrds=False):
                 image_mod.get_crds_parameters(), reftypes=refsneeded,
                 observatory='roman'))
             for reftype, reffn in reffiles.items():
-                if reftype in ['inverselinearity', 'ipc', 'flat']:
+                if reftype in ['ipc', 'flat']:
                     continue
                 if reftype not in refsneeded:
                     continue
