@@ -63,4 +63,4 @@ The path to the STPSF data files may be found in their `documentation <https://s
 
 You may wish to, for example, set up a new python virtual environment
 before running the above, or choose a different directory for
-STPSF's data files.  See `here <https://outerspace.stsci.edu/spaces/RTS/pages/356668152/Webinar+2+Simulated+Data+Sets>`_ for other information about romanisim installation and examples.
+STPSF's data files.  See this `webinar <https://outerspace.stsci.edu/spaces/RTS/pages/356668152/Webinar+2+Simulated+Data+Sets>`_ for other information about romanisim installation and examples.
