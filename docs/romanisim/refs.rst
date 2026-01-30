@@ -9,7 +9,8 @@ romanisim uses reference files from `CRDS <https://hst-crds.stsci.edu/static/use
 * flat field
 * gain
 * distortion map
-* linearity
+* linearity / inverselinearity
+* integralnonlinearity
 * saturation
 
 The usage of these is mostly straightforward, but we provide here a few notes.
@@ -54,6 +55,10 @@ World coordinate systems for WFI images are created by placing the telescope bor
 Linearity
 ---------
 Inverse linearity reference files are used to apply the effect of classical non-linearity when constructing L1 files, and linearity reference files are used to remove it when constructing L2 files.
+
+Integral Nonlinearity
+---------------------
+Integral nonlinearity reference files contain per-channel lookup tables for correcting INL in the analog-to-digital converter.  The correction is subtracted when simulating L1 files and added back during calibration.
 
 Saturation
 ----------
