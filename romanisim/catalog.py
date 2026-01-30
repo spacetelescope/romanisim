@@ -845,16 +845,22 @@ def read_catalog(filename,
     Parameters
     ----------
     filename : str or None
-        Filename of catalog or directory to read
-        If None, will call Gaia website
+        Filename of catalog, or directory containing healpix catalogs, or None.
+        If None, will query Gaia catalog at the provided `coord`.
     coord : astropy.coordinates.SkyCoord
-        Location around which to generate sources.
+        Location around which to generate sources. Not used if the provided
+        `filename` is a single catalog file.
     date : astropy.time.Time
-        Optional argument to provide a date and time for stellar search
+        Optional argument to provide a date and time for catalog query.
+        Not used if the provided `filename` is a single catalog file.
     bandpasses : list[str]
         Bandpasses for which fluxes are tabulated in the catalog
     radius: float
         Radius over which to search healpix for source file indicies
+
+    Any additional keyword arguments provided will be passed to
+    `make_gaia_stars` if the `filename` argument is None or 
+    `read_one_healpix` if `filename` is a directory of healpix catalogs.
 
     Returns
     -------
