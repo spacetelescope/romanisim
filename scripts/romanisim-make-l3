@@ -49,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--psftype', type=str, default='galsim',
                         choices=['epsf', 'galsim', 'stpsf'],
                         help='Type of PSF generator to use.')
-    parser.add_argument('--fastpointsources', type=bool, default=True, 
+    parser.add_argument('--fastpointsources', action='store_true', default=False,
                         help='use fastpointsources')
 
     args = parser.parse_args()
