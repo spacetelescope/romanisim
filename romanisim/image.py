@@ -283,8 +283,6 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             flux2counts = flux_to_counts_factor*np.ones(len(objlist))
         else:
             flux2counts = np.asarray(flux_to_counts_factor).astype(np.float32)
-        if outputunit_to_electrons is not None:
-            flux2counts /= np.array(outputunit_to_electrons)
     else:
         log.warning('You requested fastpointsources, but the PSF and/or '
                     'chromaticity are incompatible with this setting.  '
@@ -350,6 +348,10 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     # in turn.
 
     image_pointsources = image*0
+    different_output_units_factors = (
+        outputunit_to_electrons is not None and
+        (len(outputunit_to_electrons) != 0) and
+        not np.all(outputunit_to_electrons == outputunit_to_electrons[0]))
 
     tpoint = time.time()
     for i in np.where(pointsources)[0]:
@@ -360,12 +362,20 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
 
         fluxfactor = obj.flux[filter_name] * flux2counts[i]
         stamp = psf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
+        if different_output_units_factors and add_noise:
+            stamp.addNoise(galsim.PoissonNoise(rng))
+            # note that this likely dominates the computational cost
+            # of this routine.  If this turns out to be relevant,
+            # see the discussion in #313 for a more efficient approach.
+        if outputunit_to_electrons is not None:
+            stamp[...] /= outputunit_to_electrons[i]
         bounds = stamp.bounds & image_pointsources.bounds
         if bounds.area() > 0:
             image_pointsources[bounds] += stamp[bounds]
         nrender += 1
 
-    if np.sum(pointsources) > 0 and add_noise:
+    if (np.sum(pointsources) > 0 and add_noise and
+            not different_output_units_factors):
         image_pointsources.addNoise(galsim.PoissonNoise(rng))
     image += image_pointsources
 
