@@ -59,7 +59,7 @@ repos:
       - id: towncrier-check
   # format YAML and Markdown
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.7.4
+    rev: v3.8.1
     hooks:
       - id: prettier
         types_or:
