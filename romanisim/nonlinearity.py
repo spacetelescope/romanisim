@@ -143,17 +143,17 @@ class NL:
 
         # Extract INL data if provided
         self.inl_lookup = None
-        self.inl_corrections = None
+        self.inl_corrs = None
         if integralnonlinearity is not None:
             channel_width = 128
             ncols = coeffs.shape[2]
             self.inl_lookup = integralnonlinearity.value.copy()
-            self.inl_corrections = {}
+            self.inl_corrs = {}
             sign = -1 if inverse else 1
             for start_col in range(0, ncols, channel_width):
                 channel_num = start_col // channel_width + 1
                 attr_name = f"science_channel_{channel_num:02d}"
-                self.inl_corrections[channel_num] = sign * getattr(
+                self.inl_corrs[channel_num] = sign * getattr(
                     integralnonlinearity.inl_table, attr_name
                 ).correction.copy()
 
@@ -196,7 +196,7 @@ class NL:
         corrected = evaluate_nl_polynomial(counts, self.coeffs, reversed)
 
         # Apply integral nonlinearity correction if available
-        if self.inl_corrections is not None:
+        if self.inl_corrs is not None:
             corrected = corrected + self.inl_correction(counts)
 
         if electrons:
@@ -222,7 +222,7 @@ class NL:
         correction = np.zeros_like(counts)
         for start_col in range(0, ncols, channel_width):
             channel_num = start_col // channel_width + 1
-            channel_corr = self.inl_corrections[channel_num]
+            channel_corr = self.inl_corrs[channel_num]
             channel_data = counts[..., start_col:start_col + channel_width]
             correction[..., start_col:start_col + channel_width] = np.interp(
                 channel_data, self.inl_lookup, channel_corr
