@@ -886,6 +886,7 @@ def read_catalog(filename,
         else:
             meta = dict()
         nside = meta.get('nside', 128)
+        ext = meta.get('extension', 'fits')
 
         # Set parameters of Healpix
         hp = astropy_healpix.HEALPix(
@@ -901,7 +902,7 @@ def read_catalog(filename,
         cat = None
         for i, healpix_index in enumerate(hp_cone):
             log.info(f'Loading healpix catalog file {i + 1} of {len(hp_cone)}')
-            hp_filename = filename + f"/cat-{healpix_index}.fits"
+            hp_filename = filename + f"/cat-{healpix_index}.{ext}"
             if os.path.isfile(hp_filename):
                 hp_table = read_one_healpix(hp_filename, date, bandpasses, **kwargs)
                 if cat is None:
