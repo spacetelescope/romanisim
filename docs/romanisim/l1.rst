@@ -14,7 +14,11 @@ After apportioning counts to resultants, systematic effects are added to the res
 Nonlinearity
 ------------
 
-Non-linearity is considered when L1 images are constructed and a non-linearity model is provided (e.g., from CRDS).  We treat non-linearity as a difference between the electrons captured in the detector and the amount of signal read out.  This function is modeled as a high order polynomial, and the coefficients of this polynomial and its inverse are stored in CRDS (linearity, inverselinearity reference files for each detector).  When assigning counts to each read, these are transformed through the inverselinearity polynomial for each pixel and then added to the resultant buffer to account for this effect.  The linearity polynomial then corrects for this effects as part of calibrating an L1 file and eventually producing an L2 file.
+Non-linearity is considered when L1 images are constructed and a non-linearity model is provided (e.g., from CRDS).  There are two sources of non-linearity: classical non-linearity (CNL) due to the change in pixel capacitance with accumulated charge, and integral non-linearity (INL) in the analog-to-digital converter.
+
+Classical non-linearity is modeled as a high order polynomial, and the coefficients of this polynomial and its inverse are stored in CRDS (linearity, inverselinearity reference files for each detector).  When assigning counts to each read, these are transformed through the inverselinearity polynomial for each pixel and then added to the resultant buffer to account for this effect.  The linearity polynomial then corrects for this effect as part of calibrating an L1 file and eventually producing an L2 file.
+
+Integral non-linearity is corrected via a per-channel lookup table (integralnonlinearity reference file).  Each of the 32 readout channels has its own correction table mapping observed DN values to a correction offset.  When simulating L1 images, the INL correction is subtracted from each read; when calibrating, it is added back.  See `Brandt & Perera (2025) <https://www.stsci.edu/files/live/sites/www/files/home/roman/documentation/technical-documentation/_documents/Roman-STScI–000866.pdf>`_ for details on INL for Roman.
 
 The linearity polynomials are occasionally poorly determined or cannot be computed.  When marked as problematic in the reference file, we use trivial polynomials (i.e., the identity), and mark the affected pixels with a DQ bit indicating a problematic linearity correction.
 
