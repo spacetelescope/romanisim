@@ -53,7 +53,8 @@ from roman_datamodels import datamodels
 
 
 def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
-            linearity=None, darkrate=None, dq=None):
+            linearity=None, darkrate=None, dq=None,
+            darkdecaysignal=None):
     """
     Simulate an image in a filter given resultants.
 
@@ -77,6 +78,10 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
         Dark current rate in electron/s to subtract from ramps
     dq : np.ndarray[nresultants, ny, nx] (int), optional
         DQ image corresponding to resultants
+    darkdecaysignal : dict or None
+        Dictionary with keys 'amplitude', 'time_constant', and 'sca'
+        describing the dark decay signal.  If None, no dark decay
+        correction is applied.
 
     Returns
     -------
@@ -100,6 +105,10 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
         gain = np.float32(gain)
 
     # resultants in DN
+
+    if darkdecaysignal is not None:
+        romanisim.l1.apply_dark_decay(
+            resultants, darkdecaysignal, read_pattern, sign=-1)
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
@@ -866,6 +875,16 @@ def gather_reference_data(image_mod, usecrds=False):
         # It relies on the linearity polynomials not going immediately
         # insane beyond saturation, though.
 
+    if isinstance(reffiles.get('darkdecaysignal', None), str):
+        detector = image_mod.meta.instrument.detector
+        sca = int(detector[3:])
+        darkdecayref = datamodels.open(reffiles['darkdecaysignal'])
+        decay_table = getattr(darkdecayref.decay_table, detector)
+        out['darkdecaysignal'] = dict(
+            amplitude=float(decay_table.amplitude),
+            time_constant=float(decay_table.time_constant),
+            sca=sca)
+
     out['reffiles'] = reffiles
     return out
 
@@ -959,6 +978,7 @@ def simulate(metadata, objlist,
     inv_linearity = refdata['inverselinearity']
     linearity = refdata['linearity']
     saturation = refdata['saturation']
+    darkdecaysignal = refdata['darkdecaysignal']
     reffiles = refdata['reffiles']
     flat = refdata['flat']
     pedestal_extra_noise = parameters.pedestal_extra_noise
@@ -996,6 +1016,7 @@ def simulate(metadata, objlist,
             tstart=image_mod.meta.exposure.start_time,
             persistence=persistence,
             saturation=saturation,
+            darkdecaysignal=darkdecaysignal,
             **kwargs)
     if level == 1:
         im, extras = romanisim.l1.make_asdf(
@@ -1003,7 +1024,8 @@ def simulate(metadata, objlist,
     elif level == 2:
         slopeinfo = make_l2(l1, read_pattern, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
-                            darkrate=darkrate, dq=l1dq)
+                            darkrate=darkrate, dq=l1dq,
+                            darkdecaysignal=darkdecaysignal)
         l2dq = np.bitwise_or.reduce(l1dq, axis=0)
         im, extras = make_asdf(
             *slopeinfo, metadata=image_mod.meta, persistence=persistence,

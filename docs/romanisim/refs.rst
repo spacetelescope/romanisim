@@ -5,6 +5,7 @@ romanisim uses reference files from `CRDS <https://hst-crds.stsci.edu/static/use
 
 * read noise
 * dark current
+* darkdecaysignal
 * epsf
 * flat field
 * gain
@@ -33,6 +34,10 @@ rate" field to give the number of DN / s attributed to dark current. This rate
 is then scaled by the gain to get the number of dark electrons per second. This
 rate then goes into the idealized "total electrons" image which is then
 apportioned into the reads making up the resultants of an L1 image.
+
+Dark Decay Signal
+-----------------
+The darkdecaysignal reference file provides a per-detector amplitude and time constant for the dark decay effect.  These are used to compute the decaying signal added to each resultant during L1 simulation and subtracted during L2 processing.
 
 EPSF
 ----

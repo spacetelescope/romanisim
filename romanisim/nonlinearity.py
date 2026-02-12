@@ -217,14 +217,26 @@ class NL:
         correction : np.ndarray
             The INL correction to be added to the counts.
         """
+        # only do an INL correction if we've been passed
+        # some kind of vaguely image-like quantity.
+        if np.ndim(counts) < 2:
+            return 0
         channel_width = 128
+        nborder = parameters.nborder
         ncols = counts.shape[-1]
         correction = np.zeros_like(counts)
-        for start_col in range(0, ncols, channel_width):
-            channel_num = start_col // channel_width + 1
+        for channel_num in sorted(self.inl_corrs):
+            # Column range in the original (untrimmed) image
+            orig_start = (channel_num - 1) * channel_width
+            orig_end = channel_num * channel_width
+            # Convert to trimmed coordinates
+            trim_start = max(0, orig_start - nborder)
+            trim_end = min(ncols, orig_end - nborder)
+            if trim_start >= trim_end:
+                continue
             channel_corr = self.inl_corrs[channel_num]
-            channel_data = counts[..., start_col:start_col + channel_width]
-            correction[..., start_col:start_col + channel_width] = np.interp(
+            channel_data = counts[..., trim_start:trim_end]
+            correction[..., trim_start:trim_end] = np.interp(
                 channel_data, self.inl_lookup, channel_corr
             )
         return correction

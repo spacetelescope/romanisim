@@ -228,6 +228,7 @@ default_mosaic_parameters_dictionary = {
 
 reference_data = {
     "dark": 0.01,  # electron/s
+    "darkdecaysignal": None,
     "distortion": None,
     "flat": None,
     "gain": 2,  # electron/DN
