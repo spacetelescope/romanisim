@@ -97,14 +97,15 @@ def test_inl_correction():
     """Test integral nonlinearity correction with a simple +1 correction."""
     from types import SimpleNamespace
 
-    # Create a mock INL model with all corrections = 1
-    ncols = 256  # 2 channels
+    # Simulate a trimmed 2-channel image: 2*128 = 256 original columns,
+    # minus 2*nborder border pixels = 248 trimmed columns.
+    nborder = parameters.nborder
+    ncols = 256 - 2 * nborder
     inl_model = SimpleNamespace(
         value=np.arange(65536, dtype='f4'),
         inl_table=SimpleNamespace()
     )
-    for start_col in range(0, ncols, 128):
-        channel_num = start_col // 128 + 1
+    for channel_num in (1, 2):
         attr_name = f"science_channel_{channel_num:02d}"
         setattr(inl_model.inl_table, attr_name,
                 SimpleNamespace(correction=np.ones(65536, dtype='f4')))
@@ -115,7 +116,8 @@ def test_inl_correction():
 
     # Test forward (linearity) adds +1
     linearity = nonlinearity.NL(
-        identity_coeffs, gain=1.0, integralnonlinearity=inl_model, inverse=False
+        identity_coeffs, gain=1.0, integralnonlinearity=inl_model,
+        inverse=False
     )
     counts = np.ones((100, ncols), dtype='f4') * 1000
     result = linearity.apply(counts)
@@ -123,7 +125,8 @@ def test_inl_correction():
 
     # Test inverse subtracts 1 (correction is negated)
     inv_linearity = nonlinearity.NL(
-        identity_coeffs, gain=1.0, integralnonlinearity=inl_model, inverse=True
+        identity_coeffs, gain=1.0, integralnonlinearity=inl_model,
+        inverse=True
     )
     result_inv = inv_linearity.apply(counts)
     np.testing.assert_allclose(result_inv, counts - 1)
