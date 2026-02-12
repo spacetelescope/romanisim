@@ -210,9 +210,11 @@ def main():
                             line += f" --previous {previous_file_name[sca]}"
 
                 # Add image options for contents of pointing input file
+                # Subtract 60 deg from APT PA to convert from APT V3 PA
+                # to WFI_CEN PA
                 line += f" --bandpass {bandpass}"
                 line += f" --radec {entry['RA']} {entry['DEC']}"
-                line += f" --roll {entry['PA']}"
+                line += f" --roll {entry['PA'] - 60}"
                 line += f" --ma_table_number {ma_table_number}"
                 line += f" --catalog {args.cat_file_name}"
 
