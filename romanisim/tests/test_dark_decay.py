@@ -27,6 +27,7 @@ def test_frame_read_times_range():
     rt = l1.frame_read_times(frame_time, 7, t0=0)
     assert rt.min() >= 0
     assert rt.max() < frame_time
+    assert rt.max() - rt.min() > 0.99 * frame_time
 
 
 def test_frame_read_times_t0():
@@ -44,8 +45,7 @@ def test_frame_read_times_sca_flip():
     # SCA 7 (7 % 3 != 0): row flip
     rt7 = l1.frame_read_times(frame_time, 7, t0=0)
     # Both should have the same set of values, just rearranged
-    assert np.isclose(rt3.min(), rt7.min())
-    assert np.isclose(rt3.max(), rt7.max())
+    assert np.allclose(np.sort(rt3.ravel()), np.sort(rt7.ravel()))
     # But the arrays should differ
     assert not np.allclose(rt3, rt7)
 
