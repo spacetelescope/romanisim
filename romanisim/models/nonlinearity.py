@@ -292,7 +292,7 @@ class Nonlinearity(object):
             img_arr, self.coeffs, reversed
         )
 
-        if self.inl_corrs is not None:
+        if self.inl_corrs is not None and img_arr.ndim >= 2:
             corrected = corrected + self.inl_correction(img_arr)
 
         if electrons:
