@@ -41,7 +41,7 @@ def test_simulate_image_file(tmp_path):
     cat = ris_make_utils.create_catalog(meta, nobj=1, usecrds=False)
     args.filename = tmp_path / 'im.asdf'
     args.usecrds = False
-    args.stpsf = False
+    args.psftype=None
     args.level = 0
     args.sca = 7
     args.bandpass = 'F184'

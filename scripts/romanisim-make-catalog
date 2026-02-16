@@ -6,11 +6,10 @@ Gaia catalog generator for roman simulator.
 """
 
 import argparse
-import astroquery
 from astroquery.gaia import Gaia
 from astropy.time import Time
 from romanisim import gaia
-import romanisim.parameters, romanisim.bandpass
+from romanisim import bandpass, parameters
 
 def main():
     """Main function of catalog generator"""
@@ -22,22 +21,22 @@ def main():
                         type=float,
                         metavar='178.389741 -2.678655 1.0',
                         nargs=3,
-                        help=f"The right ascension, declination, and radius of Gaia objects to catalog."
+                        help="The right ascension, declination, and radius of Gaia objects to catalog."
                         )
 
     # Optional output filename
     parser.add_argument('-o', '--output',
                         type=str,
                         metavar='gaia-178-2-2027-06-01',
-                        help=f"Name prefix of gaia catalog file."
+                        help="Name prefix of gaia catalog file."
                         )
 
     # Optional Time
     parser.add_argument('-t', '--time',
                         type=str,
-                        metavar='2027-06-01',
-                        default='2027-06-01',
-                        help=f"Time of observations of sources in catalog."
+                        metavar=parameters.default_date.isot,
+                        default=parameters.default_date,
+                        help="Time of observations of sources in catalog."
                         )
 
     # Debug argument
@@ -50,7 +49,7 @@ def main():
 
     if args.debug:
         print("args = " + str(args))
-    
+
     q = f'select * from gaiadr3.gaia_source where distance({args.radecrad[0]}, {args.radecrad[1]}, ra, dec) < {args.radecrad[2]}'
     job = Gaia.launch_job_async(q)
     r = job.get_results()
@@ -58,7 +57,7 @@ def main():
     outfile_name = f'gaia_{args.radecrad[0]:.2f}_{args.radecrad[1]:.2f}_{args.radecrad[2]:.2f}-{args.time}.ecsv'
     if args.output:
         outfile_name = args.output
-    gaia.gaia2romanisimcat(r, Time(args.time), fluxfields=set(romanisim.bandpass.galsim2roman_bandpass.values())).write(outfile_name, overwrite=True)
+    gaia.gaia2romanisimcat(r, Time(args.time), fluxfields=set(bandpass.galsim2roman_bandpass.values())).write(outfile_name, overwrite=True)
 
 # Call main if run (as opposed to imported as a module)
 if __name__ == "__main__":

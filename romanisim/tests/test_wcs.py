@@ -1,7 +1,6 @@
 """
 Unit tests for wcs module.
 """
-import os
 import copy
 import numpy as np
 from astropy.modeling import rotations, projections, models
@@ -10,7 +9,6 @@ from astropy import units as u
 from astropy.time import Time
 from romanisim import wcs, util, parameters
 import galsim
-import pytest
 
 import roman_datamodels
 
@@ -59,6 +57,11 @@ def test_wcs():
                        [cc2.ra / galsim.degrees, cc2.dec / galsim.degrees])
     pos2 = wcsgalsim.toImage(cc1)
     assert np.allclose([pos.x, pos.y], [pos2.x, pos2.y])
+
+    # Using direct unit input to Galsim we should get identical results
+    pos3 = wcsgalsim.toImage(cc1.ra.deg, cc1.dec.deg, units="deg")
+    assert np.all((pos2.x, pos2.y) == pos3)
+ 
     # also try some arrays
     xx = np.random.uniform(0, 4096, 100)
     yy = np.random.uniform(0, 4096, 100)
@@ -118,12 +121,6 @@ def test_wcs_from_fits_header():
     assert np.max(sep) < 1e-5
 
 
-@pytest.mark.skipif(
-    os.environ.get("CI") == "true",
-    reason=(
-        "Roman CRDS servers are not currently available outside the internal network"
-    ),
-)
 def test_wcs_crds_match():
     # Set up parameters for simulation run
 

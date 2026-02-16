@@ -29,8 +29,7 @@ with open(REPO_ROOT / "pyproject.toml", "rb") as configuration_file:
 setup_metadata = conf["project"]
 
 project = setup_metadata["name"]
-primary_author = setup_metadata["authors"][0]
-author = f'{primary_author["name"]} <{primary_author["email"]}>'
+author = setup_metadata["authors"][0]["name"]
 copyright = f"{datetime.now().year}, {author}"
 
 package = importlib.import_module(project)

@@ -20,7 +20,6 @@ construct final DN image.
 """
 
 import numpy as np
-from astropy import units as u
 from romanisim import parameters
 
 
@@ -97,16 +96,7 @@ def evaluate_nl_polynomial(counts, coeffs, reversed=False):
     else:
         cc = coeffs[::-1, ...]
 
-    if isinstance(counts, u.Quantity):
-        unit = counts.unit
-        counts = counts.value
-    else:
-        unit = None
-
     res = np.polyval(cc, counts)
-
-    if unit is not None:
-        res = res * unit
 
     return res
 
@@ -115,7 +105,8 @@ class NL:
     """Keep track of non-linearity and inverse non-linearity coefficients.
 
     """
-    def __init__(self, coeffs, dq=None, gain=None, saturation=None):
+    def __init__(self, coeffs, dq=None, gain=None, saturation=None,
+                 integralnonlinearity=None, inverse=False):
         """Construct an NL class handling non-linearity correction.
 
         Parameters
@@ -127,19 +118,44 @@ class NL:
             Data Quality array
 
         gain : float or np.ndarray[float]
-            Gain (electrons / DN) for converting DN to electrons
+            Gain in electron/DN for converting DN to electrons
 
         saturation : float or None
             Saturation level in DN
+
+        integralnonlinearity : datamodel or None
+            Integral nonlinearity reference model containing lookup values
+            and per-channel corrections.
+
+        inverse : bool
+            If True, subtract the INL correction instead of adding it.
+            Used when applying inverse linearity.
         """
         if dq is None:
             dq = np.zeros(coeffs.shape[1:], dtype='uint32')
         if gain is None:
-            gain = parameters.reference_data['gain'].to(u.electron / u.DN).value
+            gain = parameters.reference_data['gain']
 
         self.coeffs, self.dq = repair_coefficients(coeffs, dq)
         self.gain = gain
         self.saturation = saturation
+        self.inverse = inverse
+
+        # Extract INL data if provided
+        self.inl_lookup = None
+        self.inl_corrs = None
+        if integralnonlinearity is not None:
+            channel_width = 128
+            ncols = coeffs.shape[2]
+            self.inl_lookup = integralnonlinearity.value.copy()
+            self.inl_corrs = {}
+            sign = -1 if inverse else 1
+            for start_col in range(0, ncols, channel_width):
+                channel_num = start_col // channel_width + 1
+                attr_name = f"science_channel_{channel_num:02d}"
+                self.inl_corrs[channel_num] = sign * getattr(
+                    integralnonlinearity.inl_table, attr_name
+                ).correction.copy()
 
     def apply(self, counts, electrons=False, reversed=False):
         """Compute the correction of DN to linearized DN.
@@ -151,7 +167,7 @@ class NL:
         Parameters
         ----------
         counts : np.ndarray[nx, ny] (float)
-            The observed counts
+            The observed counts in DN (or electrons if electrons=True)
 
         electrons : bool
             Set to True for 'counts' being in electrons, with coefficients
@@ -166,22 +182,61 @@ class NL:
         Returns
         -------
         corrected : np.ndarray[nx, ny] (float)
-            The corrected DN or electrons.
+            The corrected DN or electrons (matching input units).
         """
 
         gain = self.gain
 
         if electrons:
-            if not isinstance(counts, u.Quantity):
-                gain = gain / u.electron
             counts = counts / gain
 
         if self.saturation is not None:
-            counts = np.clip(counts, -1000 * u.DN, self.saturation)
+            counts = np.clip(counts, -1000, self.saturation)
 
         corrected = evaluate_nl_polynomial(counts, self.coeffs, reversed)
+
+        # Apply integral nonlinearity correction if available
+        if self.inl_corrs is not None:
+            corrected = corrected + self.inl_correction(counts)
 
         if electrons:
             corrected = corrected * gain
 
         return corrected
+
+    def inl_correction(self, counts):
+        """Compute the integral nonlinearity correction.
+
+        Parameters
+        ----------
+        counts : np.ndarray
+            The counts in DN to compute the correction for.
+
+        Returns
+        -------
+        correction : np.ndarray
+            The INL correction to be added to the counts.
+        """
+        # only do an INL correction if we've been passed
+        # some kind of vaguely image-like quantity.
+        if np.ndim(counts) < 2:
+            return 0
+        channel_width = 128
+        nborder = parameters.nborder
+        ncols = counts.shape[-1]
+        correction = np.zeros_like(counts)
+        for channel_num in sorted(self.inl_corrs):
+            # Column range in the original (untrimmed) image
+            orig_start = (channel_num - 1) * channel_width
+            orig_end = channel_num * channel_width
+            # Convert to trimmed coordinates
+            trim_start = max(0, orig_start - nborder)
+            trim_end = min(ncols, orig_end - nborder)
+            if trim_start >= trim_end:
+                continue
+            channel_corr = self.inl_corrs[channel_num]
+            channel_data = counts[..., trim_start:trim_end]
+            correction[..., trim_start:trim_end] = np.interp(
+                channel_data, self.inl_lookup, channel_corr
+            )
+        return correction

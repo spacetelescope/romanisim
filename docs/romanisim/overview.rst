@@ -28,6 +28,9 @@ package also implements WFI up-the-ramp sampled and averaged images like those
 that will be downlinked from the telescope, and the official Roman WFI file
 format (asdf).
 
+For examples of using romanisim's Python interface, see the
+`romanisim example notebook <https://github.com/spacetelescope/roman_notebooks/blob/main/notebooks/romanisim/romanisim.ipynb>`_.
+
 The best way to interact with romanisim is to make an image.  Running ::
 
     romanisim-make-image out.asdf
@@ -37,7 +40,7 @@ particular astronomical scene in mind, and one can't really simulate a scene
 without knowing where the telescope is pointing and when the observation is
 being made.  A more complete invocation would be ::
 
-    romanisim-make-image --catalog input.ecsv --radec 270 66 --bandpass F087 --sca 7 --date 2026 1 1 --level 1 out.asdf
+    romanisim-make-image --catalog input.ecsv --radec 270 66 --bandpass F087 --sca 7 --date 2026-01-01T00:00:00.000 --level 1 out.asdf
 
 where ``input.ecsv`` includes a list of sources in the scene, the
 telescope boresight is pointing to (RA, dec) = (270, 66), the desired

@@ -18,9 +18,8 @@ import romanisim.psf
 import romanisim.image
 import romanisim.persistence
 import romanisim.parameters
+from roman_datamodels.datamodels import MosaicModel
 import romanisim.util
-import roman_datamodels.datamodels as rdm
-from roman_datamodels.stnode import WfiMosaic
 import astropy.units as u
 import astropy
 from galsim import roman
@@ -71,7 +70,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
         filter_name = l3_mos.meta.instrument.optical_element
 
     # Create Image canvas to add objects to
-    if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
+    if isinstance(l3_mos, (MosaicModel, MosaicModel._node_type)):
         sourcecountsall = galsim.ImageF(
             np.array(l3_mos.data), wcs=romanisim.wcs.GWCS(l3_mos.meta.wcs),
             xmin=0, ymin=0)
@@ -87,14 +86,14 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
         rng=rng, seed=seed, add_noise=True)
 
     # Save array with added sources
-    if isinstance(l3_mos, (rdm.MosaicModel, WfiMosaic)):
+    if isinstance(l3_mos, (MosaicModel, MosaicModel._node_type)):
         l3_mos.data = sourcecountsall.array
 
     return outinfo
 
 
 def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
-                           stpsf=True, exptimes=None, seed=None, return_info=False):
+                           psftype='galsim', exptimes=None, seed=None, return_info=False):
     """Inject sources into an L3 image.
 
     This routine allows sources to be injected onto an existing L3 image.
@@ -129,8 +128,8 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         galsim random number generator to use
     seed : int
         Seed to use for rng
-    stpsf: bool
-        if True, use Stpsf to model the PSF
+    psftype : One of ['epsf', 'galsim', 'stpsf']
+        How to determine the PSF.
     return_info: bool
         if True, return information from romanisim.image.add_objects_to_image.
 
@@ -161,7 +160,7 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
-        psf = l3_psf(filter_name, pixscalefrac, stpsf=True, chromatic=False)
+        psf = l3_psf(filter_name, pixscalefrac, psftype=psftype, chromatic=False, date=model.meta.coadd_info.time_mean)
     sca = romanisim.parameters.default_sca
     maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
     etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
@@ -290,7 +289,7 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
 def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
              metadata={},
              effreadnoise=None, sky=None, psf=None,
-             bandpass=None, seed=None, rng=None, stpsf=True,
+             bandpass=None, seed=None, rng=None, psftype='galsim',
              **kwargs):
     """Simulate a sequence of observations on a field in different bandpasses.
 
@@ -324,10 +323,10 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     bandpass : galsim.Bandpass
         Bandpass in which mosaic is being rendered. This is used only in cases
         where chromatic profiles & PSFs are being used.
-    stpsf : bool
-        Use stpsf to compute PSF
     rng : galsim.BaseDeviate
         random number generator to use
+    psftype : One of ['epsf', 'galsim', 'stpsf']
+        How to determine the PSF.
     seed : int
         seed to use for random number generator
 
@@ -342,7 +341,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     """
 
     # Create metadata object
-    mosaic_node = WfiMosaic.create_fake_data()
+    mosaic_node = MosaicModel._node_type.create_fake_data()
     meta = mosaic_node.meta
 
     # add romanisim defaults
@@ -413,7 +412,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         # note that we are ignoring all of the individual reads, which also
         # contribute to reducing the effective read noise.  Pass --effreadnoise
         # if you want to do better than this!
-        effreadnoise = effreadnoise.to(u.electron).value * etomjysr
+        effreadnoise = effreadnoise * etomjysr  # electron -> MJy/sr
         # converting to MJy/sr units
     else:
         effreadnoise = 0
@@ -426,8 +425,8 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
-        psf = l3_psf(filter_name, pixscalefrac, stpsf=stpsf,
-                     chromatic=chromatic)
+        psf = l3_psf(filter_name, pixscalefrac, psftype=psftype,
+                     chromatic=chromatic, date=meta['coadd_info']['time_mean'])
 
     # Simulate mosaic cps
     mosaic, extras = simulate_cps(

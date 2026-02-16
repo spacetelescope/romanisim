@@ -28,7 +28,7 @@ if __name__ == '__main__':
                         default='F087')
     parser.add_argument('--config', type=str, help='input parameter override file (yaml)',
                         default=None)
-    parser.add_argument('--date', type=str, default=None,
+    parser.add_argument('--date', type=str, default=parameters.default_date.isot,
                         help=('UTC Date and Time of observation to simulate in ISOT format.'))
     parser.add_argument('--radec', type=float, nargs=2,
                         help='ra and dec (deg)', default=None)
@@ -46,16 +46,14 @@ if __name__ == '__main__':
                         help='number of exposures on field.  Used only '
                         'to compute the effective read noise.')
     parser.add_argument('--rng_seed', type=int, default=None)
+    parser.add_argument('--psftype', type=str, default='galsim',
+                        choices=['epsf', 'galsim', 'stpsf'],
+                        help='Type of PSF generator to use.')
 
     args = parser.parse_args()
 
+    log.info(f'Running with args: {args}')
     log.info('Starting simulation...')
-    log.warning("romanisim is under active development.  Its output has "
-                "not been formally validated; only limited testing has been "
-                "performed.  For this reason, use of romanisim for "
-                "preparation of ROSES proposals is not advised.  Other "
-                "packages like galsim's roman package or STIPS may better "
-                "serve such purposes.")
 
     pixscale = args.pixscalefrac * parameters.pixel_scale
     midpoint = (args.npix - 1) / 2
@@ -66,7 +64,10 @@ if __name__ == '__main__':
 
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     if args.date is not None:
-        metadata['basic']['time_mean_mjd'] = Time(args.date, format='isot').mjd
+        metadata['coadd_info']['time_mean'] = Time(args.date, format='isot')
+    else:
+        metadata['coadd_info']['time_mean'] = parameters.default_date
+
     metadata['filename'] = os.path.basename(args.filename)
 
     cat = ris.create_catalog(metadata=metadata, catalog_name=args.catalog,
@@ -75,7 +76,7 @@ if __name__ == '__main__':
     im, extras = l3.simulate(
         (args.npix, args.npix), twcs, args.exptime, args.bandpass,
         cat, effreadnoise=args.effreadnoise, nexposures=args.nexposures,
-        metadata=metadata)
+        metadata=metadata, psftype=args.psftype)
 
     # Create metadata for simulation parameter
     romanisimdict = deepcopy(vars(args))

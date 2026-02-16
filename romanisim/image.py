@@ -19,7 +19,8 @@ import romanisim.bandpass
 import romanisim.psf
 import romanisim.persistence
 
-import roman_datamodels
+from roman_datamodels.datamodels import ImageModel
+from roman_datamodels import datamodels
 
 
 # galsim fluxes are in photons / cm^2 / s
@@ -52,7 +53,8 @@ import roman_datamodels
 
 
 def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
-            linearity=None, darkrate=None, dq=None):
+            linearity=None, darkrate=None, dq=None,
+            darkdecaysignal=None):
     """
     Simulate an image in a filter given resultants.
 
@@ -61,28 +63,34 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     Parameters
     ----------
     resultants : np.ndarray[nresultants, ny, nx]
-        resultants array
+        Resultants array in DN
     read_pattern : list[list] (int)
-        list of lists of indices of reads entering each resultant
-    read_noise : np.ndarray[ny, nx] (float)
-        read_noise image to use.  If None, use galsim.roman.read_noise.
-    flat : np.ndarray[ny, nx] (float)
-        flat field to use
-    linearity : romanisim.nonlinearity.NL object or None
-        non-linearity correction to use.
-    darkrate : np.ndarray[ny, nx] (float)
-        dark rate image to subtract from ramps (electron / s)
-    dq : np.ndarray[nresultants, ny, nx] (int)
+        List of lists of indices of reads entering each resultant
+    read_noise : np.ndarray[ny, nx] (float), optional
+        Read noise in DN. If None, use parameters.reference_data['readnoise'].
+    gain : float or np.ndarray, optional
+        Gain in electron/DN. If None, use parameters.reference_data['gain'].
+    flat : np.ndarray[ny, nx] (float), optional
+        Flat field to use
+    linearity : romanisim.nonlinearity.NL object, optional
+        Non-linearity correction to use.
+    darkrate : np.ndarray[ny, nx] (float), optional
+        Dark current rate in electron/s to subtract from ramps
+    dq : np.ndarray[nresultants, ny, nx] (int), optional
         DQ image corresponding to resultants
+    darkdecaysignal : dict or None
+        Dictionary with keys 'amplitude', 'time_constant', and 'sca'
+        describing the dark decay signal.  If None, no dark decay
+        correction is applied.
 
     Returns
     -------
     im : np.ndarray
-        best fitting slopes
+        Best fitting slopes in DN/s
     var_rnoise : np.ndarray
-        variance in slopes from read noise
+        Variance in slopes from read noise in (DN/s)^2
     var_poisson : np.ndarray
-        variance in slopes from source noise
+        Variance in slopes from source noise in (DN/s)^2
     """
 
     if read_noise is None:
@@ -90,10 +98,17 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
 
     if gain is None:
         gain = parameters.reference_data['gain']
+    # gain in electron/DN
     try:
         gain = gain.astype('f4')
-    except AttributeError:  # gain is not a Quantity
+    except AttributeError:  # gain is a scalar
         gain = np.float32(gain)
+
+    # resultants in DN
+
+    if darkdecaysignal is not None:
+        romanisim.l1.apply_dark_decay(
+            resultants, darkdecaysignal, read_pattern, sign=-1)
 
     if linearity is not None:
         resultants = linearity.apply(resultants)
@@ -121,19 +136,10 @@ def make_l2(resultants, read_pattern, read_noise=None, gain=None, flat=None,
     if darkrate is not None:
         ramppar[..., 1] -= darkrate
 
-    if isinstance(gain, u.Quantity):
-        gain = gain.value  # no values make sense except for electron / DN
-
-    # The ramp fitter is not presently unit-aware; fix up the units by hand.
-    # To do this right the ramp fitter should be made unit aware.
-    # It takes a bit of work to get this right because we use the fact
-    # that the variance of a Poisson distribution is equal to its mean,
-    # which isn't true as soon as things start having units and requires
-    # special handling.  And we use read_time without units a lot throughout
-    # the code base.
-    slopes = ramppar[..., 1] / gain * u.DN / u.s
-    readvar = rampvar[..., 0, 1, 1] / gain**2 * (u.DN / u.s)**2
-    poissonvar = rampvar[..., 1, 1, 1] / gain**2 * (u.DN / u.s)**2
+    # Ramp fitter works in electrons, convert slopes and variances to DN/s
+    slopes = ramppar[..., 1] / gain  # DN/s
+    readvar = rampvar[..., 0, 1, 1] / gain**2  # (DN/s)^2
+    poissonvar = rampvar[..., 1, 1, 1] / gain**2  # (DN/s)^2
 
     if flat is not None:
         flat = np.clip(flat, 1e-9, np.inf).astype('f4')
@@ -206,7 +212,7 @@ def trim_objlist(objlist, image):
 def add_objects_to_image(image, objlist, xpos, ypos, psf,
                          flux_to_counts_factor, outputunit_to_electrons=None,
                          bandpass=None, filter_name=None, add_noise=False,
-                         rng=None, seed=None):
+                         rng=None, seed=None, fastpointsources=True):
     """Add sources to an image.
 
     Note: this includes Poisson noise when photon shooting is used
@@ -270,8 +276,43 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         raise ValueError('must specify filter when using achromatic PSF '
                          'rendering.')
 
+    if (fastpointsources and
+        not chromatic and
+        hasattr(psf, 'build_epsf_interpolator') and
+        (len(objlist) > 100)):
+
+        # Check whether the interpolator has already been instantiated.
+        # If not, we need to build the interpolators.
+
+        if psf.psfinterpolators is None:
+            psf.build_epsf_interpolator(image)
+
+        # Make an array of flux-to-counts conversion for later use.
+
+        if not isinstance(flux_to_counts_factor, list):
+            flux2counts = flux_to_counts_factor*np.ones(len(objlist))
+        else:
+            flux2counts = np.asarray(flux_to_counts_factor).astype(np.float32)
+    else:
+        log.warning('You requested fastpointsources, but the PSF and/or '
+                    'chromaticity are incompatible with this setting.  '
+                    'Disabling fastpointsources.')
+        fastpointsources = False
+
     outinfo = np.zeros(len(objlist), dtype=[('counts', 'f4'), ('time', 'f4')])
+    pointsources = np.zeros(len(objlist), dtype=bool)
+
+    tstart = time.time()
+
     for i, obj in enumerate(objlist):
+
+        # We will come back and do the point sources in the following loop
+        # if we want to do them quickly.
+
+        if fastpointsources and isinstance(obj.profile, galsim.DeltaFunction):
+            pointsources[i] = True
+            continue
+
         t0 = time.time()
         image_pos = galsim.PositionD(xpos[i], ypos[i])
         pwcs = image.wcs.local(image_pos)
@@ -311,14 +352,93 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             counts = 0
         nrender += 1
         outinfo[i] = (counts, time.time() - t0)
-    log.info('Rendered %d sources...' % nrender)
+
+    # Make a blank image to add stars to.  This will facilitate injecting
+    # photon noise here at the end if requested rather than for every star
+    # in turn.
+
+    image_pointsources = image*0
+    different_output_units_factors = (
+        outputunit_to_electrons is not None and
+        (len(outputunit_to_electrons) != 0) and
+        not np.all(outputunit_to_electrons == outputunit_to_electrons[0]))
+
+    tpoint = time.time()
+    for i in np.where(pointsources)[0]:
+        obj = objlist[i]
+        if obj.flux is None:
+            raise ValueError('Non-chromatic sources must have specified '
+                             'fluxes!')
+
+        fluxfactor = obj.flux[filter_name] * flux2counts[i]
+        stamp = psf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
+        if different_output_units_factors and add_noise:
+            stamp.addNoise(galsim.PoissonNoise(rng))
+            # note that this likely dominates the computational cost
+            # of this routine.  If this turns out to be relevant,
+            # see the discussion in #313 for a more efficient approach.
+        if outputunit_to_electrons is not None:
+            stamp[...] /= outputunit_to_electrons[i]
+        bounds = stamp.bounds & image_pointsources.bounds
+        if bounds.area() > 0:
+            image_pointsources[bounds] += stamp[bounds]
+        nrender += 1
+
+    if (np.sum(pointsources) > 0 and add_noise and
+            not different_output_units_factors):
+        image_pointsources.addNoise(galsim.PoissonNoise(rng))
+    image += image_pointsources
+
+    log.info('Rendered %d point sources in %.3g seconds' %
+             (np.sum(pointsources), time.time() - tpoint))
+    log.info('Rendered %d total sources in %.3g seconds' %
+             (nrender, time.time() - tstart))
+
     return outinfo
+
+
+def flat_to_qe(flat, gain, area=None):
+    """Convert flat field to relative QE.
+
+    The CRDS flat field is area * QE / gain / <(area * QE / gain)>.
+    This function extracts the relative QE component by dividing out
+    the area and gain dependencies and renormalizing.
+
+    Parameters
+    ----------
+    flat : float or np.ndarray
+        Flat field from CRDS
+    gain : float or np.ndarray
+        Gain in electrons/DN (can have astropy units)
+    area : float or np.ndarray, optional
+        Pixel area (collecting area per pixel). If None, assumes area=1.
+        Can be obtained via imwcs.makeSkyImage with sky_level=1.
+
+    Returns
+    -------
+    qe : float or np.ndarray
+        Relative QE normalized so median = 1
+    """
+    if area is None:
+        area = 1
+
+    # Extract numerical value from gain if it has units
+    if hasattr(gain, 'value'):
+        gain = gain.value
+
+    # Remove gain and area dependencies
+    qe = flat * gain / area
+
+    # Renormalize so median is 1
+    qe = qe / np.median(qe)
+
+    return qe
 
 
 def simulate_counts_generic(image, exptime, objlist=None, psf=None,
                             zpflux=None,
                             sky=None, dark=None,
-                            flat=None, xpos=None, ypos=None,
+                            qe=None, xpos=None, ypos=None,
                             ignore_distant_sources=10, bandpass=None,
                             filter_name=None, rng=None, seed=None,
                             **kwargs):
@@ -338,9 +458,9 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     * objlist: a list of CatalogObjects to render, or a Table.  Can be chromatic
       or not.  This will have all your normal PSF and galaxy profiles.
     * sky: a sky background model.  This is different from a dark in that
-      it is sensitive to the flat field.
+      it is sensitive to the quantum efficiency (QE).
     * dark: a dark model.
-    * flat: a flat field for modulating the object and sky electrons
+    * qe: relative quantum efficiency for modulating the object and sky electrons
 
     Parameters
     ----------
@@ -358,7 +478,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         Image or constant with the electrons / pix / sec from sky.
     dark : float or array_like
         Image or constant with the electrons / pix / sec from dark current.
-    flat : array_like
+    qe : array_like
         Image giving the relative QE of different pixels.
     xpos, ypos : array_like (float)
         x, y positions of each source in objlist
@@ -416,25 +536,27 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     if len(objlist) > 0 and psf is None:
         raise ValueError('Must provide a PSF if you want to render objects.')
 
-    if flat is None:
-        flat = 1
+    if qe is None:
+        qe = 1
 
     # for some reason, galsim doesn't like multiplying an SED by 1, but it's
     # okay with multiplying an SED by 1.0, so we cast to float.
-    maxflat = float(np.max(flat))
-    if maxflat > 1.1:
-        log.warning('max(flat) > 1.1; this seems weird?!')
-    if maxflat > 2:
-        log.error('max(flat) > 2; this seems really weird?!')
-    # how to deal with the flat field?  We artificially inflate the
-    # exposure time of each source by maxflat when rendering.  And then we
+    maxqe = float(np.max(qe))
+    if maxqe > 1.1:
+        log.warning('max(qe) > 1.1; this seems weird?!')
+    nbad = np.sum(qe > 2)
+    if nbad > 0:
+        log.warning(f'Found {nbad} pixels with implied qe > 2; clipping these to qe 2')
+        qe = np.clip(qe, 0, 2)
+    # how to deal with the QE?  We artificially inflate the
+    # exposure time of each source by maxqe when rendering.  And then we
     # do a binomial sampling of the total number of photons obtained per pixel
     # to figure out how many "should" have entered the pixel.
 
     chromatic = False
     if len(objlist) > 0 and objlist[0].profile.spectral:
         chromatic = True
-    flux_to_counts_factor = exptime * maxflat
+    flux_to_counts_factor = exptime * maxqe
     if not chromatic:
         flux_to_counts_factor *= zpflux
     xposk = xpos[keep] if xpos is not None else None
@@ -460,11 +582,11 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 
     if sky is not None:
         workim = image * 0
-        workim += sky * maxflat * exptime
+        workim += sky * maxqe * exptime
         workim.addNoise(poisson_noise)
         image += workim
 
-    if not np.all(flat == 1):
+    if not np.all(qe == 1):
         image.quantize()
         rng_numpy_seed = rng.raw()
         rng_numpy = np.random.default_rng(rng_numpy_seed)
@@ -479,7 +601,7 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         # point number, which is roughly 2^31 - 128.
         MAX_SAFE_VALUE = np.nextafter(2**31 - 1, 0, dtype=np.float32)
         image.array[:, :] = rng_numpy.binomial(
-            np.clip(image.array, 0, MAX_SAFE_VALUE).astype("i4"), flat / maxflat
+            np.clip(image.array, 0, MAX_SAFE_VALUE).astype("i4"), qe / maxqe
         )
 
     if dark is not None:
@@ -495,8 +617,8 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
 def simulate_counts(metadata, objlist,
                     rng=None, seed=None,
                     ignore_distant_sources=10, usecrds=True,
-                    stpsf=True,
-                    darkrate=None, flat=None,
+                    psftype='galsim',
+                    darkrate=None, flat=None, gain=None,
                     psf_keywords=dict()):
     """Simulate total electrons in a single SCA.
 
@@ -518,10 +640,15 @@ def simulate_counts(metadata, objlist,
         do not render sources more than this many pixels off edge of detector
     usecrds : bool
         use CRDS distortion map
+    psftype : One of ['epsf', 'galsim', 'stpsf']
+        How to determine the PSF. If None and `usecrds` then "crds" will be
+        used otherwise "galsim".
     darkrate : float or np.ndarray[float]
         dark rate image to use (electrons / s)
     flat : float or np.ndarray[float]
-        flat field to use
+        flat field
+    gain : float or np.ndarray[float]
+        gain (electrons / DN)
     psf_keywords : dict
         keywords passed to PSF generation routine
 
@@ -534,7 +661,6 @@ def simulate_counts(metadata, objlist,
     simcatobj : np.ndarray
         catalog of simulated objects in image
     """
-
     if 'read_pattern' in metadata['exposure']:
         read_pattern = metadata['exposure']['read_pattern']
     else:
@@ -564,8 +690,8 @@ def simulate_counts(metadata, objlist,
             and objlist[0].profile.spectral):
         chromatic = True
     psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
-                                 chromatic=chromatic, stpsf=stpsf,
-                                 variable=True, **psf_keywords)
+                                 chromatic=chromatic, psftype=psftype,
+                                 variable=True, date=date, **psf_keywords)
     image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
     sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
@@ -573,12 +699,28 @@ def simulate_counts(metadata, objlist,
     sky_level *= (1.0 + roman.stray_light_fraction)
     sky_image = image * 0
     imwcs.makeSkyImage(sky_image, sky_level)
+    # Extract pixel area from sky image (before adding thermal backgrounds)
+    # makeSkyImage multiplies sky_level by pixel area, so area = sky_image / sky_level
+    area = sky_image.array / sky_level
     sky_image += roman.thermal_backgrounds[galsim_filter_name]
     abflux = romanisim.bandpass.get_abflux(filter_name, sca)
 
+    # Convert flat field to QE
+    if gain is None:
+        gain = parameters.reference_data.get('gain', 1)
+    if flat is None:
+        flat = parameters.reference_data.get('flat', 1)
+    # Handle case where flat or gain exist in dict but are None
+    if flat is None:
+        flat = 1
+    if gain is None:
+        gain = 1
+
+    qe = flat_to_qe(flat, gain, area=area)
+
     simcatobj = simulate_counts_generic(
         image, exptime, objlist=objlist, psf=psf, zpflux=abflux, sky=sky_image,
-        dark=darkrate, flat=flat,
+        dark=darkrate, qe=qe,
         ignore_distant_sources=ignore_distant_sources, bandpass=bandpass,
         filter_name=filter_name, rng=rng, seed=seed)
 
@@ -604,8 +746,9 @@ def gather_reference_data(image_mod, usecrds=False):
         read_noise
         darkrate
         gain
-        inv_linearity
+        inverselinearity
         linearity
+        integralnonlinearity
         saturation
         reffiles
     These have the reference images or constant values for the various
@@ -628,7 +771,7 @@ def gather_reference_data(image_mod, usecrds=False):
                 image_mod.get_crds_parameters(), reftypes=refsneeded,
                 observatory='roman'))
             for reftype, reffn in reffiles.items():
-                if reftype in ['inverselinearity', 'ipc', 'flat']:
+                if reftype in ['ipc', 'flat']:
                     continue
                 if reftype not in refsneeded:
                     continue
@@ -640,7 +783,7 @@ def gather_reference_data(image_mod, usecrds=False):
                     image_mod.get_crds_parameters(),
                     reftypes=['flat'], observatory='roman')['flat']
 
-                flat_model = roman_datamodels.datamodels.FlatRefModel(flatfile)
+                flat_model = datamodels.open(flatfile)
                 flat = flat_model.data[...].copy()
                 image_mod.meta.ref_file['flat'] = (
                     'crds://' + os.path.basename(flatfile))
@@ -663,41 +806,44 @@ def gather_reference_data(image_mod, usecrds=False):
 
     # we now need to extract the relevant fields
     if isinstance(reffiles['readnoise'], str):
-        model = roman_datamodels.datamodels.ReadnoiseRefModel(
+        model = datamodels.open(
             reffiles['readnoise'])
         out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
-        out['readnoise'] *= u.DN
+        # readnoise in DN
 
     if isinstance(reffiles['gain'], str):
-        model = roman_datamodels.datamodels.GainRefModel(reffiles['gain'])
+        model = datamodels.open(reffiles['gain'])
         out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
-        out['gain'] *= u.electron / u.DN
+        # gain in electron/DN
 
     if isinstance(reffiles['dark'], str):
-        model = roman_datamodels.datamodels.DarkRefModel(reffiles['dark'])
-        out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy()
-        out['dark'] *= u.DN / u.s
-        out['dark'] *= out['gain']
-    if isinstance(out['dark'], u.Quantity):
-        out['dark'] = out['dark'].to(u.electron / u.s).value
+        model = datamodels.open(reffiles['dark'])
+        # dark_slope from CRDS is in DN/s, convert to electron/s
+        out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * out['gain']
 
     if isinstance(reffiles['saturation'], str):
-        saturation = roman_datamodels.datamodels.SaturationRefModel(
+        saturation = datamodels.open(
             reffiles['saturation'])
         saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
-        saturation *= u.DN
+        # saturation in DN
         out['saturation'] = saturation
     else:
         saturation = out['saturation']
 
+    if isinstance(reffiles['integralnonlinearity'], str):
+        inl_model = datamodels.open(reffiles['integralnonlinearity'])
+    else:
+        inl_model = None
+
     if isinstance(reffiles['linearity'], str):
-        lin_model = roman_datamodels.datamodels.LinearityRefModel(
+        lin_model = datamodels.open(
             reffiles['linearity'])
         out['linearity'] = nonlinearity.NL(
             lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
             gain=out['gain'],
-            saturation=saturation * 1.1 if saturation is not None else None)
+            saturation=saturation * 1.1 if saturation is not None else None,
+            integralnonlinearity=inl_model)
         # fudge factor on saturation to let us correct to slightly beyond
         # saturation, even if we mask at saturation and don't use those
         # corrected results
@@ -706,7 +852,7 @@ def gather_reference_data(image_mod, usecrds=False):
         if ((saturation is not None) and ('linearity' in out) and
                 (out['linearity'] is not None)):
             inv_saturation = out['linearity'].apply(saturation)
-            m = (inv_saturation < 0 * u.DN) | (inv_saturation > saturation * 2)
+            m = (inv_saturation < 0) | (inv_saturation > saturation * 2)
             if np.any(m):
                 log.warning(
                     f'{np.sum(m)} points with problematic saturation / inverse linearity '
@@ -714,25 +860,37 @@ def gather_reference_data(image_mod, usecrds=False):
         else:
             inv_saturation = None
 
-        ilin_model = roman_datamodels.datamodels.InverselinearityRefModel(
+        ilin_model = datamodels.open(
             reffiles['inverselinearity'])
         out['inverselinearity'] = nonlinearity.NL(
             ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
             ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
             gain=out['gain'],
-            saturation=inv_saturation * 1.1 if inv_saturation is not None else None)
+            saturation=inv_saturation * 1.1 if inv_saturation is not None else None,
+            integralnonlinearity=inl_model,
+            inverse=True)
         # fudge factor of 10% on the inverse saturation ensures that we'll
         # continue to fill up pixels above their nominal saturation limits
         # so that we can robustly see these pixels as saturated.
         # It relies on the linearity polynomials not going immediately
         # insane beyond saturation, though.
 
+    if isinstance(reffiles.get('darkdecaysignal', None), str):
+        detector = image_mod.meta.instrument.detector
+        sca = int(detector[3:])
+        darkdecayref = datamodels.open(reffiles['darkdecaysignal'])
+        decay_table = getattr(darkdecayref.decay_table, detector)
+        out['darkdecaysignal'] = dict(
+            amplitude=float(decay_table.amplitude),
+            time_constant=float(decay_table.time_constant),
+            sca=sca)
+
     out['reffiles'] = reffiles
     return out
 
 
 def simulate(metadata, objlist,
-             usecrds=True, stpsf=True, level=2, crparam=dict(),
+             usecrds=True, psftype='galsim', level=2, crparam=dict(),
              persistence=None, seed=None, rng=None,
              psf_keywords=dict(), extra_counts=None,
              **kwargs
@@ -756,8 +914,8 @@ def simulate(metadata, objlist,
         List of objects in the field to simulate
     usecrds : bool
         use CRDS to get reference files
-    stpsf : bool
-        use stpsf to generate PSF
+    psftype : One of ['epsf', 'galsim', 'stpsf]
+        How to determine the PSF.
     level : int
         0, 1 or 2, specifying level 1 or level 2 image
         0 makes a special idealized total electrons image; these are only
@@ -772,7 +930,8 @@ def simulate(metadata, objlist,
     seed : int
         Seed for populating RNG.  Only used if rng is None.
     psf_keywords : dict
-        Keywords passed to the PSF generation routine
+        Keywords passed to the PSF generation routine. 
+        For STPSF, this dict can also include an "stpsf_options" dictionary to specify WFI object options (e.g. defocus, jitter).
     extra_counts : ndarray, galsim.Image (optional)
         An additional array that just gets added into the counts image. 
         Useful for wrapping idealized images into L1/L2 images + the 
@@ -793,7 +952,7 @@ def simulate(metadata, objlist,
                     'files from CRDS.  The WCS may be incorrect and up-to-date '
                     'calibration information will not be used.')
 
-    image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
+    image_mod = ImageModel.create_fake_data()
     meta = image_mod.meta
     meta['wcs'] = None
 
@@ -819,6 +978,7 @@ def simulate(metadata, objlist,
     inv_linearity = refdata['inverselinearity']
     linearity = refdata['linearity']
     saturation = refdata['saturation']
+    darkdecaysignal = refdata['darkdecaysignal']
     reffiles = refdata['reffiles']
     flat = refdata['flat']
     pedestal_extra_noise = parameters.pedestal_extra_noise
@@ -836,7 +996,7 @@ def simulate(metadata, objlist,
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
-        stpsf=stpsf, flat=flat, psf_keywords=psf_keywords)
+        psftype=psftype, flat=flat, gain=gain, psf_keywords=psf_keywords)
 
     # If extra_counts is passed in, add directly to counts
     if extra_counts is not None:
@@ -848,6 +1008,7 @@ def simulate(metadata, objlist,
     else:
         l1, l1dq = romanisim.l1.make_l1(
             counts, read_pattern, read_noise=read_noise,
+            pedestal=parameters.pedestal,
             pedestal_extra_noise=pedestal_extra_noise,
             rng=rng, gain=gain,
             crparam=crparam,
@@ -855,6 +1016,7 @@ def simulate(metadata, objlist,
             tstart=image_mod.meta.exposure.start_time,
             persistence=persistence,
             saturation=saturation,
+            darkdecaysignal=darkdecaysignal,
             **kwargs)
     if level == 1:
         im, extras = romanisim.l1.make_asdf(
@@ -862,7 +1024,8 @@ def simulate(metadata, objlist,
     elif level == 2:
         slopeinfo = make_l2(l1, read_pattern, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,
-                            darkrate=darkrate, dq=l1dq)
+                            darkrate=darkrate, dq=l1dq,
+                            darkdecaysignal=darkdecaysignal)
         l2dq = np.bitwise_or.reduce(l1dq, axis=0)
         im, extras = make_asdf(
             *slopeinfo, metadata=image_mod.meta, persistence=persistence,
@@ -883,7 +1046,7 @@ def simulate(metadata, objlist,
 
 def make_test_catalog_and_images(
         seed=12345, sca=7, filters=None, nobj=1000,
-        usecrds=True, stpsf=True, galaxy_sample_file_name=None, **kwargs):
+        usecrds=True, psftype='epsf', galaxy_sample_file_name=None, **kwargs):
     """This is a test routine that exercises many options but is not intended for
     general use."""
     log.info('Making catalog...')
@@ -902,7 +1065,7 @@ def make_test_catalog_and_images(
     for filter_name in filters:
         metadata['instrument']['optical_element'] = 'F' + filter_name[1:]
         im = simulate(metadata, objlist=cat, rng=rng, usecrds=usecrds,
-                      stpsf=stpsf, **kwargs)
+                      psftype=psftype, **kwargs)
         out[filter_name] = im
     return out
 
@@ -914,7 +1077,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     """
 
     n_groups = len(metadata['exposure']['read_pattern'])
-    out = roman_datamodels.stnode.WfiImage.create_fake_data()
+    out = ImageModel._node_type.create_fake_data()
     # ephemeris contains a lot of angles that could be computed.
     # exposure contains
     #     ngroups, nframes, sca_number, gain_factor, integration_time,
@@ -943,14 +1106,28 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
 
     util.update_photom_keywords(out, gain=gain)
 
-    out['data'] = slope.value
+    out['data'] = slope
     out['dq'] = np.zeros(slope.shape, dtype='u4')
     if dq is not None:
         out['dq'][:, :] = dq
-    out['var_poisson'] = slopevar_poisson.value
-    out['var_rnoise'] = slopevar_rn.value
-    out['var_flat'] = slopevar_rn.value * 0
-    out['err'] = np.sqrt(out['var_poisson'] + out['var_rnoise'] + out['var_flat'])
+
+    def assign_with_default_types(fielddict, out):
+        # assign fields with existing types, only if they're already
+        # present.
+        for field in fielddict:
+            if out.get(field, None) is None:
+                continue
+            dtype = out[field].dtype
+            out[field] = fielddict[field].astype(dtype)
+
+    fielddict = dict(
+        var_poisson=slopevar_poisson,
+        var_rnoise=slopevar_rn,
+        var_flat=slopevar_rn * 0,
+        err=np.sqrt(slopevar_poisson + slopevar_rn),
+    )
+    assign_with_default_types(fielddict, out)
+
     out['amp33'] = np.zeros((n_groups, 4096, 128), dtype=out.amp33.dtype)
     for side in ('left', 'right', 'top', 'bottom'):
         if side in ('left', 'right'):
@@ -974,7 +1151,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
 
 
 def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
-                           gain=None, stpsf=True):
+                           gain=None, psftype='epsf'):
     """Inject sources into an L2 image.
 
     This routine allows sources to be injected into an existing L2 image.
@@ -1015,8 +1192,8 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         galsim random number generator to use
     gain: float [electron / DN]
         gain to use when converting simulated electrons to DN
-    stpsf: bool
-        if True, use Stpsf to model the PSF
+    psftype : One of ['epsf', 'galsim', 'stpsf]
+        How to determine the PSF.
 
     Returns
     -------
@@ -1043,7 +1220,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     if psf is None:
         psf = romanisim.psf.make_psf(
             sca, filter_name, wcs=wcs,
-            chromatic=False, stpsf=stpsf)
+            chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
 
     if gain is None:
         gain = parameters.reference_data['gain']
@@ -1088,12 +1265,13 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     # create injected source ramp resultants
     resultants, dq = romanisim.l1.apportion_counts_to_resultants(
         sourcecounts.array[m], tij, rng=rng)
-    resultants = resultants * u.electron
+    # resultants are in electrons
 
     # Inject source to original image
-    newramp = model.data[None, :] * tbar[:, None, None] * u.DN
-    newramp[:, m] += resultants / gain
-    # newramp has units of DN
+    # model.data is in DN/s, multiply by tbar (time) to get DN
+    newramp = model.data[None, :] * tbar[:, None, None]  # DN
+    newramp[:, m] += resultants / gain  # resultants/gain converts electrons to DN
+    # newramp is in DN
 
     # Make new image of the combination
     newimage, readvar, poissonvar = make_l2(
@@ -1102,7 +1280,8 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
 
     res = copy.deepcopy(model)
     res.data[m] = newimage
-    res.var_rnoise[m] = readvar
+    if hasattr(res, 'var_rnoise'):
+        res.var_rnoise[m] = readvar
     res.var_poisson[m] = poissonvar
     res.err[m] = np.sqrt(readvar + poissonvar)
     return res

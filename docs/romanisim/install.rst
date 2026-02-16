@@ -16,9 +16,8 @@ Another problematic dependency is `STPSF
 operate.  See the `docs
 <https://stpsf.readthedocs.io/en/latest/installation.html#installing-the-required-data-files>`_
 for instructions on obtaining the relevant data files and pointing the
-``STPSF_PATH`` environment variable to them.  This issue can be
-avoided by not setting the ``--stpsf`` argument, in which case
-``romanisim`` uses the GalSim modeling of the Roman PSF.
+``STPSF_PATH`` environment variable to them.  The simplest option for getting
+things to run is to use ``--psftype=galsim`` which relies on the GalSim PSF modeling.
 
 Additionally, some synthetic scene generation tools use images of galaxies
 distributed separately from the main GalSim source.  See `here
@@ -62,4 +61,4 @@ The path to the STPSF data files may be found in their `documentation <https://s
 
 You may wish to, for example, set up a new python virtual environment
 before running the above, or choose a different directory for
-STPSF's data files.
+STPSF's data files.  See this `webinar <https://outerspace.stsci.edu/spaces/RTS/pages/356668152/Webinar+2+Simulated+Data+Sets>`_ for other information about romanisim installation and examples.

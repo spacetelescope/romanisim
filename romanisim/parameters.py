@@ -3,13 +3,14 @@
 
 import numpy as np
 from astropy.time import Time
-from astropy import units as u
 
+# If left unspecified anywhere, define a date of simulation.
+default_date = Time('2026-01-01T00:00:00', format='isot')
 
 # MA tables 1(DEFOCUS_MOD), 2(DEFOCUS_LRG), and 18(DIAGNOSTIC) are excluded
 
 # Rev F
-read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9], 
+read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                     [10, 11, 12, 13, 14, 15, 16, 17], [18]],
                 4: [[1], [2], [3, 4], [5, 6, 7, 8, 9],
                     [10 + x for x in range(8)],
@@ -35,7 +36,7 @@ read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                     [63 + x for x in range(10)],
                     [73 + x for x in range(10)],
                     [83 + x for x in range(10)], [93]],
-                7: [[1], [2], [3, 4], 
+                7: [[1], [2], [3, 4],
                     [5 + x for x in range(8)],
                     [13 + x for x in range(8)],
                     [21 + x for x in range(10)],
@@ -47,7 +48,7 @@ read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                     [89 + x for x in range(12)],
                     [101 + x for x in range(12)],
                     [113 + x for x in range(12)], [125]],
-                8: [[1], [2], [3, 4], 
+                8: [[1], [2], [3, 4],
                     [5 + x for x in range(8)],
                     [13 + x for x in range(9)],
                     [22 + x for x in range(10)],
@@ -56,7 +57,7 @@ read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                     [60 + x for x in range(16)],
                     [76 + x for x in range(16)],
                     [92 + x for x in range(16)],
-                    [108 + x for x in range(16)], 
+                    [108 + x for x in range(16)],
                     [124 + x for x in range(16)],
                     [140 + x for x in range(16)], [156]],
                 9: [[1], [2], [3, 4], [5 + x for x in range(8)], [13 + x for x in range(8)],
@@ -78,47 +79,47 @@ read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                     [89 + x for x in range(16)],
                     [105 + x for x in range(32)],
                     [137 + x for x in range(32)],
-                    [169 + x for x in range(32)], 
+                    [169 + x for x in range(32)],
                     [201 + x for x in range(32)], [233]],
-                11: [[1], [2], [3, 4], 
-                     [5 + x for x in range(16)], 
-                     [21 + x for x in range(16)], 
+                11: [[1], [2], [3, 4],
+                     [5 + x for x in range(16)],
+                     [21 + x for x in range(16)],
                      [37 + x for x in range(16)],
-                     [53 + x for x in range(32)], 
-                     [85 + x for x in range(32)], 
-                     [117 + x for x in range(32)], 
-                     [149 + x for x in range(32)], 
-                     [181 + x for x in range(32)], 
-                     [213 + x for x in range(32)], 
-                     [245 + x for x in range(32)], 
+                     [53 + x for x in range(32)],
+                     [85 + x for x in range(32)],
+                     [117 + x for x in range(32)],
+                     [149 + x for x in range(32)],
+                     [181 + x for x in range(32)],
+                     [213 + x for x in range(32)],
+                     [245 + x for x in range(32)],
                      [277 + x for x in range(32)], [309]],
-                12: [[1], [2, 3], [4, 5], [6, 7, 8, 9], 
-                     [10, 11, 12, 13], [14, 15, 16, 17], 
-                     [18, 19, 20, 21], [22, 23, 24, 25], 
-                     [26, 27, 28, 29], [30, 31, 32, 33], 
-                     [34, 35, 36, 37], [38, 39, 40, 41], 
-                     [42 + x for x in range(8)], 
+                12: [[1], [2, 3], [4, 5], [6, 7, 8, 9],
+                     [10, 11, 12, 13], [14, 15, 16, 17],
+                     [18, 19, 20, 21], [22, 23, 24, 25],
+                     [26, 27, 28, 29], [30, 31, 32, 33],
+                     [34, 35, 36, 37], [38, 39, 40, 41],
+                     [42 + x for x in range(8)],
                      [50 + x for x in range(8)], [58]],
-                13: [[1], [2, 3], [4, 5], [6, 7, 8, 9], 
-                     [10, 11, 12, 13], [14, 15, 16, 17], 
-                     [18, 19, 20, 21], 
-                     [22 + x for x in range(8)], 
-                     [30 + x for x in range(8)], 
-                     [38 + x for x in range(8)], 
-                     [46 + x for x in range(8)], 
-                     [54 + x for x in range(8)], 
-                     [62 + x for x in range(8)], 
+                13: [[1], [2, 3], [4, 5], [6, 7, 8, 9],
+                     [10, 11, 12, 13], [14, 15, 16, 17],
+                     [18, 19, 20, 21],
+                     [22 + x for x in range(8)],
+                     [30 + x for x in range(8)],
+                     [38 + x for x in range(8)],
+                     [46 + x for x in range(8)],
+                     [54 + x for x in range(8)],
+                     [62 + x for x in range(8)],
                      [70 + x for x in range(8)], [78]],
-                14: [[1], [2, 3], [4, 5], [6, 7, 8, 9], 
-                     [10, 11, 12, 13, 14, 15], 
-                     [16 + x for x in range(8)], 
+                14: [[1], [2, 3], [4, 5], [6, 7, 8, 9],
+                     [10, 11, 12, 13, 14, 15],
+                     [16 + x for x in range(8)],
                      [24 + x for x in range(8)],
                      [32 + x for x in range(8)],
                      [40 + x for x in range(8)],
                      [48 + x for x in range(8)],
                      [56 + x for x in range(8)],
                      [64 + x for x in range(8)],
-                     [72 + x for x in range(8)], 
+                     [72 + x for x in range(8)],
                      [80 + x for x in range(16)],
                      [96]],
                 15: [[1], [2, 3], [4, 5],[6, 7, 8, 9],
@@ -146,7 +147,7 @@ read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                      [114 + x for x in range(16)],
                      [130 + x for x in range(16)],
                      [146]],
-                17: [[1, 2], [3, 4], [5, 6], 
+                17: [[1, 2], [3, 4], [5, 6],
                      [7, 8, 9, 10, 11, 12],
                      [13 + x for x in range(8)],
                      [21 + x for x in range(12)],
@@ -159,7 +160,7 @@ read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                      [129 + x for x in range(32)],
                      [161 + x for x in range(32)],
                      [193]],
-                
+
                 # note: these MA tables are not part of the PRD and are intended
                 # only to support DMS testing.  In particular, 110 is a
                 # 16-resultant imaging table needed to demonstrate ramp fitting
@@ -181,7 +182,7 @@ default_parameters_dictionary = {
                    'detector': 'WFI07',
                    'optical_element': 'F184',
                    },
-    'ephemeris': {'time': Time('2026-01-01').mjd,
+    'ephemeris': {'time': default_date.mjd,
                   'spatial_x': 0.,
                   'spatial_y': 0.,
                   'spatial_z': 0.,
@@ -189,11 +190,11 @@ default_parameters_dictionary = {
                   'velocity_y': 0.,
                   'velocity_z': 0.
                   },
-    'exposure': {'start_time': Time('2026-01-01T00:00:00'),
+    'exposure': {'start_time': default_date,
                  'type': 'WFI_IMAGE',
                  'ma_table_number': 4,
                  'read_pattern': read_pattern[4],
-                 # Changing the default MA table to be 4 (C2A_IMG_HLWAS) as MA table 1 (DEFOCUS_MOD) is not supported 
+                 # Changing the default MA table to be 4 (C2A_IMG_HLWAS) as MA table 1 (DEFOCUS_MOD) is not supported
                  },
     'pointing': {'target_ra': 270.0,
                  'target_dec': 66.0,
@@ -216,7 +217,7 @@ default_parameters_dictionary = {
 
 # Default metadata for level 3 mosaics
 default_mosaic_parameters_dictionary = {
-    'coadd_info': {'time_mean': Time('2026-01-01T00:00:00'),
+    'coadd_info': {'time_mean': default_date,
                    },
     'instrument': {'optical_element': 'F184',
                    },
@@ -226,14 +227,16 @@ default_mosaic_parameters_dictionary = {
 }
 
 reference_data = {
-    "dark": 0.01 * u.electron / u.s,
+    "dark": 0.01,  # electron/s
+    "darkdecaysignal": None,
     "distortion": None,
     "flat": None,
-    "gain": 2 * u.electron / u.DN,
+    "gain": 2,  # electron/DN
     "inverselinearity": None,
     "linearity": None,
-    "readnoise": 5.0 * u.DN,
-    "saturation": 55000 * u.DN,
+    "integralnonlinearity": None,
+    "readnoise": 5.0,  # DN
+    "saturation": 55000,  # DN
 }
 
 nborder = 4  # number of border pixels used for reference pixels.
@@ -260,11 +263,11 @@ v2v3_wficen = (1546.3846181707652, -892.7916365721071)  # arcsec
 persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
                    half_well=50000, ignorerate=0.01)
 
-# arbitrary constant to add to initial L1 image so that pixels aren't clipped at zero.
-pedestal = 100 * u.DN
+# Initial detector reset level in electrons (before non-linearity is applied).
+pedestal = 10000  # electron
 
-# Addd this much extra noise as correlated extra noise in all resultants.
-pedestal_extra_noise = 4 * u.DN
+# Extra noise in the pedestal/reset level in electrons (correlated across all resultants).
+pedestal_extra_noise = 8  # electron
 
 dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
 dq_do_not_use = dqbits['saturated'] | dqbits['jump_det']
