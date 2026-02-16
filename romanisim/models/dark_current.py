@@ -3,7 +3,7 @@ import os
 import asdf
 import crds
 import galsim
-import roman_datamodels
+from roman_datamodels import datamodels
 
 from astropy import units as u
 from astropy.io import ascii
@@ -82,14 +82,14 @@ class DarkCurrent(object):
     """
 
     def __init__(
-        self, usecrds=False, getdq=False, metadata=None, rng=None, seed=None
+        self, usecrds=False, getdq=False, metadata=None, image_mod=None, reffiles=None, rng=None, seed=None
     ):
         self.dark_rate = dark_current
         self.gain = gain
         self.usecrds = usecrds
         self.metadata = metadata
         if self.usecrds:
-            self._get_crds_model(metadata=self.metadata, getdq=getdq)
+            self._get_crds_model(metadata=self.metadata, image_mod=image_mod, reffiles=reffiles, getdq=getdq)
 
         if rng is None and seed is None:
             self.seed = 45
@@ -98,7 +98,7 @@ class DarkCurrent(object):
         else:
             self.rng = galsim.BaseDeviate(rng)
 
-    def _get_crds_model(self, getdq=False, metadata=None):
+    def _get_crds_model(self, getdq=False, metadata=None, image_mod=None, reffiles=None):
         """
         Load CRDS dark-current and gain reference files and compute dark rate.
 
@@ -126,40 +126,40 @@ class DarkCurrent(object):
         ------------
         Sets `self.dark_rate` to a 2D array (e-/s) and `self.gain` to a 2D array.
         """
-        image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
-        meta = image_mod.meta
-        meta["wcs"] = None
-        for key in default_parameters_dictionary.keys():
-            meta[key].update(default_parameters_dictionary[key])
+        if image_mod is not None:
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["dark", "gain"],
+                observatory="roman",
+            )
+        elif reffiles is not None:
+            ref_file = reffiles
+        else:
+            image_mod = datamodels.ImageModel.create_fake_data()
+            meta = image_mod.meta
+            meta["wcs"] = None
+            for key in default_parameters_dictionary.keys():
+                meta[key].update(default_parameters_dictionary[key])
+            if metadata:
+                for key in metadata.keys():
+                    meta[key].update(metadata[key])
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["dark", "gain"],
+                observatory="roman",
+            )
+        
+        if isinstance(ref_file['gain'], str):
+            model = datamodels.open(ref_file['gain'])
+            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
 
-        if metadata:
-            for key in metadata.keys():
-                meta[key].update(metadata[key])
 
-        ref_file = crds.getreferences(
-            image_mod.get_crds_parameters(),
-            reftypes=["dark", "gain"],
-            observatory="roman",
-        )
-
-        print(ref_file)
-
-        with asdf.open(ref_file["dark"]) as f:
-            self.dark_rate = f["roman"]["dark_slope"][
-                nborder:-nborder, nborder:-nborder
-            ].copy()
+        if isinstance(ref_file['dark'], str):
+            model = datamodels.open(ref_file['dark'])
+            # dark_slope from CRDS is in DN/s, convert to electron/s
+            self.dark_rate = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * self.gain
             if getdq:
-                self.dq = f["roman"]["dq"][
-                    nborder:-nborder, nborder:-nborder
-                ].copy()
-        with asdf.open(ref_file["gain"]) as f:
-            self.gain = f["roman"]["data"][
-                nborder:-nborder, nborder:-nborder
-            ].copy()
-        # self.dark_rate * u.DN / u.s
-        self.dark_rate *= self.gain
-        # if isinstance(self.dark_rate, u.Quantity):
-        #     self.dark_rate = self.dark_rate.to(u.electron / u.s).value
+                self.dq = model.dq[nborder:-nborder, nborder:-nborder].copy()
 
     def apply(self, img, exptime):
         """

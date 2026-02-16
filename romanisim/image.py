@@ -814,15 +814,17 @@ def gather_reference_data(image_mod, usecrds=False):
 
     # we now need to extract the relevant fields
     if isinstance(reffiles['readnoise'], str):
-        model = datamodels.open(
-            reffiles['readnoise'])
-        out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
-        # readnoise in DN
+        # model = datamodels.open(
+        #     reffiles['readnoise'])
+        # out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
+        # # readnoise in DN
+        out['readnoise'] = models.ReadNoise(usecrds=usecrds, reffiles=reffiles).read_noise
 
     if isinstance(reffiles['gain'], str):
-        model = datamodels.open(reffiles['gain'])
-        out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
-        # gain in electron/DN
+        # model = datamodels.open(reffiles['gain'])
+        # out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
+        # # gain in electron/DN
+        out['gain'] = models.Gain(usecrds=usecrds, reffiles=reffiles).gain
 
     # if isinstance(reffiles['dark'], str):
     #     model = datamodels.open(reffiles['dark'])
@@ -832,28 +834,49 @@ def gather_reference_data(image_mod, usecrds=False):
         out['dark'] = models.DarkCurrent(usecrds=usecrds, getdq=True, reffiles=reffiles).dark_rate
 
     if isinstance(reffiles['saturation'], str):
-        saturation = datamodels.open(
-            reffiles['saturation'])
-        saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
-        # saturation in DN
-        out['saturation'] = saturation
+        # saturation = datamodels.open(
+        #     reffiles['saturation'])
+        # saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
+        # # saturation in DN
+        # out['saturation'] = saturation
+        out["saturation"] = models.Saturation(
+            usecrds=usecrds, getdq=True, reffiles=reffiles, saturation_level=out["saturation"]
+        ).saturation_level
+        saturation = out["saturation"]
     else:
         saturation = out['saturation']
 
+    # if isinstance(reffiles['integralnonlinearity'], str):
+    #     inl_model = datamodels.open(reffiles['integralnonlinearity'])
+    # else:
+    #     inl_model = None
     if isinstance(reffiles['integralnonlinearity'], str):
-        inl_model = datamodels.open(reffiles['integralnonlinearity'])
+        inl_model = True
     else:
-        inl_model = None
+        inl_model = False
+        
+    if 'ipc' in reffiles and isinstance(reffiles['ipc'], str):
+        out["ipc"] = models.IPC(usecrds=usecrds, reffiles=reffiles)
+    else:
+        out["ipc"] = None
 
     if isinstance(reffiles['linearity'], str):
-        lin_model = datamodels.open(
-            reffiles['linearity'])
-        out['linearity'] = nonlinearity.NL(
-            lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
-            lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
-            gain=out['gain'],
+        # lin_model = datamodels.open(
+        #     reffiles['linearity'])
+        # out['linearity'] = nonlinearity.NL(
+        #     lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
+        #     lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
+        #     gain=out['gain'],
+        #     saturation=saturation * 1.1 if saturation is not None else None,
+        #     integralnonlinearity=inl_model)
+        out["linearity"] = models.Nonlinearity(
+            usecrds=usecrds,
+            getdq=True,
+            reftype="linearity",
+            reffiles=reffiles,
             saturation=saturation * 1.1 if saturation is not None else None,
-            integralnonlinearity=inl_model)
+            integralnonlinearity=inl_model,
+        )
         # fudge factor on saturation to let us correct to slightly beyond
         # saturation, even if we mask at saturation and don't use those
         # corrected results
@@ -870,15 +893,26 @@ def gather_reference_data(image_mod, usecrds=False):
         else:
             inv_saturation = None
 
-        ilin_model = datamodels.open(
-            reffiles['inverselinearity'])
-        out['inverselinearity'] = nonlinearity.NL(
-            ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
-            ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
-            gain=out['gain'],
-            saturation=inv_saturation * 1.1 if inv_saturation is not None else None,
+        # ilin_model = datamodels.open(
+        #     reffiles['inverselinearity'])
+        # out['inverselinearity'] = nonlinearity.NL(
+        #     ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
+        #     ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
+        #     gain=out['gain'],
+        #     saturation=inv_saturation * 1.1 if inv_saturation is not None else None,
+        #     integralnonlinearity=inl_model,
+        #     inverse=True)
+        
+        out["inverselinearity"] = models.Nonlinearity(
+            usecrds=usecrds,
+            getdq=True,
+            reffiles=reffiles,
+            reftype="inverselinearity",
+            saturation=inv_saturation * 1.1
+            if inv_saturation is not None
+            else None,
             integralnonlinearity=inl_model,
-            inverse=True)
+        )
         # fudge factor of 10% on the inverse saturation ensures that we'll
         # continue to fill up pixels above their nominal saturation limits
         # so that we can robustly see these pixels as saturated.
@@ -991,6 +1025,7 @@ def simulate(metadata, objlist,
     darkdecaysignal = refdata['darkdecaysignal']
     reffiles = refdata['reffiles']
     flat = refdata['flat']
+    ipc_model = refdata['ipc']
     pedestal_extra_noise = parameters.pedestal_extra_noise
 
     if rng is None and seed is None:
@@ -1027,6 +1062,7 @@ def simulate(metadata, objlist,
             persistence=persistence,
             saturation=saturation,
             darkdecaysignal=darkdecaysignal,
+            ipc_model=ipc_model,
             **kwargs)
     if level == 1:
         im, extras = romanisim.l1.make_asdf(

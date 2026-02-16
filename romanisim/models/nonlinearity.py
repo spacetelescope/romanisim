@@ -78,6 +78,8 @@ class Nonlinearity(object):
         getdq=False,
         integralnonlinearity=False,
         metadata=None,
+        image_mod=None,
+        reffiles=None,
         saturation=None,
     ):
         self.gain = gain
@@ -89,65 +91,60 @@ class Nonlinearity(object):
         self.integralnonlinearity = integralnonlinearity
         self.inl_corrs = None
         if self.usecrds:
-            self._get_crds_model(metadata=self.metadata, getdq=getdq)
+            self._get_crds_model(metadata=self.metadata, getdq=getdq, image_mod=image_mod, reffiles=reffiles)
 
-    def _get_crds_model(self, getdq=False, metadata=None):
+    def _get_crds_model(self, getdq=False, metadata=None, image_mod=None, reffiles=None):
         # Inverse linearity reference files are used to apply the
         # effect of classical non-linearity when constructing
         # L1 files, and linearity reference files are used to
         # remove it when constructing L2 files.
-        image_mod = datamodels.ImageModel.create_fake_data()
-        meta = image_mod.meta
-        meta["wcs"] = None
-        for key in default_parameters_dictionary.keys():
-            meta[key].update(default_parameters_dictionary[key])
-
-        if metadata:
-            for key in metadata.keys():
-                meta[key].update(metadata[key])
-
+        
         if self.integralnonlinearity:
             reftypes = [self.reftype, "gain", "integralnonlinearity"]
         else:
             reftypes = [self.reftype, "gain"]
-
-        ref_file = crds.getreferences(
-            image_mod.get_crds_parameters(),
-            reftypes=reftypes,
-            observatory="roman",
-        )
-        # self.crds_model = roman_datamodels.datamodels.InverselinearityRefModel(
-        #     ref_file
-        # )
-        nl_model = datamodels.open(ref_file[self.reftype])
-        if getdq:
-            self.dq = nl_model.dq[nborder:-nborder, nborder:-nborder].copy()
+        
+        if image_mod is not None:
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=reftypes,
+                observatory="roman",
+            )
+        elif reffiles is not None:
+            ref_file = reffiles
         else:
-            self.dq = None
-        self.coeffs = self._repair_coefficients(
-            coeffs=nl_model.coeffs[
-                :, nborder:-nborder, nborder:-nborder
-            ].copy(),
-            dq=self.dq,
-        )
+            image_mod = datamodels.ImageModel.create_fake_data()
+            meta = image_mod.meta
+            meta["wcs"] = None
+            for key in default_parameters_dictionary.keys():
+                meta[key].update(default_parameters_dictionary[key])
+            if metadata:
+                for key in metadata.keys():
+                    meta[key].update(metadata[key])
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=reftypes,
+                observatory="roman",
+            )
+        
+        if isinstance(ref_file['gain'], str):
+            model = datamodels.open(ref_file['gain'])
+            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
+        
+        if isinstance(ref_file[self.reftype], str):
+            nl_model = datamodels.open(ref_file[self.reftype])
+            if getdq:
+                self.dq = nl_model.dq[nborder:-nborder, nborder:-nborder].copy()
+            else:
+                self.dq = None
+            self.coeffs = self._repair_coefficients(
+                coeffs=nl_model.coeffs[
+                    :, nborder:-nborder, nborder:-nborder
+                ].copy(),
+                dq=self.dq,
+            )
 
-        print(ref_file)
-
-        gain_model = datamodels.open(ref_file["gain"])
-        self.gain = gain_model.data[nborder:-nborder, nborder:-nborder].copy()
-        # with asdf.open(ref_file[self.reftype]) as f:
-        #     if getdq:
-        #         self.dq = f["roman"]["dq"][nborder:-nborder, nborder:-nborder].copy()
-        #     else:
-        #         self.dq = None
-        #     self.coeffs = self._repair_coefficients(
-        #         coeffs=f["roman"]["coeffs"][
-        #             :, nborder:-nborder, nborder:-nborder
-        #         ].copy(),
-        #         dq=self.dq,
-        #     )
-
-        if self.integralnonlinearity:
+        if self.integralnonlinearity and isinstance(ref_file["integralnonlinearity"], str):
             inl_model = datamodels.open(ref_file["integralnonlinearity"])
             # with asdf.open(ref_file["integralnonlinearity"]) as f:
             channel_width = 128
@@ -162,9 +159,6 @@ class Nonlinearity(object):
                     sign
                     * getattr(inl_model.inl_table, attr_name).correction.copy()
                 )
-
-        # with asdf.open(ref_file["gain"]) as f:
-        #     self.gain = f["roman"]["data"][nborder:-nborder, nborder:-nborder].copy()
 
     def _repair_coefficients(self, coeffs, dq, getdq=False):
         """Fix cases of zeros and NaNs in non-linearity coefficients.

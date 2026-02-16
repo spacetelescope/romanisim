@@ -2,7 +2,8 @@ import asdf
 import crds
 import galsim
 import numpy as np
-import roman_datamodels
+
+from roman_datamodels import datamodels
 
 from scipy import ndimage
 
@@ -57,15 +58,15 @@ class IPC(object):
     explicitly normalized to unit sum.
     """
 
-    def __init__(self, usecrds=False, metadata=None):
+    def __init__(self, usecrds=False, metadata=None, image_mod=None, reffiles=None):
         self.usecrds = usecrds
         self.metadata = metadata
         if self.usecrds:
-            self._get_crds_model(metadata=self.metadata)
+            self._get_crds_model(metadata=self.metadata, image_mod=image_mod, reffiles=reffiles)
         else:
             self.ipc_kernel = ipc_kernel
 
-    def _get_crds_model(self, metadata=None):
+    def _get_crds_model(self, metadata=None, image_mod=None, reffiles=None):
         """Load and normalize the IPC kernel from CRDS.
 
         This method constructs a Roman ImageModel, populates
@@ -82,27 +83,35 @@ class IPC(object):
         The kernel read from the reference file is normalized in-place so
         that ``ipc_kernel.sum() == 1``.
         """
-        image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
-        meta = image_mod.meta
-        meta["wcs"] = None
-        for key in default_parameters_dictionary.keys():
-            meta[key].update(default_parameters_dictionary[key])
-
-        if metadata:
-            for key in metadata.keys():
-                meta[key].update(metadata[key])
-
-        ref_file = crds.getreferences(
-            image_mod.get_crds_parameters(),
-            reftypes=["ipc"],
-            observatory="roman",
-        )
-
-        print(ref_file)
-
-        with asdf.open(ref_file["ipc"]) as f:
-            self.ipc_kernel = f["roman"]["data"]
-            self.ipc_kernel /= np.sum(self.ipc_kernel)
+        
+        if image_mod is not None:
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["ipc"],
+                observatory="roman",
+            )
+        elif reffiles is not None:
+            ref_file = reffiles
+        else:
+            image_mod = datamodels.ImageModel.create_fake_data()
+            meta = image_mod.meta
+            meta["wcs"] = None
+            for key in default_parameters_dictionary.keys():
+                meta[key].update(default_parameters_dictionary[key])
+            if metadata:
+                for key in metadata.keys():
+                    meta[key].update(metadata[key])
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["ipc"],
+                observatory="roman",
+            )
+        
+        if isinstance(ref_file['ipc'], str):
+            model = datamodels.open(ref_file['ipc'])
+            self.ipc_kernel = model.data.copy()
+        
+        self.ipc_kernel /= np.sum(self.ipc_kernel)
 
     def apply(self, img, edge_treatment="constant", fill_value=0.0):
         """Apply IPC convolution to an image (in-place).

@@ -2,7 +2,7 @@ import asdf
 import crds
 import galsim
 import numpy as np
-import roman_datamodels
+from roman_datamodels import datamodels
 
 from .parameters import default_parameters_dictionary, nborder
 
@@ -47,12 +47,12 @@ class ReadNoise(object):
         RNG used to generate Gaussian noise.
     """
 
-    def __init__(self, usecrds=False, metadata=None, rng=None, seed=None):
+    def __init__(self, usecrds=False, metadata=None, image_mod=None, reffiles=None, rng=None, seed=None):
         self.read_noise = read_noise
         self.usecrds = usecrds
         self.metadata = metadata
         if self.usecrds:
-            self._get_crds_model(metadata=self.metadata)
+            self._get_crds_model(metadata=self.metadata, image_mod=image_mod, reffiles=reffiles)
 
         if rng is None and seed is None:
             self.seed = 45
@@ -61,7 +61,7 @@ class ReadNoise(object):
         else:
             self.rng = galsim.GaussianDeviate(rng)
 
-    def _get_crds_model(self, metadata=None):
+    def _get_crds_model(self, metadata=None, image_mod=None, reffiles=None):
         """
         Load the Roman read-noise reference file from CRDS.
 
@@ -82,29 +82,33 @@ class ReadNoise(object):
             are merged into the model metadata tree.
 
         """
-        image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
-        meta = image_mod.meta
-        meta["wcs"] = None
-        for key in default_parameters_dictionary.keys():
-            meta[key].update(default_parameters_dictionary[key])
 
-        if metadata:
-            for key in metadata.keys():
-                meta[key].update(metadata[key])
-
-        ref_file = crds.getreferences(
-            image_mod.get_crds_parameters(),
-            reftypes=["readnoise"],
-            observatory="roman",
-        )
-
-        print(ref_file)
-
-        with asdf.open(ref_file["readnoise"]) as f:
-            self.read_noise = f["roman"]["data"][
-                nborder:-nborder, nborder:-nborder
-            ].copy()
-        # self.read_noise *= u.DN
+        if image_mod is not None:
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["dark", "gain"],
+                observatory="roman",
+            )
+        elif reffiles is not None:
+            ref_file = reffiles
+        else:
+            image_mod = datamodels.ImageModel.create_fake_data()
+            meta = image_mod.meta
+            meta["wcs"] = None
+            for key in default_parameters_dictionary.keys():
+                meta[key].update(default_parameters_dictionary[key])
+            if metadata:
+                for key in metadata.keys():
+                    meta[key].update(metadata[key])
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["readnoise"],
+                observatory="roman",
+            )
+        
+        if isinstance(ref_file['readnoise'], str):
+            model = datamodels.open(ref_file['readnoise'])
+            self.read_noise = model.data[nborder:-nborder, nborder:-nborder].copy()
 
     def apply(self, img, n_reads=1.0):
         """

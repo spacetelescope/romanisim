@@ -1,7 +1,7 @@
 import asdf
 import crds
 import galsim
-import roman_datamodels
+from roman_datamodels import datamodels
 
 from .parameters import default_parameters_dictionary, nborder
 
@@ -36,14 +36,14 @@ class Gain(object):
         Stored metadata overrides used for CRDS lookup.
     """
 
-    def __init__(self, usecrds=False, metadata=None):
+    def __init__(self, usecrds=False, metadata=None, image_mod=None, reffiles=None):
         self.gain = gain
         self.usecrds = usecrds
         self.metadata = metadata
         if self.usecrds:
-            self._get_crds_model(metadata=self.metadata)
+            self._get_crds_model(metadata=self.metadata, image_mod=image_mod, reffiles=reffiles)
 
-    def _get_crds_model(self, metadata=None):
+    def _get_crds_model(self, metadata=None, image_mod=None, reffiles=None):
         """Populate ``self.gain`` from the CRDS gain reference file.
 
         This method builds a minimal Roman ``ImageModel`` to obtain CRDS
@@ -63,7 +63,7 @@ class Gain(object):
         The gain map stored in the reference file may include border pixels.
         These are removed by slicing ``nborder`` pixels from each edge.
         """
-        image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
+        image_mod = datamodels.ImageModel.create_fake_data()
         meta = image_mod.meta
         meta["wcs"] = None
         for key in default_parameters_dictionary.keys():
@@ -79,12 +79,32 @@ class Gain(object):
             observatory="roman",
         )
 
-        print(ref_file)
-
-        with asdf.open(ref_file["gain"]) as f:
-            self.gain = f["roman"]["data"][
-                nborder:-nborder, nborder:-nborder
-            ].copy()
+        if image_mod is not None:
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["gain"],
+                observatory="roman",
+            )
+        elif reffiles is not None:
+            ref_file = reffiles
+        else:
+            image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
+            meta = image_mod.meta
+            meta["wcs"] = None
+            for key in default_parameters_dictionary.keys():
+                meta[key].update(default_parameters_dictionary[key])
+            if metadata:
+                for key in metadata.keys():
+                    meta[key].update(metadata[key])
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["gain"],
+                observatory="roman",
+            )
+        
+        if isinstance(ref_file['gain'], str):
+            model = datamodels.open(ref_file['gain'])
+            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
 
     def apply(self, img):
         """Apply the gain correction to an image (in place).

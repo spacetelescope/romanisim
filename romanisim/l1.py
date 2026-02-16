@@ -586,7 +586,7 @@ def make_l1(counts, read_pattern,
             rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None,
-            darkdecaysignal=None):
+            darkdecaysignal=None, ipc_model=None):
     """Make an L1 image from a total electrons image.
 
     This apportions the total electrons among the different resultants and adds
@@ -653,7 +653,10 @@ def make_l1(counts, read_pattern,
 
     # roman.addReciprocityFailure(resultants_object)
 
-    add_ipc(resultants)
+    if ipc_model is not None:
+        ipc_model.apply(resultants)
+    else:
+        add_ipc(resultants)
 
     # resultants are in electrons
     if gain is None:

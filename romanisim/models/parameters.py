@@ -309,6 +309,7 @@ reference_data = {
     "integralnonlinearity": None,
     "readnoise": 5.0,  # DN
     "saturation": 55000,  # DN
+    "ipc": None,
 }
 
 default_parameters_dictionary = {

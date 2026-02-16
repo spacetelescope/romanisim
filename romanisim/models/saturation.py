@@ -2,7 +2,7 @@ import asdf
 import crds
 import galsim
 import numpy as np
-import roman_datamodels
+from roman_datamodels import datamodels
 
 from .parameters import default_parameters_dictionary, nborder
 
@@ -48,15 +48,17 @@ class Saturation(object):
         usecrds=False,
         getdq=False,
         metadata=None,
+        image_mod=None, 
+        reffiles=None, 
         saturation_level=300000,
     ):
         self.usecrds = usecrds
         self.metadata = metadata
         self.saturation_level = saturation_level
         if self.usecrds:
-            self._get_crds_model(metadata=self.metadata, getdq=getdq)
+            self._get_crds_model(metadata=self.metadata, image_mod=image_mod, reffiles=reffiles, getdq=getdq)
 
-    def _get_crds_model(self, getdq=False, metadata=None):
+    def _get_crds_model(self, getdq=False, metadata=None, image_mod=None, reffiles=None):
         """
         Load the Roman saturation reference file from CRDS.
 
@@ -80,33 +82,34 @@ class Saturation(object):
             are merged into the model metadata tree.
         """
 
-        image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
-        meta = image_mod.meta
-        meta["wcs"] = None
-        for key in default_parameters_dictionary.keys():
-            meta[key].update(default_parameters_dictionary[key])
-
-        if metadata:
-            for key in metadata.keys():
-                meta[key].update(metadata[key])
-
-        ref_file = crds.getreferences(
-            image_mod.get_crds_parameters(),
-            reftypes=["saturation"],
-            observatory="roman",
-        )
-
-        print(ref_file)
-
-        with asdf.open(ref_file["saturation"]) as f:
-            self.saturation_level = f["roman"]["data"][
-                nborder:-nborder, nborder:-nborder
-            ].copy()
+        if image_mod is not None:
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["saturation"],
+                observatory="roman",
+            )
+        elif reffiles is not None:
+            ref_file = reffiles
+        else:
+            image_mod = datamodels.ImageModel.create_fake_data()
+            meta = image_mod.meta
+            meta["wcs"] = None
+            for key in default_parameters_dictionary.keys():
+                meta[key].update(default_parameters_dictionary[key])
+            if metadata:
+                for key in metadata.keys():
+                    meta[key].update(metadata[key])
+            ref_file = crds.getreferences(
+                image_mod.get_crds_parameters(),
+                reftypes=["saturation"],
+                observatory="roman",
+            )
+        
+        if isinstance(ref_file['saturation'], str):
+            model = datamodels.open(ref_file['saturation'])
+            self.saturation_level = model.data[nborder:-nborder, nborder:-nborder].copy()
             if getdq:
-                self.dq = f["roman"]["dq"][
-                    nborder:-nborder, nborder:-nborder
-                ].copy()
-        # self.saturation_map *= u.DN
+                self.dq = model.dq[nborder:-nborder, nborder:-nborder].copy()
 
     def apply(self, img):
         """
