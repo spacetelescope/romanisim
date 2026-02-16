@@ -8,10 +8,13 @@ from astropy.time import Time
 import galsim
 import gwcs as gwcsmod
 
-from romanisim import parameters, wcs, bandpass
+# from romanisim import parameters, wcs, bandpass
+from romanisim import bandpass
 from romanisim.velocity_aberration import compute_va_effects
 from scipy import integrate
 from collections.abc import Mapping
+
+from romanisim.models import wcs, parameters
 
 __all__ = ["skycoord",
            "celestialcoord",

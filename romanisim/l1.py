@@ -106,11 +106,13 @@ import numpy as np
 import asdf
 import galsim
 from scipy import ndimage
-from . import parameters
+# from . import parameters
 from . import log
 from . import cr
 
 from roman_datamodels.datamodels import ScienceRawModel
+
+from romanisim.models import ipc, parameters
 
 
 def validate_times(tij):
@@ -570,7 +572,8 @@ def add_ipc(resultants, ipc_kernel=None):
     # the reference pixels have basically no flux, so for these real pixels we
     # extend the array with a constant equal to zero.
     if ipc_kernel is None:
-        ipc_kernel = parameters.ipc_kernel
+        # ipc_kernel = parameters.ipc_kernel
+        ipc_kernel = ipc.ipc_kernel
 
     log.info('Adding IPC...')
     out = ndimage.convolve(resultants, ipc_kernel[None, ...],

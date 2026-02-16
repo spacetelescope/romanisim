@@ -14,9 +14,11 @@ from astropy.io import fits
 import astropy_healpix
 import astropy.time
 from romanisim import gaia as rsim_gaia
-from . import util, log, parameters
+# from . import util, log, parameters
+from . import util, log
 import romanisim.bandpass
 import yaml
+from romanisim.models import parameters
 
 # COSMOS constants taken from the COSMOS2020 paper:
 # https://arxiv.org/pdf/2110.13923

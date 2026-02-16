@@ -13,12 +13,15 @@ from astropy import units as u
 import galsim
 from galsim import roman
 import roman_datamodels
-from romanisim import catalog, image, wcs
-from romanisim import parameters, log
+# from romanisim import catalog, image, wcs
+# from romanisim import parameters, log
+from romanisim import catalog, image, log
 from romanisim.util import calc_scale_factor
 import romanisim
 import crds
 from crds.client import api
+
+from romanisim.models import wcs, parameters
 
 
 NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}

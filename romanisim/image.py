@@ -13,14 +13,19 @@ from astropy import units as u, coordinates, table
 import asdf
 import galsim
 from galsim import roman
-from . import wcs, catalog, parameters, util, nonlinearity, ramp, log
+# from . import wcs, catalog, parameters, util, nonlinearity, ramp, log
+from . import catalog, util, nonlinearity, ramp, log
 import romanisim.l1
 import romanisim.bandpass
-import romanisim.psf
+# import romanisim.psf
 import romanisim.persistence
 
 from roman_datamodels.datamodels import ImageModel
 from roman_datamodels import datamodels
+
+from romanisim import models
+from romanisim.models import wcs, parameters
+
 
 
 # galsim fluxes are in photons / cm^2 / s
@@ -689,7 +694,10 @@ def simulate_counts(metadata, objlist,
             and not isinstance(objlist, table.Table)  # this case is always gray
             and objlist[0].profile.spectral):
         chromatic = True
-    psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
+    # psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
+    #                              chromatic=chromatic, psftype=psftype,
+    #                              variable=True, date=date, **psf_keywords)
+    psf = models.psf.make_psf(sca, filter_name, wcs=imwcs,
                                  chromatic=chromatic, psftype=psftype,
                                  variable=True, date=date, **psf_keywords)
     image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
@@ -816,10 +824,12 @@ def gather_reference_data(image_mod, usecrds=False):
         out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
         # gain in electron/DN
 
+    # if isinstance(reffiles['dark'], str):
+    #     model = datamodels.open(reffiles['dark'])
+    #     # dark_slope from CRDS is in DN/s, convert to electron/s
+    #     out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * out['gain']
     if isinstance(reffiles['dark'], str):
-        model = datamodels.open(reffiles['dark'])
-        # dark_slope from CRDS is in DN/s, convert to electron/s
-        out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * out['gain']
+        out['dark'] = models.DarkCurrent(usecrds=usecrds, getdq=True, reffiles=reffiles).dark_rate
 
     if isinstance(reffiles['saturation'], str):
         saturation = datamodels.open(
@@ -1216,9 +1226,14 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     if len(cat) > 0 and cat[0].profile.spectral:
         chromatic = True
 
-    wcs = romanisim.wcs.GWCS(model.meta.wcs)
+    # wcs = romanisim.wcs.GWCS(model.meta.wcs)
+    wcs = wcs.GWCS(model.meta.wcs)
+    
     if psf is None:
-        psf = romanisim.psf.make_psf(
+        # psf = romanisim.psf.make_psf(
+        #     sca, filter_name, wcs=wcs,
+        #     chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
+        psf = models.psf.make_psf(
             sca, filter_name, wcs=wcs,
             chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
 
