@@ -48,41 +48,6 @@ V3IdlYAngle = -60
 # Maxinum allowed angle from the telecope solar panels to the sun in degrees.
 max_sun_angle = 36.0
 
-# Which bands should use the long vs short pupil plane files for the PSF.
-# F184, K213
-longwave_bands = ["F184", "K213"]
-# R062, Z087, Y106, J129, H158, W146, SNPrism, Grism_0thOrder, Grism_1stOrder.
-# Note that the last three are not imaging bands.
-non_imaging_bands = ["Grism_0thOrder", "Grism_1stOrder", "SNPrism"]
-shortwave_bands = [
-    "R062",
-    "Z087",
-    "Y106",
-    "J129",
-    "H158",
-    "W146",
-] + non_imaging_bands
-
-# provide some translation dictionaries for the mapping from
-# the galsim bandpass names to the Roman bandpass names and vice versa.
-# it would be nice to be agnostic about which one we use.
-galsim_bandpasses = [
-    "R062",
-    "Z087",
-    "Y106",
-    "J129",
-    "H158",
-    "F184",
-    "K213",
-    "W146",
-]
-galsim2roman_bandpass = {x: "F" + x[1:] for x in galsim_bandpasses}
-roman2galsim_bandpass = {v: k for k, v in galsim2roman_bandpass.items()}
-
-# provide some no-ops if we are given a key in the right bandpass
-galsim2roman_bandpass.update(**{k: k for k in roman2galsim_bandpass})
-roman2galsim_bandpass.update(**{k: k for k in galsim_bandpasses})
-
 # Persistence coefficients
 persistence_coefficients = (
     np.array(
@@ -124,7 +89,7 @@ dq_do_not_use = dqbits["saturated"] | dqbits["jump_det"]
 ######################################################################################################
 # [TODO] Temporary implementation for accessing roman-technical-information repo
 ######################################################################################################
-roman_tech_repo_path = "/home/yuedong/Work/Projects/roman-technical-information"
+roman_tech_repo_path = "/Users/yuedongfang/Desktop/roman_sim/roman-technical-information"
 
 ######################################################################################################
 # Default configuration parameters

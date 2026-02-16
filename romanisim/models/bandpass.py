@@ -11,8 +11,6 @@ from scipy import integrate
 
 from .parameters import (
     collecting_area,
-    non_imaging_bands,
-    roman2galsim_bandpass,
     roman_tech_repo_path,
 )
 
@@ -21,6 +19,41 @@ effarea_root = os.path.join(
 )
 
 data_root = str(importlib.resources.files("romanisim").joinpath("data/"))
+
+# Which bands should use the long vs short pupil plane files for the PSF.
+# F184, K213
+longwave_bands = ["F184", "K213"]
+# R062, Z087, Y106, J129, H158, W146, SNPrism, Grism_0thOrder, Grism_1stOrder.
+# Note that the last three are not imaging bands.
+non_imaging_bands = ["Grism_0thOrder", "Grism_1stOrder", "SNPrism"]
+shortwave_bands = [
+    "R062",
+    "Z087",
+    "Y106",
+    "J129",
+    "H158",
+    "W146",
+] + non_imaging_bands
+
+# provide some translation dictionaries for the mapping from
+# the galsim bandpass names to the Roman bandpass names and vice versa.
+# it would be nice to be agnostic about which one we use.
+galsim_bandpasses = [
+    "R062",
+    "Z087",
+    "Y106",
+    "J129",
+    "H158",
+    "F184",
+    "K213",
+    "W146",
+]
+galsim2roman_bandpass = {x: "F" + x[1:] for x in galsim_bandpasses}
+roman2galsim_bandpass = {v: k for k, v in galsim2roman_bandpass.items()}
+
+# provide some no-ops if we are given a key in the right bandpass
+galsim2roman_bandpass.update(**{k: k for k in roman2galsim_bandpass})
+roman2galsim_bandpass.update(**{k: k for k in galsim_bandpasses})
 
 # to go from calibrated fluxes in maggies to counts in the Roman bands
 # we need to multiply by a constant determined by the AB magnitude
@@ -398,11 +431,7 @@ def read_gsfc_effarea(sca=None, filename=None):
     """
     if filename is None:
         if sca is None:
-            # Begin by reading in the file containing the info.
             filename = os.path.join(data_root, "Roman_effarea_20210614.txt")
-            # One line with the column headings, and the rest as a NumPy array.
-            # data = np.genfromtxt(datafile, names=True)
-            data = ascii.read(filename)
         else:
             sca_id = "SCA%02d" % (int(sca))
             filename = os.path.join(

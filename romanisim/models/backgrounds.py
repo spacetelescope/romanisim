@@ -5,7 +5,8 @@ import numpy as np
 from astropy.io import ascii
 from galsim import CelestialCoord, GalSimValueError, degrees, radians
 
-from .parameters import roman2galsim_bandpass, roman_tech_repo_path
+from .parameters import roman_tech_repo_path
+from .bandpass import roman2galsim_bandpass
 
 # These are from https://roman.gsfc.nasa.gov/science/WFI_technical.html, as of October, 2023
 thermal_backgrounds = {

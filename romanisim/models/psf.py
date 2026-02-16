@@ -11,14 +11,11 @@ from scipy import interpolate
 
 from romanisim import log
 
-# from .bandpass import galsim2roman_bandpass, roman2galsim_bandpass, getBandpasses
-from .bandpass import getBandpasses
+from .bandpass import getBandpasses, galsim2roman_bandpass, roman2galsim_bandpass
 from .parameters import (
     default_date,
-    galsim2roman_bandpass,
     n_pix,
     pixel_scale,
-    roman2galsim_bandpass,
 )
 from .psf_utils import getPSF
 

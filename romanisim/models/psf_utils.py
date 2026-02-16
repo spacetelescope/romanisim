@@ -17,16 +17,14 @@ from galsim import (
 )
 from galsim.utilities import LRU_Cache
 
-from .bandpass import getBandpasses
+from .bandpass import getBandpasses, longwave_bands, shortwave_bands
 from .parameters import (
     diameter,
-    longwave_bands,
     n_pix,
     n_sca,
     obscuration,
     pixel_scale,
     pixel_scale_mm,
-    shortwave_bands,
 )
 
 # Define a default set of bandpasses for which this routine works.
