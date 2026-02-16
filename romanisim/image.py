@@ -1263,7 +1263,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         chromatic = True
 
     # wcs = romanisim.wcs.GWCS(model.meta.wcs)
-    wcs = wcs.GWCS(model.meta.wcs)
+    wcs = romanisim.models.wcs.GWCS(model.meta.wcs)
     
     if psf is None:
         # psf = romanisim.psf.make_psf(
