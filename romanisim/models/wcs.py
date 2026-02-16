@@ -324,8 +324,8 @@ class GWCS(galsim.wcs.CelestialWCS):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            # x, y = self.wcs.world_to_pixel(r1, d1)
-            x, y = self.wcs.numerical_inverse(r1, d1, with_bounding_box=False)
+            x, y = self.wcs.invert(r1, d1, with_bounding_box=False)
+            # x, y = self.wcs.numerical_inverse(r1, d1, with_bounding_box=False)
 
         if np.ndim(ra) == np.ndim(dec) == 0:
             return x[0], y[0]
@@ -353,7 +353,7 @@ class GWCS(galsim.wcs.CelestialWCS):
     def __repr__(self):
         # tag = 'wcs=%r'%self.wcs
         tag = "wcs=gWCS"  # gWCS repr strings can be very long.
-        return "romanisim.wcs.GWCS(%s, origin=%r)" % (tag, self.origin)
+        return "romanisim.models.wcs.GWCS(%s, origin=%r)" % (tag, self.origin)
 
 
 def wcs_from_fits_header(header):
