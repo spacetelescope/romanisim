@@ -19,7 +19,9 @@ from functools import cache
 import numpy as np
 import galsim
 from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs, persistence
+# from romanisim import image, parameters, catalog, psf, util, wcs, persistence
+from romanisim import image, catalog, util, persistence
+from romanisim.models import psf, wcs, parameters
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -29,7 +31,8 @@ from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
 from roman_datamodels.datamodels import ImageModel, ScienceRawModel
-import romanisim.bandpass
+# import romanisim.bandpass
+import romanisim.models.bandpass
 
 
 def test_in_bounds():
@@ -493,7 +496,8 @@ def test_simulate():
     imwcs = wcs.get_wcs(meta, usecrds=False)
     sourcecen = (50, 50)
     center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
-    abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    # abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    abfluxdict = romanisim.models.bandpass.compute_abflux(sca, galsim_filter_name=False)
     for o in chromcat:
         o.sky_pos = center
     for o in graycat:
@@ -687,7 +691,8 @@ def test_inject_source_into_image():
     assert np.all(im.data[-10:, -10:] == iminj.data[-10:, -10:])
 
     # Test that the amount of added flux makes sense
-    fluxeps = flux * romanisim.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
+    # fluxeps = flux * romanisim.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
+    fluxeps = flux * romanisim.models.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
     assert np.abs(np.sum(iminj.data - im.data) * parameters.reference_data['gain'] /
                   fluxeps - 1) < 0.1
 
@@ -757,7 +762,9 @@ def test_image_input(tmpdir):
 
     # did we get all the flux?
     totflux = np.sum(res[0].data - np.median(res[0].data))
-    expectedflux = (romanisim.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
+    # expectedflux = (romanisim.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
+    #                 / parameters.reference_data['gain'])
+    expectedflux = (romanisim.models.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
                     / parameters.reference_data['gain'])
     assert np.abs(totflux / expectedflux - 1) < 0.1
 
@@ -829,7 +836,8 @@ def make_image_psftype(psftype='epsf'):
     imwcs = wcs.get_wcs(meta, usecrds=False)
     sourcecen = (50, 50)
     center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
-    abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    # abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    abfluxdict = romanisim.models.bandpass.compute_abflux(sca, galsim_filter_name=False)
     for o in graycat:
         o.sky_pos = center
         o.flux[filter_name] /= abfluxdict[f'SCA{sca:02}'][filter_name]

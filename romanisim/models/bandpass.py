@@ -445,7 +445,7 @@ def read_gsfc_effarea(sca=None, filename=None):
     return data
 
 
-def compute_abflux(sca, effarea=None):
+def compute_abflux(sca, effarea=None, galsim_filter_name=True):
     """Compute the AB zero point fluxes for each filter.
 
     How many electrons would a zeroth magnitude AB star deposit in
@@ -474,9 +474,14 @@ def compute_abflux(sca, effarea=None):
     abfv = ABZeroSpFluxDens
     out = dict()
     for bandpass in filter_names:
-        out[bandpass] = compute_count_rate(
+        count_rate = compute_count_rate(
             flux=abfv, bandpass=bandpass, sca=sca, effarea=effarea
         )
+        if galsim_filter_name:
+            out[bandpass] = count_rate
+        else:
+            out[galsim2roman_bandpass.get(bandpass, bandpass)] = count_rate
+
 
     # Saving the SCA information to use the correct throughput curves for each detector.
     out = {f"SCA{sca:02}": out}
@@ -558,14 +563,13 @@ def get_abflux(bandpass, sca):
     float
         the zero point flux (electrons / s)
     """
-    # bandpass = galsim2roman_bandpass.get(bandpass, bandpass)
-    bandpass = roman2galsim_bandpass.get(bandpass, bandpass)
+    bandpass = galsim2roman_bandpass.get(bandpass, bandpass)
 
     # If abflux for this bandpass for the specified SCA has been calculated, return the calculated
     # value instead of rerunning an expensive calculation
     abflux = getattr(get_abflux, "abflux", None)
     if (abflux is None) or (f"SCA{sca:02}" not in abflux):
-        abflux = compute_abflux(sca)
+        abflux = compute_abflux(sca, galsim_filter_name=False)
         get_abflux.abflux = abflux
-
+    
     return abflux[f"SCA{sca:02}"][bandpass]

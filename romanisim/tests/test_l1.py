@@ -12,7 +12,9 @@ Routines tested:
 
 import pytest
 import numpy as np
-from romanisim import l1, log, parameters, nonlinearity
+# from romanisim import l1, log, parameters, nonlinearity
+from romanisim import l1, log, nonlinearity
+from romanisim.models import parameters
 import galsim
 import galsim.roman
 import asdf
