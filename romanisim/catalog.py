@@ -352,6 +352,10 @@ def make_cosmos_galaxies(coord,
     source_pert = np.ones(len(sim_ids))
     source_pert += ((0.2) * rng_numpy.normal(size=len(sim_ids)))
 
+    # Sort bandpasses to preserve order
+    bandpasses = list(bandpasses)
+    bandpasses.sort()
+
     # Convert fluxes to maggies by converting to Jankskys and normalizing for zero-point
     for bandpass in bandpasses:
         # Perturb sources fluxes by 5% per bandwidth
@@ -859,7 +863,7 @@ def read_catalog(filename,
         Radius over which to search healpix for source file indicies
 
     Any additional keyword arguments provided will be passed to
-    `make_gaia_stars` if the `filename` argument is None or 
+    `make_gaia_stars` if the `filename` argument is None or
     `read_one_healpix` if `filename` is a directory of healpix catalogs.
 
     Returns
