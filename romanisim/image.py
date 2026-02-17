@@ -930,13 +930,13 @@ def simulate(metadata, objlist,
     seed : int
         Seed for populating RNG.  Only used if rng is None.
     psf_keywords : dict
-        Keywords passed to the PSF generation routine. 
+        Keywords passed to the PSF generation routine.
         For STPSF, this dict can also include an "stpsf_options" dictionary to specify WFI object options (e.g. defocus, jitter).
     extra_counts : ndarray, galsim.Image (optional)
-        An additional array that just gets added into the counts image. 
-        Useful for wrapping idealized images into L1/L2 images + the 
+        An additional array that just gets added into the counts image.
+        Useful for wrapping idealized images into L1/L2 images + the
         Roman datamodel.
-    
+
     Returns
     -------
     image : roman_datamodels model
@@ -1150,8 +1150,8 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     return out, extras
 
 
-def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
-                           gain=None, psftype='epsf'):
+def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
+                           rng=None, gain=None, psftype='epsf'):
     """Inject sources into an L2 image.
 
     This routine allows sources to be injected into an existing L2 image.
@@ -1188,6 +1188,8 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         y coordinates of catalog locations in image
     psf: galsim.gsobject.GSObject
         PSF to use
+    seed : int
+        Seed for populating RNG.  Only used if rng is None.
     rng: galsim.BaseDeviate
         galsim random number generator to use
     gain: float [electron / DN]
@@ -1201,7 +1203,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
         model with additional sources
     """
     if rng is None:
-        rng = galsim.UniformDeviate(123)
+        rng = galsim.UniformDeviate(seed)
 
     if x is None or y is None:
         x, y = model.meta.wcs.numerical_inverse(
