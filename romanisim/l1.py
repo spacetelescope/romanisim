@@ -106,9 +106,7 @@ import numpy as np
 import asdf
 import galsim
 from scipy import ndimage
-# from . import parameters
-from . import log
-from . import cr
+from . import log, cr
 
 from roman_datamodels.datamodels import ScienceRawModel
 
@@ -514,7 +512,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     """
 
     nborder = parameters.nborder
-    npix = galsim.roman.n_pix + 2 * nborder
+    npix = parameters.n_pix + 2 * nborder
     out = ScienceRawModel._node_type.create_fake_data(shape=(len(resultants), npix, npix))
     out['amp33'] = np.zeros((len(resultants), 4096, 128), dtype=out.amp33.dtype)
 
@@ -572,7 +570,6 @@ def add_ipc(resultants, ipc_kernel=None):
     # the reference pixels have basically no flux, so for these real pixels we
     # extend the array with a constant equal to zero.
     if ipc_kernel is None:
-        # ipc_kernel = parameters.ipc_kernel
         ipc_kernel = ipc.ipc_kernel
 
     log.info('Adding IPC...')

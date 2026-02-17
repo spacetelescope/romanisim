@@ -3,7 +3,7 @@
 This module implements a persistence simulation following Sanchez+2023.
 """
 
-from . import parameters
+from romanisim.models import parameters
 import numpy as np
 import asdf
 

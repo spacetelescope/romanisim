@@ -9,7 +9,8 @@ from astropy.table import Table
 from astropy.time import Time
 import galsim
 import romanisim
-from romanisim import log, wcs, persistence, parameters, l3, bandpass, util
+from romanisim import log, persistence, l3, util
+from romanisim.models import wcs, parameters, bandpass
 from romanisim import ris_make_utils as ris
 from copy import deepcopy
 import math

@@ -13,8 +13,6 @@ obscuration = 0.32
 collecting_area = 3.757e4  # cm^2, from Cycle 7
 exptime = 139.8  # s
 read_time = 3.16247  # s
-# nonlinearity_beta = -6.0e-7
-# reciprocity_alpha = 0.0065
 n_dithers = 6
 nborder = 4  # number of border pixels used for reference pixels.
 # Physical pixel size
@@ -314,3 +312,32 @@ default_parameters_dictionary = {
                 # but they are always -1 and -60 in existing files.
                 },
 }
+
+# Cosmic Ray defaults
+cr = {
+    # sample_cr_params
+    "min_dEdx": 10,
+    "max_dEdx": 10000,
+    "min_cr_len": 10,
+    "max_cr_len": 2000,
+    "grid_size": 10000,
+    # simulate_crs
+    "flux": 8,
+    "area": 16.8,
+    "conversion_factor": 0.5,
+    "pixel_size": 10,
+    "pixel_depth": 5,
+}
+
+# Default metadata for level 3 mosaics
+default_mosaic_parameters_dictionary = {
+    'coadd_info': {'time_mean': default_date,
+                   },
+    'instrument': {'optical_element': 'F184',
+                   },
+    'wcsinfo': {'ra_ref': 270.0,
+                'dec_ref': 66.0,
+                },
+}
+# Centermost PSF to use for mosaic creation
+default_sca = 2

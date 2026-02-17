@@ -12,11 +12,9 @@ Routines tested:
 
 import pytest
 import numpy as np
-# from romanisim import l1, log, parameters, nonlinearity
 from romanisim import l1, log, nonlinearity
 from romanisim.models import parameters
 import galsim
-import galsim.roman
 import asdf
 import os
 
@@ -273,7 +271,7 @@ def test_make_l1_and_asdf(tmp_path):
     # these two functions basically just wrap the above and we'll really
     # just test for sanity.
     counts = np.random.poisson(100, size=(100, 100))
-    galsim.roman.n_pix = 100
+    parameters.n_pix = 100
     for read_pattern in read_pattern_list:
         resultants, dq = l1.make_l1(galsim.Image(counts), read_pattern,
                                     gain=1)  # electron/DN
