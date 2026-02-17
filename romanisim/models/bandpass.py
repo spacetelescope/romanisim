@@ -12,6 +12,7 @@ from scipy import integrate
 from .parameters import (
     collecting_area,
     roman_tech_repo_path,
+    pixel_scale,
 )
 
 effarea_root = os.path.join(
@@ -330,7 +331,7 @@ def getBandpasses(
     #         if bp_name in roman2galsim_bandpass:
     #             data.rename_column(bp_name, roman2galsim_bandpass[bp_name])
 
-    data = read_gsfc_effarea(sca=sca)
+    data = read_gsfc_effarea(sca=sca, galsim_filter_name=True)
 
     wave = 1000.0 * data["Wave"]
     # Read in and manipulate the sky background info.
@@ -411,7 +412,7 @@ def getBandpasses(
     return bandpass_dict
 
 
-def read_gsfc_effarea(sca=None, filename=None):
+def read_gsfc_effarea(sca=None, filename=None, galsim_filter_name=False):
     """Read an effective area file from Roman.
 
     This just puts together the right invocation to get an Excel-converted
@@ -439,9 +440,10 @@ def read_gsfc_effarea(sca=None, filename=None):
             )
 
     data = ascii.read(filename)
-    for index, bp_name in enumerate(data.dtype.names[1:]):
-        if bp_name in roman2galsim_bandpass:
-            data.rename_column(bp_name, roman2galsim_bandpass[bp_name])
+    if galsim_filter_name:
+        for index, bp_name in enumerate(data.dtype.names[1:]):
+            if bp_name in roman2galsim_bandpass:
+                data.rename_column(bp_name, roman2galsim_bandpass[bp_name])
     return data
 
 
@@ -465,7 +467,7 @@ def compute_abflux(sca, effarea=None, galsim_filter_name=True):
     """
 
     if effarea is None:
-        effarea = read_gsfc_effarea(sca)
+        effarea = read_gsfc_effarea(sca, galsim_filter_name=True)
 
     # get the filter names.  This is a bit ugly since there's also
     # a wavelength column 'Wave', and Excel appends a column to each line
@@ -488,7 +490,7 @@ def compute_abflux(sca, effarea=None, galsim_filter_name=True):
     return out
 
 
-def compute_count_rate(flux, bandpass, sca, filename=None, effarea=None, wavedist=None):
+def compute_count_rate(flux, bandpass, sca, filename=None, effarea=None, wavedist=None, galsim_filter_name=True):
     """Compute the count rate in a given filter, for a specified SED.
 
     How many electrons would an object with SED given by
@@ -516,7 +518,7 @@ def compute_count_rate(flux, bandpass, sca, filename=None, effarea=None, wavedis
     """
     # Read in default Roman effective areas from Goddard, if areas not supplied
     if effarea is None:
-        effarea = read_gsfc_effarea(sca, filename)
+        effarea = read_gsfc_effarea(sca, filename, galsim_filter_name=galsim_filter_name)
 
     # If wavelength distribution is supplied, interpolate flux and area
     # over it and the effective area table layout
@@ -573,3 +575,25 @@ def get_abflux(bandpass, sca):
         get_abflux.abflux = abflux
     
     return abflux[f"SCA{sca:02}"][bandpass]
+
+def etomjysr(bandpass, sca):
+    """Compute factor converting e/s/pix to MJy/sr.
+
+    Assumes a pixel scale of 0.11" (romanisim.parameters.pixel_scale)
+
+    Parameters
+    ----------
+    bandpass : str
+        the name of the bandpass
+    sca : int
+        the name of the detector. A number between 1-18. 
+    Returns
+    -------
+    float
+        the factor F such that MJy / sr = F * DN/s
+    """
+
+    abflux = get_abflux(bandpass, sca)  # e/s corresponding to 3631 Jy
+    srpix = ((pixel_scale * u.arcsec) ** 2).to(u.sr).value
+    mjysr = 1 / abflux * 3631 / 10 ** 6 / srpix  # should be ~0.3
+    return mjysr
