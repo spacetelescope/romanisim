@@ -1,11 +1,9 @@
 import os
 
-import asdf
 import crds
 import galsim
 from roman_datamodels import datamodels
 
-from astropy import units as u
 from astropy.io import ascii
 
 from .gain import gain

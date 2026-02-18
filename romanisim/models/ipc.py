@@ -1,4 +1,3 @@
-import asdf
 import crds
 import galsim
 import numpy as np

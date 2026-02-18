@@ -803,8 +803,6 @@ def gather_reference_data(image_mod, usecrds=False):
 
     # reffiles has all of the reference files / values we know about
 
-    nborder = parameters.nborder
-
     # we now need to extract the relevant fields
     if isinstance(reffiles['readnoise'], str):
         # readnoise in DN

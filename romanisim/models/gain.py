@@ -1,4 +1,3 @@
-import asdf
 import crds
 import galsim
 from roman_datamodels import datamodels
@@ -88,7 +87,7 @@ class Gain(object):
         elif reffiles is not None:
             ref_file = reffiles
         else:
-            image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
+            image_mod = datamodels.ImageModel.create_fake_data()
             meta = image_mod.meta
             meta["wcs"] = None
             for key in default_parameters_dictionary.keys():

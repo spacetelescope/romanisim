@@ -431,6 +431,8 @@ def read_gsfc_effarea(sca=None, filename=None, galsim_filter_name=False):
                     data_root, "Roman_effarea_tables_20240327", "Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)
                 )
                 data = ascii.read(filename)
+    else:
+        data = ascii.read(filename)
 
     if galsim_filter_name:
         for index, bp_name in enumerate(data.dtype.names[1:]):
