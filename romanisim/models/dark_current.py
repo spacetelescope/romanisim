@@ -33,7 +33,7 @@ dark_current_summary = os.path.join(
 try:
     data = ascii.read(dark_current_summary)
     dark_current = data[18]["Dark Current - Median"]
-except RuntimeError as e:
+except Exception as e:
     print(
         f" {e} Failed to fetch WFI_Dark_current_summary.ecsv, use default value for dark_current"
     )

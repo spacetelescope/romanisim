@@ -313,24 +313,6 @@ def getBandpasses(
     @returns A dictionary containing bandpasses for all Roman imaging filters.
     """
 
-    # if sca is None:
-    #     # Begin by reading in the file containing the info.
-    #     datafile = os.path.join(data_root, "Roman_effarea_20210614.txt")
-    #     # One line with the column headings, and the rest as a NumPy array.
-    #     data = np.genfromtxt(datafile, names=True)
-    # else:
-    #     sca_id = "SCA%02d" % (int(sca))
-
-    #     # zfile = zipfile.ZipFile(effarea_zip_file, 'r')
-    #     # datafile = zfile.open("Roman_effarea_v8_%s_20240301.ecsv" % (sca_id))
-    #     datafile = os.path.join(
-    #         effarea_root, "Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)
-    #     )
-    #     data = ascii.read(datafile)
-    #     for index, bp_name in enumerate(data.dtype.names[1:]):
-    #         if bp_name in roman2galsim_bandpass:
-    #             data.rename_column(bp_name, roman2galsim_bandpass[bp_name])
-
     data = read_gsfc_effarea(sca=sca, galsim_filter_name=True)
 
     wave = 1000.0 * data["Wave"]
@@ -433,13 +415,23 @@ def read_gsfc_effarea(sca=None, filename=None, galsim_filter_name=False):
     if filename is None:
         if sca is None:
             filename = os.path.join(data_root, "Roman_effarea_20210614.txt")
+            data = ascii.read(filename)
         else:
             sca_id = "SCA%02d" % (int(sca))
-            filename = os.path.join(
-                effarea_root, "Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)
-            )
+            try:
+                filename = os.path.join(
+                    effarea_root, "Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)
+                )
+                data = ascii.read(filename)
+            except Exception as e:
+                print(
+                    f" {e} Failed to fetch Roman_effarea_v8_{sca_id}_20240301.ecsv, use default one instead"
+                )
+                filename = os.path.join(
+                    data_root, "Roman_effarea_tables_20240327", "Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)
+                )
+                data = ascii.read(filename)
 
-    data = ascii.read(filename)
     if galsim_filter_name:
         for index, bp_name in enumerate(data.dtype.names[1:]):
             if bp_name in roman2galsim_bandpass:

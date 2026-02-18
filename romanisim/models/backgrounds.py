@@ -37,7 +37,7 @@ try:
     for i in range(len(data["filter"])):
         band_name = roman2galsim_bandpass[data["filter"][i]]
         thermal_backgrounds[band_name] = data[i]["rate"]
-except RuntimeError as e:
+except Exception as e:
     print(
         f" {e} Failed to fetch internal_thermal_backgrounds.ecsv, use default value for thermal_backgrounds"
     )
