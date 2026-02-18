@@ -5,6 +5,10 @@ on:
     - cron: "42 4 * * 3"
   workflow_call:
     inputs:
+      stpsf_dataset_type:
+        type: string
+        required: false
+        default: "latest_release"
       cache_path:
         type: string
         required: false
@@ -16,6 +20,11 @@ on:
         value: ${{ jobs.combine_data_cache.outputs.cache_path }}
   workflow_dispatch:
     inputs:
+      stpsf_dataset_type:
+        description: Which STPSF dataset to download, either "latest_release" or "development"
+        type: string
+        required: false
+        default: "latest_release"
       cache_path:
         description: path to which to download the data
         type: string
@@ -25,6 +34,8 @@ on:
 jobs:
   download_stpsf_data:
     uses: spacetelescope/stpsf/.github/workflows/download_data.yml@c7453e95d48474f94e753860b40e9ea7bf5bfa11 # 2.2.0
+    with:
+      dataset_type: ${{ inputs.stpsf_dataset_type }}
   combine_data_cache:
     name: combine GalSim and STPSF data into single cache
     needs: [download_stpsf_data]
