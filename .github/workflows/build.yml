@@ -22,5 +22,3 @@ jobs:
       sdist: true
       test_command: python -c "from romanisim import ramp_fit_casertano"
       upload_to_pypi: ${{ (github.event_name == 'release') && (github.event.action == 'released') }}
-    secrets:
-      pypi_token: ${{ secrets.PYPI_PASSWORD_STSCI_MAINTAINER }}
