@@ -11,14 +11,14 @@ from astropy import time
 from astropy import coordinates
 from astropy import units as u
 import galsim
-from galsim import roman
 import roman_datamodels
-from romanisim import catalog, image, wcs
-from romanisim import parameters, log
+from romanisim import catalog, image, log
 from romanisim.util import calc_scale_factor
 import romanisim
 import crds
 from crds.client import api
+
+from romanisim.models import wcs, parameters
 
 
 NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}
@@ -176,7 +176,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         raise ValueError('Must set either catalog_name or metadata')
 
     if coord is None:
-        coord = (roman.n_pix / 2, roman.n_pix / 2)
+        coord = (parameters.n_pix / 2, parameters.n_pix / 2)
 
     distortion_file = parameters.reference_data["distortion"]
     if distortion_file is not None:

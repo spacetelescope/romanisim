@@ -7,15 +7,15 @@ from copy import deepcopy
 import math
 import numpy as np
 import galsim
-from romanisim import parameters, catalog, wcs, l3, psf, util, log
+from romanisim import catalog, l3, util, log
+from romanisim.models import parameters, wcs, psf
 from astropy import units as u
 from astropy import table
 from astropy.stats import mad_std
 import asdf
 import pytest
 from roman_datamodels import datamodels as rdm
-import romanisim.bandpass
-from galsim import roman
+import romanisim.models.bandpass
 from astropy.coordinates import SkyCoord
 
 
@@ -25,7 +25,7 @@ def test_inject_sources_into_mosaic():
     """
 
     # Set constants and metadata
-    galsim.roman.n_pix = 200
+    parameters.n_pix = 200
     rng_seed = 42
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     filter_name = 'F158'
@@ -33,7 +33,7 @@ def test_inject_sources_into_mosaic():
 
     # Create WCS
     twcs = wcs.GWCS(wcs.get_mosaic_wcs(
-        metadata, shape=(galsim.roman.n_pix, galsim.roman.n_pix)))
+        metadata, shape=(parameters.n_pix, parameters.n_pix)))
 
     # Create initial Level 3 mosaic
 
@@ -52,7 +52,7 @@ def test_inject_sources_into_mosaic():
     g4 = galsim.GaussianDeviate(rng_seed, mean=meanflux, sigma=0.10 * meanflux)
 
     # Create level 3 mosaic model
-    l3_mos = rdm.MosaicModel.create_fake_data(shape=(galsim.roman.n_pix, galsim.roman.n_pix))
+    l3_mos = rdm.MosaicModel.create_fake_data(shape=(parameters.n_pix, parameters.n_pix))
     l3_mos['meta']['wcs'] = twcs._wcs
 
     # Update metadata in the l3 model
@@ -63,9 +63,9 @@ def test_inject_sources_into_mosaic():
     # Obtain unit conversion factors
     # maggies to counts (large number)
     sca = parameters.default_sca
-    cps_conv = romanisim.bandpass.get_abflux(filter_name, sca)
+    cps_conv = romanisim.models.bandpass.get_abflux(filter_name, sca)
     # electrons to mjysr (roughly order unity in scale)
-    unit_factor = romanisim.bandpass.etomjysr(filter_name, sca)
+    unit_factor = romanisim.models.bandpass.etomjysr(filter_name, sca)
 
     # Populate the mosaic data array with gaussian noise from generators
     g1.generate(l3_mos.data[0:100, 0:100])
@@ -159,7 +159,7 @@ def test_sim_mosaic():
     cat[filter_name][0:10] *= 1e4
 
     # Create bounds from the object list
-    twcs = romanisim.wcs.get_mosaic_wcs(metadata)
+    twcs = romanisim.models.wcs.get_mosaic_wcs(metadata)
     allx, ally = twcs.world_to_pixel_values(cat['ra'].value, cat['dec'].value)
 
     # Obtain the sample extremums
@@ -179,7 +179,7 @@ def test_sim_mosaic():
     context = np.ones((1, 2 * ydiff, 2 * xdiff), dtype=np.uint32)
 
     # Generate properly sized WCS
-    moswcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=(context.shape[1:]))
+    moswcs = romanisim.models.wcs.get_mosaic_wcs(metadata, shape=(context.shape[1:]))
 
     # Simulate mosaic
     mosaic, extras = l3.simulate(context.shape[1:], moswcs, exptimes[0],
@@ -198,11 +198,11 @@ def test_sim_mosaic():
         assert mosaic.data[y, x] > (np.median(mosaic.data) * 5)
 
     # Did we get all the flux?
-    etomjysr = romanisim.bandpass.etomjysr(filter_name, sca)
+    etomjysr = romanisim.models.bandpass.etomjysr(filter_name, sca)
     totflux = np.sum(mosaic.data - np.median(mosaic.data)) / etomjysr
 
     # Flux to counts
-    cps_conv = romanisim.bandpass.get_abflux(filter_name, sca)
+    cps_conv = romanisim.models.bandpass.get_abflux(filter_name, sca)
     expectedflux = np.sum(cat[filter_name]) * cps_conv
 
     # Ensure that the measured flux is close to the expected flux
@@ -243,9 +243,9 @@ def set_up_image_rendering_things():
     impsfgray = psf.make_psf(sca, filter_name, psftype='epsf', chromatic=False)
     impsfchromatic = psf.make_psf(sca, filter_name, psftype='galsim',
                                   chromatic=True)
-    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
+    bandpass = romanisim.models.bandpass.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
-    maggiestoe = romanisim.bandpass.get_abflux(filter_name, sca)
+    maggiestoe = romanisim.models.bandpass.get_abflux(filter_name, sca)
     fluxdict = {filter_name: counts}
     fluxdictgray = {filter_name: counts / maggiestoe}
 
@@ -301,7 +301,7 @@ def test_simulate_vs_cps():
     # is the coordinate of the boresight, but that doesn't need to be on SCA 1.
     # But at least they'll exercise some machinery if the ignore_distant_sources
     # argument is high enough!
-    roman.n_pix = 100
+    parameters.n_pix = 100
     exptime = 600
 
     # Create metadata
@@ -320,8 +320,8 @@ def test_simulate_vs_cps():
     im = imdict['im'].copy()
     im.array[:] = 0
 
-    maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
-    etomjysr = romanisim.bandpass.etomjysr(filter_name, sca)
+    maggytoes = romanisim.models.bandpass.get_abflux(filter_name, sca)
+    etomjysr = romanisim.models.bandpass.etomjysr(filter_name, sca)
 
     twcs = wcs.get_mosaic_wcs(meta, shape=im.array.shape)
     im.wcs = wcs.GWCS(twcs)
@@ -344,7 +344,7 @@ def test_simulate_vs_cps():
                                    maggytoes=maggytoes, etomjysr=etomjysr)
 
     # Create chromatic data in simulate
-    im3, extras3 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, chromcat,
+    im3, extras3 = l3.simulate((parameters.n_pix, parameters.n_pix), twcs, exptime, filter_name, chromcat,
                                bandpass=imdict['bandpass'],
                                psf=imdict['impsfchromatic'],
                                seed=rng_seed,
@@ -354,7 +354,7 @@ def test_simulate_vs_cps():
                                )
 
     # Create filter data in simulate
-    im4, extras4 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, graycat,
+    im4, extras4 = l3.simulate((parameters.n_pix, parameters.n_pix), twcs, exptime, filter_name, graycat,
                                psf=imdict['impsfgray'],
                                seed=rng_seed,
                                metadata=metadata, sky=0,
@@ -475,7 +475,7 @@ def test_exptime_array():
     # is the coordinate of the boresight, but that doesn't need to be on SCA 1.
     # But at least they'll exercise some machinery if the ignore_distant_sources
     # argument is high enough!
-    roman.n_pix = 100
+    parameters.n_pix = 100
 
     # Create metadata
     meta = util.default_image_meta(filter_name='F158')
@@ -487,24 +487,24 @@ def test_exptime_array():
     metadata['wcsinfo']['dec_ref'] = 66
 
     # Set variable exposure time array
-    exptime = np.ones((roman.n_pix, roman.n_pix))
+    exptime = np.ones((parameters.n_pix, parameters.n_pix))
     basetime = 300
     expfactor = 2
     exptime[0:50, :] = basetime
     exptime[50:, :] = basetime * expfactor
 
     # Set WCS
-    twcs = romanisim.wcs.get_mosaic_wcs(metadata, shape=(roman.n_pix, roman.n_pix))
+    twcs = romanisim.models.wcs.get_mosaic_wcs(metadata, shape=(parameters.n_pix, parameters.n_pix))
 
     # Create chromatic data simulation
-    im1, extras1 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, chromcat,
+    im1, extras1 = l3.simulate((parameters.n_pix, parameters.n_pix), twcs, exptime, filter_name, chromcat,
                                bandpass=imdict['bandpass'], seed=rng_seed,
                                metadata=metadata, ignore_distant_sources=100,
                                effreadnoise=0,
                                )
 
     # Create filter data simulation
-    im2, extras2 = l3.simulate((roman.n_pix, roman.n_pix), twcs, exptime, filter_name, graycat,
+    im2, extras2 = l3.simulate((parameters.n_pix, parameters.n_pix), twcs, exptime, filter_name, graycat,
                                psf=imdict['impsfgray'],
                                seed=rng_seed, metadata=metadata,
                                ignore_distant_sources=100,
@@ -529,9 +529,9 @@ def test_scaling():
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
 
     # Set WCS
-    twcs1 = romanisim.wcs.create_tangent_plane_gwcs(
+    twcs1 = romanisim.models.wcs.create_tangent_plane_gwcs(
         (npix / 2, npix / 2), pscale, coord)
-    twcs2 = romanisim.wcs.create_tangent_plane_gwcs(
+    twcs2 = romanisim.models.wcs.create_tangent_plane_gwcs(
         (npix / 2, npix / 2), pscale / 2, coord)
 
     im1, extras1 = l3.simulate(

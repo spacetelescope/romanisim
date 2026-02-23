@@ -18,8 +18,8 @@ import copy
 from functools import cache
 import numpy as np
 import galsim
-from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs, persistence
+from romanisim import image, catalog, util, persistence
+from romanisim.models import psf, wcs, parameters
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -29,7 +29,7 @@ from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
 from roman_datamodels.datamodels import ImageModel, ScienceRawModel
-import romanisim.bandpass
+import romanisim.models.bandpass
 
 
 def test_in_bounds():
@@ -453,7 +453,7 @@ def test_simulate_counts():
     # is the coordinate of the boresight, but that doesn't need to be on SCA 1.
     # But at least they'll exercise some machinery if the ignore_distant_sources
     # argument is high enough!
-    roman.n_pix = 100
+    parameters.n_pix = 100
 
     meta = util.default_image_meta(filter_name='F158')
     wcs.fill_in_parameters(meta, coord, boresight=False)
@@ -479,7 +479,7 @@ def test_simulate():
     """
     imdict = set_up_image_rendering_things()
     # simulate gray, chromatic, level0, level1, level2 images
-    roman.n_pix = 100
+    parameters.n_pix = 100
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
     filter_name = 'F158'
@@ -493,7 +493,7 @@ def test_simulate():
     imwcs = wcs.get_wcs(meta, usecrds=False)
     sourcecen = (50, 50)
     center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
-    abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    abfluxdict = romanisim.models.bandpass.compute_abflux(sca, galsim_filter_name=False)
     for o in chromcat:
         o.sky_pos = center
     for o in graycat:
@@ -596,7 +596,7 @@ def test_make_test_catalog_and_images():
     # this isn't a real routine that we should consider part of the
     # public interface, and may be removed.  We'll settle for just
     # testing that it runs.
-    roman.n_pix = 100
+    parameters.n_pix = 100
     fn = os.environ.get('GALSIM_CAT_PATH', None)
     if fn is not None:
         fn = str(fn)
@@ -618,7 +618,7 @@ def test_make_test_catalog_and_images():
 def test_reference_file_crds_match(level):
     # Set up parameters for simulation run
     from romanisim import ris_make_utils
-    galsim.roman.n_pix = 4088
+    parameters.n_pix = 4088
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     metadata['instrument']['detector'] = 'WFI07'
     metadata['instrument']['optical_element'] = 'F158'
@@ -627,7 +627,7 @@ def test_reference_file_crds_match(level):
 
     twcs = wcs.get_wcs(metadata, usecrds=True)
     rd_sca = twcs.toWorld(galsim.PositionD(
-        galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
+        parameters.n_pix / 2, parameters.n_pix / 2))
 
     cat = catalog.make_dummy_table_catalog(
         rd_sca, bandpasses=[metadata['instrument']['optical_element']], nobj=1000)
@@ -655,7 +655,7 @@ def test_inject_source_into_image():
     """
 
     # Set constants and metadata
-    galsim.roman.n_pix = 100
+    parameters.n_pix = 100
     coord = SkyCoord(ra=270 * u.deg, dec=66 * u.deg)
     filt = 'F158'
     meta = util.default_image_meta(coord=coord, filter_name=filt,
@@ -687,7 +687,7 @@ def test_inject_source_into_image():
     assert np.all(im.data[-10:, -10:] == iminj.data[-10:, -10:])
 
     # Test that the amount of added flux makes sense
-    fluxeps = flux * romanisim.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
+    fluxeps = flux * romanisim.models.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
     assert np.abs(np.sum(iminj.data - im.data) * parameters.reference_data['gain'] /
                   fluxeps - 1) < 0.1
 
@@ -730,7 +730,7 @@ def test_image_input(tmpdir):
     catalog.make_image_catalog(filenames, psf, base_rgc_filename)
 
     # make some metadata to describe an image for us to render
-    roman.n_pix = 500
+    parameters.n_pix = 500
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     meta = util.default_image_meta(coord=coord, filter_name='F087')
     wcs.fill_in_parameters(meta, coord)
@@ -738,7 +738,7 @@ def test_image_input(tmpdir):
 
     # make a table of sources for us to render
     tab = table.Table()
-    cen = imwcs.toWorld(galsim.PositionD(roman.n_pix / 2, roman.n_pix / 2))
+    cen = imwcs.toWorld(galsim.PositionD(parameters.n_pix / 2, parameters.n_pix / 2))
     offsets = np.array([[-300, 300, -100, -200, 0, 0],
                         [0, 100, -200, -100, 0, -300]])
     offsets = offsets * 0.1 / 60 / 60
@@ -757,7 +757,7 @@ def test_image_input(tmpdir):
 
     # did we get all the flux?
     totflux = np.sum(res[0].data - np.median(res[0].data))
-    expectedflux = (romanisim.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
+    expectedflux = (romanisim.models.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
                     / parameters.reference_data['gain'])
     assert np.abs(totflux / expectedflux - 1) < 0.1
 
@@ -817,7 +817,7 @@ def make_image_psftype(psftype='epsf'):
         psf_keywords = dict(nlambda=1)
 
     imdict = set_up_image_rendering_things(psftype=psftype)
-    roman.n_pix = 100
+    parameters.n_pix = 100
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
     filter_name = 'F158'
@@ -829,7 +829,7 @@ def make_image_psftype(psftype='epsf'):
     imwcs = wcs.get_wcs(meta, usecrds=False)
     sourcecen = (50, 50)
     center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
-    abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    abfluxdict = romanisim.models.bandpass.compute_abflux(sca, galsim_filter_name=False)
     for o in graycat:
         o.sky_pos = center
         o.flux[filter_name] /= abfluxdict[f'SCA{sca:02}'][filter_name]
@@ -850,7 +850,7 @@ def set_up_image_rendering_things(psftype='epsf'):
                              **psf_keywords)
     impsfchromatic = psf.make_psf(1, filter_name, psftype='galsim',
                                   chromatic=True)
-    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
+    bandpass = romanisim.models.bandpass.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
     fluxdict = {filter_name: counts}
     from copy import deepcopy

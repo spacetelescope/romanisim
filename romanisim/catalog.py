@@ -7,16 +7,16 @@ import os
 import dataclasses
 import numpy as np
 import galsim
-from galsim import roman
 from astropy import coordinates, table
 from astropy import units as u
 from astropy.io import fits
 import astropy_healpix
 import astropy.time
 from romanisim import gaia as rsim_gaia
-from . import util, log, parameters
-import romanisim.bandpass
+from . import util, log
+import romanisim.models.bandpass
 import yaml
+from romanisim.models import parameters
 
 # COSMOS constants taken from the COSMOS2020 paper:
 # https://arxiv.org/pdf/2110.13923
@@ -32,7 +32,7 @@ F158_H_COEFF = 0.823395077391525
 F184_KS_COEFF = 0.3838145747397368
 
 # Bandpass filters
-BANDPASSES = set(romanisim.bandpass.galsim2roman_bandpass.values())
+BANDPASSES = set(romanisim.models.bandpass.galsim2roman_bandpass.values())
 
 
 @dataclasses.dataclass
@@ -83,20 +83,20 @@ def make_dummy_catalog(coord,
         rng = galsim.UniformDeviate(seed)
 
     if galaxy_sample_file_name is None:
-        cat1 = galsim.COSMOSCatalog(sample='25.2', area=roman.collecting_area,
+        cat1 = galsim.COSMOSCatalog(sample='25.2', area=parameters.collecting_area,
                                     exptime=1)
-        cat2 = galsim.COSMOSCatalog(sample='23.5', area=roman.collecting_area,
+        cat2 = galsim.COSMOSCatalog(sample='23.5', area=parameters.collecting_area,
                                     exptime=1)
     else:
         cat1 = galsim.COSMOSCatalog(galaxy_sample_file_name,
-                                    area=roman.collecting_area, exptime=1)
+                                    area=parameters.collecting_area, exptime=1)
         cat2 = cat1
 
     if chromatic:
         # following Roman demo13, all stars currently have the SED of Vega.
         # fluxes are set to have a specific value in the y bandpass.
         vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
-        y_bandpass = roman.getBandpasses(AB_zeropoint=True)['Y106']
+        y_bandpass = romanisim.models.bandpass.getBandpasses(AB_zeropoint=True)['Y106']
 
     objlist = []
     locs = util.random_points_in_cap(coord, radius, nobj, rng=rng)
@@ -115,7 +115,7 @@ def make_dummy_catalog(coord,
             mu = np.log(mu_x**2 / (mu_x**2 + sigma_x**2)**0.5)
             sigma = (np.log(1 + sigma_x**2 / mu_x**2))**0.5
             gd = galsim.GaussianDeviate(rng, mean=mu, sigma=sigma)
-            flux = np.exp(gd()) / roman.exptime
+            flux = np.exp(gd()) / parameters.exptime
             if chromatic:
                 sed = vega_sed.withFlux(flux, y_bandpass)
                 obj = galsim.DeltaFunction() * sed
@@ -407,8 +407,8 @@ def make_galaxies(coord,
         Table for use with table_to_catalog to generate catalog for simulation.
     """
     if bandpasses is None:
-        bandpasses = roman.getBandpasses().keys()
-        bandpasses = [romanisim.bandpass.galsim2roman_bandpass[b]
+        bandpasses = romanisim.models.bandpass.getBandpasses().keys()
+        bandpasses = [romanisim.models.bandpass.galsim2roman_bandpass[b]
                       for b in bandpasses]
     if rng is None:
         rng = galsim.UniformDeviate(seed)
@@ -588,8 +588,8 @@ def make_stars(coord,
         Table for use with table_to_catalog to generate catalog for simulation.
     """
     if bandpasses is None:
-        bandpasses = roman.getBandpasses().keys()
-        bandpasses = [romanisim.bandpass.galsim2roman_bandpass[b]
+        bandpasses = romanisim.models.bandpass.getBandpasses().keys()
+        bandpasses = [romanisim.models.bandpass.galsim2roman_bandpass[b]
                       for b in bandpasses]
     if rng is None:
         rng = galsim.UniformDeviate(seed)

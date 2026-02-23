@@ -106,11 +106,11 @@ import numpy as np
 import asdf
 import galsim
 from scipy import ndimage
-from . import parameters
-from . import log
-from . import cr
+from . import log, cr
 
 from roman_datamodels.datamodels import ScienceRawModel
+
+from romanisim.models import ipc, parameters
 
 
 def validate_times(tij):
@@ -512,7 +512,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     """
 
     nborder = parameters.nborder
-    npix = galsim.roman.n_pix + 2 * nborder
+    npix = parameters.n_pix + 2 * nborder
     out = ScienceRawModel._node_type.create_fake_data(shape=(len(resultants), npix, npix))
     out['amp33'] = np.zeros((len(resultants), 4096, 128), dtype=out.amp33.dtype)
 
@@ -570,7 +570,7 @@ def add_ipc(resultants, ipc_kernel=None):
     # the reference pixels have basically no flux, so for these real pixels we
     # extend the array with a constant equal to zero.
     if ipc_kernel is None:
-        ipc_kernel = parameters.ipc_kernel
+        ipc_kernel = ipc.ipc_kernel
 
     log.info('Adding IPC...')
     out = ndimage.convolve(resultants, ipc_kernel[None, ...],
@@ -583,7 +583,7 @@ def make_l1(counts, read_pattern,
             rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None,
-            darkdecaysignal=None):
+            darkdecaysignal=None, ipc_model=None):
     """Make an L1 image from a total electrons image.
 
     This apportions the total electrons among the different resultants and adds
@@ -650,7 +650,10 @@ def make_l1(counts, read_pattern,
 
     # roman.addReciprocityFailure(resultants_object)
 
-    add_ipc(resultants)
+    if ipc_model is not None:
+        ipc_model.apply(resultants)
+    else:
+        add_ipc(resultants)
 
     # resultants are in electrons
     if gain is None:

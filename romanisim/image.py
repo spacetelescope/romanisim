@@ -12,15 +12,16 @@ import astropy.time
 from astropy import units as u, coordinates, table
 import asdf
 import galsim
-from galsim import roman
-from . import wcs, catalog, parameters, util, nonlinearity, ramp, log
+from . import catalog, util, ramp, log
 import romanisim.l1
-import romanisim.bandpass
-import romanisim.psf
 import romanisim.persistence
 
 from roman_datamodels.datamodels import ImageModel
 from roman_datamodels import datamodels
+
+from romanisim import models
+from romanisim.models import wcs, parameters
+
 
 
 # galsim fluxes are in photons / cm^2 / s
@@ -681,29 +682,29 @@ def simulate_counts(metadata, objlist,
     if not isinstance(date, astropy.time.Time):
         date = astropy.time.Time(date, format='isot')
 
-    galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
-    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
+    galsim_filter_name = models.bandpass.roman2galsim_bandpass[filter_name]
+    bandpass = models.bandpass.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
     imwcs = wcs.get_wcs(metadata, usecrds=usecrds)
     chromatic = False
     if (len(objlist) > 0
             and not isinstance(objlist, table.Table)  # this case is always gray
             and objlist[0].profile.spectral):
         chromatic = True
-    psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
+    psf = models.psf.make_psf(sca, filter_name, wcs=imwcs,
                                  chromatic=chromatic, psftype=psftype,
                                  variable=True, date=date, **psf_keywords)
-    image = galsim.ImageF(roman.n_pix, roman.n_pix, wcs=imwcs, xmin=0, ymin=0)
+    image = galsim.ImageF(parameters.n_pix, parameters.n_pix, wcs=imwcs, xmin=0, ymin=0)
     SCA_cent_pos = imwcs.toWorld(image.true_center)
-    sky_level = roman.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
+    sky_level = models.backgrounds.getSkyLevel(bandpass, world_pos=SCA_cent_pos,
                                   date=date.datetime, exptime=1)
-    sky_level *= (1.0 + roman.stray_light_fraction)
+    sky_level *= (1.0 + parameters.stray_light_fraction)
     sky_image = image * 0
     imwcs.makeSkyImage(sky_image, sky_level)
     # Extract pixel area from sky image (before adding thermal backgrounds)
     # makeSkyImage multiplies sky_level by pixel area, so area = sky_image / sky_level
     area = sky_image.array / sky_level
-    sky_image += roman.thermal_backgrounds[galsim_filter_name]
-    abflux = romanisim.bandpass.get_abflux(filter_name, sca)
+    sky_image += models.backgrounds.thermal_backgrounds[galsim_filter_name]
+    abflux = models.bandpass.get_abflux(filter_name, sca)
 
     # Convert flat field to QE
     if gain is None:
@@ -802,48 +803,46 @@ def gather_reference_data(image_mod, usecrds=False):
 
     # reffiles has all of the reference files / values we know about
 
-    nborder = parameters.nborder
-
     # we now need to extract the relevant fields
     if isinstance(reffiles['readnoise'], str):
-        model = datamodels.open(
-            reffiles['readnoise'])
-        out['readnoise'] = model.data[nborder:-nborder, nborder:-nborder].copy()
         # readnoise in DN
+        out['readnoise'] = models.ReadNoise(usecrds=usecrds, reffiles=reffiles).read_noise
 
     if isinstance(reffiles['gain'], str):
-        model = datamodels.open(reffiles['gain'])
-        out['gain'] = model.data[nborder:-nborder, nborder:-nborder].copy()
         # gain in electron/DN
+        out['gain'] = models.Gain(usecrds=usecrds, reffiles=reffiles).gain
 
     if isinstance(reffiles['dark'], str):
-        model = datamodels.open(reffiles['dark'])
-        # dark_slope from CRDS is in DN/s, convert to electron/s
-        out['dark'] = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * out['gain']
+        out['dark'] = models.DarkCurrent(usecrds=usecrds, getdq=True, reffiles=reffiles).dark_rate
 
     if isinstance(reffiles['saturation'], str):
-        saturation = datamodels.open(
-            reffiles['saturation'])
-        saturation = saturation.data[nborder:-nborder, nborder:-nborder].copy()
         # saturation in DN
-        out['saturation'] = saturation
+        out["saturation"] = models.Saturation(
+            usecrds=usecrds, getdq=True, reffiles=reffiles, saturation_level=out["saturation"]
+        ).saturation_level
+        saturation = out["saturation"]
     else:
         saturation = out['saturation']
 
     if isinstance(reffiles['integralnonlinearity'], str):
-        inl_model = datamodels.open(reffiles['integralnonlinearity'])
+        inl_model = True
     else:
-        inl_model = None
+        inl_model = False
+        
+    if 'ipc' in reffiles and isinstance(reffiles['ipc'], str):
+        out["ipc"] = models.IPC(usecrds=usecrds, reffiles=reffiles)
+    else:
+        out["ipc"] = None
 
     if isinstance(reffiles['linearity'], str):
-        lin_model = datamodels.open(
-            reffiles['linearity'])
-        out['linearity'] = nonlinearity.NL(
-            lin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
-            lin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
-            gain=out['gain'],
+        out["linearity"] = models.Nonlinearity(
+            usecrds=usecrds,
+            getdq=True,
+            reftype="linearity",
+            reffiles=reffiles,
             saturation=saturation * 1.1 if saturation is not None else None,
-            integralnonlinearity=inl_model)
+            integralnonlinearity=inl_model,
+        )
         # fudge factor on saturation to let us correct to slightly beyond
         # saturation, even if we mask at saturation and don't use those
         # corrected results
@@ -859,16 +858,17 @@ def gather_reference_data(image_mod, usecrds=False):
                     'values!')
         else:
             inv_saturation = None
-
-        ilin_model = datamodels.open(
-            reffiles['inverselinearity'])
-        out['inverselinearity'] = nonlinearity.NL(
-            ilin_model.coeffs[:, nborder:-nborder, nborder:-nborder].copy(),
-            ilin_model.dq[nborder:-nborder, nborder:-nborder].copy(),
-            gain=out['gain'],
-            saturation=inv_saturation * 1.1 if inv_saturation is not None else None,
+        
+        out["inverselinearity"] = models.Nonlinearity(
+            usecrds=usecrds,
+            getdq=True,
+            reffiles=reffiles,
+            reftype="inverselinearity",
+            saturation=inv_saturation * 1.1
+            if inv_saturation is not None
+            else None,
             integralnonlinearity=inl_model,
-            inverse=True)
+        )
         # fudge factor of 10% on the inverse saturation ensures that we'll
         # continue to fill up pixels above their nominal saturation limits
         # so that we can robustly see these pixels as saturated.
@@ -981,6 +981,7 @@ def simulate(metadata, objlist,
     darkdecaysignal = refdata['darkdecaysignal']
     reffiles = refdata['reffiles']
     flat = refdata['flat']
+    ipc_model = refdata['ipc']
     pedestal_extra_noise = parameters.pedestal_extra_noise
 
     if rng is None and seed is None:
@@ -1017,6 +1018,7 @@ def simulate(metadata, objlist,
             persistence=persistence,
             saturation=saturation,
             darkdecaysignal=darkdecaysignal,
+            ipc_model=ipc_model,
             **kwargs)
     if level == 1:
         im, extras = romanisim.l1.make_asdf(
@@ -1056,7 +1058,7 @@ def make_test_catalog_and_images(
     metadata['instrument']['detector'] = 'WFI%02d' % sca
     imwcs = wcs.get_wcs(metadata, usecrds=usecrds)
     rd_sca = imwcs.toWorld(galsim.PositionD(
-        roman.n_pix / 2 + 0.5, roman.n_pix / 2 + 0.5))
+        parameters.n_pix / 2 + 0.5, parameters.n_pix / 2 + 0.5))
     cat = catalog.make_dummy_catalog(
         rd_sca, seed=seed, nobj=nobj,
         galaxy_sample_file_name=galaxy_sample_file_name)
@@ -1216,9 +1218,11 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     if len(cat) > 0 and cat[0].profile.spectral:
         chromatic = True
 
-    wcs = romanisim.wcs.GWCS(model.meta.wcs)
+    # wcs = romanisim.wcs.GWCS(model.meta.wcs)
+    wcs = romanisim.models.wcs.GWCS(model.meta.wcs)
+    
     if psf is None:
-        psf = romanisim.psf.make_psf(
+        psf = models.psf.make_psf(
             sca, filter_name, wcs=wcs,
             chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
 
@@ -1228,9 +1232,9 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, rng=None,
     # assemble bits we need in order to add a source to an image
     sourcecounts = galsim.ImageF(model.data.shape[0], model.data.shape[1],
                                  wcs=wcs, xmin=0, ymin=0)
-    galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
-    bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
-    abflux = romanisim.bandpass.get_abflux(filter_name, sca)
+    galsim_filter_name = models.bandpass.roman2galsim_bandpass[filter_name]
+    bandpass = models.bandpass.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
+    abflux = models.bandpass.get_abflux(filter_name, sca)
     read_pattern = model.meta.exposure.read_pattern
     exptime = parameters.read_time * read_pattern[-1][-1]
     tij = romanisim.l1.read_pattern_to_tij(read_pattern)
