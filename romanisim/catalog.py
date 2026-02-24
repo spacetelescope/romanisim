@@ -32,7 +32,7 @@ F158_H_COEFF = 0.823395077391525
 F184_KS_COEFF = 0.3838145747397368
 
 # Bandpass filters
-BANDPASSES = set(romanisim.bandpass.galsim2roman_bandpass.values())
+BANDPASSES = list(romanisim.bandpass.galsim2roman_bandpass.values())
 
 
 @dataclasses.dataclass
