@@ -188,7 +188,8 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
     if metadata is not None:
         twcs = wcs.get_wcs(metadata, usecrds=usecrds, distortion=distortion)
 
-        if not isinstance(coord, coordinates.SkyCoord):
+        if (not isinstance(coord, coordinates.SkyCoord) and
+            not isinstance(coord, galsim.CelestialCoord)):
             coord = twcs.toWorld(galsim.PositionD(*coord))
 
     # Create catalog

@@ -42,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--effreadnoise', type=float, default=None,
                         help='effective readnoise per pixel in MJy/sr.  If '
                         'None, a pessimistic estimate is computed.')
-    parser.add_argument('--nexposures', type=float, default=1,
+    parser.add_argument('--nexposures', type=int, default=1,
                         help='number of exposures on field.  Used only '
                         'to compute the effective read noise.')
     parser.add_argument('--rng_seed', type=int, default=None)
