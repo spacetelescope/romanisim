@@ -181,6 +181,7 @@ def test_cosmos_table_catalog(tmp_path):
         assert np.all(cat[bp] >= 0)
 
 
+@pytest.mark.skip(reason="flaky: depends on Gaia network service")
 def test_make_gaia_stars(tmp_path):
     """Test population of sources from Gaia catalog
     """
