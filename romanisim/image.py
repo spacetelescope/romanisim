@@ -1018,7 +1018,9 @@ def simulate(metadata, objlist,
             saturation=saturation,
             darkdecaysignal=darkdecaysignal,
             **kwargs)
-    if level == 1:
+    if level == 0:
+        extras = dict()
+    elif level == 1:
         im, extras = romanisim.l1.make_asdf(
             l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)
     elif level == 2:
@@ -1031,7 +1033,9 @@ def simulate(metadata, objlist,
             *slopeinfo, metadata=image_mod.meta, persistence=persistence,
             dq=l2dq, imwcs=counts.wcs, gain=gain)
     else:
-        extras = dict()
+        raise ValueError('romanisim.image.simulate() only simulates Level 0, '
+                         '1, and 2 images. Try romanisim.l3.simulate() for '
+                         'Level 3 images.')
 
     if reffiles:
         extras["simulate_reffiles"] = {}
