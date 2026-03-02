@@ -1080,8 +1080,11 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     """Wrap a galsim simulated image with ASDF/roman_datamodel metadata.
     """
 
-    n_groups = len(metadata['exposure']['read_pattern'])
-    out = ImageModel._node_type.create_fake_data()
+    if metadata is not None:
+        n_groups = len(metadata['exposure']['read_pattern'])
+    else:
+        n_groups = 1
+    out = ImageModel.create_fake_data()
     # ephemeris contains a lot of angles that could be computed.
     # exposure contains
     #     ngroups, nframes, sca_number, gain_factor, integration_time,
@@ -1107,6 +1110,11 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         gwcs = wcs.convert_wcs_to_gwcs(imwcs)
         out['meta'].update(wcs=gwcs)
         out['meta']['wcsinfo']['s_region'] = wcs.create_s_region(gwcs)
+    out['meta']['cal_step'] = dict()
+    step_names = out.schema_info("required")["roman"]["meta"]["cal_step"]
+    step_names = step_names["required"].info
+    for step_name in step_names:
+        out['meta']['cal_step'][step_name] = "INCOMPLETE"
 
     util.update_photom_keywords(out, gain=gain)
 
@@ -1149,9 +1157,9 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         extras['persistence'] = persistence.to_dict()
     if filepath:
         af = asdf.AsdfFile()
-        af.tree = {'roman': out, 'romanisim': extras}
+        af.tree = {'roman': out._instance, 'romanisim': extras}
         af.write_to(filepath)
-    return out, extras
+    return out._instance, extras
 
 
 def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
