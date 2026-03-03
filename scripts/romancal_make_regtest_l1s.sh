@@ -14,6 +14,9 @@
 # The MA tables are also supposed to be slightly different (frame time is different?)
 # but I haven't done anything here.
 
+# stop on an error
+set -e
+
 # default image
 romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:00:00 --rng_seed 1 --drop-extra-dq r0000101001001001001_0001_{}_{bandpass}_uncal.asdf
 # different location, different exposure
