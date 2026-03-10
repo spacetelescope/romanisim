@@ -1,11 +1,12 @@
 # Roman Space Telescope Technical Information
 
 This repository hosts technical information related to the Nancy Grace Roman Space Telescope (Roman), its Wide Field Instrument (WFI), and its Coronagraph technology demonstration (Coronagraph). This repository is open to everyone, and the information contained within is public without any restrictions. The intended audience for this information is primarily the:
-* Roman Science Operations Center (SOC) at the Space Telescope Science Institute (STScI)
-* Roman Science Support Center (SSC) at the Infrared Processing and Analysis Center (IPAC)
-* Project Infrastructure and Wide Field Science Teams
-* Committees performing definition of the community survey programs
-* Roman user community
+
+- Roman Science Operations Center (SOC) at the Space Telescope Science Institute (STScI)
+- Roman Science Support Center (SSC) at the Infrared Processing and Analysis Center (IPAC)
+- Project Infrastructure and Wide Field Science Teams
+- Committees performing definition of the community survey programs
+- Roman user community
 
 # Using this Repository
 
@@ -15,9 +16,11 @@ Within the data/ directory, information related to the spacecraft, the WFI, and 
 
 **Note:** Most files here are either in a .yaml or .ecsv format. Either can be easily read in with Python3.
 
-## YAML Files 
+## YAML Files
+
 YAML file can be read in with the [pyyaml packge](https://pyyaml.org). For more details, please see the [pyyaml documentation](https://pyyaml.org/wiki/PyYAMLDocumentation).
 For example, here's how to read in the yaml file `MissionandObservatory.yaml` located in `roman-technical-information/data/Observatory/MissionandObservatoryTechnicalOverview/`:
+
 ```
 # import the yaml package (installed via the pyyaml package)
 import yaml
@@ -26,7 +29,7 @@ import yaml
 with open('MissionandObservatory.yaml', 'r') as file:
     # the data will be stored as the Python dictionary "Roman"
     Roman = yaml.safe_load(file)
-    
+
 # Roman is a Python dictionary
 print(Roman)
 print(Roman.keys())
@@ -34,9 +37,11 @@ print(Roman['Mission_and_Spacecraft_Parameters'])
 print(Roman['Mission_and_Spacecraft_Parameters']['orbit'])
 ```
 
-## ECSV (Enhanced Character-Separated Values) Files 
+## ECSV (Enhanced Character-Separated Values) Files
+
 ECSV files can be read in with the [astropy package](https://www.astropy.org). For more details, please see [astropy's ecsv documentation](https://docs.astropy.org/en/stable/io/ascii/ecsv.html) and the [astropy example on reading Gaia ecsv files](https://docs.astropy.org/en/stable/io/ascii/read.html#reading-gaia-data-tables).
-For example, here's how to read in the ecsv file `nominal_roll_angles_dec_1_observatory.ecsv` located in `roman-technical-information/data/Observatory/RollAngles/`: 
+For example, here's how to read in the ecsv file `nominal_roll_angles_dec_1_observatory.ecsv` located in `roman-technical-information/data/Observatory/RollAngles/`:
+
 ```
 # You can use either Table or QTable, both of which are part of the astropy package
 from astropy.table import Table
@@ -57,6 +62,7 @@ Roman = QTable.read("nominal_roll_angles_dec_1_observatory.ecsv",format="ascii.e
 ```
 
 # Versioning
+
 You can find the version number in VERSION.md.
 
 The Roman Technical Information repo uses the following version number convention:
@@ -78,8 +84,9 @@ This repository follows the Spacetelescope organization [Code of Conduct](CODE_O
 # Documentation and Help
 
 For more information related to the Roman mission, please see the following resources:
-* [Roman mission website at Goddard Space Flight Center (GSFC)](https://roman.gsfc.nasa.gov/)
-* [The Roman Documentation System (RDox) at STScI](https://roman-docs.stsci.edu/)
+
+- [Roman mission website at Goddard Space Flight Center (GSFC)](https://roman.gsfc.nasa.gov/)
+- [The Roman Documentation System (RDox) at STScI](https://roman-docs.stsci.edu/)
 
 More links will be added as the become available.
 

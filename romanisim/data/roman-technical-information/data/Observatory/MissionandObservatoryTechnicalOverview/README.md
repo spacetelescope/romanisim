@@ -2,6 +2,6 @@
 
 ## Included files
 
-| Filename| Description|
-|---------|------------|
-| MissionandObservatory.yaml  | Roman mission, spacecraft, telescope, and instrumentation properties.|
+| Filename                   | Description                                                           |
+| -------------------------- | --------------------------------------------------------------------- |
+| MissionandObservatory.yaml | Roman mission, spacecraft, telescope, and instrumentation properties. |

@@ -4,6 +4,6 @@
 
 ## Included files
 
-| Filename| Description|
-|---------|------------|
+| Filename               | Description                                                       |
+| ---------------------- | ----------------------------------------------------------------- |
 | filter_parameters.ecsv | Roman/WFI filter parameters based on the post-CDR optical design. |
