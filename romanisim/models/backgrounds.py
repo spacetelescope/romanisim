@@ -48,7 +48,7 @@ def getSkyLevel(bandpass, world_pos=None, exptime=None, epoch=2025, date=None):
     Get the expected sky level for a Roman ST observation due to zodiacal light for this bandpass
     and position.
 
-    This routine requires Bandpass objects that were loaded by galsim.roman.getBandpasses().  That
+    This routine requires Bandpass objects that were loaded by romanisim.models.bandpass.getBandpasses().  That
     routine will have stored tables containing the sky background as a function of position on the
     sky for that bandpass.  This routine then interpolates between the values in those tables to
     arbitrary positions on the sky.
@@ -69,7 +69,7 @@ def getSkyLevel(bandpass, world_pos=None, exptime=None, epoch=2025, date=None):
     code include the quantum efficiency, to effectively convert to e-/s/arcsec^2.  Note that in
     general results will depend on the adopted model for zodiacal light, and these are uncertain at
     the ~10% level. One must also better sample the integration in the zodiacal light calculation
-    to match the output tables used by GalSim here.
+    to match the output tables used by romanisim here.
 
     Positions should be specified with the ``world_pos`` keyword, which must be a CelestialCoord
     object.  If no ``world_pos`` is supplied, then the routine will use a default position that
@@ -101,7 +101,7 @@ def getSkyLevel(bandpass, world_pos=None, exptime=None, epoch=2025, date=None):
     # Check for cached sky level information for this filter.  If not, raise exception
     if not hasattr(bandpass, "_sky_level"):
         raise GalSimValueError(
-            "Only bandpasses returned from galsim.roman.getBandpasses() are "
+            "Only bandpasses returned from romanisim.models.bandpass.getBandpasses() are "
             "allowed here!",
             bandpass,
         )

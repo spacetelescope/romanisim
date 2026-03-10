@@ -269,27 +269,27 @@ def getBandpasses(
     follows::
 
         # Shift zeropoint based on effective collecting area in cm^2.
-        delta_zp = 2.5 * np.log10(galsim.roman.collecting_area)
+        delta_zp = 2.5 * np.log10(romanisim.models.parameters.roman.collecting_area)
 
     ``delta_zp`` will be a positive number that should be added to the GalSim zeropoints to compare
     with externally calculated instrumental zeropoints.  When using the GalSim zeropoints for
     normalization of fluxes, the ``area`` kwarg to drawImage can be used to get the right
-    normalization (giving it the quantity ``galsim.roman.collecting_area``).
+    normalization (giving it the quantity ``romanisim.models.parameters.roman.collecting_area``).
 
     This routine also loads information about sky backgrounds in each filter, to be used by the
-    galsim.roman.getSkyLevel() routine.  The sky background information is saved as an attribute in
+    romanisim.models.backgrounds.getSkyLevel() routine.  The sky background information is saved as an attribute in
     each Bandpass object.
 
     There are some subtle points related to the filter edges, which seem to depend on the field
     angle at some level.  This is more important for the grism than for the imaging, so currently
-    this effect is not included in the Roman bandpasses in GalSim.
+    this effect is not included in the Roman bandpasses in romanisim.models.
 
     The bandpass throughput file is translated from a spreadsheet Roman_effarea_20201130.xlsx at
     https://roman.gsfc.nasa.gov/science/WFI_technical.html.
 
     Example::
 
-        >>> roman_bandpasses = galsim.roman.getBandpasses()
+        >>> roman_bandpasses = romanisim.models.roman.getBandpasses()
         >>> f184_bp = roman_bandpasses['F184']
 
     Parameters:
