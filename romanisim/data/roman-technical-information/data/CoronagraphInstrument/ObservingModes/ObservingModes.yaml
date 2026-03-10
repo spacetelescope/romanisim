@@ -1,0 +1,11 @@
+---
+Description: Roman Coronagraph observing modes that are fully supported or supported on a best effort basis.
+
+FullySupported:
+  Narrow_FOV: narrow field of view imaging with the Hybrid Lyot coronagraph mask, band 1 filter, and imaging lens
+
+BestEffort:
+  Wide_FOV: wide field of view imaging with the shaped pupil annular ("SPC WFOV") coronagraph mask, bands 1 or 4 filter, and imaging lens
+  Spectroscopy: single slit, prism-based spectroscopy with the shaped pupil bowtie ("SPC SPEC") coronagraph mask and band 3 filter (note- band 2 is the lowest priority of these best effort modes)
+  Polarimetry: polarimetric imaging with either a narrow field of view (Hybrid Lyot coronagraph mask) or a wide field of view (shaped pupil annual "SPEC WFOV" coronagraph mask), bands 1 or 4 filter, and Wollaston prisms
+

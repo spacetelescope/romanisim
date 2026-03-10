@@ -1,0 +1,55 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: time, unit: s, datatype: float64, description: Time}
+# - {name: SCU 1, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 1 at nominal operating temperture (89.5K)}
+# - {name: SCU 2, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 2 at nominal operating temperture (89.5K)}
+# - {name: SCU 3, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 3 at nominal operating temperture (89.5K)}
+# - {name: SCU 4, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 4 at nominal operating temperture (89.5K)}
+# - {name: SCU 5, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 5 at nominal operating temperture (89.5K)}
+# - {name: SCU 6, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 6 at nominal operating temperture (89.5K)}
+# - {name: SCU 7, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 7 at nominal operating temperture (89.5K)}
+# - {name: SCU 8, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 8 at nominal operating temperture (89.5K)}
+# - {name: SCU 9, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 9 at nominal operating temperture (89.5K)}
+# - {name: SCU 10, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 10 at nominal operating temperture (89.5K)}
+# - {name: SCU 11, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 11 at nominal operating temperture (89.5K)}
+# - {name: SCU 12, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 12 at nominal operating temperture (89.5K)}
+# - {name: SCU 13, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 13 at nominal operating temperture (89.5K)}
+# - {name: SCU 14, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 14 at nominal operating temperture (89.5K)}
+# - {name: SCU 15, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 15 at nominal operating temperture (89.5K)}
+# - {name: SCU 16, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 16 at nominal operating temperture (89.5K)}
+# - {name: SCU 17, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 17 at nominal operating temperture (89.5K)}
+# - {name: SCU 18, unit: electron / s, datatype: float64, description: Roman/WFI persistence measurements over time for sensor control
+#     unit (SCU) 18 at nominal operating temperture (89.5K)}
+# delimiter: ','
+# meta: !!omap
+# - {comments: Roman/WFI persistence measurements}
+# schema: astropy-2.0
+time,SCU 1,SCU 2,SCU 3,SCU 4,SCU 5,SCU 6,SCU 7,SCU 8,SCU 9,SCU 10,SCU 11,SCU 12,SCU 13,SCU 14,SCU 15,SCU 16,SCU 17,SCU 18
+177.072,0.146235,0.26914,0.208909,0.715303,0.166129,0.321581,0.170376,0.221845,0.249611,0.257818,0.229222,0.568741,0.276093,0.178377,0.165413,0.211329,0.224006,0.36455
+354.144,0.044841,0.080633,0.059426,0.241064,0.0463,0.10913,0.049536,0.064649,0.07482,0.07682,0.069049,0.184668,0.090751,0.051928,0.045952,0.064078,0.059692,0.1285
+531.216,0.023507,0.045668,0.03181,0.145959,0.022286,0.068685,0.027701,0.039115,0.040834,0.048665,0.035978,0.111288,0.052541,0.024169,0.022562,0.037347,0.031434,0.086216
+708.288,0.016631,0.031565,0.021515,0.107611,0.015596,0.051404,0.017754,0.025009,0.028098,0.030286,0.025927,0.078931,0.035089,0.018905,0.014848,0.022405,0.017657,0.063135
+885.36,0.009396,0.023053,0.01332,0.080936,0.011316,0.037807,0.01423,0.017882,0.020321,0.024215,0.018094,0.064139,0.028408,0.011699,0.010885,0.021261,0.017525,0.050066
+1062.432,0.00984,0.016082,0.008898,0.06767,0.009273,0.031754,0.011129,0.014292,0.014158,0.020825,0.014174,0.051971,0.024368,0.008673,0.008435,0.013684,0.009487,0.042402
+1239.504,0.00582,0.014848,0.008599,0.058597,0.005292,0.026527,0.008026,0.011552,0.0108,0.015552,0.010313,0.044002,0.016293,0.007313,0.006979,0.011272,0.010245,0.034529
+1416.576,0.006392,0.01378,0.003147,0.050338,0.006203,0.024131,0.001806,0.008925,0.008713,0.014692,0.007939,0.03745,0.016612,0.004375,0.004713,0.009337,0.006833,0.032375
+1593.648,0.003686,0.008991,0.002982,0.043606,0.002584,0.022399,0.009896,0.008839,0.007807,0.011118,0.006973,0.03421,0.013128,0.005231,0.006142,0.006756,0.003648,0.025551
+1770.72,0.003665,0.006856,0.006162,0.038372,0.002049,0.017933,0.005152,0.004193,0.006178,0.011545,0.005599,0.027749,0.009889,0.002241,0.003875,0.006386,0.00417,0.021669

@@ -1,0 +1,3 @@
+# Global owners
+
+* @tddesjardins @rachael-beaton @mrtommyb @sepito @rzellem

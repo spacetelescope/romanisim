@@ -1,0 +1,20 @@
+---
+Description: Roman Space Telescope Wide Field Instrument (WFI) Overview
+
+focal_plane_array:
+  detectors: 18 Teledyne H4RG-10 detectors with 4096 x 4096 pixels
+  field_of_view: 0.8 deg x 0.4 deg (0.281 deg^2, excluding gaps)
+  spatial_sampling: 0.11 arcsec/pixel
+  pixel_size: 10 μm
+  image_stability:	1.0 nm RMS wave front error (WFE) in 180 sec
+  guiding:	Guide star sensing interleaved with science data collection
+
+element_wheel:
+  modes:	Imaging, spectroscopy, and calibrations
+  imaging:	8 imaging filters spanning 0.48 to 2.3 μm
+  spectroscopy:	Prism and grism for full-field, slitless spectroscopy spanning 0.75 to 1.93 μm
+  calibrations:	Dark element and filter mask diffusers allow darks, flat fields, and other calibrations with WFI's internal relative calibration system
+
+thermal_control:
+  cooling_method: Passive cooling via external radiators
+  operating_temperature:	Multiple thermal zones with detectors at 89.5 K
