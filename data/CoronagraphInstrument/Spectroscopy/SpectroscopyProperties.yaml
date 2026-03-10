@@ -1,0 +1,22 @@
+---
+Description: Roman Coronagraph properties of its spectroscopy mode (Bands 2 and 3).
+
+Field_of_View_Unvignetted_No_Masks: 4 arcsec
+Footprint_of_Dispersed_Point_Source_Band2: 42x4 pixels
+Footprint_of_Dispersed_Point_Source_Band3: 47x4 pixels
+
+Band2_Short_Slit_Width:	0.115 arcsec = 2lambda/D wide
+Band2_Short_Slit_Height: 0.345 arcsec = 6lambda/D long
+Band2_Tall_Slit_Width: 0.115 arcsec = 2lambda/D wide
+Band2_Tall_Slit_Height: 0.575 arcsec = 10lambda/D long
+Band3_Short_Slit_Width:	0.127 arcsec = 2lambda/D wide
+Band3_Short_Slit_Height: 0.381 arcsec = 6lambda/D long
+Band3_Tall_Slit_Width:	0.127 arcsec = 2lambda/D wide
+Band3_Tall_Slit_Height:	0.635	arcsec	= 10lambda/D long
+Bands23_Mean_Short_Slit_Width: 0.243 arcsec	= 4lambda/D wide
+Bands23_Mean_Short_Slit_Height: 0.3645 arcsec = 6lambda/D long
+Bands23_Mean_Tall_Slit_Width: 0.243 arcsec = 4lambda/D wide
+Bands23_Mean_Tall_Slit_Height: 0.6075 arcsec = 10lambda/D long
+
+Band2_Spectral_Resolution: 50 lambda/(delta lambda) at band center
+Band3_Spectral_Resolution: 50 lambda/(delta lambda) at band center

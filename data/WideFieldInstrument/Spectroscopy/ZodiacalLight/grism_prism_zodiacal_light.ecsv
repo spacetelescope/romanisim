@@ -1,0 +1,14 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: element, datatype: string, description: element name}
+# - {name: rate, unit: ct / pix, datatype: float64, description: Count rate per pixel at minimum Zodiacal Light}
+# delimiter: ','
+# meta: !!omap
+# - {comments: Roman/WFI count rate per pixel at minimum Zodiacal light in each element (grism and prism).}
+# - {last updated: '2024-June-03'}
+# schema: astropy-2.0
+
+element,         rate
+Grism (G150),   0.65
+Prism (P127),   0.95

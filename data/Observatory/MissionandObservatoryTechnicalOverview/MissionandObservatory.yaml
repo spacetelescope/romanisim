@@ -1,0 +1,27 @@
+---
+Description: Roman mission, spacecraft, telescope, and instrumentation properties.
+
+Mission_and_Spacecraft_Parameters:
+  launch_date: no later than May 2027
+  duration: 5 years, with a 10 year goal
+  orbit: Sun-Earth L2
+  launch_site: Kennedy Space Center, Florida, USA
+  launch_vehicle: Falcon Heavy
+  operating_temperature: 298 K
+  spacecraft_bus:
+    downlink_rate: 250-500 Mbps
+    data_volume: 11 Tbits/day (1.375 Tbytes/day)
+  ground_stations: NEN-White Sands, NM; ESA-New Norcia, Australia; JAXA – GREAT, Japan; DSN
+  refuel: able to be robotically refueled in-flight
+
+Telescope_Parameters:
+  primary_mirror_diameter: 2.4 meters
+  primary_mirror_effective_diameter: 2.36 meters (diameter of the aperture stop)
+  mirror_temperature: 265 K
+  allowed_roll_angle_range: -15 to +15 degrees around angle providing max solar panel
+  jitter: 8 milliarcseconds
+  drift: 8 milliarcseconds
+
+Observatory_Instrumentation:
+  WideFieldInstrument: (WFI) consisting of eight imaging filters, a grism, and a low resolution prism
+  CoronagraphInstrument: direct imaging photometry with potential for polarimetry and low resolution spectroscopy
