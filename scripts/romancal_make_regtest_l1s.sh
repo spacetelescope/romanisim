@@ -34,3 +34,7 @@ romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --ca
 romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype stpsf --usecrds --ma_table_number 110 --date 2027-06-01T00:25:00 --rng_seed 6 --drop-extra-dq r0000101001001001001_0004_{}_{bandpass}_uncal.asdf
 # truncated spectroscopic image
 romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F158 --catalog gaia-270-66-2027-06-01.ecsv --psftype stpsf --usecrds --ma_table_number 110 --date 2027-06-01T00:30:00 --rng_seed 7 --drop-extra-dq r0000201001001001001_0004_{}_{bandpass}_uncal.asdf --pretend-spectral GRISM
+
+# some different filters for multiband tests
+romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F129 --catalog gaia-270-66-2027-06-01.ecsv --psftype stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:00:00 --rng_seed 8 --drop-extra-dq r0000101001001001001_0005_{}_{bandpass}_uncal.asdf
+romanisim-make-image --radec 270.00 66.00 --level 1 --sca 1 --bandpass F213 --catalog gaia-270-66-2027-06-01.ecsv --psftype stpsf --usecrds --ma_table_number 109 --date 2027-06-01T00:00:00 --rng_seed 9 --drop-extra-dq r0000101001001001001_0006_{}_{bandpass}_uncal.asdf
