@@ -2,6 +2,6 @@
 
 ## Included files
 
-| Filename| Description|
-|---------|------------|
+| Filename                    | Description                                               |
+| --------------------------- | --------------------------------------------------------- |
 | grism_prism_parameters.ecsv | Roman estimated thermal backgrounds for WFI spectroscopy. |
