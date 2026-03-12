@@ -85,7 +85,7 @@ class ReadNoise(object):
         if image_mod is not None:
             ref_file = crds.getreferences(
                 image_mod.get_crds_parameters(),
-                reftypes=["dark", "gain"],
+                reftypes=["readnoise"],
                 observatory="roman",
             )
         elif reffiles is not None:
