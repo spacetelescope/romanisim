@@ -1,7 +1,12 @@
 ci:
   autoupdate_schedule: monthly
 
-exclude: ".*\\.asdf$"
+# exclude: ".*\\.asdf$"
+exclude: |
+  (?x)^(
+      .*\\.asdf$|
+      romanisim/data/roman-technical-information/
+  )
 
 repos:
   # basic checks
