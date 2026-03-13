@@ -18,7 +18,7 @@ Unit tests for ramp-fitting functions.  Tested routines:
 
 import numpy as np
 from romanisim import ramp
-from romanisim import parameters
+from romanisim.models import parameters
 
 
 def test_ramp(test_table=None):

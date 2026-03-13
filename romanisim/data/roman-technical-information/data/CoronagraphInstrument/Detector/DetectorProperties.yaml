@@ -1,0 +1,38 @@
+---
+Description: Roman Coronagraph EXCAM detector properties.
+
+Detector_Model: T-e2v CCD 311
+total_pixels:
+  Pixels_X: 1056
+  Pixels_Y: 1037
+effective_pixels:
+  Pixels_X: 1024
+  Pixels_Y: 1024
+Pixel_Size: 13 um
+Pixel_Scale: 0.0218 arcsec/pixel
+
+Saturation: 90000 e-
+
+Readnoise: 165 e-
+
+Dark_Current:
+  Description: Mean CGI dark current for T = 185 K
+  Beginning_of_Life_Current_Best_Estimate_185_K: 3.6 e-/pixel/hour
+  End_of_Life_Current_Best_Estimate_185_K: 6.6 e-/pixel/hour
+
+Clock_Induced_Charge:
+  Description: Counts due to readout when operating with an EM gain 50x the read noise - commensurate with 90 % detective quantum efficiency
+  Beginning_of_Life: 0.008 e-/pixel/frame
+  End_of_Life: 0.016 e-/pixel/frame
+
+Quantum_Efficiency:
+  442_nm: 62.8 %
+  450_nm: 69.5 %
+  488_nm: 77.9 %
+  580_nm: 83.7 %
+  685_nm: 73.7 %
+  730_nm: 64.0 %
+  830_nm: 41.2 %
+  885_nm: 26.4 %
+  950_nm: 11.6 %
+  980_nm: 6.8 %

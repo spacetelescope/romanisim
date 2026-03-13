@@ -2,7 +2,7 @@
 
 import numpy as np
 from romanisim import persistence
-from romanisim import parameters
+from romanisim.models import parameters
 
 
 def test_fermi():

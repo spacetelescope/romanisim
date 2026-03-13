@@ -9,8 +9,8 @@ import types
 import pytest
 import numpy as np
 from romanisim import ris_make_utils
+from romanisim.models import parameters
 import asdf
-import galsim
 
 
 def test_set_metadata():
@@ -46,7 +46,7 @@ def test_simulate_image_file(tmp_path):
     args.sca = 7
     args.bandpass = 'F184'
     args.pretend_spectral = None
-    galsim.roman.n_pix = 100
+    parameters.n_pix = 100
     ris_make_utils.simulate_image_file(args, meta, cat)
     im = asdf.open(args.filename)
     assert im['roman']['data'].shape == (100, 100)

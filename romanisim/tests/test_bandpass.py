@@ -9,7 +9,7 @@ import os
 import pytest
 import asdf
 import numpy as np
-from romanisim import bandpass
+from romanisim.models import bandpass
 from astropy import constants
 from astropy.table import Table
 from astropy import units as u
@@ -41,12 +41,12 @@ def test_read_gsfc_effarea(tmpdir_factory, sca=1):
     #     tmp_file.write("Header Comment line \n" + file_data)
 
     # Test default table
-    read_table = bandpass.read_gsfc_effarea(sca)
+    read_table = bandpass.read_gsfc_effarea(sca, galsim_filter_name=False)
     assert read_table['F062'][13] == 0.0 # Updating the value to match the new table. 0.0052 is the old table value
 
 
     # Test imported file
-    read_table = bandpass.read_gsfc_effarea(sca, table_file)
+    read_table = bandpass.read_gsfc_effarea(sca, table_file, galsim_filter_name=False)
     assert read_table['Planet'][1] == 'Mars'
     assert read_table['Dwarf Planet'][2] == 'Makemake'
 
@@ -73,7 +73,7 @@ def test_compute_abflux(filter, sca=1):
     data_table[filter] = thru
 
     # Computed flux
-    gauss_flux = bandpass.compute_abflux(sca, data_table)
+    gauss_flux = bandpass.compute_abflux(sca, data_table, galsim_filter_name=False)
 
     # Comparing both fluxes as magnitudes
     assert np.isclose(np.log10(theo_flux.value), np.log10(gauss_flux[f'SCA{sca:02}'][filter]), rtol=1.0e-6)
@@ -91,7 +91,7 @@ def test_convert_flux_to_counts(sca=1):
     dd_wavel = 1.290 * u.micron
 
     # Define effective area table
-    effarea = bandpass.read_gsfc_effarea(sca)
+    effarea = bandpass.read_gsfc_effarea(sca, galsim_filter_name=False)
 
     # Define wavelength distribution
     wave = effarea['Wave'] * u.micron
@@ -130,7 +130,7 @@ def test_convert_flux_to_counts(sca=1):
 
     for filter in IFILTLIST:
         # Define filter area
-        area = bandpass.read_gsfc_effarea(sca)
+        area = bandpass.read_gsfc_effarea(sca, galsim_filter_name=False)
 
         # Define pedestal flux
         flux_AB_ratio = ((pedestal * scale * u.erg / (u.s * u.cm ** 2 * u.hertz))
@@ -145,7 +145,7 @@ def test_convert_flux_to_counts(sca=1):
         theoretical_flux[filter] = theoretical_flux[filter] + dd_flux
 
         # Computed flux
-        computed_flux[filter] = bandpass.compute_count_rate(flux, filter, sca) / u.s
+        computed_flux[filter] = bandpass.compute_count_rate(flux, filter, sca, galsim_filter_name=False) / u.s
 
         # Test that proper results (within 0.2%) are returned for select bands.
         assert np.isclose(theoretical_flux[filter].value, computed_flux[filter].value, rtol=2.0e-03)
@@ -172,18 +172,18 @@ def test_AB_convert_flux_to_counts(filter, sca=1):
     # AB Zero Test
     abfv = 3631e-23 * u.erg / (u.s * u.cm ** 2 * u.hertz)
 
-    effarea = bandpass.read_gsfc_effarea(sca)
+    effarea = bandpass.read_gsfc_effarea(sca, galsim_filter_name=False)
     wavedist = effarea['Wave'] * u.micron
 
     flux = abfv * np.ones(len(wavedist))
-    computed_flux = bandpass.compute_count_rate(flux, filter, sca)
+    computed_flux = bandpass.compute_count_rate(flux, filter, sca, galsim_filter_name=False)
 
     assert np.isclose(bandpass.get_abflux(filter, sca), computed_flux, rtol=1.0e-6)
 
 
 def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
     # Get filter response table for theoretical curve
-    effarea = bandpass.read_gsfc_effarea(sca)
+    effarea = bandpass.read_gsfc_effarea(sca, galsim_filter_name=False)
 
     # Define default wavelength distribution
     wavedist = effarea['Wave'] * u.micron
@@ -257,7 +257,7 @@ def test_unevenly_sampled_wavelengths_flux_to_counts(sca=1):
         an_counts_sum = np.sum(an_counts)
 
         # Computed flux
-        computed_flux = bandpass.compute_count_rate(flux=total_flux, bandpass=filter, sca=sca, wavedist=total_wavedist)
+        computed_flux = bandpass.compute_count_rate(flux=total_flux, bandpass=filter, sca=sca, wavedist=total_wavedist, galsim_filter_name=False)
 
         # Test that proper results (within 4%) are returned for select bands.
         assert np.isclose(an_counts_sum.value, computed_flux, rtol=4.0e-2)
