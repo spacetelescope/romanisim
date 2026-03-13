@@ -1,4 +1,4 @@
-from . import parameters, psf, wcs  # noqa: F401
+from . import parameters, wcs  # noqa: F401
 from .backgrounds import getSkyLevel  # noqa: F401
 from .bandpass import getBandpasses  # noqa: F401
 from .dark_current import DarkCurrent, dark_current  # noqa: F401

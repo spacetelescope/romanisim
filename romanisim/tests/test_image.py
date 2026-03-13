@@ -18,8 +18,8 @@ import copy
 from functools import cache
 import numpy as np
 import galsim
-from romanisim import image, catalog, util, persistence
-from romanisim.models import psf, wcs, parameters
+from romanisim import image, catalog, util, persistence, psf
+from romanisim.models import wcs, parameters
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time

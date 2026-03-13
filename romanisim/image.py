@@ -690,7 +690,7 @@ def simulate_counts(metadata, objlist,
             and not isinstance(objlist, table.Table)  # this case is always gray
             and objlist[0].profile.spectral):
         chromatic = True
-    psf = models.psf.make_psf(sca, filter_name, wcs=imwcs,
+    psf = romanisim.psf.make_psf(sca, filter_name, wcs=imwcs,
                                  chromatic=chromatic, psftype=psftype,
                                  variable=True, date=date, **psf_keywords)
     image = galsim.ImageF(parameters.n_pix, parameters.n_pix, wcs=imwcs, xmin=0, ymin=0)
@@ -1236,7 +1236,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     wcs = romanisim.models.wcs.GWCS(model.meta.wcs)
     
     if psf is None:
-        psf = models.psf.make_psf(
+        psf = romanisim.psf.make_psf(
             sca, filter_name, wcs=wcs,
             chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
 

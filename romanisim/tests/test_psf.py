@@ -4,7 +4,7 @@ Unit tests for PSF functions.
 import pytest
 
 import numpy as np
-from romanisim.models import psf
+from romanisim import psf
 import galsim
 import galsim.roman
 

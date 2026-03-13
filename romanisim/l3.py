@@ -14,7 +14,7 @@ import romanisim.catalog
 import romanisim.models.wcs
 import romanisim.l1
 import romanisim.models.bandpass
-import romanisim.models.psf
+import romanisim.psf
 import romanisim.image
 import romanisim.persistence
 import romanisim.models.parameters
@@ -278,7 +278,7 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     else:
         extra_convolution = galsim.Pixel(
             convscale * romanisim.models.parameters.pixel_scale)
-    psf = romanisim.models.psf.make_psf(filter_name=bandpass,
+    psf = romanisim.psf.make_psf(filter_name=bandpass,
                                  sca=romanisim.models.parameters.default_sca,
                                  extra_convolution=extra_convolution,
                                  chromatic=chromatic, **kw)

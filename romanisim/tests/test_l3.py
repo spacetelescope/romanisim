@@ -7,8 +7,8 @@ from copy import deepcopy
 import math
 import numpy as np
 import galsim
-from romanisim import catalog, l3, util, log
-from romanisim.models import parameters, wcs, psf
+from romanisim import catalog, l3, util, log, psf
+from romanisim.models import parameters, wcs
 from astropy import units as u
 from astropy import table
 from astropy.stats import mad_std
