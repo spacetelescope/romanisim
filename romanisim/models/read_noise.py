@@ -3,12 +3,12 @@ import galsim
 import numpy as np
 from roman_datamodels import datamodels
 
-from .parameters import default_parameters_dictionary, nborder
+from .parameters import default_parameters_dictionary, nborder, reference_data
 
 __all__ = ["ReadNoise"]
 
 # Default read noise value
-read_noise = 8.5  # e-
+read_noise = reference_data['readnoise']
 
 
 class ReadNoise(object):
@@ -50,6 +50,8 @@ class ReadNoise(object):
         self.read_noise = read_noise
         self.usecrds = usecrds
         self.metadata = metadata
+        if metadata and 'readnoise' in metadata and isinstance(metadata['readnoise'], float):
+            self.dark_rate = metadata['readnoise']
         if self.usecrds:
             self._get_crds_model(metadata=self.metadata, image_mod=image_mod, reffiles=reffiles)
 

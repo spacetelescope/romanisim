@@ -11,12 +11,13 @@ from .parameters import (
     default_parameters_dictionary,
     nborder,
     roman_tech_repo_path,
+    reference_data,
 )
 
 __all__ = ["DarkCurrent"]
 
 # Default dark current
-dark_current = 0.015  # e-/pix/s
+dark_current = reference_data['dark']  # e-/pix/s
 
 # Update dark current value with one from roman-technical-information
 # Columns in the summary file: ['SCU', 'SCA', 'Dark Current - Median', 'Dark Current - Mean', 'Percentage Passing Requirement']
@@ -86,6 +87,9 @@ class DarkCurrent(object):
         self.gain = gain
         self.usecrds = usecrds
         self.metadata = metadata
+        if metadata and 'dark' in metadata and isinstance(metadata['dark'], float):
+            self.dark_rate = metadata['dark']
+
         if self.usecrds:
             self._get_crds_model(metadata=self.metadata, image_mod=image_mod, reffiles=reffiles, getdq=getdq)
 

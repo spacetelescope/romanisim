@@ -2,12 +2,12 @@ import crds
 import galsim
 from roman_datamodels import datamodels
 
-from .parameters import default_parameters_dictionary, nborder
+from .parameters import default_parameters_dictionary, nborder, reference_data
 
 __all__ = ["Gain"]
 
 # Default gain value
-gain = 2.0
+gain = reference_data['gain']
 
 
 class Gain(object):
@@ -39,6 +39,8 @@ class Gain(object):
         self.gain = gain
         self.usecrds = usecrds
         self.metadata = metadata
+        if metadata and 'gain' in metadata and isinstance(metadata['gain'], float):
+            self.dark_rate = metadata['gain']
         if self.usecrds:
             self._get_crds_model(metadata=self.metadata, image_mod=image_mod, reffiles=reffiles)
 
