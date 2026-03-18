@@ -1,14 +1,13 @@
 import os
 
-import crds
 import galsim
 from roman_datamodels import datamodels
 
 from astropy.io import ascii
 
+from ._util import get_ref_files
 from .gain import gain
 from .parameters import (
-    default_parameters_dictionary,
     nborder,
     roman_tech_repo_path,
     reference_data,
@@ -128,28 +127,7 @@ class DarkCurrent(object):
         ------------
         Sets `self.dark_rate` to a 2D array (e-/s) and `self.gain` to a 2D array.
         """
-        if image_mod is not None:
-            ref_file = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=["dark", "gain"],
-                observatory="roman",
-            )
-        elif reffiles is not None:
-            ref_file = reffiles
-        else:
-            image_mod = datamodels.ImageModel.create_fake_data()
-            meta = image_mod.meta
-            meta["wcs"] = None
-            for key in default_parameters_dictionary.keys():
-                meta[key].update(default_parameters_dictionary[key])
-            if metadata:
-                for key in metadata.keys():
-                    meta[key].update(metadata[key])
-            ref_file = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=["dark", "gain"],
-                observatory="roman",
-            )
+        ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=["dark", "gain"])
         
         if isinstance(ref_file['gain'], str):
             model = datamodels.open(ref_file['gain'])

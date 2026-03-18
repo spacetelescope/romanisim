@@ -1,8 +1,8 @@
-import crds
 import galsim
 from roman_datamodels import datamodels
 
-from .parameters import default_parameters_dictionary, nborder, reference_data
+from ._util import get_ref_files
+from .parameters import nborder, reference_data
 
 __all__ = ["Gain"]
 
@@ -64,44 +64,7 @@ class Gain(object):
         The gain map stored in the reference file may include border pixels.
         These are removed by slicing ``nborder`` pixels from each edge.
         """
-        image_mod = datamodels.ImageModel.create_fake_data()
-        meta = image_mod.meta
-        meta["wcs"] = None
-        for key in default_parameters_dictionary.keys():
-            meta[key].update(default_parameters_dictionary[key])
-
-        if metadata:
-            for key in metadata.keys():
-                meta[key].update(metadata[key])
-
-        ref_file = crds.getreferences(
-            image_mod.get_crds_parameters(),
-            reftypes=["gain"],
-            observatory="roman",
-        )
-
-        if image_mod is not None:
-            ref_file = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=["gain"],
-                observatory="roman",
-            )
-        elif reffiles is not None:
-            ref_file = reffiles
-        else:
-            image_mod = datamodels.ImageModel.create_fake_data()
-            meta = image_mod.meta
-            meta["wcs"] = None
-            for key in default_parameters_dictionary.keys():
-                meta[key].update(default_parameters_dictionary[key])
-            if metadata:
-                for key in metadata.keys():
-                    meta[key].update(metadata[key])
-            ref_file = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=["gain"],
-                observatory="roman",
-            )
+        ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=["gain"])
         
         if isinstance(ref_file['gain'], str):
             model = datamodels.open(ref_file['gain'])

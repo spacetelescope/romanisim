@@ -1,9 +1,9 @@
-import crds
 import galsim
 import numpy as np
 from roman_datamodels import datamodels
 
-from .parameters import default_parameters_dictionary, nborder, reference_data
+from .parameters import nborder, reference_data
+from ._util import get_ref_files
 
 __all__ = ["ReadNoise"]
 
@@ -84,28 +84,7 @@ class ReadNoise(object):
 
         """
 
-        if image_mod is not None:
-            ref_file = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=["readnoise"],
-                observatory="roman",
-            )
-        elif reffiles is not None:
-            ref_file = reffiles
-        else:
-            image_mod = datamodels.ImageModel.create_fake_data()
-            meta = image_mod.meta
-            meta["wcs"] = None
-            for key in default_parameters_dictionary.keys():
-                meta[key].update(default_parameters_dictionary[key])
-            if metadata:
-                for key in metadata.keys():
-                    meta[key].update(metadata[key])
-            ref_file = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=["readnoise"],
-                observatory="roman",
-            )
+        ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=["readnoise"])
         
         if isinstance(ref_file['readnoise'], str):
             model = datamodels.open(ref_file['readnoise'])
