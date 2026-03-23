@@ -38,6 +38,8 @@ def go(args):
         usecrds=args.usecrds,
         truncate=args.truncate, scale_factor=args.scale_factor)
 
+    ris.apply_meta_args(args, metadata)
+
     if args.radec is not None:
         coord = SkyCoord(ra=args.radec[0] * u.deg, dec=args.radec[1] * u.deg,
                          frame='icrs')
@@ -131,6 +133,7 @@ if __name__ == '__main__':
                         help=('Do not store the optional simulated dq array.'))
     parser.add_argument('--scale-factor', type=float, default=-1.,
                         help=('Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris.'))
+    ris.add_meta_args(parser)
     parser.add_argument('--extra-counts', type=str, default=None, nargs='+', help=(
         'An optional FITS file to read to get an array of counts to add into the simulated image. '
         'Useful for wrapping idealized images. '
