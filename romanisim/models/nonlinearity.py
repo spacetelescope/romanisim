@@ -1,4 +1,3 @@
-import crds
 import galsim
 import numpy as np
 
@@ -6,7 +5,8 @@ from astropy import units as u
 from roman_datamodels import datamodels
 
 from .gain import gain
-from .parameters import default_parameters_dictionary, dqbits, nborder
+from .parameters import dqbits, nborder
+from ._util import get_ref_files
 
 __all__ = ["NLfunc", "Nonlinearity"]
 
@@ -105,28 +105,7 @@ class Nonlinearity(object):
         else:
             reftypes = [self.reftype, "gain"]
         
-        if image_mod is not None:
-            ref_file = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=reftypes,
-                observatory="roman",
-            )
-        elif reffiles is not None:
-            ref_file = reffiles
-        else:
-            image_mod = datamodels.ImageModel.create_fake_data()
-            meta = image_mod.meta
-            meta["wcs"] = None
-            for key in default_parameters_dictionary.keys():
-                meta[key].update(default_parameters_dictionary[key])
-            if metadata:
-                for key in metadata.keys():
-                    meta[key].update(metadata[key])
-            ref_file = crds.getreferences(
-                image_mod.get_crds_parameters(),
-                reftypes=reftypes,
-                observatory="roman",
-            )
+        ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=reftypes)
         
         if isinstance(ref_file['gain'], str):
             model = datamodels.open(ref_file['gain'])
