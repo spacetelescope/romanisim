@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import argparse
+from collections import Counter
 from copy import deepcopy
 import yaml
 from astropy.coordinates import SkyCoord
@@ -135,6 +136,11 @@ def main():
     # Open csv table pointing file
     pointings = Table.read(args.pointing_file_name, comment="#", delimiter=" ")
 
+    # Count exposures per visit for nexposures metadata
+    visit_counts = Counter(
+        (e['PLAN'], e['PASS'], e['SEGMENT'], e['OBSERVATION'], e['VISIT'])
+        for e in pointings)
+
     # If creating a script, create files
     if args.make_script:
         # Create script file
@@ -175,6 +181,7 @@ def main():
         plan, passno, segment, observation, visit, exposure = (
             entry['PLAN'], entry['PASS'], entry['SEGMENT'],
             entry['OBSERVATION'], entry['VISIT'], entry['EXPOSURE'])
+        nexposures = visit_counts[(plan, passno, segment, observation, visit)]
         ma_table_number = int(entry['MA_TABLE_NUMBER'])
         bandpass = entry['BANDPASS']
         if args.force_ma_table_number > 0:
@@ -218,6 +225,7 @@ def main():
                 line += f" --roll {entry['PA'] - 60}"
                 line += f" --ma_table_number {ma_table_number}"
                 line += f" --catalog {args.cat_file_name}"
+                line += f" --meta visit.nexposures={nexposures}"
 
                 # Debug print line
                 log.debug(f'line = {line}')
@@ -242,6 +250,7 @@ def main():
                                             usecrds=args.usecrds)
                 if apt_metadata:
                     util.merge_dicts(metadata, apt_metadata)
+                metadata.setdefault('visit', {})['nexposures'] = nexposures
 
                 # If selected, apply persistence
                 if args.persistence and entry_idx > 0:

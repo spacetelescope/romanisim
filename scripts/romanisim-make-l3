@@ -50,6 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--psftype', type=str, default='galsim',
                         choices=['epsf', 'galsim', 'stpsf'],
                         help='Type of PSF generator to use.')
+    ris.add_meta_args(parser)
 
     args = parser.parse_args()
 
@@ -70,6 +71,7 @@ if __name__ == '__main__':
         metadata['coadd_info']['time_mean'] = parameters.default_date
 
     metadata['filename'] = os.path.basename(args.filename)
+    ris.apply_meta_args(args, metadata)
 
     cat = ris.create_catalog(metadata=metadata, catalog_name=args.catalog,
                             bandpasses=[args.bandpass], coord=center, radius=args.npix)

@@ -1,6 +1,7 @@
 """Miscellaneous utility routines for the simulation file maker scripts.
 """
 
+import ast
 from copy import deepcopy
 import os
 import pathlib
@@ -47,6 +48,48 @@ def merge_nested_dicts(dict1, dict2):
             merge_nested_dicts(dict1[key], value)
         else:
             dict1[key] = value
+
+
+def add_meta_args(parser):
+    """Add a --meta argument to an argparse parser.
+
+    The --meta argument allows setting arbitrary metadata fields using
+    dot-notation keys and auto-typed values.  It may be specified multiple
+    times.  See apply_meta_args for details on value coercion.
+    """
+    parser.add_argument(
+        '--meta', action='append', default=None, metavar='KEY=VALUE',
+        help=('Set a metadata field using dot-notation KEY and VALUE. '
+              'Can be specified multiple times. Integers, floats, '
+              'booleans, and None are auto-detected; anything else is '
+              'treated as a string. '
+              'Example: --meta visit.nexposures=4 '
+              '--meta visit.visit_type=GENERIC'))
+
+
+def apply_meta_args(args, metadata):
+    """Apply --meta overrides from parsed args to a metadata dict.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed arguments; must have a ``meta`` attribute (list or None).
+    metadata : dict
+        Metadata dict to update in-place.
+    """
+    if args.meta is None:
+        return
+    for item in args.meta:
+        key, _, value = item.partition('=')
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            pass
+        parts = key.split('.')
+        d = metadata
+        for part in parts[:-1]:
+            d = d.setdefault(part, {})
+        d[parts[-1]] = value
 
 
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
