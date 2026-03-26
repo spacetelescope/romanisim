@@ -289,7 +289,7 @@ def getBandpasses(
 
     Example::
 
-        >>> roman_bandpasses = romanisim.models.roman.getBandpasses()
+        >>> roman_bandpasses = romanisim.models.bandpass.getBandpasses()
         >>> f184_bp = roman_bandpasses['F184']
 
     Parameters:
