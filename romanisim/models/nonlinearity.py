@@ -4,7 +4,7 @@ import numpy as np
 from astropy import units as u
 from roman_datamodels import datamodels
 
-from .gain import gain
+from .gain import gain as default_gain
 from .parameters import dqbits, nborder
 from ._util import get_ref_files
 
@@ -76,57 +76,40 @@ class Nonlinearity(object):
         usecrds=False,
         reftype="inverselinearity",
         getdq=False,
-        integralnonlinearity=False,
+        integralnonlinearity=None,
         metadata=None,
         image_mod=None,
         reffiles=None,
         saturation=None,
+        coeffs=None,
+        gain=None,
     ):
-        self.gain = gain
+        if gain is not None:
+            self.gain = gain
+        else:
+            self.gain = default_gain
         self.usecrds = usecrds
         self.metadata = metadata
-        self.coeffs = np.array([1.0, nonlinearity_beta])
+        self.getdq = getdq
+        if coeffs is not None:
+            self.coeffs = self._repair_coefficients(coeffs, getdq=getdq)
+        else:
+            self.coeffs = np.array([1.0, nonlinearity_beta])
         self.saturation = saturation
         self.reftype = reftype
         self.integralnonlinearity = integralnonlinearity
         self.inl_corrs = None
         self.inl_lookup = None
+        self.ref_file = {}
         if self.usecrds:
             self._get_crds_model(metadata=self.metadata, getdq=getdq, image_mod=image_mod, reffiles=reffiles)
-
-    def _get_crds_model(self, getdq=False, metadata=None, image_mod=None, reffiles=None):
-        # Inverse linearity reference files are used to apply the
-        # effect of classical non-linearity when constructing
-        # L1 files, and linearity reference files are used to
-        # remove it when constructing L2 files.
         
-        if self.integralnonlinearity:
-            reftypes = [self.reftype, "gain", "integralnonlinearity"]
-        else:
-            reftypes = [self.reftype, "gain"]
-        
-        ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=reftypes)
-        
-        if isinstance(ref_file['gain'], str):
-            model = datamodels.open(ref_file['gain'])
-            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
-        
-        if isinstance(ref_file[self.reftype], str):
-            nl_model = datamodels.open(ref_file[self.reftype])
-            if getdq:
-                self.dq = nl_model.dq[nborder:-nborder, nborder:-nborder].copy()
+        if self.integralnonlinearity is not None:
+            if "integralnonlinearity" in self.ref_file.keys() and isinstance(self.ref_file["integralnonlinearity"], str):
+                inl_model = datamodels.open(self.ref_file["integralnonlinearity"])
             else:
-                self.dq = None
-            self.coeffs = self._repair_coefficients(
-                coeffs=nl_model.coeffs[
-                    :, nborder:-nborder, nborder:-nborder
-                ].copy(),
-                dq=self.dq,
-            )
-
-        if self.integralnonlinearity and isinstance(ref_file["integralnonlinearity"], str):
-            inl_model = datamodels.open(ref_file["integralnonlinearity"])
-            # with asdf.open(ref_file["integralnonlinearity"]) as f:
+                if hasattr(self.integralnonlinearity, 'value') and hasattr(self.integralnonlinearity, 'inl_table'):
+                    inl_model = self.integralnonlinearity
             channel_width = 128
             ncols = self.coeffs.shape[2]
             self.inl_lookup = inl_model.value.copy()
@@ -140,7 +123,38 @@ class Nonlinearity(object):
                     * getattr(inl_model.inl_table, attr_name).correction.copy()
                 )
 
-    def _repair_coefficients(self, coeffs, dq, getdq=False):
+    def _get_crds_model(self, getdq=False, metadata=None, image_mod=None, reffiles=None):
+        # Inverse linearity reference files are used to apply the
+        # effect of classical non-linearity when constructing
+        # L1 files, and linearity reference files are used to
+        # remove it when constructing L2 files.
+        
+        if self.integralnonlinearity:
+            reftypes = [self.reftype, "gain", "integralnonlinearity"]
+        else:
+            reftypes = [self.reftype, "gain"]
+        
+        self.ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=reftypes)
+        
+        if isinstance(self.ref_file['gain'], str):
+            model = datamodels.open(ref_file['gain'])
+            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
+        
+        if isinstance(self.ref_file[self.reftype], str):
+            nl_model = datamodels.open(self.ref_file[self.reftype])
+            if getdq:
+                self.dq = nl_model.dq[nborder:-nborder, nborder:-nborder].copy()
+            else:
+                self.dq = None
+            self.coeffs = self._repair_coefficients(
+                coeffs=nl_model.coeffs[
+                    :, nborder:-nborder, nborder:-nborder
+                ].copy(),
+                dq=self.dq,
+                getdq=self.getdq,
+            )
+
+    def _repair_coefficients(self, coeffs, dq=None, getdq=False):
         """Fix cases of zeros and NaNs in non-linearity coefficients.
 
         This function replaces suspicious-looking non-linearity coefficients

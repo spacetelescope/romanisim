@@ -12,8 +12,8 @@ Routines tested:
 
 import pytest
 import numpy as np
-from romanisim import l1, log, nonlinearity
-from romanisim.models import parameters
+from romanisim import l1, log
+from romanisim.models import parameters, nonlinearity
 import galsim
 import asdf
 import os
@@ -163,7 +163,7 @@ def test_linearized_counts_to_resultants():
     # Create one bad coefficient
     lin_coeffs[1, -1, -1] = 0
 
-    inv_linearity = nonlinearity.NL(lin_coeffs)
+    inv_linearity = nonlinearity.Nonlinearity(coeffs=lin_coeffs, getdq=True)
 
     for tij in tijlist:
         resultants, dq = l1.apportion_counts_to_resultants(
