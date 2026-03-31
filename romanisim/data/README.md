@@ -8,8 +8,8 @@ Bundling these data within the repository ensures reproducibility and minimizes 
 
 The directory includes the following categories of data:
 
-<!-- - **Instrument throughput / effective area tables**  
-  Per-SCA filter throughput and effective-area tables stored as FITS files, along with the directory  
+<!-- - **Instrument throughput / effective area tables**
+  Per-SCA filter throughput and effective-area tables stored as FITS files, along with the directory
   `Roman_effarea_tables_20240327/`. -->
 
 - **Technical reference data**  
@@ -37,8 +37,8 @@ The simulation code interpolates aberrations across the focal plane and applies 
 Updated Roman instrument models are expected to supersede the currently bundled data:
 
 - Zernike and pupil data from **Cycle 10** are anticipated for future use.
-<!-- - These data products may require preprocessing to match the formats expected by existing simulation code. -->
-<!-- - Migration of preprocessing utilities into `romanisim` is under consideration to improve transparency and reproducibility. -->
+  <!-- - These data products may require preprocessing to match the formats expected by existing simulation code. -->
+  <!-- - Migration of preprocessing utilities into `romanisim` is under consideration to improve transparency and reproducibility. -->
 
 Until such updates are validated, the current data products remain the default.
 
