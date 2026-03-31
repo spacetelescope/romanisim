@@ -427,10 +427,6 @@ def read_gsfc_effarea(sca=None, filename=None, galsim_filter_name=False):
                 raise FileNotFoundError(
                     f"Failed to fetch Roman_effarea_v8_{sca_id}_20240301.ecsv, use default one instead"
                 )
-                # filename = os.path.join(
-                #     data_root, "Roman_effarea_tables_20240327", "Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)
-                # )
-                # data = ascii.read(filename)
     else:
         data = ascii.read(filename)
 
