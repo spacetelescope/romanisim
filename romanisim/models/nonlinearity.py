@@ -5,14 +5,15 @@ from astropy import units as u
 from roman_datamodels import datamodels
 
 from .gain import gain as default_gain
-from .parameters import dqbits, nborder
+from .parameters import dqbits, nborder, exptime
 from ._util import get_ref_files
 
-__all__ = ["NLfunc", "Nonlinearity"]
+__all__ = ["NLfunc", "Nonlinearity", "addReciprocityFailure"]
 
 # Default nonlinearity beta value
 nonlinearity_beta = -6.0e-7
 
+reciprocity_alpha = 0.0065
 
 # def print_ram_usage(message=""):
 #     process = psutil.Process(os.getpid())
@@ -24,6 +25,9 @@ nonlinearity_beta = -6.0e-7
 
 def NLfunc(x):
     return x + nonlinearity_beta * (x**2)
+
+def addReciprocityFailure(img, exptime=exptime):
+    img.addReciprocityFailure(exp_time=exptime, alpha=reciprocity_alpha, base_flux=1.0)
 
 def repair_coefficients(coeffs, dq=None, getdq=False):
     """Fix cases of zeros and NaNs in non-linearity coefficients.
@@ -234,7 +238,7 @@ class Nonlinearity(object):
         self.ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=reftypes)
         
         if isinstance(self.ref_file['gain'], str):
-            model = datamodels.open(ref_file['gain'])
+            model = datamodels.open(self.ref_file['gain'])
             self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
         
         if isinstance(self.ref_file[self.reftype], str):
