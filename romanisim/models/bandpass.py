@@ -6,7 +6,7 @@ from astropy import constants
 from astropy import units as u
 from astropy.io import ascii
 from galsim import Bandpass, LookupTable
-from galsim.errors import galsim_warn
+from galsim.errors import GalSimValueError, galsim_warn
 from scipy import integrate
 
 from .parameters import (
@@ -237,6 +237,7 @@ def getBandpasses(
     default_thin_trunc=True,
     include_all_bands=False,
     sca=None,
+    bandnames=None,
     **kwargs,
 ):
     """Utility to get a dictionary containing the Roman ST bandpasses used for imaging.
@@ -307,6 +308,9 @@ def getBandpasses(
                             [default: False]
         sca:             Return the bandpasses dictionary for the particular SCA if given.
                             [default: None]
+        bandnames:          Iterable of bandpass names to get. If None, it gets all the imaging
+                            bands if ``include_all_bands`` is False, or all bands if
+                            ``include_all_bands`` is True.
         **kwargs:           Other kwargs are passed to either `Bandpass.thin` or
                             `Bandpass.truncate` as appropriate.
 
@@ -314,6 +318,14 @@ def getBandpasses(
     """
 
     data = read_gsfc_effarea(sca=sca, galsim_filter_name=True)
+
+    if bandnames is None:
+        bandnames = data.dtype.names[1:]
+    elif (invalid_bandnames := set(bandnames).difference(data.dtype.names[1:])):
+        raise GalSimValueError("Invalid Roman bandpasses requested;",
+                               value=invalid_bandnames,
+                               allowed_values=data.dtype.names[1:],
+                               )
 
     wave = 1000.0 * data["Wave"]
     # Read in and manipulate the sky background info.
@@ -347,7 +359,8 @@ def getBandpasses(
     # Set up a dictionary.
     bandpass_dict = {}
     # Loop over the bands.
-    for index, bp_name in enumerate(data.dtype.names[1:]):
+    # for index, bp_name in enumerate(data.dtype.names[1:]):
+    for index, bp_name in enumerate(bandnames):
         if include_all_bands is False and bp_name in non_imaging_bands:
             continue
 
