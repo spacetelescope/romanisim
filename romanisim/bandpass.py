@@ -205,7 +205,7 @@ def etomjysr(bandpass, sca):
     Returns
     -------
     float
-        the factor F such that MJy / sr = F * DN/s
+        the factor F such that MJy / sr = F * e/s
     """
 
     abflux = get_abflux(bandpass, sca)  # e/s corresponding to 3631 Jy

@@ -421,9 +421,15 @@ def convert_wcs_to_gwcs(wcs):
     """
     if isinstance(wcs, GWCS):
         return wcs.wcs
+    elif isinstance(wcs, gwcs.WCS):
+        return wcs
     else:
-        # make a gwcs WCS from a galsim.roman WCS
-        return wcs_from_fits_header(wcs.header.header)
+        if hasattr(wcs, 'header'):
+            # get fits header from galsim.roman WCS
+            header = wcs.header.header
+        else:
+            header = wcs
+        return wcs_from_fits_header(header)
 
 
 def get_mosaic_wcs(mosaic, shape=None, xpos=None, ypos=None, coord=None):
