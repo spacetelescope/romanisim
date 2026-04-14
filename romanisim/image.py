@@ -13,6 +13,7 @@ from astropy import units as u, coordinates, table
 import asdf
 import galsim
 from . import catalog, util, ramp, log
+import romanisim.psf
 import romanisim.l1
 import romanisim.persistence
 

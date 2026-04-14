@@ -289,8 +289,8 @@ def getBandpasses(
     https://roman.gsfc.nasa.gov/science/WFI_technical.html.
 
     Example::
-
-        >>> roman_bandpasses = romanisim.models.bandpass.getBandpasses()
+        >>> import romanisim.models as models
+        >>> roman_bandpasses = models.bandpass.getBandpasses()
         >>> f184_bp = roman_bandpasses['F184']
 
     Parameters:
