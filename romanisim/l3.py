@@ -744,6 +744,9 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
         meantime - maxtime / 24 / 60 / 60 / 2, format='mjd')
     metadata['coadd_info']['time_last'] = Time(
         meantime + maxtime / 24 / 60 / 60 / 2, format='mjd')
+    for field_name in ['time_first', 'time_last']:
+        metadata['coadd_info'][field_name] = Time(
+            metadata['coadd_info'][field_name].isot)
     metadata['coadd_info']['max_exposure_time'] = maxtime
     metadata['coadd_info']['exposure_time'] = meanexptime
     for step in ['flux', 'outlier_detection', 'skymatch', 'resample']:
