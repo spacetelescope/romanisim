@@ -398,9 +398,10 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     # Set effective read noise
     if effreadnoise is None:
         readnoise = np.median(romanisim.parameters.reference_data['readnoise'])
+        # read noise in DN
         gain = np.median(romanisim.parameters.reference_data['gain'])
         effreadnoise = (
-            np.sqrt(2) * readnoise * gain)
+            np.sqrt(2) * readnoise * gain)  # electron, difference of two reads
         # sqrt(2) from subtracting one read from another
         effreadnoise /= (np.median(efftimes * pixscalefrac ** 2) / nexposures)
         # divided by the typical exposure length
@@ -412,10 +413,10 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
         # note that we are ignoring all of the individual reads, which also
         # contribute to reducing the effective read noise.  Pass --effreadnoise
         # if you want to do better than this!
-        effreadnoise = effreadnoise * etomjysr  # electron -> MJy/sr
+        effreadnoise = effreadnoise * etomjysr * pixscalefrac ** 2  # electron -> MJy/sr
+        # factor of pixfrac ** 2 because etomjysr is per L3 pixel, but
+        # this effreadnoise calculation is per native pixel
         # converting to MJy/sr units
-    else:
-        effreadnoise = 0
 
     chromatic = False
     if (len(catalog) > 0 and not isinstance(catalog, astropy.table.Table)
@@ -481,7 +482,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
                  xpos=None, ypos=None, coord=None, sky=0, bandpass=None,
                  effreadnoise=None, maggytoes=None, etomjysr=None,
                  rng=None, seed=None, ignore_distant_sources=10,):
-    """Simulate average MegaJanskies per steradian in a single SCA.
+    """Simulate average MJy/sr in a single SCA.
 
     Parameters
     ----------
@@ -507,10 +508,10 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     effreadnoise : float
         Effective read noise for mosaic (MJy / sr)
     maggytoes: float
-        Factor to convert electrons to MJy / sr; one maggy makes
+        Factor to convert e/s to MJy / sr; one maggy makes
         this many e/s.
     etomjysr : float
-        Factor to convert electron to MJy/sr;  one e/s/pix corresponds
+        Factor to convert e/s to MJy / sr; one e/s/coadd pix corresponds
         to this MJy/sr.
     rng : galsim.BaseDeviate
         random number generator
@@ -744,6 +745,9 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
         meantime - maxtime / 24 / 60 / 60 / 2, format='mjd')
     metadata['coadd_info']['time_last'] = Time(
         meantime + maxtime / 24 / 60 / 60 / 2, format='mjd')
+    for field_name in ['time_first', 'time_last']:
+        metadata['coadd_info'][field_name] = Time(
+            metadata['coadd_info'][field_name].isot)
     metadata['coadd_info']['max_exposure_time'] = maxtime
     metadata['coadd_info']['exposure_time'] = meanexptime
     for step in ['flux', 'outlier_detection', 'skymatch', 'resample']:

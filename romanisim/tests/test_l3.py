@@ -532,7 +532,7 @@ def test_scaling():
     twcs1 = romanisim.wcs.create_tangent_plane_gwcs(
         (npix / 2, npix / 2), pscale, coord)
     twcs2 = romanisim.wcs.create_tangent_plane_gwcs(
-        (npix / 2, npix / 2), pscale / 2, coord)
+        (npix, npix), pscale / 2, coord)
 
     im1, extras1 = l3.simulate(
         (npix, npix), twcs1, exptime, imdict['filter_name'],
@@ -600,3 +600,24 @@ def test_scaling():
 
     # these all match to a few percent; worst case in initial test run
     # was err3fracdiff of 0.039.
+
+    # test read noise scaling
+    im1, extras1 = l3.simulate(
+        (npix, npix), twcs1, exptime, imdict['filter_name'],
+        imdict['tabcatalog'], seed=rng_seed, effreadnoise=None, sky=0)
+
+    # half pixel scale
+    im2, extras2 = l3.simulate(
+        (npix * 2, npix * 2), twcs2, exptime, imdict['filter_name'],
+        imdict['tabcatalog'], seed=rng_seed, effreadnoise=None, sky=0)
+
+    for im in [im1, im2]:
+        assert np.abs(mad_std(im1.data) / np.median(im1.err) - 1) < 0.1
+        assert np.abs(np.median(im1.err) /
+                      np.median(np.sqrt(im1.var_rnoise)) - 1) < 0.1
+    assert np.abs(np.median(im2.err) / np.median(im1.err) / 4 - 1) < 0.1
+    # 2x finer sampling -> 4x higher read noise in per-unit-time units
+    # because constant read noise is divided by 4x smaller exposure time
+    # the 2x finer sampling effectively means that you need to take the
+    # four exposures and interleave them, each using 1/4 of the exposure
+    # time
