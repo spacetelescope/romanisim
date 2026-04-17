@@ -306,7 +306,7 @@ def getBandpasses(
                             There is currently no estimate for the thermal background for these
                             bands and they are set to zero arbitrarily.
                             [default: False]
-        sca:             Return the bandpasses dictionary for the particular SCA if given.
+        sca:                Return the bandpasses dictionary for the particular SCA if given.
                             [default: None]
         bandnames:          Iterable of bandpass names to get. If None, it gets all the imaging
                             bands if ``include_all_bands`` is False, or all bands if
@@ -445,6 +445,9 @@ def read_gsfc_effarea(sca=None, filename=None, galsim_filter_name=False):
         the name of the detector. A number between 1-18.
     filename : str
         filename to read in
+    galsim_filter_name: bool
+        Whether to return the Table using galsim.roman filter naming 
+        conventions.
 
     Returns
     -------
@@ -488,6 +491,9 @@ def compute_abflux(sca, effarea=None, galsim_filter_name=True):
         the name of the detector. A number between 1-18.
     effarea : astropy.Table.table
         Table from GSFC with effective areas for each filter.
+    galsim_filter_name: bool
+        Whether to return the Table using galsim.roman filter naming 
+        conventions.
 
     Returns
     -------
@@ -539,6 +545,9 @@ def compute_count_rate(flux, bandpass, sca, filename=None, effarea=None, wavedis
         Table from GSFC with effective areas for each filter.
     wavedist : numpy.ndarray
         Array of wavelengths along which spectral flux densities are defined in microns
+    galsim_filter_name: bool
+        whether the effective areas references from Goddard are in galsim.roman filter
+        naming conventions.
 
     Returns
     -------

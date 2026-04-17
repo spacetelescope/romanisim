@@ -145,13 +145,31 @@ class Nonlinearity(object):
         If True, query CRDS and load per-pixel polynomial coefficients from the
         ``inverselinearity`` reference and a gain map from the ``gain`` reference.
         If False, use the module defaults.
+    reftype : str, optional
+        CRDS reference type to use for the polynomial coefficients. Typical
+        values include ``"inverselinearity"`` when applying nonlinearity and
+        ``"linearity"`` when removing it.
     getdq : bool, optional
         If True and ``usecrds=True``, also read the DQ array from the CRDS
         inverselinearity file and store it as ``self.dq`` (cropped by ``nborder``).
+    integralnonlinearity : object or None, optional
+        Optional integral nonlinearity reference model. If provided, the class
+        constructs channel-based lookup corrections that are added after the
+        polynomial correction.
     metadata : dict or None, optional
         Metadata overrides to apply before CRDS lookup. If provided, values
         are merged into the model metadata tree.
-
+    saturation : float or None, optional
+        Optional upper clipping threshold applied before evaluating the
+        nonlinearity correction.
+    coeffs : numpy.ndarray or None, optional
+        Explicit polynomial coefficients to use instead of loading them from
+        CRDS or using module defaults. Coefficients should be ordered from
+        lowest to highest polynomial degree.
+    gain : float or numpy.ndarray or None, optional
+        Explicit gain value or gain map to use when ``electrons=True`` in
+        :meth:`apply`.
+    
     Attributes
     ----------
     coeffs : numpy.ndarray
@@ -225,6 +243,34 @@ class Nonlinearity(object):
                 )
 
     def _get_crds_model(self, getdq=False, metadata=None, image_mod=None, reffiles=None):
+        """Load nonlinearity and gain reference data from CRDS.
+        This method resolves the required reference files, loads the gain map
+        and nonlinearity coefficients, crops them by ``nborder``, and repairs
+        invalid coefficient values when needed. If integral nonlinearity is
+        enabled, the corresponding reference file is also resolved.
+
+        Parameters
+        ----------
+        getdq : bool, optional
+            If True, also read the DQ array from the nonlinearity reference
+            file and propagate repair flags.
+        metadata : dict or None, optional
+            Metadata overrides used when selecting CRDS reference files.
+        image_mod : roman_datamodels.datamodels.ImageModel or None, optional
+            Existing image model whose metadata may be used to determine the
+            appropriate reference files. If provided, these values are used 
+            preferentially when available.
+        reffiles : dict or None, optional
+            Optional mapping of reference file types to file paths. If
+            provided, these values are used preferentially (with lower 
+            priority than image_mod) when available.
+        
+        Returns
+        -------
+        None
+            This method updates object attributes in place.
+        """
+        
         # Inverse linearity reference files are used to apply the
         # effect of classical non-linearity when constructing
         # L1 files, and linearity reference files are used to

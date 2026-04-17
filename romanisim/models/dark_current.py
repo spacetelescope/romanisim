@@ -122,6 +122,14 @@ class DarkCurrent(object):
         metadata : dict or None, optional
             Metadata overrides applied to the fake model's `meta` before CRDS
             reference selection.
+        image_mod : roman_datamodels.datamodels.ImageModel or None, optional
+            Existing image model whose metadata may be used to determine the
+            appropriate reference files. If provided, these values are used 
+            preferentially when available.
+        reffiles : dict or None, optional
+            Optional mapping of reference file types to file paths. If
+            provided, these values are used preferentially (with lower 
+            priority than image_mod) when available.
 
         Side Effects
         ------------
