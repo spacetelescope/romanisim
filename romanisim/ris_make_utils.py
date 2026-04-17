@@ -366,12 +366,18 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, psf_keyword
         Keywords passed to the PSF generation routine. 
         For STPSF, this dict can also include an "stpsf_options" dictionary to specify WFI object options (e.g. defocus, jitter).
     """
-    if getattr(args, 'webbpsf', False) or getattr(args, 'stpsf', False):
+    try:
+        if getattr(args, 'webbpsf', False) or getattr(args, 'stpsf', False):
+            log.warning('Warning: webbpsf and stpsf arguments are deprecated, please use '
+                        '"--psftype stpsf" instead.')
+            del args.stpsf
+            del args.webbpsf
+            args.psftype = 'stpsf'
+    except AttributeError:
         log.warning('Warning: webbpsf and stpsf arguments are deprecated, please use '
-                    '"--psftype stpsf" instead.')
-        del args.stpsf
-        del args.webbpsf
+                        '"--psftype stpsf" instead. Setting psftype to stpsf.')
         args.psftype = 'stpsf'
+        
 
     filename = format_filename(args.filename, args.sca, bandpass=args.bandpass,
                                pretend_spectral=args.pretend_spectral)
