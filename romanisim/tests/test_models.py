@@ -2,7 +2,6 @@ import os
 import numpy as np
 
 import galsim
-import importlib
 import romanisim.models.parameters as parameters
 import romanisim.models as models
 from pathlib import Path
@@ -58,7 +57,8 @@ def test_roman_wcs(run_slow=None):
             gs_wcs_dict,
             galsim.CelestialCoord(ra[i_test]*galsim.degrees,
                                   dec[i_test]*galsim.degrees))
-        if found_sca is None: found_sca=0
+        if found_sca is None: 
+            found_sca=0
         if found_sca != chris_sca[i_test]:
             n_fail += 1
             print('Failed to find SCA: ',found_sca, chris_sca[i_test])
@@ -116,7 +116,7 @@ def test_roman_wcs(run_slow=None):
                 #     print("tmp_pos = ", tmp_pos)
                 #     print("found_sca = ", found_sca)
                 #     print("gs_wcs_dict = ", gs_wcs_dict)
-                assert found_sca==None
+                assert found_sca is None
                 found_sca = models.wcs_utils.findSCA(gs_wcs_dict, tmp_pos, include_border=True)
                 assert found_sca==sca_edge_test
 
@@ -259,7 +259,9 @@ def test_roman_bandpass():
     bp = models.bandpass.getBandpasses(AB_zeropoint=True)
 
     # Check if the zeropoints have been set correctly
-    AB_spec = lambda x: (3631e-23)
+    # AB_spec = lambda x: (3631e-23)
+    def AB_spec(x):
+        return 3631e-23
     AB_sed = galsim.SED(spec=AB_spec, wave_type='nm', flux_type='fnu')
     for filter_name, filter_ in bp.items():
         mag = AB_sed.calculateMagnitude(bandpass=filter_)
@@ -448,8 +450,8 @@ def test_roman_psfs(run_slow=False):
     psf_5 = models.psf_utils.getPSF(SCA=5, bandpass='F184', wavelength=1950., pupil_bin=8)
     assert isinstance(psf_5, galsim.GSObject)
     # Make sure we do the case where we add aberrations
-    psf_5_ab = models.psf_utils.getPSF(SCA=5, bandpass='F184', wavelength=1950., pupil_bin=8,
-                                   extra_aberrations=np.zeros(23)+0.001)
+    # psf_5_ab = models.psf_utils.getPSF(SCA=5, bandpass='F184', wavelength=1950., pupil_bin=8,
+    #                                extra_aberrations=np.zeros(23)+0.001)
     # Check that we get the same answer if we specify the center of the focal plane.
     psf_5_tmp = models.psf_utils.getPSF(SCA=5, bandpass='F184', wavelength=1950., pupil_bin=8,
                                     SCA_pos=galsim.PositionD(parameters.n_pix/2,
@@ -486,7 +488,7 @@ def test_roman_psfs(run_slow=False):
 
     # Make a very limited check that interpolation works: just 2 wavelengths, 1 SCA.
     # use the blue and red limits for Z087:
-    blue_limit = all_bp['Z087'].blue_limit
+    # blue_limit = all_bp['Z087'].blue_limit
     red_limit = all_bp['Z087'].red_limit
     n_waves = 3
     psf_int = models.psf_utils.getPSF(SCA=use_sca, bandpass='Z087', pupil_bin=8, n_waves=n_waves)
@@ -532,7 +534,7 @@ def test_roman_psfs(run_slow=False):
     # Make sure we can instantiate a PSF with bandpass='short'/'long' and get an equivalent object
     # when we're not using interpolation.
     use_sca = 3
-    bp_type = 'long'
+    # bp_type = 'long'
     bp = models.bandpass.longwave_bands[0]
     psf1 = models.psf_utils.getPSF(use_sca, bp, pupil_bin=8)
     psf2 = models.psf_utils.getPSF(use_sca, 'long', pupil_bin=8)
@@ -648,7 +650,8 @@ def test_aberration_interpolation(run_slow=False):
         for sca2 in range(sca1+1,19):
             # Nominal size of one SCA is 4096 * 0.11 arcsec/pix ~= 440 arcsec
             # If two SCAs are more than sqrt(2) times this apart, they don't share any edges.
-            if centers[sca1].distanceTo(centers[sca2]) > 650 * galsim.arcsec: continue
+            if centers[sca1].distanceTo(centers[sca2]) > 650 * galsim.arcsec: 
+                continue
             #print('Consider pair ', sca1, sca2)
             for x, y, dx, dy in trial_positions:
                 pos2 = wcs[sca2].toImage(wcs[sca1].toWorld(galsim.PositionD(x+dx, y+dy)))
@@ -777,7 +780,8 @@ def test_roman_focal_plane(run_slow=False):
         red_arrows[sca] = []
         x = 200
         for y in range(200,3901,10):
-            if (y // 500) % 2 == 1: continue
+            if (y // 500) % 2 == 1: 
+                continue
             coord = wcs[sca].toWorld(galsim.PositionD(x,y))
             red_arrows[sca].append( (coord.ra.deg, coord.dec.deg) )
 
