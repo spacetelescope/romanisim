@@ -14,11 +14,11 @@ jobs:
         FFTW_DIR: /opt/homebrew/opt/fftw/lib/
       targets: |
         # Linux wheels
-        - cp3*-manylinux_x86_64
+        - cp3*[!t]-manylinux_x86_64
         # MacOS wheels
-        - cp3*-macosx_x86_64
+        - cp3*[!t]-macosx_x86_64
         # MacOS arm64 wheels
-        - cp3*-macosx_arm64
+        - cp3*[!t]-macosx_arm64
       sdist: true
       test_command: python -c "from romanisim import ramp_fit_casertano"
       upload_to_pypi: ${{ (github.event_name == 'release') && (github.event.action == 'released') }}

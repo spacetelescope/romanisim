@@ -164,11 +164,13 @@ def main():
     if args.persistence:
         previous_file_name = {}
 
-    apt_metadata = None if not args.apt else ris.parse_apt_file(args.apt)
-
-    program = '00001' if apt_metadata is None else apt_metadata['observation']['program']
-
-    apt_metadata['observation']['program'] = int(apt_metadata['observation']['program'])
+    if args.apt:
+        apt_metadata = ris.parse_apt_file(args.apt)
+        program = apt_metadata['observation']['program']
+        apt_metadata['observation']['program'] = int(apt_metadata['observation']['program'])
+    else:
+        apt_metadata = None
+        program = '00001'
 
     # Loop over pointings
     for entry_idx, entry in enumerate(pointings):
