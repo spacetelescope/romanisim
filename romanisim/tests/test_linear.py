@@ -10,7 +10,7 @@ from astropy import stats
 import crds
 
 import roman_datamodels
-from romanisim import parameters
+from romanisim.models import parameters
 from romanisim import log
 from romanisim.models import nonlinearity
 
