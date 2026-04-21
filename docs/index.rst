@@ -29,7 +29,7 @@ Contents
    romanisim/psf
    romanisim/wcs
 
-   romanisim/parameters
+   romanisim/models/parameters
    romanisim/util
 
 

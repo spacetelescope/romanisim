@@ -1176,7 +1176,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
 
     The simulation proceeds by (optionally) using the model WCS to generate the
     x & y locations, grabbing the gain from
-    romanisim.parameters.reference_data, and grabbing the read_pattern from the
+    romanisim.models.parameters.reference_data, and grabbing the read_pattern from the
     model_metadata.  The number of additional counts in each pixel are
     simulated.  We create a "virtual" ramp that uses the input L2 image and
     evenly apportions the measured DN/s along the ramp using the MA table.  We
