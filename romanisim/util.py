@@ -8,10 +8,11 @@ from astropy.time import Time
 import galsim
 import gwcs as gwcsmod
 
-from romanisim import parameters, wcs, bandpass
 from romanisim.velocity_aberration import compute_va_effects
 from scipy import integrate
 from collections.abc import Mapping
+
+from romanisim.models import wcs, parameters, bandpass
 
 __all__ = ["skycoord",
            "celestialcoord",
@@ -287,7 +288,7 @@ def update_pointing_and_wcsinfo_metadata(metadata, gwcs):
     metadata['wcsinfo']['aperture_name'] = (
         metadata['instrument']['detector'] + '_FULL')
     distortion = gwcs.get_transform('detector', 'v2v3')
-    center = (galsim.roman.n_pix / 2 - 0.5, galsim.roman.n_pix / 2 - 0.5)
+    center = (parameters.n_pix / 2 - 0.5, parameters.n_pix / 2 - 0.5)
     v2v3 = distortion(*center)
     radec = gwcs(*center)
     t2sky = gwcs.get_transform('v2v3', 'world')

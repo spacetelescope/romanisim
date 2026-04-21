@@ -1,0 +1,37 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: SCU#, unit: '', datatype: string, description: Sensor control unit (SCU) number}
+# - {name: SCA, unit: '', datatype: string, description: Sensor Chip Assembly (SCA) serial number}
+# - {name: Total noise - median, unit: electron, datatype: float64, description: Total noise - median}
+# - {name: Total noise - mean, unit: electron, datatype: float64, description: Total noise - mean}
+# - {name: Percentage Passing Req., unit: '%', datatype: float64, description: Percentage of pixels meeting the requirements.}
+# delimiter: ','
+# meta: !!omap
+# - {comments: 'Roman/WFI total noise measured for each Sensor Control Unit (SCU). Total noise data were acquired from WFI TVAC2 measurements
+#     of 100 total exposures, each with a ~170-second integration time, consisting of 55 non-destructive reads and 0 skip frames. Specifically,
+#     50 exposures were taken with the Guide Window (GW) at the bottom left of each sensor chip assembly, and 50 with the GW at the top
+#     right. Data analysis included top and column reference pixel correction (using a Savitzky-Golay filter), slope calculation of digital
+#     number per unit time per pixel using all frames, and total noise calculation per pixel as the standard deviation of the slopes multiplied
+#     by the total exposure time (~170-seconds). A global conversion gain was then applied to convert the results to electrons.'}
+# schema: astropy-2.0
+SCU#,SCA,Total noise - median,Total noise - mean,Percentage Passing Req.
+1,22081,6.67,7.52,98.86
+2,21815,5.6,6.02,99.59
+3,21946,5.76,6.19,99.45
+4,21115,5.9,6.5,99.53
+5,21816,5.76,6.38,99.48
+6,20663,5.42,5.97,99.48
+7,22069,5.38,5.99,99.37
+8,21641,5.13,5.54,99.58
+9,21813,5.33,5.7,99.62
+10,22078,6.1,6.85,98.69
+11,21947,5.86,6.25,99.52
+12,20829,5.51,5.9,99.64
+13,22067,6.25,6.85,99.08
+14,21814,5.41,5.85,99.59
+15,21645,5.31,5.75,99.58
+16,21643,5.37,5.8,99.56
+17,21319,5.14,5.54,99.62
+18,20833,5.17,5.6,99.56
+All Detectors (MPA),nan,5.58,6.12,99.43

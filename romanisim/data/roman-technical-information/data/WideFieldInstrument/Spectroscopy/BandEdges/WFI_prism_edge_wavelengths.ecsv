@@ -1,0 +1,36 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: SCA, unit: '', datatype: string, description: Sensor chip assembly (SCA) number.}
+# - {name: Prism_blue, unit: nm, datatype: float64, description: Prism blue edge.}
+# - {name: Prism_red, unit: nm, datatype: float64, description: Prism red edge.}
+# delimiter: ','
+# meta: !!omap
+# - {comments: 'Roman/WFI blue and red edges for the prism at the center of each sensor chip assembly. The table provides field-dependent
+#     red and blue edge wavelengths based on coating witness measurements. Errors in the effective index estimate are typically +/- 0.07
+#     and yield 0.06% fractional tolerance in the edge wavelength variation across the field. Additionally, the indices and coating thickness
+#     of the flight optics may differ from the witnesses. A future update will provide edges and field dependence measured from the flight
+#     coatings at operational temperature. The table provides convenient estimates of field dependence. Filter witness measurements and
+#     relation to flight optics are described in Switzer et al. 2025 (https://ui.adsabs.harvard.edu/abs/2025ApOpt..6410525S/abstract). Additionally, the prism red edge has field dependence
+#     defined by coatings on both sides of the optic, which is not fully captured by the table and is the focus of ongoing work. The blue
+#     edge should be used as a primary anchor.'}
+# schema: astropy-2.0
+SCA,Prism_blue,Prism_red
+1,759.87,1823.21
+2,758.63,1819.87
+3,756.58,1814.36
+4,759.15,1821.27
+5,757.99,1818.17
+6,756.17,1813.27
+7,757.24,1816.15
+8,756.8,1814.97
+9,755.5,1811.45
+10,759.8,1823.02
+11,758.54,1819.64
+12,756.5,1814.14
+13,758.86,1820.51
+14,757.72,1817.44
+15,755.91,1812.56
+16,756.82,1815.01
+17,756.39,1813.84
+18,755.07,1810.3

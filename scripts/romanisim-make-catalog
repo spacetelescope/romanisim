@@ -9,7 +9,7 @@ import argparse
 from astroquery.gaia import Gaia
 from astropy.time import Time
 from romanisim import gaia
-from romanisim import bandpass, parameters
+from romanisim.models import parameters, bandpass
 
 def main():
     """Main function of catalog generator"""

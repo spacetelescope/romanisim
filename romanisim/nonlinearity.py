@@ -19,224 +19,28 @@ in the L1 simulation these "non-linear" electrons are divided by the gain to
 construct final DN image.
 """
 
-import numpy as np
-from romanisim import parameters
+import warnings
 
+warnings.warn(
+    "romanisim.nonlinearity is deprecated and will be removed in a future version. "
+    "Please use 'romanisim.models.nonlinearity' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-def repair_coefficients(coeffs, dq):
-    """Fix cases of zeros and NaNs in non-linearity coefficients.
+def __getattr__(name):
+    if name.startswith("__"):
+        raise AttributeError(name)
 
-    This function replaces suspicious-looking non-linearity coefficients with
-    identity transformation coefficients from a non-linearity perspective; all
-    coefficients are zero except for the linear term, which is set to 1.
+    if name == 'NL':
+        raise ValueError("romanisim.nonlinearity.NL' is deprecated. Please use romanisim.models.nonlinearity.Nonlinearity instead")
+        
+    from romanisim.models import nonlinearity
 
-    This function doesn't try to make sure that the derivative of the
-    correction is greater than 1, which we would expect for a non-linearity
-    correction.
-
-    Parameters
-    ----------
-    coeffs : np.ndarray[ncoeff, ny, nx] (float)
-        Nonlinearity coefficients, starting with the constant term and
-        increasing in power.
-
-    dq : np.ndarray[n_resultant, ny, nx]
-        Data Quality array
-
-    Returns
-    -------
-    coeffs : np.ndarray[ncoeff, ny, nx] (float)
-        "repaired" coefficients with NaNs and weird coefficients replaced with
-        linear values with slopes of unity.
-
-    dq : np.ndarray[n_resultant, ny, nx]
-        DQ array marking pixels with improper non-linearity coefficients
-    """
-    res = coeffs.copy()
-
-    nocorrection = np.zeros(coeffs.shape[0], dtype=coeffs.dtype)
-    nocorrection[1] = 1.  # "no correction" is just normal linearity.
-    # For NaN, all zero, or flagged pixels, reset to no linearity correction.
-    m = (np.any(~np.isfinite(coeffs), axis=0) | np.all(coeffs == 0, axis=0)
-         | (dq != 0))
-    res[:, m] = nocorrection[:, None]
-
-    lin_dq_array = np.zeros(coeffs.shape[1:], dtype=np.uint32)
-    lin_dq_array[m] = parameters.dqbits['no_lin_corr']
-    dq = np.bitwise_or(dq, lin_dq_array)
-    return res, dq
-
-
-def evaluate_nl_polynomial(counts, coeffs, reversed=False):
-    """Correct the observed DN for non-linearity.
-
-    As electrons accumulate, they make it harder for the device to count
-    future electrons due to classical non-linearity.  This function
-    converts observed DN to what would have been seen absent
-    non-linearity, using the provided non-linearity coefficients.
-
-    Parameters
-    ----------
-    counts : np.ndarray[ny, nx] (float)
-        Number of DN already in pixel
-    coeffs : np.ndarray[ncoeff, ny, nx] (float)
-        Coefficients of the non-linearity correction polynomials
-    reversed : bool
-        If True, the coefficients are in reversed order, which is the
-        order that np.polyval wants them.  One can maybe save a little
-        time reversing them once ahead of time.
-
-    Returns
-    -------
-    corrected : np.ndarray[nx, ny] (float)
-        The corrected number of DN
-    """
-    if reversed:
-        cc = coeffs
-    else:
-        cc = coeffs[::-1, ...]
-
-    res = np.polyval(cc, counts)
-
-    return res
-
-
-class NL:
-    """Keep track of non-linearity and inverse non-linearity coefficients.
-
-    """
-    def __init__(self, coeffs, dq=None, gain=None, saturation=None,
-                 integralnonlinearity=None, inverse=False):
-        """Construct an NL class handling non-linearity correction.
-
-        Parameters
-        ----------
-        coeffs : np.ndarray[ncoeff, nx, ny] (float)
-            Non-linearity coefficients from reference files.
-
-        dq : np.ndarray[n_resultant, nx, ny]
-            Data Quality array
-
-        gain : float or np.ndarray[float]
-            Gain in electron/DN for converting DN to electrons
-
-        saturation : float or None
-            Saturation level in DN
-
-        integralnonlinearity : datamodel or None
-            Integral nonlinearity reference model containing lookup values
-            and per-channel corrections.
-
-        inverse : bool
-            If True, subtract the INL correction instead of adding it.
-            Used when applying inverse linearity.
-        """
-        if dq is None:
-            dq = np.zeros(coeffs.shape[1:], dtype='uint32')
-        if gain is None:
-            gain = parameters.reference_data['gain']
-
-        self.coeffs, self.dq = repair_coefficients(coeffs, dq)
-        self.gain = gain
-        self.saturation = saturation
-        self.inverse = inverse
-
-        # Extract INL data if provided
-        self.inl_lookup = None
-        self.inl_corrs = None
-        if integralnonlinearity is not None:
-            channel_width = 128
-            ncols = coeffs.shape[2]
-            self.inl_lookup = integralnonlinearity.value.copy()
-            self.inl_corrs = {}
-            sign = -1 if inverse else 1
-            for start_col in range(0, ncols, channel_width):
-                channel_num = start_col // channel_width + 1
-                attr_name = f"science_channel_{channel_num:02d}"
-                self.inl_corrs[channel_num] = sign * getattr(
-                    integralnonlinearity.inl_table, attr_name
-                ).correction.copy()
-
-    def apply(self, counts, electrons=False, reversed=False):
-        """Compute the correction of DN to linearized DN.
-
-        Alternatively, when electrons = True, rescale these to DN,
-        correct the DN, and scale them back to electrons using
-        the gain.
-
-        Parameters
-        ----------
-        counts : np.ndarray[nx, ny] (float)
-            The observed counts in DN (or electrons if electrons=True)
-
-        electrons : bool
-            Set to True for 'counts' being in electrons, with coefficients
-            designed for DN. Accordingly, the gain needs to be removed and
-            reapplied.
-
-        reversed : bool
-            If True, the coefficients are in reversed order, which is the
-            order that np.polyval wants them.  One can maybe save a little
-            time reversing them once ahead of time.
-
-        Returns
-        -------
-        corrected : np.ndarray[nx, ny] (float)
-            The corrected DN or electrons (matching input units).
-        """
-
-        gain = self.gain
-
-        if electrons:
-            counts = counts / gain
-
-        if self.saturation is not None:
-            counts = np.clip(counts, -1000, self.saturation)
-
-        corrected = evaluate_nl_polynomial(counts, self.coeffs, reversed)
-
-        # Apply integral nonlinearity correction if available
-        if self.inl_corrs is not None:
-            corrected = corrected + self.inl_correction(counts)
-
-        if electrons:
-            corrected = corrected * gain
-
-        return corrected
-
-    def inl_correction(self, counts):
-        """Compute the integral nonlinearity correction.
-
-        Parameters
-        ----------
-        counts : np.ndarray
-            The counts in DN to compute the correction for.
-
-        Returns
-        -------
-        correction : np.ndarray
-            The INL correction to be added to the counts.
-        """
-        # only do an INL correction if we've been passed
-        # some kind of vaguely image-like quantity.
-        if np.ndim(counts) < 2:
-            return 0
-        channel_width = 128
-        nborder = parameters.nborder
-        ncols = counts.shape[-1]
-        correction = np.zeros_like(counts)
-        for channel_num in sorted(self.inl_corrs):
-            # Column range in the original (untrimmed) image
-            orig_start = (channel_num - 1) * channel_width
-            orig_end = channel_num * channel_width
-            # Convert to trimmed coordinates
-            trim_start = max(0, orig_start - nborder)
-            trim_end = min(ncols, orig_end - nborder)
-            if trim_start >= trim_end:
-                continue
-            channel_corr = self.inl_corrs[channel_num]
-            channel_data = counts[..., trim_start:trim_end]
-            correction[..., trim_start:trim_end] = np.interp(
-                channel_data, self.inl_lookup, channel_corr
-            )
-        return correction
+    warnings.warn(
+        f"'romanisim.nonlinearity.{name}' is deprecated and will be removed in a future version. "
+        f"Please use 'romanisim.models.nonlinearity.{name}' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return getattr(nonlinearity, name)

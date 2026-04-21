@@ -6,10 +6,11 @@ import yaml
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 import galsim
-from romanisim import log, wcs, persistence, parameters
+from romanisim import log, persistence
 from romanisim import ris_make_utils as ris
 from astropy.io import fits
 
+from romanisim.models import wcs, parameters
 
 def go(args):
     if args.usecrds:
