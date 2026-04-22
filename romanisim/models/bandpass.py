@@ -617,7 +617,7 @@ def get_abflux(bandpass, sca):
 def etomjysr(bandpass, sca):
     """Compute factor converting e/s/pix to MJy/sr.
 
-    Assumes a pixel scale of 0.11" (romanisim.parameters.pixel_scale)
+    Assumes a pixel scale of 0.11" (romanisim.models.parameters.pixel_scale)
 
     Parameters
     ----------
