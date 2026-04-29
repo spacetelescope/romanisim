@@ -38,10 +38,11 @@ class VariablePSF:
     weighted GalSim PSF profiles.
     """
 
-    def __init__(self, corners, psf):
+    def __init__(self, corners, psf, psftype):
         self.corners = corners
         self.psf = psf
         self.psfinterpolators = None
+        self.psftype = psftype
 
     def at_position(self, x, y):
         """Instantiate a PSF profile at (x, y).
@@ -82,7 +83,6 @@ class VariablePSF:
         oversamp_taylor=50,
         order=1,
         max_radius=100,
-        epsf=False,
     ):
         """Build the spatial Taylor expansions for an ePSF profile.
 
@@ -113,11 +113,6 @@ class VariablePSF:
             large box will be expensive in compute time and memory for
             the Taylor expansion.
             Default 100
-        epsf : boolean
-            Has the input PSF already been convolved with the pixel response
-            function (is it an ePSF)?  If True, use no_pixel to render with
-            galsim.
-            Default False
 
         Returns
         -------
@@ -191,7 +186,7 @@ class VariablePSF:
             # Render the PSF at subpixel positions using galsim
 
             nover = oversamp_render
-            method = "no_pixel" if epsf else "auto"
+            method = "no_pixel" if self.psftype == "epsf" else "auto"
             allrendered = np.zeros((dn * nover, dn * nover))
 
             for i in range(nover):
@@ -746,7 +741,7 @@ def make_psf(
             extra_convolution=extra_convolution,
             **kw,
         )
-    return VariablePSF(corners, psfs)
+    return VariablePSF(corners, psfs, psftype)
 
 
 def psf_from_grid(psfgrid, x_0=None, y_0=None, size=185):
