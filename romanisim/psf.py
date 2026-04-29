@@ -371,8 +371,16 @@ def get_gridded_psf_model(
     psf_images = psf_ref_model.psf[focus, spectral_type, :, :, :].copy()
 
     # get the central position of the cutouts in a list
-    psf_positions_x = psf_ref_model.meta.pixel_x.data.data
-    psf_positions_y = psf_ref_model.meta.pixel_y.data.data
+    # LNode removal will mean this is a true list rather than LNode
+    if isinstance(psf_ref_model.meta.pixel_x.data, list):
+        psf_positions_x = psf_ref_model.meta.pixel_x.data
+    else:
+        psf_positions_x = psf_ref_model.meta.pixel_x.data.data
+    # LNode removal will mean this is a true list rather than LNode
+    if isinstance(psf_ref_model.meta.pixel_y.data, list):
+        psf_positions_y = psf_ref_model.meta.pixel_y.data
+    else:
+        psf_positions_y = psf_ref_model.meta.pixel_y.data.data
     meta = OrderedDict()
 
     # Create the GriddedPSFModel
