@@ -956,55 +956,6 @@ def create_convolution_kernel(
     return kernel
 
 
-def _downsample_by_interpolation(image, downsample):
-    """Downsample an image by interpolating it, preserving the centering.
-
-    This is conceptually similar to taking every nth pixel of the image,
-    but is careful about keeping the image centered and.  This is important
-    for PSFs, for example, where we want to keep the PSF precisely centered,
-    including for cases where the shape of the image and the amount of
-    downsampling don't align neatly.
-
-    We do this via linear interpolation, finding the locations in the
-    original image that we want in the final downsampled image, and
-    linearly interpolating to get the output values at those locations.
-
-    Parameters
-    ----------
-    image : np.ndarray
-        The image to be downsampled
-    downsample : int
-        the amount to downsample
-
-    Returns
-    -------
-    image_downsampled : np.ndarray
-        The downsampled image
-    """
-    ny, nx = image.shape
-    ny_low = int(np.ceil(ny / downsample))
-    nx_low = int(np.ceil(nx / downsample))
-
-    # physical center of high-res image
-    cy = (ny - 1) / 2
-    cx = (nx - 1) / 2
-
-    # offsets to low-res pixel centers
-    y_offsets = (np.arange(ny_low) - (ny_low - 1) / 2) * downsample
-    x_offsets = (np.arange(nx_low) - (nx_low - 1) / 2) * downsample
-
-    # actual coordinates in high-res image
-    y = cy + y_offsets
-    x = cx + x_offsets
-    yy, xx = np.meshgrid(y, x, indexing="ij")
-
-    # interpolate
-    low_res = map_coordinates(image, [yy, xx], order=1, mode="nearest")
-
-    low_res *= image.sum() / low_res.sum()
-    return low_res
-
-
 def central_stamp(im, size):
     """Extract the central region of an image.
 
