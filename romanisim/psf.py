@@ -564,8 +564,7 @@ def make_one_psf_epsf(
     deltafunc = np.zeros(padded_kernel.shape)
     deltafunc[padded_kernel.shape[0]//2, padded_kernel.shape[1]//2] = 1
 
-    deconvolution_kernel = create_convolution_kernel(padded_kernel, deltafunc)
-    deconvolution_kernel = central_stamp(deconvolution_kernel, 5)
+    deconvolution_kernel = create_convolution_kernel(padded_kernel, deltafunc, size=5)
 
     # Now we need to embed the deconvolution kernel sparsely within a
     # larger array with the appropriate oversampling.
@@ -888,7 +887,7 @@ def psfstamp_to_galsimimage(
 
 
 def create_convolution_kernel(
-    input_psf, target_psf, min_fft_power_ratio=1e-5, downsample=None, size=None
+    input_psf, target_psf, min_fft_power_ratio=1e-5, size=None
 ):
     """Find convolution kernel which convolves input_psf to match target_psf.
 
@@ -923,10 +922,6 @@ def create_convolution_kernel(
         controls the scale of the regularization of the matching kernel in
         terms of the peak power of the input PSF's FFT.
 
-    downsample : int
-        amount to downsample the final kernels by; useful if the models
-        are oversampled but an image with the original sampling is desired
-
     size : int
         the desired size of the final stamp
 
@@ -955,12 +950,60 @@ def create_convolution_kernel(
 
     kernel = np.real(np.fft.fftshift(np.fft.ifft2(conv_kernel_fft)))
     kernel = kernel / kernel.sum()
-    if downsample is not None and downsample > 1:
-        kernel = convolve(kernel, Box2DKernel(width=downsample), boundary="extend")
-        kernel = _downsample_by_interpolation(kernel, downsample)
+    
     if size is not None:
         return central_stamp(kernel, size).copy()
     return kernel
+
+
+def _downsample_by_interpolation(image, downsample):
+    """Downsample an image by interpolating it, preserving the centering.
+
+    This is conceptually similar to taking every nth pixel of the image,
+    but is careful about keeping the image centered and.  This is important
+    for PSFs, for example, where we want to keep the PSF precisely centered,
+    including for cases where the shape of the image and the amount of
+    downsampling don't align neatly.
+
+    We do this via linear interpolation, finding the locations in the
+    original image that we want in the final downsampled image, and
+    linearly interpolating to get the output values at those locations.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        The image to be downsampled
+    downsample : int
+        the amount to downsample
+
+    Returns
+    -------
+    image_downsampled : np.ndarray
+        The downsampled image
+    """
+    ny, nx = image.shape
+    ny_low = int(np.ceil(ny / downsample))
+    nx_low = int(np.ceil(nx / downsample))
+
+    # physical center of high-res image
+    cy = (ny - 1) / 2
+    cx = (nx - 1) / 2
+
+    # offsets to low-res pixel centers
+    y_offsets = (np.arange(ny_low) - (ny_low - 1) / 2) * downsample
+    x_offsets = (np.arange(nx_low) - (nx_low - 1) / 2) * downsample
+
+    # actual coordinates in high-res image
+    y = cy + y_offsets
+    x = cx + x_offsets
+    yy, xx = np.meshgrid(y, x, indexing="ij")
+
+    # interpolate
+    low_res = map_coordinates(image, [yy, xx], order=1, mode="nearest")
+
+    low_res *= image.sum() / low_res.sum()
+    return low_res
+
 
 def central_stamp(im, size):
     """Extract the central region of an image.
