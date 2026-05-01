@@ -408,7 +408,7 @@ def make_one_psf(
     oversample=4,
     extra_convolution=None,
     date=None,
-    ipc_kernel=ipc_kernel,
+    ipc_kernel=None,
     **kw,
 ):
     """Make a PSF profile for Roman at a specific detector location.
