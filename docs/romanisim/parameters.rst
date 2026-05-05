@@ -21,8 +21,8 @@ These values can be overridden by specifying a yaml config file on the
 command line to romanisim-make-image.
 
 See the `code
-<https://github.com/spacetelescope/romanisim/blob/main/romanisim/parameters.py>`_
+<https://github.com/spacetelescope/romanisim/blob/main/romanisim/models/parameters.py>`_
 for the default values of these quantities.
 
-.. automodapi:: romanisim.parameters
+.. automodapi:: romanisim.models.parameters
 

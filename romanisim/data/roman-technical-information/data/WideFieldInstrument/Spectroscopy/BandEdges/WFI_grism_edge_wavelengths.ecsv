@@ -1,0 +1,34 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: SCA, unit: '', datatype: string, description: Sensor chip assembly (SCA) number.}
+# - {name: Grism_blue, unit: nm, datatype: float64, description: Grism blue edge.}
+# - {name: Grism_red, unit: nm, datatype: float64, description: Grism red edge.}
+# delimiter: ','
+# meta: !!omap
+# - {comments: 'Roman/WFI blue and red edges for the grism at the center of each sensor chip assembly. The table provides field-dependent
+#     red and blue edge wavelengths based on coating witness measurements. Errors in the effective index estimate are typically +/- 0.07
+#     and yield 0.06% fractional tolerance in the edge wavelength variation across the field. Additionally, the indices and coating thickness
+#     of the flight optics may differ from the witnesses. A future update will provide edges and field dependence measured from the flight
+#     coatings at operational temperature. The table provides convenient estimates of field dependence. Filter witness measurements and
+#     relation to flight optics are described in Switzer et al. 2025 (https://ui.adsabs.harvard.edu/abs/2025ApOpt..6410525S/abstract).'}
+# schema: astropy-2.0
+SCA,Grism_blue,Grism_red
+1,996.82,1923.14
+2,996.72,1922.92
+3,995.61,1920.66
+4,995.79,1921.02
+5,995.92,1921.29
+6,994.98,1919.35
+7,993.45,1916.22
+8,994.04,1917.43
+9,993.71,1916.75
+10,996.75,1922.98
+11,996.63,1922.74
+12,995.5,1920.43
+13,995.41,1920.25
+14,995.55,1920.52
+15,994.65,1918.67
+16,992.96,1915.22
+17,993.51,1916.35
+18,993.22,1915.75

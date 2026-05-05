@@ -9,7 +9,8 @@ Routines tested:
 import numpy as np
 import galsim
 
-from romanisim import l1, parameters
+from romanisim import l1
+from romanisim.models import parameters
 from romanisim.image import make_l2
 
 

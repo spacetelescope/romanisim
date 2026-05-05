@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.interpolate as interpolate
 
-from . import parameters
+from romanisim.models import parameters
 
 
 def create_sampler(pdf, x):

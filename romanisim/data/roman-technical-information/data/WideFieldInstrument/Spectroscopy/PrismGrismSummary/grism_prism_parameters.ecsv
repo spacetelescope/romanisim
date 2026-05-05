@@ -1,0 +1,19 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: element, datatype: string, description: element name}
+# - {name: wavelength_min, unit: um, datatype: float64, description: element minimum wavelength in microns}
+# - {name: wavelength_max, unit: um, datatype: float64, description: element maximum wavelength in microns}
+# - {name: wavelength_center, unit: um, datatype: float64, description: element center wavelength in microns}
+# - {name: width, unit: um, datatype: float64, description: element wavelength width in microns}
+# - {name: resolution, unit: dimensionless, datatype: string, description: 2 pixel resolution}
+
+# delimiter: ','
+# meta: !!omap
+# - {comments: Roman count rate per pixel at minimum Zodiacal light in each filter.}
+# - {last updated: '2024-June-03'}
+# schema: astropy-2.0
+
+element,    wavelength_min,     wavelength_max, 	wavelength_center,      width,      resolution
+G150,	    1.0,	            1.93,            	1.465,                  0.930,      R = 461 * wavelength [microns]
+P127,   	0.75,           	1.80,           	1.275,              	1.05,   	80-180

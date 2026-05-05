@@ -1,0 +1,13 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: wavelength range, unit: nm, datatype: string, description: wavelength}
+# - {name: mean quantum efficiency, unit: '', datatype: float64, description: Mean quantum efficiency}
+# - {name: median quantum efficiency, unit: '', datatype: float64, description: Meidan quantum efficiency}
+# delimiter: ','
+# meta: !!omap
+# - {comments: Roman/WFI mean and median quantum efficiencies. The means and medians are calculated from the measured quantum efficiencies for all of the sensor chip assemblies shortward (<) of 900 nm and between 900 and 2200 nm.}
+# schema: astropy-2.0
+wavelength range, mean quantum efficiency, median quantum efficiency
+<900, 0.694, 0.718
+900 <= wave <= 2200, 0.887, 0.888
