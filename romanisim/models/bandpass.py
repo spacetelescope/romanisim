@@ -58,9 +58,16 @@ roman2galsim_bandpass.update(**{k: k for k in galsim_bandpasses})
 
 # Aliases between roman-style short names and galsim-style long names for the
 # non-imaging bands.  Lets users pass --bandpass GRISM / PRISM through to the
-# 1st-order grism / SN prism throughputs.
-galsim2roman_bandpass.update({"Grism_1stOrder": "GRISM", "SNPrism": "PRISM"})
-roman2galsim_bandpass.update({"GRISM": "Grism_1stOrder", "PRISM": "SNPrism"})
+# 1st-order grism / SN prism throughputs.  Each dict also accepts the form it
+# returns (no-op self-mapping), matching the F-band convention above.
+galsim2roman_bandpass.update({
+    "Grism_1stOrder": "GRISM", "GRISM": "GRISM",
+    "SNPrism": "PRISM", "PRISM": "PRISM",
+})
+roman2galsim_bandpass.update({
+    "GRISM": "Grism_1stOrder", "Grism_1stOrder": "Grism_1stOrder",
+    "PRISM": "SNPrism", "SNPrism": "SNPrism",
+})
 
 # to go from calibrated fluxes in maggies to counts in the Roman bands
 # we need to multiply by a constant determined by the AB magnitude

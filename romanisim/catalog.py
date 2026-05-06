@@ -244,6 +244,14 @@ def make_cosmos_galaxies(coord,
                 cos_filt.append('UVISTA_Ks_FLUX_AUTO')
             if opt_elem in ("F158", "F184", "F146"):
                 cos_filt.append('UVISTA_H_FLUX_AUTO')
+            # Mirror the GRISM/PRISM mapping used below when assigning
+            # FLUX_GRISM/FLUX_PRISM, so the cosmos catalog read pulls a
+            # column with non-zero entries and source filtering still leaves
+            # rows behind.
+            if opt_elem == "GRISM":
+                cos_filt.append('UVISTA_H_FLUX_AUTO')
+            if opt_elem == "PRISM":
+                cos_filt.append('UVISTA_J_FLUX_AUTO')
     cos_filt = list(set(cos_filt))
 
     # Open COSMOS file and pare to required tabs
