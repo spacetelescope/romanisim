@@ -70,7 +70,10 @@ def go(args):
             extra_counts_hdu = 0
         elif len(args.extra_counts) == 2:
             extra_counts_file = args.extra_counts[0]
-            extra_counts_hdu = int(args.extra_counts[1])
+            try:
+                extra_counts_hdu = int(args.extra_counts[1])
+            except ValueError:
+                extra_counts_hdu = args.extra_counts[1]
         else:
             raise ValueError("If --extra-counts is used, must provide one or two arguments only.")
         with fits.open(extra_counts_file) as hdul:
@@ -140,7 +143,7 @@ if __name__ == '__main__':
     parser.add_argument('--extra-counts', type=str, default=None, nargs='+', help=(
         'An optional FITS file to read to get an array of counts to add into the simulated image. '
         'Useful for wrapping idealized images. '
-        'If 2 arguments are sent in, then the second argument is assumed to be the HDU to use (default=0).'
+        'If 2 arguments are sent in, the second argument is the HDU to use, given as either an integer index or an EXTNAME (default=0).'
     ))
 
     args = parser.parse_args()
