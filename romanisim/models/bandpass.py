@@ -69,6 +69,16 @@ roman2galsim_bandpass.update({
     "PRISM": "SNPrism", "SNPrism": "SNPrism",
 })
 
+# Different roman-technical-information versions may name the slitless
+# dispersers differently ("Prism"/"PRISM"/"SNPrism";
+# "Grism_1stOrder"/"GRISM"). Normalize on read so we don't have to edit
+# the vendored RTI checkout.
+_rti_effarea_column_aliases = {
+    "Prism": "SNPrism",
+    "PRISM": "SNPrism",
+    "GRISM": "Grism_1stOrder",
+}
+
 # to go from calibrated fluxes in maggies to counts in the Roman bands
 # we need to multiply by a constant determined by the AB magnitude
 # system and the shape of the Roman bands.
@@ -484,6 +494,10 @@ def read_gsfc_effarea(sca=None, filename=None, galsim_filter_name=False):
                 )
     else:
         data = ascii.read(filename)
+
+    for old, new in _rti_effarea_column_aliases.items():
+        if old in data.colnames and new not in data.colnames:
+            data.rename_column(old, new)
 
     if galsim_filter_name:
         for index, bp_name in enumerate(data.dtype.names[1:]):
