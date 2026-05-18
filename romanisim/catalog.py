@@ -244,6 +244,14 @@ def make_cosmos_galaxies(coord,
                 cos_filt.append('UVISTA_Ks_FLUX_AUTO')
             if opt_elem in ("F158", "F184", "F146"):
                 cos_filt.append('UVISTA_H_FLUX_AUTO')
+            # Mirror the GRISM/PRISM mapping used below when assigning
+            # FLUX_GRISM/FLUX_PRISM, so the cosmos catalog read pulls a
+            # column with non-zero entries and source filtering still leaves
+            # rows behind.
+            if opt_elem == "GRISM":
+                cos_filt.append('UVISTA_H_FLUX_AUTO')
+            if opt_elem == "PRISM":
+                cos_filt.append('UVISTA_J_FLUX_AUTO')
     cos_filt = list(set(cos_filt))
 
     # Open COSMOS file and pare to required tabs
@@ -319,6 +327,11 @@ def make_cosmos_galaxies(coord,
                 ((1 - F184_KS_COEFF) * sim_cat['UVISTA_H_FLUX_AUTO'])
         elif opt_elem == "F213":
             sim_cat['FLUX_F213'] = sim_cat['UVISTA_Ks_FLUX_AUTO']
+        # Special cases for the GRISM and PRISM to avoid test failures
+        elif opt_elem == "GRISM":
+            sim_cat['FLUX_GRISM'] = sim_cat['UVISTA_H_FLUX_AUTO']
+        elif opt_elem == "PRISM":
+            sim_cat['FLUX_PRISM'] = sim_cat['UVISTA_J_FLUX_AUTO']
         else:
             log.warning(f'Unknown filter {opt_elem} skipped in object catalog creation.')
 
