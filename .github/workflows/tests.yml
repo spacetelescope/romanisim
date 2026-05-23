@@ -87,3 +87,17 @@ jobs:
         - linux: py313-cov
           coverage: codecov
         - macos: py313
+  test_downstream:
+    needs: [crds_context, latest_data_cache]
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@9f1fedda61294df4c004c05519a3fbf3b8e1f32f  # v2.3.1
+    with:
+      setenv: |
+        CRDS_PATH: ${{ needs.environment.outputs.data_path }}/crds
+        CRDS_SERVER_URL: https://roman-crds.stsci.edu
+        CRDS_CLIENT_RETRY_COUNT: 3
+        CRDS_CLIENT_RETRY_DELAY_SECONDS: 20
+      cache-path: ${{ needs.environment.outputs.data_path }}/crds
+      cache-key: crds-${{ needs.crds_contexts.outputs.roman }}
+      envs: |
+        - linux: py313-romancal
+
