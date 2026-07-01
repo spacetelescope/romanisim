@@ -125,4 +125,4 @@ before-all = "brew install eigen fftw"
 FFTW_DIR = "/opt/homebrew/opt/fftw/lib/"
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y fftw-devel"
+before-all = "yum install -y fftw-devel || apk add fftw"  # manylinux is AlmaLinux; musllinux is Alpine
