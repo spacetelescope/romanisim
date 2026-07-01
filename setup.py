@@ -30,4 +30,5 @@ scripts = [str(s) for s in Path('scripts/').iterdir()
 
 setup(scripts=scripts,
       ext_modules=cythonize(extensions),
+      options={'bdist_wheel': {'py_limited_api': 'cp311'}},
       )
