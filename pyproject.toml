@@ -113,5 +113,16 @@ exclude_lines = [
 [tool.ruff.lint]
 extend-ignore = ["E501"]
 
+[tool.cibuildwheel]
+build = "cp311-*"  # build for CPython 3.11 Stable API
+skip = ["cp314t-*"]  # explicitly skip free-threaded builds
+test-command = "python -c 'import galsim; import numpy as np; from romanisim import ramp_fit_casertano; galsim.fft.fft2(np.zeros((10, 10)))'"
+
 [tool.cibuildwheel.macos]
-before-build = "brew install eigen fftw"
+before-all = "brew install eigen fftw"
+
+[tool.cibuildwheel.macos.environment]
+FFTW_DIR = "/opt/homebrew/opt/fftw/lib/"
+
+[tool.cibuildwheel.linux]
+before-all = "yum install -y fftw-devel || apk add fftw"  # manylinux is AlmaLinux; musllinux is Alpine
