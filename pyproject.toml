@@ -119,4 +119,10 @@ skip = ["cp314t-*"]  # explicitly skip free-threaded builds
 test-command = "python -c 'from romanisim import ramp_fit_casertano; import galsim; galsim.fft.fft2(np.zeros((10, 10));'"
 
 [tool.cibuildwheel.macos]
-before-build = "brew install eigen fftw"
+before-all = "brew install eigen fftw"
+
+[tool.cibuildwheel.macos.environment]
+FFTW_DIR = "/opt/homebrew/opt/fftw/lib/"
+
+[tool.cibuildwheel.linux]
+before-all = "yum install -y fftw-devel"
