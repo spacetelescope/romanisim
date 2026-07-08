@@ -1,8 +1,6 @@
-import os
 
 import numpy as np
 
-from astropy.io import ascii
 from galsim import CelestialCoord, GalSimValueError, degrees, radians
 
 from .bandpass import roman2galsim_bandpass

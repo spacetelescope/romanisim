@@ -1,10 +1,8 @@
-import os
 
 import galsim
 from roman_datamodels import datamodels
 from roman_technical_information import io
 
-from astropy.io import ascii
 
 from ._util import get_ref_files
 from .gain import gain

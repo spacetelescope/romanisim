@@ -1,8 +1,5 @@
 import numpy as np
-import os
-import importlib.resources as resources
 from astropy.time import Time
-from pathlib import Path
 
 # If left unspecified anywhere, define a date of simulation.
 default_date = Time("2026-01-01T00:00:00", format="isot")
