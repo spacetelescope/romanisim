@@ -12,7 +12,7 @@ The directory includes the following categories of data:
   Per-SCA filter throughput and effective-area tables stored as FITS files, along with the directory
   `Roman_effarea_tables_20240327/`. -->
 
-<!-- - **Technical reference data**  
+<!-- - **Technical reference data**
   A local copy of the `roman-technical-information` repository, used to provide instrument parameters and reference values. -->
 
 - **Auxiliary catalogs**  
