@@ -1,7 +1,0 @@
----
-Description: Roman Coronagraph neutral density filters (used for target acquistion and other unocculted bright star observations).
-
-Attenuation_Factors:
-  FPAM: 10^2.25 (used for target acquisition)
-  FPAM: 10^4.75 (used for target acquisition)
-  FSAM: 10^4.75

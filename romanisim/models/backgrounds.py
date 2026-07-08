@@ -5,8 +5,8 @@ import numpy as np
 from astropy.io import ascii
 from galsim import CelestialCoord, GalSimValueError, degrees, radians
 
-from .parameters import roman_tech_repo_path
 from .bandpass import roman2galsim_bandpass
+from roman_technical_information import io
 
 # These are from https://roman.gsfc.nasa.gov/science/WFI_technical.html, as of October, 2023
 thermal_backgrounds = {
@@ -24,16 +24,8 @@ thermal_backgrounds = {
 }
 
 # Update thermal background values with ones from roman-technical-information
-thermal_backgrounds_summary = os.path.join(
-    roman_tech_repo_path,
-    "data",
-    "WideFieldInstrument",
-    "Imaging",
-    "Backgrounds",
-    "internal_thermal_backgrounds.ecsv",
-)
 try:
-    data = ascii.read(thermal_backgrounds_summary)
+    data = io.load_table("WideFieldInstrument/Imaging/Backgrounds/internal_thermal_backgrounds.ecsv")
     for i in range(len(data["filter"])):
         band_name = roman2galsim_bandpass[data["filter"][i]]
         thermal_backgrounds[band_name] = data[i]["rate"]
