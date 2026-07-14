@@ -331,7 +331,7 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
 
     Returns
     -------
-    mosaic_node : roman_datamodels WfiMosaic node
+    mosaic_node : roman_datamodels WfiMosaic
         simulated mosaic
     extras : dict
         Dictionary of additionally valuable quantities.  Includes at least
