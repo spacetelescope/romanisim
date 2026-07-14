@@ -513,7 +513,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
 
     nborder = parameters.nborder
     npix = parameters.n_pix + 2 * nborder
-    out = ScienceRawModel._node_type.create_fake_data(shape=(len(resultants), npix, npix))
+    out = ScienceRawModel.create_fake_data(shape=(len(resultants), npix, npix))
     out['amp33'] = np.zeros((len(resultants), 4096, 128), dtype=out.amp33.dtype)
 
     if metadata is not None:
@@ -526,9 +526,8 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     if persistence is not None:
         extras['persistence'] = persistence.to_dict()
     if filepath:
-        af = asdf.AsdfFile()
-        af.tree = {'roman': out, 'romanisim': extras}
-        af.write_to(filepath)
+        out.asdf["romanisim"] = extras
+        out.save(filepath)
     return out, extras
 
 

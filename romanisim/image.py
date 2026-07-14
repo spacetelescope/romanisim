@@ -1165,10 +1165,9 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     if persistence is not None:
         extras['persistence'] = persistence.to_dict()
     if filepath:
-        af = asdf.AsdfFile()
-        af.tree = {'roman': out._instance, 'romanisim': extras}
-        af.write_to(filepath)
-    return out._instance, extras
+        out.asdf["romanisim"] = extras
+        out.save(filepath)
+    return out, extras
 
 
 def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
