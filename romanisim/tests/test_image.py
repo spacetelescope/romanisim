@@ -578,13 +578,10 @@ def test_simulate():
     assert isinstance(l0[0]['data'], np.ndarray)
     assert isinstance(l0tab[0]['data'], np.ndarray)
     for ll in [l1, l2, l2c]:
-        af = asdf.AsdfFile()
-        af.tree = {'roman': ll[0]}
-        af.validate()
+        ll[0].validate()
     l2, extras = l2
-    af.tree = {'roman': l2}
     # DMS216
-    af.validate()
+    l2.validate()
     log.info('DMS216: successfully made a L2 file.')
 
     imwcs = l2['meta'].get('wcs', None)
@@ -642,10 +639,10 @@ def test_reference_file_crds_match(level):
     assert im.meta.ref_file.crds.version != '12.3.1'
 
     if (level == 1):
-        assert (type(im) is ScienceRawModel._node_type)
+        assert (type(im) is ScienceRawModel)
     else:
         # level = 2
-        assert (type(im) is ImageModel._node_type)
+        assert (type(im) is ImageModel)
 
 
 @pytest.mark.soctests
