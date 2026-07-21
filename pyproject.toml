@@ -114,8 +114,10 @@ exclude_lines = [
 extend-ignore = ["E501"]
 
 [tool.cibuildwheel]
-build = "cp311-*"  # build for CPython 3.11 Stable API
-skip = ["cp314t-*"]  # explicitly skip free-threaded builds
+build = [
+  "cp311-*",  # build for CPython 3.11 Stable API
+  "cp3*t-*",  # build for free-threaded Python
+]
 test-command = "python -c 'import galsim; import numpy as np; from romanisim import ramp_fit_casertano; galsim.fft.fft2(np.zeros((10, 10)))'"
 
 [tool.cibuildwheel.macos]
