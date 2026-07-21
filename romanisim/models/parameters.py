@@ -1,8 +1,5 @@
 import numpy as np
-import os
-import importlib.resources as resources
 from astropy.time import Time
-from pathlib import Path
 
 # If left unspecified anywhere, define a date of simulation.
 default_date = Time("2026-01-01T00:00:00", format="isot")
@@ -82,32 +79,32 @@ persistence = dict(
 dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
 dq_do_not_use = dqbits["saturated"] | dqbits["jump_det"]
 
-######################################################################################################
-# [TODO] Temporary implementation for accessing roman-technical-information repo
-######################################################################################################
-def get_reference_data_root() -> Path:
-    ENV_VAR = "ROMAN_INFO_PATH"
-    # 1. Environment variable override
-    env_path = os.environ.get(ENV_VAR)
-    if env_path:
-        path = Path(env_path).expanduser().resolve()
-        if not path.exists():
-            raise RuntimeError(
-                f"{ENV_VAR} is set but path does not exist: {path}"
-            )
-        return path
-    # 2. Fallback to packaged subtree data
-    try:
-        data_path = resources.files("romanisim")
-        data_path = os.path.join(data_path, "data", "roman-technical-information")
-        return Path(data_path)
-    except Exception as e:
-        raise RuntimeError(
-            "Could not locate reference data. "
-            f"Set environment variable {ENV_VAR} to the roman-technical-information directory."
-        ) from e
+# ######################################################################################################
+# # [TODO] Temporary implementation for accessing roman-technical-information repo
+# ######################################################################################################
+# def get_reference_data_root() -> Path:
+#     ENV_VAR = "ROMAN_INFO_PATH"
+#     # 1. Environment variable override
+#     env_path = os.environ.get(ENV_VAR)
+#     if env_path:
+#         path = Path(env_path).expanduser().resolve()
+#         if not path.exists():
+#             raise RuntimeError(
+#                 f"{ENV_VAR} is set but path does not exist: {path}"
+#             )
+#         return path
+#     # 2. Fallback to packaged subtree data
+#     try:
+#         data_path = resources.files("romanisim")
+#         data_path = os.path.join(data_path, "data", "roman-technical-information")
+#         return Path(data_path)
+#     except Exception as e:
+#         raise RuntimeError(
+#             "Could not locate reference data. "
+#             f"Set environment variable {ENV_VAR} to the roman-technical-information directory."
+#         ) from e
 
-roman_tech_repo_path = get_reference_data_root()
+# roman_tech_repo_path = get_reference_data_root()
 
 ######################################################################################################
 # Default configuration parameters
