@@ -3,14 +3,15 @@ Routines tested:
 * set_metadata
 * create_catalog
 * simulate_image_file
+* add_meta_args / apply_meta_args
 """
 
 import types
 import pytest
 import numpy as np
 from romanisim import ris_make_utils
+from romanisim.models import parameters
 import asdf
-import galsim
 
 
 def test_set_metadata():
@@ -46,7 +47,7 @@ def test_simulate_image_file(tmp_path):
     args.sca = 7
     args.bandpass = 'F184'
     args.pretend_spectral = None
-    galsim.roman.n_pix = 100
+    parameters.n_pix = 100
     ris_make_utils.simulate_image_file(args, meta, cat)
     im = asdf.open(args.filename)
     assert im['roman']['data'].shape == (100, 100)
@@ -60,6 +61,30 @@ def test_parse_filename():
     assert obs is not None
     assert obs['program'] == 99999
     assert obs['pass'] == 1
+
+
+def test_apply_meta_args():
+    import argparse
+    meta = ris_make_utils.set_metadata()
+
+    # integer coercion and nested key creation
+    args = argparse.Namespace(meta=['visit.nexposures=4'])
+    ris_make_utils.apply_meta_args(args, meta)
+    assert meta['visit']['nexposures'] == 4
+    assert isinstance(meta['visit']['nexposures'], int)
+
+    # string fallback and multiple overrides
+    args = argparse.Namespace(meta=['visit.visit_type=GENERIC',
+                                    'visit.nexposures=2'])
+    ris_make_utils.apply_meta_args(args, meta)
+    assert meta['visit']['visit_type'] == 'GENERIC'
+    assert meta['visit']['nexposures'] == 2
+
+    # None arg is a no-op
+    original = meta['visit']['nexposures']
+    args = argparse.Namespace(meta=None)
+    ris_make_utils.apply_meta_args(args, meta)
+    assert meta['visit']['nexposures'] == original
 
 
 def test_format_filename():

@@ -1,0 +1,20 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: filter, datatype: string, description: WFI filter name}
+# - {name: RCSLEDBand, datatype: int64, description: RCS LEDP band}
+# - {name: RCSLEDMeasuredCenter, unit: u.nm, datatype: int64, description: RCS LEDP measured center}
+# - {name: RCSLEDMeasuredFWHM, unit: u.nm, datatype: string, description: RCS LEDP measured FWHM}
+# delimiter: ','
+# meta: !!omap
+# - {comments: Roman WFI Relative Calibration System (RCS) LEDP (LED package) measured centers and full width half maxima (FWHM) at 200 K.}
+# - {last updated: '2025-Aug-29'}
+# schema: astropy-2.0
+
+filter, RCSLEDBand, RCSLEDMeasuredCenter, RCSLEDMeasuredFWHM
+F062,   1,          624,                    618 - 627
+F087,   2,          853,                    845 - 858
+F106,   3,          1039,                   1021 - 1050
+F129,   4,          1270,                   1241 - 1293
+F158,   5,          1481,                   1448 - 1516
+F184,   6,          1670,                   1622 - 1706

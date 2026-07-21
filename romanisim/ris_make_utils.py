@@ -1,6 +1,7 @@
 """Miscellaneous utility routines for the simulation file maker scripts.
 """
 
+import ast
 from copy import deepcopy
 import os
 import pathlib
@@ -11,14 +12,14 @@ from astropy import time
 from astropy import coordinates
 from astropy import units as u
 import galsim
-from galsim import roman
 import roman_datamodels
-from romanisim import catalog, image, wcs
-from romanisim import parameters, log
+from romanisim import catalog, image, log
 from romanisim.util import calc_scale_factor
 import romanisim
 import crds
 from crds.client import api
+
+from romanisim.models import wcs, parameters
 
 
 NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}
@@ -49,8 +50,50 @@ def merge_nested_dicts(dict1, dict2):
             dict1[key] = value
 
 
+def add_meta_args(parser):
+    """Add a --meta argument to an argparse parser.
+
+    The --meta argument allows setting arbitrary metadata fields using
+    dot-notation keys and auto-typed values.  It may be specified multiple
+    times.  See apply_meta_args for details on value coercion.
+    """
+    parser.add_argument(
+        '--meta', action='append', default=None, metavar='KEY=VALUE',
+        help=('Set a metadata field using dot-notation KEY and VALUE. '
+              'Can be specified multiple times. Integers, floats, '
+              'booleans, and None are auto-detected; anything else is '
+              'treated as a string. '
+              'Example: --meta visit.nexposures=4 '
+              '--meta visit.visit_type=GENERIC'))
+
+
+def apply_meta_args(args, metadata):
+    """Apply --meta overrides from parsed args to a metadata dict.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed arguments; must have a ``meta`` attribute (list or None).
+    metadata : dict
+        Metadata dict to update in-place.
+    """
+    if args.meta is None:
+        return
+    for item in args.meta:
+        key, _, value = item.partition('=')
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            pass
+        parts = key.split('.')
+        d = metadata
+        for part in parts[:-1]:
+            d = d.setdefault(part, {})
+        d[parts[-1]] = value
+
+
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
-                 ma_table_number=4, truncate=None, scale_factor=1.0, usecrds=False):
+                 ma_table_number=4, truncate=None, scale_factor=-1.0, usecrds=False):
     """
     Set / Update metadata parameters
 
@@ -67,7 +110,9 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     ma_table_number : int
         Integer specifying which MA Table entry to use
     scale_factor : float
-        Velocity aberration-induced scale factor
+        Velocity aberration-induced scale factor.  A non-positive value
+        (the default) computes the scale factor from the exposure start
+        time and reference pointing via ``calc_scale_factor``.
     usecrds : bool
         Use CRDS to get MA table reference file
 
@@ -176,7 +221,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         raise ValueError('Must set either catalog_name or metadata')
 
     if coord is None:
-        coord = (roman.n_pix / 2, roman.n_pix / 2)
+        coord = (parameters.n_pix / 2, parameters.n_pix / 2)
 
     distortion_file = parameters.reference_data["distortion"]
     if distortion_file is not None:
@@ -188,7 +233,8 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
     if metadata is not None:
         twcs = wcs.get_wcs(metadata, usecrds=usecrds, distortion=distortion)
 
-        if not isinstance(coord, coordinates.SkyCoord):
+        if (not isinstance(coord, coordinates.SkyCoord) and
+            not isinstance(coord, galsim.CelestialCoord)):
             coord = twcs.toWorld(galsim.PositionD(*coord))
 
     # Create catalog
@@ -355,10 +401,12 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, psf_keyword
     im['meta']['filename'] = basename
 
     pretend_spectral = getattr(args, 'pretend_spectral', None)
-    if pretend_spectral is not None:
+    if (pretend_spectral is not None) or (args.bandpass=="GRISM") or (args.bandpass=="PRISM"):
         im['meta']['exposure']['type'] = 'WFI_SPECTRAL'
-        im['meta']['instrument']['optical_element'] = (
-            args.pretend_spectral.upper())
+        # grism/prism already sets this. 
+        if pretend_spectral is not None:
+            im['meta']['instrument']['optical_element'] = (
+                args.pretend_spectral.upper())
         gs = im['meta']['guide_star']
         if 'window_xstart' in gs:
             gs['window_xstop'] = gs['window_xstart'] + 170

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import argparse
+from collections import Counter
 from copy import deepcopy
 import yaml
 from astropy.coordinates import SkyCoord
@@ -8,8 +9,9 @@ from astropy import units as u
 from astropy.table import Table
 from astropy.time import Time
 import galsim
-from romanisim import wcs, persistence, log, parameters, util
-from romanisim.parameters import default_parameters_dictionary
+from romanisim import persistence, log, util
+from romanisim.models import wcs, parameters
+from romanisim.models.parameters import default_parameters_dictionary
 from romanisim import ris_make_utils as ris
 
 
@@ -134,6 +136,11 @@ def main():
     # Open csv table pointing file
     pointings = Table.read(args.pointing_file_name, comment="#", delimiter=" ")
 
+    # Count exposures per visit for nexposures metadata
+    visit_counts = Counter(
+        (e['PLAN'], e['PASS'], e['SEGMENT'], e['OBSERVATION'], e['VISIT'])
+        for e in pointings)
+
     # If creating a script, create files
     if args.make_script:
         # Create script file
@@ -157,11 +164,13 @@ def main():
     if args.persistence:
         previous_file_name = {}
 
-    apt_metadata = None if not args.apt else ris.parse_apt_file(args.apt)
-
-    program = '00001' if apt_metadata is None else apt_metadata['observation']['program']
-
-    apt_metadata['observation']['program'] = int(apt_metadata['observation']['program'])
+    if args.apt:
+        apt_metadata = ris.parse_apt_file(args.apt)
+        program = apt_metadata['observation']['program']
+        apt_metadata['observation']['program'] = int(apt_metadata['observation']['program'])
+    else:
+        apt_metadata = None
+        program = '00001'
 
     # Loop over pointings
     for entry_idx, entry in enumerate(pointings):
@@ -174,6 +183,7 @@ def main():
         plan, passno, segment, observation, visit, exposure = (
             entry['PLAN'], entry['PASS'], entry['SEGMENT'],
             entry['OBSERVATION'], entry['VISIT'], entry['EXPOSURE'])
+        nexposures = visit_counts[(plan, passno, segment, observation, visit)]
         ma_table_number = int(entry['MA_TABLE_NUMBER'])
         bandpass = entry['BANDPASS']
         if args.force_ma_table_number > 0:
@@ -210,11 +220,14 @@ def main():
                             line += f" --previous {previous_file_name[sca]}"
 
                 # Add image options for contents of pointing input file
+                # Subtract 60 deg from APT PA to convert from APT V3 PA
+                # to WFI_CEN PA
                 line += f" --bandpass {bandpass}"
                 line += f" --radec {entry['RA']} {entry['DEC']}"
-                line += f" --roll {entry['PA']}"
+                line += f" --roll {entry['PA'] - 60}"
                 line += f" --ma_table_number {ma_table_number}"
                 line += f" --catalog {args.cat_file_name}"
+                line += f" --meta visit.nexposures={nexposures}"
 
                 # Debug print line
                 log.debug(f'line = {line}')
@@ -239,6 +252,7 @@ def main():
                                             usecrds=args.usecrds)
                 if apt_metadata:
                     util.merge_dicts(metadata, apt_metadata)
+                metadata.setdefault('visit', {})['nexposures'] = nexposures
 
                 # If selected, apply persistence
                 if args.persistence and entry_idx > 0:

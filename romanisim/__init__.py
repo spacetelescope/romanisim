@@ -13,6 +13,9 @@ rate images that are analagous to typical astronomical images.
 
 from importlib.metadata import version
 import logging
+import galsim
+
+galsim.errors.raise_fft_size_error = True  # we use this to skip expensive sources
 
 log = logging.getLogger(__name__)
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',

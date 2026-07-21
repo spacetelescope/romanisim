@@ -10,8 +10,6 @@ and you should be largely set!
 The most frequently encountered difficulty installing romanisim is
 when GalSim is unable to find FFTW.  If your system does not have the
 FFTW library, these should be installed before romanisim and GalSim.
-Only python <= 3.13 is support at present due to the lack of a Python 3.14
-wheel for galsim.
 
 Another problematic dependency is `STPSF
 <https://stpsf.readthedocs.io>`_, which requires data files to
@@ -63,4 +61,4 @@ The path to the STPSF data files may be found in their `documentation <https://s
 
 You may wish to, for example, set up a new python virtual environment
 before running the above, or choose a different directory for
-STPSF's data files.
+STPSF's data files.  See this `webinar <https://outerspace.stsci.edu/spaces/RTS/pages/356668152/Webinar+2+Simulated+Data+Sets>`_ for other information about romanisim installation and examples.

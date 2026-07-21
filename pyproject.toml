@@ -2,7 +2,7 @@
 name = "romanisim"
 description = "Nancy Grace Roman Space Telescope WFI Simulator"
 readme = "README.md"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11"
 authors = [
     { name = "STScI" },
 ]
@@ -23,7 +23,7 @@ dependencies = [
   "crds >=13.0.2",
   "defusedxml >=0.5.0",
   "galsim >=2.5.1",
-  "roman_datamodels>=0.29.0,<0.31.0",
+  "roman_datamodels>=0.29.0",
   # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
   "gwcs >=0.25.0",
   "numpy >1.26",
@@ -113,5 +113,16 @@ exclude_lines = [
 [tool.ruff.lint]
 extend-ignore = ["E501"]
 
+[tool.cibuildwheel]
+build = "cp311-*"  # build for CPython 3.11 Stable API
+skip = ["cp314t-*"]  # explicitly skip free-threaded builds
+test-command = "python -c 'import galsim; import numpy as np; from romanisim import ramp_fit_casertano; galsim.fft.fft2(np.zeros((10, 10)))'"
+
 [tool.cibuildwheel.macos]
-before-build = "brew install eigen fftw"
+before-all = "brew install eigen fftw"
+
+[tool.cibuildwheel.macos.environment]
+FFTW_DIR = "/opt/homebrew/opt/fftw/lib/"
+
+[tool.cibuildwheel.linux]
+before-all = "yum install -y fftw-devel || apk add fftw"  # manylinux is AlmaLinux; musllinux is Alpine

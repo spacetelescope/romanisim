@@ -31,7 +31,8 @@ them, and interpolate between them for different different fluxes and ratios.
 """
 
 import numpy as np
-from . import parameters, l1
+from . import l1
+from romanisim.models import parameters
 import romanisim.ramp_fit_casertano
 from scipy import interpolate
 

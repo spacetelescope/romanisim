@@ -7,7 +7,8 @@ from astropy.modeling import rotations, projections, models
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
-from romanisim import wcs, util, parameters
+from romanisim import util
+from romanisim.models import wcs, parameters
 import galsim
 
 import roman_datamodels
@@ -55,6 +56,8 @@ def test_wcs():
     cc2 = wcsgalsim2.toWorld(pos)
     assert np.allclose([cc1.ra / galsim.degrees, cc1.dec / galsim.degrees],
                        [cc2.ra / galsim.degrees, cc2.dec / galsim.degrees])
+    print(cc1)
+    print(wcsgalsim)
     pos2 = wcsgalsim.toImage(cc1)
     assert np.allclose([pos.x, pos.y], [pos2.x, pos2.y])
 

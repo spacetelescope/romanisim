@@ -5,11 +5,13 @@ romanisim uses reference files from `CRDS <https://hst-crds.stsci.edu/static/use
 
 * read noise
 * dark current
+* darkdecaysignal
 * epsf
 * flat field
 * gain
 * distortion map
-* linearity
+* linearity / inverselinearity
+* integralnonlinearity
 * saturation
 
 The usage of these is mostly straightforward, but we provide here a few notes.
@@ -33,6 +35,10 @@ is then scaled by the gain to get the number of dark electrons per second. This
 rate then goes into the idealized "total electrons" image which is then
 apportioned into the reads making up the resultants of an L1 image.
 
+Dark Decay Signal
+-----------------
+The darkdecaysignal reference file provides a per-detector amplitude and time constant for the dark decay effect.  These are used to compute the decaying signal added to each resultant during L1 simulation and subtracted during L2 processing.
+
 EPSF
 ----
 The EPSF reference provides pre-determined PSF models for all detectors and nine
@@ -54,6 +60,10 @@ World coordinate systems for WFI images are created by placing the telescope bor
 Linearity
 ---------
 Inverse linearity reference files are used to apply the effect of classical non-linearity when constructing L1 files, and linearity reference files are used to remove it when constructing L2 files.
+
+Integral Nonlinearity
+---------------------
+Integral nonlinearity reference files contain per-channel lookup tables for correcting INL in the analog-to-digital converter.  The correction is subtracted when simulating L1 files and added back during calibration.
 
 Saturation
 ----------

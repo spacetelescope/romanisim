@@ -7,16 +7,16 @@ import os
 import dataclasses
 import numpy as np
 import galsim
-from galsim import roman
 from astropy import coordinates, table
 from astropy import units as u
 from astropy.io import fits
 import astropy_healpix
 import astropy.time
 from romanisim import gaia as rsim_gaia
-from . import util, log, parameters
-import romanisim.bandpass
+from . import util, log
+import romanisim.models.bandpass
 import yaml
+from romanisim.models import parameters
 
 # COSMOS constants taken from the COSMOS2020 paper:
 # https://arxiv.org/pdf/2110.13923
@@ -32,7 +32,7 @@ F158_H_COEFF = 0.823395077391525
 F184_KS_COEFF = 0.3838145747397368
 
 # Bandpass filters
-BANDPASSES = set(romanisim.bandpass.galsim2roman_bandpass.values())
+BANDPASSES = set(romanisim.models.bandpass.galsim2roman_bandpass.values())
 
 
 @dataclasses.dataclass
@@ -83,20 +83,20 @@ def make_dummy_catalog(coord,
         rng = galsim.UniformDeviate(seed)
 
     if galaxy_sample_file_name is None:
-        cat1 = galsim.COSMOSCatalog(sample='25.2', area=roman.collecting_area,
+        cat1 = galsim.COSMOSCatalog(sample='25.2', area=parameters.collecting_area,
                                     exptime=1)
-        cat2 = galsim.COSMOSCatalog(sample='23.5', area=roman.collecting_area,
+        cat2 = galsim.COSMOSCatalog(sample='23.5', area=parameters.collecting_area,
                                     exptime=1)
     else:
         cat1 = galsim.COSMOSCatalog(galaxy_sample_file_name,
-                                    area=roman.collecting_area, exptime=1)
+                                    area=parameters.collecting_area, exptime=1)
         cat2 = cat1
 
     if chromatic:
         # following Roman demo13, all stars currently have the SED of Vega.
         # fluxes are set to have a specific value in the y bandpass.
         vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
-        y_bandpass = roman.getBandpasses(AB_zeropoint=True)['Y106']
+        y_bandpass = romanisim.models.bandpass.getBandpasses(AB_zeropoint=True)['Y106']
 
     objlist = []
     locs = util.random_points_in_cap(coord, radius, nobj, rng=rng)
@@ -115,7 +115,7 @@ def make_dummy_catalog(coord,
             mu = np.log(mu_x**2 / (mu_x**2 + sigma_x**2)**0.5)
             sigma = (np.log(1 + sigma_x**2 / mu_x**2))**0.5
             gd = galsim.GaussianDeviate(rng, mean=mu, sigma=sigma)
-            flux = np.exp(gd()) / roman.exptime
+            flux = np.exp(gd()) / parameters.exptime
             if chromatic:
                 sed = vega_sed.withFlux(flux, y_bandpass)
                 obj = galsim.DeltaFunction() * sed
@@ -244,6 +244,14 @@ def make_cosmos_galaxies(coord,
                 cos_filt.append('UVISTA_Ks_FLUX_AUTO')
             if opt_elem in ("F158", "F184", "F146"):
                 cos_filt.append('UVISTA_H_FLUX_AUTO')
+            # Mirror the GRISM/PRISM mapping used below when assigning
+            # FLUX_GRISM/FLUX_PRISM, so the cosmos catalog read pulls a
+            # column with non-zero entries and source filtering still leaves
+            # rows behind.
+            if opt_elem == "GRISM":
+                cos_filt.append('UVISTA_H_FLUX_AUTO')
+            if opt_elem == "PRISM":
+                cos_filt.append('UVISTA_J_FLUX_AUTO')
     cos_filt = list(set(cos_filt))
 
     # Open COSMOS file and pare to required tabs
@@ -319,6 +327,11 @@ def make_cosmos_galaxies(coord,
                 ((1 - F184_KS_COEFF) * sim_cat['UVISTA_H_FLUX_AUTO'])
         elif opt_elem == "F213":
             sim_cat['FLUX_F213'] = sim_cat['UVISTA_Ks_FLUX_AUTO']
+        # Special cases for the GRISM and PRISM to avoid test failures
+        elif opt_elem == "GRISM":
+            sim_cat['FLUX_GRISM'] = sim_cat['UVISTA_H_FLUX_AUTO']
+        elif opt_elem == "PRISM":
+            sim_cat['FLUX_PRISM'] = sim_cat['UVISTA_J_FLUX_AUTO']
         else:
             log.warning(f'Unknown filter {opt_elem} skipped in object catalog creation.')
 
@@ -351,6 +364,10 @@ def make_cosmos_galaxies(coord,
     # Perturb source fluxes by ~20%
     source_pert = np.ones(len(sim_ids))
     source_pert += ((0.2) * rng_numpy.normal(size=len(sim_ids)))
+
+    # Sort bandpasses to preserve order
+    bandpasses = list(bandpasses)
+    bandpasses.sort()
 
     # Convert fluxes to maggies by converting to Jankskys and normalizing for zero-point
     for bandpass in bandpasses:
@@ -407,8 +424,8 @@ def make_galaxies(coord,
         Table for use with table_to_catalog to generate catalog for simulation.
     """
     if bandpasses is None:
-        bandpasses = roman.getBandpasses().keys()
-        bandpasses = [romanisim.bandpass.galsim2roman_bandpass[b]
+        bandpasses = romanisim.models.bandpass.getBandpasses().keys()
+        bandpasses = [romanisim.models.bandpass.galsim2roman_bandpass[b]
                       for b in bandpasses]
     if rng is None:
         rng = galsim.UniformDeviate(seed)
@@ -588,8 +605,8 @@ def make_stars(coord,
         Table for use with table_to_catalog to generate catalog for simulation.
     """
     if bandpasses is None:
-        bandpasses = roman.getBandpasses().keys()
-        bandpasses = [romanisim.bandpass.galsim2roman_bandpass[b]
+        bandpasses = romanisim.models.bandpass.getBandpasses().keys()
+        bandpasses = [romanisim.models.bandpass.galsim2roman_bandpass[b]
                       for b in bandpasses]
     if rng is None:
         rng = galsim.UniformDeviate(seed)
@@ -859,7 +876,7 @@ def read_catalog(filename,
         Radius over which to search healpix for source file indicies
 
     Any additional keyword arguments provided will be passed to
-    `make_gaia_stars` if the `filename` argument is None or 
+    `make_gaia_stars` if the `filename` argument is None or
     `read_one_healpix` if `filename` is a directory of healpix catalogs.
 
     Returns
@@ -886,6 +903,7 @@ def read_catalog(filename,
         else:
             meta = dict()
         nside = meta.get('nside', 128)
+        ext = meta.get('extension', 'fits')
 
         # Set parameters of Healpix
         hp = astropy_healpix.HEALPix(
@@ -901,7 +919,7 @@ def read_catalog(filename,
         cat = None
         for i, healpix_index in enumerate(hp_cone):
             log.info(f'Loading healpix catalog file {i + 1} of {len(hp_cone)}')
-            hp_filename = filename + f"/cat-{healpix_index}.fits"
+            hp_filename = filename + f"/cat-{healpix_index}.{ext}"
             if os.path.isfile(hp_filename):
                 hp_table = read_one_healpix(hp_filename, date, bandpasses, **kwargs)
                 if cat is None:

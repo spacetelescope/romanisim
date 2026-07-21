@@ -106,11 +106,11 @@ import numpy as np
 import asdf
 import galsim
 from scipy import ndimage
-from . import parameters
-from . import log
-from . import cr
+from . import log, cr
 
 from roman_datamodels.datamodels import ScienceRawModel
+
+from romanisim.models import ipc, parameters
 
 
 def validate_times(tij):
@@ -171,6 +171,98 @@ def tij_to_pij(tij, remaining=False):
             tlast = t
         pij.append(pi)
     return pij
+
+
+def frame_read_times(frame_time, sca, t0=0, nborder=None):
+    """Compute per-pixel read times for a single frame.
+
+    Pixels are read out through 32 channels along the columns, with
+    alternating readout direction.  This produces per-pixel time
+    offsets within a frame.
+
+    Parameters
+    ----------
+    frame_time : float
+        Frame time in seconds.
+    sca : int
+        WFI detector number (1-18).
+    t0 : float
+        Start time of this frame in seconds.
+    nborder : int or None
+        Number of border pixels to trim.  If None, return the full
+        4096x4096 array.
+
+    Returns
+    -------
+    read_times : np.ndarray
+        Array of per-pixel read times in seconds.
+    """
+    nchannel = 32
+    nrow = 4096
+    ncol = 128
+    one_channel = np.linspace(
+        0, frame_time, nrow * ncol, endpoint=False
+    ).reshape(nrow, ncol)
+    two_channel = np.concatenate(
+        [one_channel, one_channel[:, ::-1]], axis=1)
+    read_times = np.tile(two_channel, (1, nchannel // 2))
+    if sca % 3 == 0:
+        read_times = read_times[:, ::-1]
+    else:
+        read_times = read_times[::-1, :]
+    read_times += t0
+    if nborder is not None:
+        read_times = read_times[nborder:-nborder, nborder:-nborder]
+    return read_times
+
+
+def dark_decay_for_read(darkdecaysignal, read_start_time):
+    """Compute the dark decay signal for a single read.
+
+    Parameters
+    ----------
+    darkdecaysignal : dict
+        Dictionary with keys 'amplitude', 'time_constant', and 'sca'.
+    read_start_time : float
+        Time of this read in seconds (i.e., tij[i][j]).
+
+    Returns
+    -------
+    signal : np.ndarray
+        Dark decay signal (electrons) for this read.
+    """
+    frame_offset = 1.5  # amplitude referenced to middle of first read
+    t0 = read_start_time - frame_offset * parameters.read_time
+    read_times = frame_read_times(
+        parameters.read_time, darkdecaysignal['sca'],
+        t0=t0, nborder=parameters.nborder)
+    return (darkdecaysignal['amplitude']
+            * np.exp(-read_times / darkdecaysignal['time_constant']))
+
+
+def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1):
+    """Add or subtract dark decay signal from resultants.
+
+    For each resultant, compute the mean dark decay signal across the
+    reads composing it and add (sign=+1) or subtract (sign=-1).
+
+    Parameters
+    ----------
+    resultants : np.ndarray[n_resultant, ny, nx]
+        Resultants to correct.  Modified in place.
+    darkdecaysignal : dict
+        Dictionary with keys 'amplitude', 'time_constant', and 'sca'.
+    read_pattern : list[list[int]]
+        Read pattern giving frame numbers for each resultant.
+    sign : int
+        +1 to add, -1 to subtract.
+    """
+    tij = read_pattern_to_tij(read_pattern)
+    for i in range(resultants.shape[0]):
+        correction = np.mean(
+            [dark_decay_for_read(darkdecaysignal, tij[i][j])
+             for j in range(len(tij[i]))], axis=0)
+        resultants[i] += sign * correction
 
 
 def apportion_counts_to_resultants(
@@ -420,7 +512,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     """
 
     nborder = parameters.nborder
-    npix = galsim.roman.n_pix + 2 * nborder
+    npix = parameters.n_pix + 2 * nborder
     out = ScienceRawModel._node_type.create_fake_data(shape=(len(resultants), npix, npix))
     out['amp33'] = np.zeros((len(resultants), 4096, 128), dtype=out.amp33.dtype)
 
@@ -478,7 +570,7 @@ def add_ipc(resultants, ipc_kernel=None):
     # the reference pixels have basically no flux, so for these real pixels we
     # extend the array with a constant equal to zero.
     if ipc_kernel is None:
-        ipc_kernel = parameters.ipc_kernel
+        ipc_kernel = ipc.ipc_kernel
 
     log.info('Adding IPC...')
     out = ndimage.convolve(resultants, ipc_kernel[None, ...],
@@ -490,7 +582,8 @@ def make_l1(counts, read_pattern,
             read_noise=None, pedestal=None, pedestal_extra_noise=None,
             rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
-            persistence=None, tstart=None, saturation=None):
+            persistence=None, tstart=None, saturation=None,
+            darkdecaysignal=None, ipc_model=None):
     """Make an L1 image from a total electrons image.
 
     This apportions the total electrons among the different resultants and adds
@@ -526,6 +619,10 @@ def make_l1(counts, read_pattern,
         Time of exposure start
     saturation : float, optional
         Saturation level in DN
+    darkdecaysignal : dict or None
+        Dictionary with keys 'amplitude', 'time_constant', and 'sca'
+        describing the dark decay signal.  If None, no dark decay is
+        added.
 
     Returns
     -------
@@ -553,7 +650,10 @@ def make_l1(counts, read_pattern,
 
     # roman.addReciprocityFailure(resultants_object)
 
-    add_ipc(resultants)
+    if ipc_model is not None:
+        ipc_model.apply(resultants)
+    else:
+        add_ipc(resultants)
 
     # resultants are in electrons
     if gain is None:
@@ -563,6 +663,10 @@ def make_l1(counts, read_pattern,
     resultants /= gain  # gain is electron/DN
 
     # resultants are now in DN
+    # Add dark decay signal (purely additive electronic effect in DN)
+    if darkdecaysignal is not None:
+        apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1)
+
     # read noise is in DN
     log.info('Adding read noise...')
     resultants = add_read_noise_to_resultants(

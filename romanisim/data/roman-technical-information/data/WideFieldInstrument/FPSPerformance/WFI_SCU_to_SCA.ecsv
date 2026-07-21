@@ -1,0 +1,28 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: SCU#, unit: '', datatype: string, description: Sensor control unit (SCU) number}
+# - {name: SCA, unit: '', datatype: string, description: Sensor Chip Assembly (SCA) serial number}
+# delimiter: ','
+# meta: !!omap
+# - {comments: Roman/WFI Sensor Control Unit (SCU) number to Sensor Chip Assembly (SCA) serial number mapping.}
+# schema: astropy-2.0
+SCU#,SCA
+1,22081.0
+2,21815.0
+3,21946.0
+4,21115.0
+5,21816.0
+6,20663.0
+7,22069.0
+8,21641.0
+9,21813.0
+10,22078.0
+11,21947.0
+12,20829.0
+13,22067.0
+14,21814.0
+15,21645.0
+16,21643.0
+17,21319.0
+18,20833.0

@@ -1,13 +1,117 @@
-"""Parameters class storing useful constants for Roman simulations.
-"""
-
 import numpy as np
+import os
+import importlib.resources as resources
 from astropy.time import Time
+from pathlib import Path
 
 # If left unspecified anywhere, define a date of simulation.
-default_date = Time('2026-01-01T00:00:00', format='isot')
+default_date = Time("2026-01-01T00:00:00", format="isot")
 
-# MA tables 1(DEFOCUS_MOD), 2(DEFOCUS_LRG), and 18(DIAGNOSTIC) are excluded
+######################################################################################################
+# Default values
+######################################################################################################
+pixel_scale = 0.11  # arcsec / pixel
+diameter = 2.36  # meters
+obscuration = 0.32
+collecting_area = 3.757e4  # cm^2, from Cycle 7
+exptime = 139.8  # s
+read_time = 3.16247  # s
+n_dithers = 6
+nborder = 4  # number of border pixels used for reference pixels.
+# Physical pixel size
+pixel_scale_mm = 0.01  # mm
+stray_light_fraction = 0.1
+n_sca = 18
+n_pix_tot = 4096
+n_pix = 4088
+jitter_rms = 0.014
+charge_diffusion = 0.1
+
+# Radial distance from WFI_CEN to extend object generation in order to cover FOV (degrees)
+WFS_FOV = 0.6
+
+# Initial detector reset level in electrons (before non-linearity is applied).
+pedestal = 10000  # electron
+
+# Extra noise in the pedestal/reset level in electrons (correlated across all resultants).
+pedestal_extra_noise = 8  # electron
+
+# Basic Roman reference info, with lengths in mm.
+pixel_size_mm = 0.01
+focal_length = 18714
+
+# V2/V3 coordinates of "center" of WFI array (convention)
+v2v3_wficen = (1546.3846181707652, -892.7916365721071)  # arcsec
+
+# angle of V3 relative to +Y
+V3IdlYAngle = -60
+
+# Maxinum allowed angle from the telecope solar panels to the sun in degrees.
+max_sun_angle = 36.0
+
+# Persistence coefficients
+persistence_coefficients = (
+    np.array(
+        [
+            0.045707683,
+            0.014959818,
+            0.009115737,
+            0.00656769,
+            0.005135571,
+            0.004217028,
+            0.003577534,
+            0.003106601,
+        ]
+    )
+    / 100.0
+)
+
+# persistence parameter dictionary
+# delete persistence records fainter than 0.01 electron / s
+# e.g., MA table 1 has ~144 s, so this is ~1 electron over the whole exposure.
+persistence = dict(
+    A=0.017,
+    x0=6.0e4,
+    dx=5.0e4,
+    alpha=0.045,
+    gamma=1,
+    half_well=50000,
+    ignorerate=0.01,
+)
+
+dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
+dq_do_not_use = dqbits["saturated"] | dqbits["jump_det"]
+
+######################################################################################################
+# [TODO] Temporary implementation for accessing roman-technical-information repo
+######################################################################################################
+def get_reference_data_root() -> Path:
+    ENV_VAR = "ROMAN_INFO_PATH"
+    # 1. Environment variable override
+    env_path = os.environ.get(ENV_VAR)
+    if env_path:
+        path = Path(env_path).expanduser().resolve()
+        if not path.exists():
+            raise RuntimeError(
+                f"{ENV_VAR} is set but path does not exist: {path}"
+            )
+        return path
+    # 2. Fallback to packaged subtree data
+    try:
+        data_path = resources.files("romanisim")
+        data_path = os.path.join(data_path, "data", "roman-technical-information")
+        return Path(data_path)
+    except Exception as e:
+        raise RuntimeError(
+            "Could not locate reference data. "
+            f"Set environment variable {ENV_VAR} to the roman-technical-information directory."
+        ) from e
+
+roman_tech_repo_path = get_reference_data_root()
+
+######################################################################################################
+# Default configuration parameters
+######################################################################################################
 
 # Rev F
 read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
@@ -177,6 +281,20 @@ read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                       [38, 39, 40], [41, 42, 43], [44]],
                 }
 
+reference_data = {
+    "dark": 0.01,  # electron/s
+    "darkdecaysignal": None,
+    "distortion": None,
+    "flat": None,
+    "gain": 2,  # electron/DN
+    "inverselinearity": None,
+    "linearity": None,
+    "integralnonlinearity": None,
+    "readnoise": 5.0,  # DN
+    "saturation": 55000,  # DN
+    "ipc": None,
+}
+
 default_parameters_dictionary = {
     'instrument': {'name': 'WFI',
                    'detector': 'WFI07',
@@ -215,66 +333,6 @@ default_parameters_dictionary = {
                 },
 }
 
-# Default metadata for level 3 mosaics
-default_mosaic_parameters_dictionary = {
-    'coadd_info': {'time_mean': default_date,
-                   },
-    'instrument': {'optical_element': 'F184',
-                   },
-    'wcsinfo': {'ra_ref': 270.0,
-                'dec_ref': 66.0,
-                },
-}
-
-reference_data = {
-    "dark": 0.01,  # electron/s
-    "distortion": None,
-    "flat": None,
-    "gain": 2,  # electron/DN
-    "inverselinearity": None,
-    "linearity": None,
-    "readnoise": 5.0,  # DN
-    "saturation": 55000,  # DN
-}
-
-nborder = 4  # number of border pixels used for reference pixels.
-
-read_time = 3.16247
-
-# from draft wfisim documentation
-# assumed to be compatible in direction with scipy.ndimage.convolve.
-# this is consistent with Andrea Bellini's convention, where, in the
-# following kernel, 0.2% of the flux is redistributed to the pixel
-# that is +1 - N spaces ahead in memory.
-ipc_kernel = np.array(
-    [[0.21, 1.66, 0.22],
-     [1.88, 91.59, 1.87],
-     [0.21, 1.62, 0.2]])
-ipc_kernel /= np.sum(ipc_kernel)
-
-# V2/V3 coordinates of "center" of WFI array (convention)
-v2v3_wficen = (1546.3846181707652, -892.7916365721071)  # arcsec
-
-# persistence parameter dictionary
-# delete persistence records fainter than 0.01 electron / s
-# e.g., MA table 1 has ~144 s, so this is ~1 electron over the whole exposure.
-persistence = dict(A=0.017, x0=6.0e4, dx=5.0e4, alpha=0.045, gamma=1,
-                   half_well=50000, ignorerate=0.01)
-
-# Initial detector reset level in electrons (before non-linearity is applied).
-pedestal = 10000  # electron
-
-# Extra noise in the pedestal/reset level in electrons (correlated across all resultants).
-pedestal_extra_noise = 8  # electron
-
-dqbits = dict(saturated=2, jump_det=4, nonlinear=2**16, no_lin_corr=2**20)
-dq_do_not_use = dqbits['saturated'] | dqbits['jump_det']
-
-NUMBER_OF_DETECTORS = 18
-
-# Radial distance from WFI_CEN to extend object generation in order to cover FOV (degrees)
-WFS_FOV = 0.6
-
 # Cosmic Ray defaults
 cr = {
     # sample_cr_params
@@ -291,25 +349,15 @@ cr = {
     "pixel_depth": 5,
 }
 
+# Default metadata for level 3 mosaics
+default_mosaic_parameters_dictionary = {
+    'coadd_info': {'time_mean': default_date,
+                   },
+    'instrument': {'optical_element': 'F184',
+                   },
+    'wcsinfo': {'ra_ref': 270.0,
+                'dec_ref': 66.0,
+                },
+}
 # Centermost PSF to use for mosaic creation
 default_sca = 2
-
-# Persistence defaults
-# delete persistence records fainter than 0.01 electron / s
-# e.g., MA table 1 has ~144 s, so this is ~1 electron over the whole exposure.
-persistence = {
-    # init
-    "A": 0.017,
-    "x0": 6.0e4,
-    "dx": 5.0e4,
-    "alpha": 0.045,
-    "gamma": 1,
-    "half_well": 50000,
-    "ignorerate": 0.01
-}
-
-# angle of V3 relative to +Y
-V3IdlYAngle = -60
-
-# fiducial WFI pixel scale in arcseconds
-pixel_scale = 0.11
