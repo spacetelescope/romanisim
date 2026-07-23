@@ -592,6 +592,42 @@ def test_simulate():
     # nice if L2 images include the WCS.
 
 
+def test_simulate_reference_read():
+    """L1 simulation with a reference read, as flight data will be delivered."""
+    parameters.n_pix = 100
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+    meta = util.default_image_meta(time=Time('2020-01-01T00:00:00'),
+                                   filter_name='F158', coord=coord)
+    wcs.fill_in_parameters(meta, coord)
+    kw = dict(psftype='epsf', level=1, usecrds=False, crparam=dict())
+
+    offset = 4000
+    plain = image.simulate(meta, [], rng=galsim.BaseDeviate(1), **kw)[0]
+    l1 = image.simulate(meta, [], rng=galsim.BaseDeviate(1),
+                        reference_read=True, data_encoding_offset=offset,
+                        **kw)[0]
+
+    # the reference read is not a resultant: it must not show up in the
+    # resultant count or the read pattern
+    assert l1['data'].shape == plain['data'].shape
+    assert l1['data'].shape[0] == len(l1['meta']['exposure']['read_pattern'])
+    assert l1['meta']['instrument']['data_encoding_offset'] == offset
+    assert l1['reference_read'].shape == l1['data'].shape[1:]
+    assert 'reference_read' not in plain
+
+    # decoding as romancal.dq_init does must land on a normal-looking ramp
+    decoded = (l1['data'].astype('f8')
+               + l1['reference_read'][None].astype('f8') - offset)
+    assert np.all(np.diff(np.median(decoded, axis=(1, 2))) >= 0)
+    assert np.allclose(np.median(decoded, axis=(1, 2)),
+                       np.median(plain['data'], axis=(1, 2)), atol=50)
+
+    # amp33 is not simulated, but must survive the offset removal
+    decoded33 = (l1['amp33'].astype('i4')
+                 + l1['reference_amp33'][None].astype('i4') - offset)
+    assert np.all(decoded33 == 0)
+
+
 def test_make_test_catalog_and_images():
     # this isn't a real routine that we should consider part of the
     # public interface, and may be removed.  We'll settle for just

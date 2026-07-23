@@ -314,3 +314,69 @@ def test_make_l1_and_asdf(tmp_path):
         assert np.all((resultants[0] - parameters.pedestal == 0)
                       | ((dq[0] & parameters.dqbits['jump_det']) != 0))
     log.info('DMS227: successfully made an L1 file that validates.')
+
+
+def test_reference_read(tmp_path):
+    """Simulating a reference read and encoding it into an L1 file."""
+    counts = np.random.poisson(100, size=(100, 100))
+    parameters.n_pix = 100
+    nborder = parameters.nborder
+    read_pattern = read_pattern_list[0]
+
+    for rn in (0, 5):  # DN
+        # the reference read must not perturb the resultants themselves
+        kw = dict(read_noise=rn, pedestal_extra_noise=0, gain=1, crparam=None)
+        res0, dq0 = l1.make_l1(galsim.Image(counts), read_pattern,
+                               seed=12, **kw)
+        res1, dq1, refread = l1.make_l1(galsim.Image(counts), read_pattern,
+                                        seed=12, reference_read=True, **kw)
+        assert res1.shape == res0.shape == (len(read_pattern),) + counts.shape
+        assert refread.shape == counts.shape
+        # dq gets no plane for the reference read; it is not a resultant
+        assert dq1.shape == dq0.shape == (len(read_pattern),) + counts.shape
+        if rn == 0:
+            # with no read noise the two simulations are identical; turning on
+            # the reference read must not consume the shared RNG differently
+            # before the resultants are built
+            assert np.all(res1 == res0)
+            # ... and the reference read is just the (linear) pedestal
+            assert np.all(refread == parameters.pedestal)
+        else:
+            # the reference read is a single read, so it carries the full
+            # read noise rather than read noise / sqrt(N)
+            assert np.abs(np.std(refread - parameters.pedestal) / rn - 1) < 0.2
+
+    # encoding into the L1 file is exactly invertible
+    for offset in (0, 4000):
+        out, extras = l1.make_asdf(
+            res1, dq=dq1, reference_read=refread, data_encoding_offset=offset,
+            filepath=tmp_path / 'refread.asdf')
+        assert out['meta']['instrument']['data_encoding_offset'] == offset
+        nb = nborder
+        stored = out['data'][:, nb:-nb, nb:-nb].astype('f4')
+        ref = out['reference_read'][nb:-nb, nb:-nb].astype('f4')
+        assert np.all(ref == refread)
+        # what romancal.dq_init does to recover the resultants
+        recovered = stored + ref[None, ...] - offset
+        clipped = res1 - refread[None, ...] + offset < 0
+        assert np.all(recovered[~clipped] == res1[~clipped])
+        if offset == 0:
+            # with no offset the read noise clips against zero DN, which is
+            # what the encoding offset exists to prevent
+            assert np.any(clipped)
+        else:
+            assert not np.any(clipped)
+        # amp33 is not simulated; it must still decode to zero rather than
+        # underflowing when the offset is removed
+        assert np.all(out['amp33'].astype('i4')
+                      + out['reference_amp33'][None, ...].astype('i4')
+                      - offset == 0)
+
+    af = asdf.AsdfFile()
+    af.tree = {'roman': out}
+    af.validate()
+
+    # no reference read requested -> none of the extra structure appears
+    out, extras = l1.make_asdf(res0, dq=dq0)
+    assert 'reference_read' not in out
+    assert 'data_encoding_offset' not in out['meta']['instrument']

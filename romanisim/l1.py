@@ -240,7 +240,8 @@ def dark_decay_for_read(darkdecaysignal, read_start_time):
             * np.exp(-read_times / darkdecaysignal['time_constant']))
 
 
-def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1):
+def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1,
+                     reference_read=False):
     """Add or subtract dark decay signal from resultants.
 
     For each resultant, compute the mean dark decay signal across the
@@ -256,8 +257,13 @@ def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1):
         Read pattern giving frame numbers for each resultant.
     sign : int
         +1 to add, -1 to subtract.
+    reference_read : bool
+        If True, resultants[0] is a reference read taken at the time of the
+        reset rather than a resultant, and is corrected at t = 0.
     """
     tij = read_pattern_to_tij(read_pattern)
+    if reference_read:
+        tij = [np.array([0.0])] + list(tij)
     for i in range(resultants.shape[0]):
         correction = np.mean(
             [dark_decay_for_read(darkdecaysignal, tij[i][j])
@@ -268,7 +274,7 @@ def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1):
 def apportion_counts_to_resultants(
         counts, tij, pedestal=None, pedestal_extra_noise=None,
         inv_linearity=None, crparam=None, persistence=None,
-        tstart=None, rng=None, seed=None):
+        tstart=None, rng=None, seed=None, reference_read=False):
     """Apportion counts to resultants given read times.
 
     This finds a statistically appropriate assignment of electrons to each
@@ -321,12 +327,19 @@ def apportion_counts_to_resultants(
         random number generator
     seed : int
         seed to use for random number generator
+    reference_read : bool
+        If True, prepend a reference read to the resultants.  The reference
+        read samples the detector at the reset level, before any charge has
+        accumulated.  It is not a resultant, so `dq` is not given a
+        corresponding plane.
 
     Returns
     -------
     resultants, dq
     resultants : np.ndarray[n_resultant, nx, ny]
-        array of n_resultant images giving each resultant
+        array of n_resultant images giving each resultant.  If
+        `reference_read` is set, this has n_resultant + 1 planes, with the
+        reference read in resultants[0].
     dq : np.ndarray[n_resultant, nx, ny]
         dq array marking CR hits in resultants
     """
@@ -356,11 +369,15 @@ def apportion_counts_to_resultants(
     # should be assigned to this read.
     pij = tij_to_pij(tij, remaining=True)
 
-    # Create arrays to store various photon or electron counts and dq
-    resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
+    # Create arrays to store various photon or electron counts and dq.
+    # When a reference read is requested it gets an extra leading plane in
+    # resultants, but not in dq: the reference read is not a resultant and has
+    # no resultantdq slot in the L1 data model.
+    nref = 1 if reference_read else 0
+    resultants = np.zeros((len(tij) + nref,) + counts.shape, dtype='f4')
     counts_so_far = np.zeros(counts.shape, dtype='i4')
     resultant_counts = np.zeros(counts.shape, dtype='f4')
-    dq = np.zeros(resultants.shape, dtype=np.uint32)
+    dq = np.zeros((len(tij),) + counts.shape, dtype=np.uint32)
 
     # Set initial instrument counts (always create as array for simplicity)
     # Includes pedestal (detector reset level) and instrumental effects
@@ -375,6 +392,22 @@ def apportion_counts_to_resultants(
     if pedestal_extra_noise is not None:
         pedestal_noise = rng_numpy_pedestal.normal(0, pedestal_extra_noise, counts.shape)
         instrumental_so_far += pedestal_noise
+
+    # The reference read samples the detector at the reset level, before any
+    # charge from the scene has accumulated.  Each pixel is read essentially
+    # immediately after it is reset, so we give the reference read no exposure
+    # time: it collects no cosmic rays and no persistence.  It is nevertheless
+    # a real read of the detector, so it goes through the non-linearity curve
+    # like any other read.  Charge deposited before the reference read (by CRs
+    # or persistence) would be subtracted back out of every resultant on board
+    # anyway, so leaving it out here costs nothing but the second-order shift
+    # along the linearity curve.
+    if reference_read:
+        if inv_linearity is not None:
+            resultants[0, ...] = inv_linearity.apply(
+                instrumental_so_far, electrons=True)
+        else:
+            resultants[0, ...] = instrumental_so_far
 
     if persistence is not None and tstart is None:
         raise ValueError('tstart must be set if persistence is set!')
@@ -416,7 +449,7 @@ def apportion_counts_to_resultants(
                 resultant_counts += counts_so_far + instrumental_so_far
 
         # set the read count to the average of the resultant count
-        resultants[i, ...] = resultant_counts / len(pi)
+        resultants[i + nref, ...] = resultant_counts / len(pi)
 
     if inv_linearity is not None:
         # Update data quality array for inverse linearty coefficients
@@ -486,21 +519,37 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     return resultants
 
 
-def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=None):
+def make_asdf(resultants, dq=None, filepath=None, metadata=None,
+              persistence=None, reference_read=None,
+              data_encoding_offset=None):
     """Package and optionally write out an L1 frame.
 
     This routine packages an L1 data file with the appropriate Roman data
     model.  It currently does not do anything with the necessary metadata,
     and leaves that information as filler values.
 
+    If a reference read is given, this routine applies the on-board encoding
+    of the L1 data: the reference read is subtracted from each resultant and
+    `data_encoding_offset` is added, so that the read noise does not clip
+    against zero DN.  The reference read is stored unmodified alongside the
+    resultants.  ``romancal.dq_init`` inverts this.
+
     Parameters
     ----------
     resultants : np.ndarray[n_resultant, ny, nx] (float)
-        resultants array, giving each of n_resultant resultant images
+        resultants array, giving each of n_resultant resultant images, in
+        absolute DN
     filepath : str
         if not None, path of asdf file to L1 image into
     dq : np.ndarray[n_resultant, ny, nx] (int)
         dq array flagging saturated / CR hit pixels
+    reference_read : np.ndarray[ny, nx] (float), optional
+        reference read in absolute DN.  If given, it is subtracted from the
+        resultants and stored in the file.
+    data_encoding_offset : int, optional
+        offset in DN added to the resultants after the reference read is
+        subtracted.  Only used if `reference_read` is given; defaults to
+        parameters.data_encoding_offset.
 
     Returns
     -------
@@ -519,7 +568,29 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     if metadata is not None:
         out['meta'].update(metadata)
     extras = dict()
-    out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
+
+    if reference_read is not None:
+        if data_encoding_offset is None:
+            data_encoding_offset = parameters.data_encoding_offset
+        data_encoding_offset = int(data_encoding_offset)
+        log.info('Subtracting reference read, encoding offset %d DN...'
+                 % data_encoding_offset)
+        data = np.clip(
+            resultants - reference_read[None, ...] + data_encoding_offset,
+            0, 2 ** 16 - 1)
+        out['meta']['instrument']['data_encoding_offset'] = data_encoding_offset
+        out['reference_read'] = np.zeros((npix, npix), dtype=out['data'].dtype)
+        out['reference_read'][nborder:-nborder, nborder:-nborder] = reference_read
+        # amp33 is not simulated (it is identically zero).  Encode it the same
+        # way so that removing the offset downstream returns zero rather than
+        # underflowing the unsigned data.
+        out['reference_amp33'] = np.zeros(
+            out['amp33'].shape[1:], dtype=out['amp33'].dtype)
+        out['amp33'] += out['amp33'].dtype.type(data_encoding_offset)
+    else:
+        data = resultants
+
+    out['data'][:, nborder:-nborder, nborder:-nborder] = data
     if dq is not None:
         extras['dq'] = np.zeros(out['data'].shape, dtype='i4')
         extras['dq'][:, nborder:-nborder, nborder:-nborder] = dq
@@ -583,7 +654,7 @@ def make_l1(counts, read_pattern,
             rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None,
-            darkdecaysignal=None, ipc_model=None):
+            darkdecaysignal=None, ipc_model=None, reference_read=False):
     """Make an L1 image from a total electrons image.
 
     This apportions the total electrons among the different resultants and adds
@@ -623,6 +694,14 @@ def make_l1(counts, read_pattern,
         Dictionary with keys 'amplitude', 'time_constant', and 'sca'
         describing the dark decay signal.  If None, no dark decay is
         added.
+    reference_read : bool
+        If True, also simulate a reference read and return it.  The reference
+        read is carried through IPC, gain, dark decay, read noise, and
+        quantization alongside the resultants, so it picks up its own
+        single-read realization of the read noise.  It is *not* subtracted
+        from the resultants here; the resultants are returned in absolute DN
+        and the subtraction is done by `make_asdf`, which is what writes the
+        L1 file.
 
     Returns
     -------
@@ -630,9 +709,14 @@ def make_l1(counts, read_pattern,
         Resultants image array in DN including systematic effects
     dq : np.ndarray[n_resultant, ny, nx]
         DQ array marking saturated pixels and cosmic rays
+    reference_read : np.ndarray[ny, nx]
+        Reference read in DN.  Only returned if `reference_read` is set.
     """
 
     tij = read_pattern_to_tij(read_pattern)
+    nref = 1 if reference_read else 0
+    # the reference read is a single read, so it gets the full read noise
+    tij_all = ([np.array([0.0])] + list(tij)) if reference_read else tij
 
     # Set defaults for pedestal parameters if not specified
     if pedestal is None:
@@ -646,7 +730,7 @@ def make_l1(counts, read_pattern,
         pedestal=pedestal, pedestal_extra_noise=pedestal_extra_noise,
         inv_linearity=inv_linearity, crparam=crparam,
         persistence=persistence, tstart=tstart,
-        rng=rng, seed=seed)
+        rng=rng, seed=seed, reference_read=reference_read)
 
     # roman.addReciprocityFailure(resultants_object)
 
@@ -665,12 +749,13 @@ def make_l1(counts, read_pattern,
     # resultants are now in DN
     # Add dark decay signal (purely additive electronic effect in DN)
     if darkdecaysignal is not None:
-        apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1)
+        apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1,
+                         reference_read=reference_read)
 
     # read noise is in DN
     log.info('Adding read noise...')
     resultants = add_read_noise_to_resultants(
-        resultants, tij, rng=rng, seed=seed,
+        resultants, tij_all, rng=rng, seed=seed,
         read_noise=read_noise)
 
     # quantize
@@ -685,7 +770,11 @@ def make_l1(counts, read_pattern,
     # is in detail.
     # let things go a little higher than saturation
     resultants = np.clip(resultants, 0, saturation * 1.1)  # DN
-    m = resultants >= saturation
+    m = resultants[nref:] >= saturation
     dq[m] |= parameters.dqbits['saturated']
+
+    if reference_read:
+        # views into the same buffer; the two blocks are disjoint
+        return resultants[nref:], dq, resultants[0]
 
     return resultants, dq

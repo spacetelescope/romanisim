@@ -58,6 +58,40 @@ The dark decay is a purely electronic effect occurring during readout that is no
 
 See `Betti et al. (2025), The Statistical Properties of Dark Ramps for the Roman-WFI Detectors <https://www.stsci.edu/files/live/sites/www/files/home/roman/documentation/technical-documentation/_documents/Roman-STScI-000814.pdf>`_ for more information.
 
+Reference read
+--------------
+
+Flight L1 files include a *reference read*: a single read of the detector taken
+at the reset level, before any charge has accumulated.  On board, this read is
+subtracted from each of the science resultants and a constant
+``data_encoding_offset`` is added, so that the read noise does not clip against
+zero DN in the unsigned data.  The reference read itself is downlinked
+unmodified in the ``reference_read`` array, so the transformation is
+invertible; ``romancal``'s ``dq_init`` step inverts it.
+
+romanisim simulates this when ``reference_read`` is set (``--reference-read``
+on the command line).  The reference read is carried through non-linearity,
+IPC, gain, dark decay, read noise, and quantization alongside the resultants,
+so it picks up its own realization of the read noise.  Because it is a single
+read rather than an average of :math:`N` reads, it carries the full read noise;
+and because it is subtracted from every resultant, that one realization is
+imprinted coherently on the whole ramp.  Reproducing this correlated pedestal
+term is the main reason to simulate a reference read rather than simply writing
+the arrays.
+
+The reference read is *not* a resultant: it does not appear in
+``exposure.read_pattern``, is not counted in ``exposure.nresultants``, and has
+no plane in the data quality array.
+
+Each pixel is read essentially immediately after it is reset, so the reference
+read is given no exposure time: it accumulates no counts, no cosmic rays, and
+no persistence.  It nevertheless goes through the non-linearity curve like any
+other read, since the charge in the pixel at the reset level is real.  Charge
+deposited before the reference read would in any case be subtracted back out of
+every resultant on board, so the only thing this approximation costs is a
+second-order shift along the linearity curve for the small fraction of pixels a
+cosmic ray would have struck in that interval.
+
 Gain
 ----
 L1 files are in units of DN.  We convert from photons to DN using gains from CRDS or a default values of 2 electron per DN, treating electrons and photons as equivalent.  This neglects the possibility that the quantum yield may be different from 1 at certain wavelengths, in particular in the blue, where `Givans+2022 <https://iopscience.iop.org/article/10.1088/1538-3873/ac46ba>`_ find a quantum field of up to 1.05.
