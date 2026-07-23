@@ -763,9 +763,9 @@ def make_l1(counts, read_pattern,
 
     tij = read_pattern_to_tij(read_pattern)
     nref = 1 if reference_read else 0
-    # the reference read is a single read at the reset time (t = 0); here it
-    # only sets the read noise (full single-read sigma) and the dark decay
-    # time.  It is kept out of the apportionment tij.
+    # the reference read is a single read at t = 0; tij_all is used in
+    # add_read_noise_to_resultants and indicates that the reference read
+    # corresponds to a single read resultant
     tij_all = read_pattern_to_tij(read_pattern, reference_read=reference_read)
 
     # Set defaults for pedestal parameters if not specified
