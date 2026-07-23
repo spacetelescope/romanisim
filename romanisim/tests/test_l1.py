@@ -262,6 +262,17 @@ def test_read_pattern_to_tij():
         tij = l1.read_pattern_to_tij(read_pattern)
         assert l1.validate_times(tij)
 
+    # the reference read is prepended one read_time before the first read,
+    # for any indexing convention, and leaves the science reads unchanged
+    for read_pattern in read_pattern_list + [[[0], [1, 2], [3]]]:
+        base = l1.read_pattern_to_tij(read_pattern)
+        withref = l1.read_pattern_to_tij(read_pattern, reference_read=True)
+        assert len(withref) == len(base) + 1
+        assert len(withref[0]) == 1  # single read
+        assert withref[0][0] == base[0][0] - parameters.read_time
+        assert all(np.array_equal(a, b) for a, b in zip(withref[1:], base))
+        assert l1.validate_times(withref)
+
 
 @pytest.mark.soctests
 def test_make_l1_and_asdf(tmp_path):

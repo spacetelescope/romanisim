@@ -1036,9 +1036,9 @@ def simulate(metadata, objlist,
             ipc_model=ipc_model,
             reference_read=reference_read,
             **kwargs)
-        # l1 is in absolute DN; the reference read is subtracted when the L1
-        # file is packaged, so make_l2 below sees the same values either way.
         if reference_read:
+            # note that reference read is subtracted from l1 in l1.make_asdf;
+            # l1 has the total DN
             l1, l1dq, l1refread = l1out
         else:
             l1, l1dq = l1out

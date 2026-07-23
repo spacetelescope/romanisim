@@ -19,6 +19,7 @@ from functools import cache
 import numpy as np
 import galsim
 from romanisim import image, catalog, util, persistence, psf
+from romanisim.l1 import decode_reference_read
 from romanisim.models import wcs, parameters
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -601,30 +602,28 @@ def test_simulate_reference_read():
     wcs.fill_in_parameters(meta, coord)
     kw = dict(psftype='epsf', level=1, usecrds=False, crparam=dict())
 
-    offset = 4000
     plain = image.simulate(meta, [], rng=galsim.BaseDeviate(1), **kw)[0]
+    # no explicit offset: exercise the parameters.data_encoding_offset default
     l1 = image.simulate(meta, [], rng=galsim.BaseDeviate(1),
-                        reference_read=True, data_encoding_offset=offset,
-                        **kw)[0]
+                        reference_read=True, **kw)[0]
 
     # the reference read is not a resultant: it must not show up in the
     # resultant count or the read pattern
     assert l1['data'].shape == plain['data'].shape
     assert l1['data'].shape[0] == len(l1['meta']['exposure']['read_pattern'])
-    assert l1['meta']['instrument']['data_encoding_offset'] == offset
+    offset = l1['meta']['instrument']['data_encoding_offset']
+    assert offset != 0
     assert l1['reference_read'].shape == l1['data'].shape[1:]
     assert 'reference_read' not in plain
 
     # decoding as romancal.dq_init does must land on a normal-looking ramp
-    decoded = (l1['data'].astype('f8')
-               + l1['reference_read'][None].astype('f8') - offset)
+    decoded = decode_reference_read(l1['data'], l1['reference_read'], offset)
     assert np.all(np.diff(np.median(decoded, axis=(1, 2))) >= 0)
     assert np.allclose(np.median(decoded, axis=(1, 2)),
                        np.median(plain['data'], axis=(1, 2)), atol=50)
 
     # amp33 is not simulated, but must survive the offset removal
-    decoded33 = (l1['amp33'].astype('i4')
-                 + l1['reference_amp33'][None].astype('i4') - offset)
+    decoded33 = decode_reference_read(l1['amp33'], l1['reference_amp33'], offset)
     assert np.all(decoded33 == 0)
 
 

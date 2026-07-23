@@ -258,12 +258,10 @@ def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1,
     sign : int
         +1 to add, -1 to subtract.
     reference_read : bool
-        If True, resultants[0] is a reference read taken at the time of the
-        reset rather than a resultant, and is corrected at t = 0.
+        If True, resultants[0] is a reference read taken one read_time before
+        the first read rather than a resultant, and is corrected at that time.
     """
-    tij = read_pattern_to_tij(read_pattern)
-    if reference_read:
-        tij = [np.array([0.0])] + list(tij)
+    tij = read_pattern_to_tij(read_pattern, reference_read=reference_read)
     for i in range(resultants.shape[0]):
         correction = np.mean(
             [dark_decay_for_read(darkdecaysignal, tij[i][j])
@@ -328,18 +326,16 @@ def apportion_counts_to_resultants(
     seed : int
         seed to use for random number generator
     reference_read : bool
-        If True, prepend a reference read to the resultants.  The reference
-        read samples the detector at the reset level, before any charge has
-        accumulated.  It is not a resultant, so `dq` is not given a
-        corresponding plane.
+        If True, prepend a reference read to the resultants, corresponding to a
+        zero time read.  `dq` retains its original shape and will not match
+        resultants in shape.
 
     Returns
     -------
     resultants, dq
-    resultants : np.ndarray[n_resultant, nx, ny]
+    resultants : np.ndarray[n_resultant + n_ref, nx, ny]
         array of n_resultant images giving each resultant.  If
-        `reference_read` is set, this has n_resultant + 1 planes, with the
-        reference read in resultants[0].
+        n_ref = 1 and the first plane contains the reference read.
     dq : np.ndarray[n_resultant, nx, ny]
         dq array marking CR hits in resultants
     """
@@ -371,8 +367,7 @@ def apportion_counts_to_resultants(
 
     # Create arrays to store various photon or electron counts and dq.
     # When a reference read is requested it gets an extra leading plane in
-    # resultants, but not in dq: the reference read is not a resultant and has
-    # no resultantdq slot in the L1 data model.
+    # resultants, but not in dq
     nref = 1 if reference_read else 0
     resultants = np.zeros((len(tij) + nref,) + counts.shape, dtype='f4')
     counts_so_far = np.zeros(counts.shape, dtype='i4')
@@ -393,15 +388,9 @@ def apportion_counts_to_resultants(
         pedestal_noise = rng_numpy_pedestal.normal(0, pedestal_extra_noise, counts.shape)
         instrumental_so_far += pedestal_noise
 
-    # The reference read samples the detector at the reset level, before any
-    # charge from the scene has accumulated.  Each pixel is read essentially
-    # immediately after it is reset, so we give the reference read no exposure
-    # time: it collects no cosmic rays and no persistence.  It is nevertheless
-    # a real read of the detector, so it goes through the non-linearity curve
-    # like any other read.  Charge deposited before the reference read (by CRs
-    # or persistence) would be subtracted back out of every resultant on board
-    # anyway, so leaving it out here costs nothing but the second-order shift
-    # along the linearity curve.
+    # The reference read is treated as a zero-time read, before any
+    # charge from the scene has accumulated.  CRs and persistence are not applied.
+    # It does go through the non-linearity curve, however.
     if reference_read:
         if inv_linearity is not None:
             resultants[0, ...] = inv_linearity.apply(
@@ -525,7 +514,7 @@ def encode_reference_read(resultants, reference_read,
 
     This is the transformation applied on board: the reference read is
     subtracted from each resultant and a constant offset is added, so that the
-    read noise does not clip against zero DN in the unsigned data.  The
+    read noise does not get clipped at zero DN.  The
     reference read is stored unmodified alongside the resultants, so the
     transformation is invertible; see `decode_reference_read`.
 
@@ -589,23 +578,19 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None,
     model.  It currently does not do anything with the necessary metadata,
     and leaves that information as filler values.
 
-    If a reference read is given, this routine applies the on-board encoding
-    of the L1 data: the reference read is subtracted from each resultant and
-    `data_encoding_offset` is added, so that the read noise does not clip
-    against zero DN.  The reference read is stored unmodified alongside the
-    resultants.  ``romancal.dq_init`` inverts this.
+    If a reference read is given, this routine subtracts the reference read
+    and applies the data_encoding_offset to simulate flight-like data.
 
     Parameters
     ----------
     resultants : np.ndarray[n_resultant, ny, nx] (float)
-        resultants array, giving each of n_resultant resultant images, in
-        absolute DN
+        resultants array, giving each of n_resultant resultant images in DN
     filepath : str
         if not None, path of asdf file to L1 image into
     dq : np.ndarray[n_resultant, ny, nx] (int)
         dq array flagging saturated / CR hit pixels
     reference_read : np.ndarray[ny, nx] (float), optional
-        reference read in absolute DN.  If given, it is subtracted from the
+        reference read in DN.  If given, it is subtracted from the
         resultants and stored in the file.
     data_encoding_offset : int, optional
         offset in DN added to the resultants after the reference read is
@@ -664,7 +649,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None,
     return out, extras
 
 
-def read_pattern_to_tij(read_pattern):
+def read_pattern_to_tij(read_pattern, reference_read=False):
     """Get the times of each read going into resultants for a read_pattern.
 
     Parameters
@@ -673,6 +658,11 @@ def read_pattern_to_tij(read_pattern):
         If int, id of ma_table to use.
         Otherwise a list of lists giving the indices of the reads entering each
         resultant.
+    reference_read : bool
+        If True, prepend a length-one resultant for the reference read, one
+        read_time before the first read of the pattern.  This is not a science
+        resultant; it exists so that the reference read can be given the
+        correct time (e.g., for dark decay) and the full single-read noise.
 
     Returns
     -------
@@ -682,6 +672,8 @@ def read_pattern_to_tij(read_pattern):
     if isinstance(read_pattern, int):
         read_pattern = parameters.read_pattern[read_pattern]
     tij = [parameters.read_time * np.array(x) for x in read_pattern]
+    if reference_read:
+        tij = [np.array([tij[0][0] - parameters.read_time])] + tij
     return tij
 
 
@@ -758,11 +750,8 @@ def make_l1(counts, read_pattern,
     reference_read : bool
         If True, also simulate a reference read and return it.  The reference
         read is carried through IPC, gain, dark decay, read noise, and
-        quantization alongside the resultants, so it picks up its own
-        single-read realization of the read noise.  It is *not* subtracted
-        from the resultants here; the resultants are returned in absolute DN
-        and the subtraction is done by `make_asdf`, which is what writes the
-        L1 file.
+        quantization alongside the resultants.  It is not subtracted
+        from the resultants here; that transformation occurs later in make_asdf.
 
     Returns
     -------
@@ -776,8 +765,10 @@ def make_l1(counts, read_pattern,
 
     tij = read_pattern_to_tij(read_pattern)
     nref = 1 if reference_read else 0
-    # the reference read is a single read, so it gets the full read noise
-    tij_all = ([np.array([0.0])] + list(tij)) if reference_read else tij
+    # the reference read is a single read one read_time before the first read;
+    # here it only sets the read noise (full single-read sigma) and the dark
+    # decay time.  It is kept out of the apportionment tij.
+    tij_all = read_pattern_to_tij(read_pattern, reference_read=reference_read)
 
     # Set defaults for pedestal parameters if not specified
     if pedestal is None:
