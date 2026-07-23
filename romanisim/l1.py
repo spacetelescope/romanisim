@@ -258,8 +258,8 @@ def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1,
     sign : int
         +1 to add, -1 to subtract.
     reference_read : bool
-        If True, resultants[0] is a reference read taken one read_time before
-        the first read rather than a resultant, and is corrected at that time.
+        If True, resultants[0] is a reference read taken at the reset time
+        (t = 0) rather than a resultant, and is corrected at that time.
     """
     tij = read_pattern_to_tij(read_pattern, reference_read=reference_read)
     for i in range(resultants.shape[0]):
@@ -657,12 +657,10 @@ def read_pattern_to_tij(read_pattern, reference_read=False):
     read_pattern : int or list[list]
         If int, id of ma_table to use.
         Otherwise a list of lists giving the indices of the reads entering each
-        resultant.
+        resultant.  A read index of i corresponds to a read i read_times after reset.
     reference_read : bool
-        If True, prepend a length-one resultant for the reference read, one
-        read_time before the first read of the pattern.  This is not a science
-        resultant; it exists so that the reference read can be given the
-        correct time (e.g., for dark decay) and the full single-read noise.
+        If True, prepend a length-one resultant for the reference read at the
+        reset time (t = 0).  
 
     Returns
     -------
@@ -673,7 +671,7 @@ def read_pattern_to_tij(read_pattern, reference_read=False):
         read_pattern = parameters.read_pattern[read_pattern]
     tij = [parameters.read_time * np.array(x) for x in read_pattern]
     if reference_read:
-        tij = [np.array([tij[0][0] - parameters.read_time])] + tij
+        tij = [np.array([0.0])] + tij
     return tij
 
 
@@ -765,9 +763,9 @@ def make_l1(counts, read_pattern,
 
     tij = read_pattern_to_tij(read_pattern)
     nref = 1 if reference_read else 0
-    # the reference read is a single read one read_time before the first read;
-    # here it only sets the read noise (full single-read sigma) and the dark
-    # decay time.  It is kept out of the apportionment tij.
+    # the reference read is a single read at the reset time (t = 0); here it
+    # only sets the read noise (full single-read sigma) and the dark decay
+    # time.  It is kept out of the apportionment tij.
     tij_all = read_pattern_to_tij(read_pattern, reference_read=reference_read)
 
     # Set defaults for pedestal parameters if not specified

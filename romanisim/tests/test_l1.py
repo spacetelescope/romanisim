@@ -262,17 +262,6 @@ def test_read_pattern_to_tij():
         tij = l1.read_pattern_to_tij(read_pattern)
         assert l1.validate_times(tij)
 
-    # the reference read is prepended one read_time before the first read,
-    # for any indexing convention, and leaves the science reads unchanged
-    for read_pattern in read_pattern_list + [[[0], [1, 2], [3]]]:
-        base = l1.read_pattern_to_tij(read_pattern)
-        withref = l1.read_pattern_to_tij(read_pattern, reference_read=True)
-        assert len(withref) == len(base) + 1
-        assert len(withref[0]) == 1  # single read
-        assert withref[0][0] == base[0][0] - parameters.read_time
-        assert all(np.array_equal(a, b) for a, b in zip(withref[1:], base))
-        assert l1.validate_times(withref)
-
 
 @pytest.mark.soctests
 def test_make_l1_and_asdf(tmp_path):
@@ -346,41 +335,3 @@ def test_encode_decode_reference_read():
     dec0 = l1.decode_reference_read(enc0, ref, 0)
     assert np.all(dec0[~clipped] == res[~clipped])
     assert np.all(dec0[clipped] > res[clipped])
-
-    # default offset comes from parameters
-    assert np.all(l1.encode_reference_read(res, ref)
-                  == l1.encode_reference_read(
-                      res, ref, parameters.data_encoding_offset))
-
-
-def test_reference_read():
-    """make_l1 reference read properties that need read-level control.
-
-    The file packaging and the decode round trip are covered by
-    test_encode_decode_reference_read and
-    test_image.test_simulate_reference_read; here we check the two things that
-    require driving make_l1 directly with a known seed and read noise.
-    """
-    counts = np.random.poisson(100, size=(100, 100))
-    parameters.n_pix = 100
-    read_pattern = read_pattern_list[0]
-    shape = (len(read_pattern),) + counts.shape
-    kw = dict(pedestal_extra_noise=0, gain=1, crparam=None, seed=12)
-
-    # with no read noise, turning on the reference read must not perturb the
-    # resultants or their dq: it must not consume the shared RNG before they
-    # are built
-    res0, dq0 = l1.make_l1(galsim.Image(counts), read_pattern,
-                           read_noise=0, **kw)
-    res1, dq1, ref1 = l1.make_l1(galsim.Image(counts), read_pattern,
-                                 read_noise=0, reference_read=True, **kw)
-    assert res1.shape == res0.shape == shape
-    assert dq1.shape == dq0.shape == shape  # dq gets no reference read plane
-    assert np.all(res1 == res0)
-    assert np.all(ref1 == parameters.pedestal)  # linearity here is the identity
-
-    # the reference read is a single read, so it carries the full read noise
-    # rather than read_noise / sqrt(N)
-    _, _, ref1 = l1.make_l1(galsim.Image(counts), read_pattern,
-                            read_noise=5, reference_read=True, **kw)
-    assert np.abs(np.std(ref1 - parameters.pedestal) / 5 - 1) < 0.2

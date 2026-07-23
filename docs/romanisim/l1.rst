@@ -75,7 +75,7 @@ on the command line).  The reference read is carried through non-linearity,
 IPC, gain, dark decay, read noise, and quantization alongside the resultants.
 
 The reference read is treated separately from the science resultants; it does not appear in
-``exposure.read_pattern`` is not counted in ``exposure.nresultants``.
+``exposure.read_pattern`` and is not counted in ``exposure.nresultants``.
 
 We treat the reference read as being a zero-exposure time read.  The reference read
 then accumulates no counts, cosmic rays, or persistence.  The reference read is otherwise
