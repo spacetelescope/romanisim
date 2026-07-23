@@ -626,6 +626,12 @@ def test_simulate_reference_read():
     decoded33 = decode_reference_read(l1['amp33'], l1['reference_amp33'], offset)
     assert np.all(decoded33 == 0)
 
+    # the reference_read / reference_amp33 / data_encoding_offset fields must
+    # be schema-valid
+    af = asdf.AsdfFile()
+    af.tree = {'roman': l1}
+    af.validate()
+
 
 def test_make_test_catalog_and_images():
     # this isn't a real routine that we should consider part of the

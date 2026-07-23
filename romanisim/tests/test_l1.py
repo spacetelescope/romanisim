@@ -353,17 +353,23 @@ def test_encode_decode_reference_read():
                       res, ref, parameters.data_encoding_offset))
 
 
-def test_reference_read(tmp_path):
-    """Simulating a reference read and packaging it into an L1 file."""
+def test_reference_read():
+    """make_l1 reference read properties that need read-level control.
+
+    The file packaging and the decode round trip are covered by
+    test_encode_decode_reference_read and
+    test_image.test_simulate_reference_read; here we check the two things that
+    require driving make_l1 directly with a known seed and read noise.
+    """
     counts = np.random.poisson(100, size=(100, 100))
     parameters.n_pix = 100
-    nb = parameters.nborder
     read_pattern = read_pattern_list[0]
     shape = (len(read_pattern),) + counts.shape
     kw = dict(pedestal_extra_noise=0, gain=1, crparam=None, seed=12)
 
     # with no read noise, turning on the reference read must not perturb the
-    # resultants: it must not consume the shared RNG before they are built
+    # resultants or their dq: it must not consume the shared RNG before they
+    # are built
     res0, dq0 = l1.make_l1(galsim.Image(counts), read_pattern,
                            read_noise=0, **kw)
     res1, dq1, ref1 = l1.make_l1(galsim.Image(counts), read_pattern,
@@ -374,27 +380,7 @@ def test_reference_read(tmp_path):
     assert np.all(ref1 == parameters.pedestal)  # linearity here is the identity
 
     # the reference read is a single read, so it carries the full read noise
-    res1, dq1, ref1 = l1.make_l1(galsim.Image(counts), read_pattern,
-                                 read_noise=5, reference_read=True, **kw)
+    # rather than read_noise / sqrt(N)
+    _, _, ref1 = l1.make_l1(galsim.Image(counts), read_pattern,
+                            read_noise=5, reference_read=True, **kw)
     assert np.abs(np.std(ref1 - parameters.pedestal) / 5 - 1) < 0.2
-
-    out, extras = l1.make_asdf(res1, dq=dq1, reference_read=ref1,
-                               data_encoding_offset=4000,
-                               filepath=tmp_path / 'refread.asdf')
-    assert out['meta']['instrument']['data_encoding_offset'] == 4000
-    assert np.all(out['reference_read'][nb:-nb, nb:-nb] == ref1)
-    assert np.all(l1.decode_reference_read(
-        out['data'][:, nb:-nb, nb:-nb], out['reference_read'][nb:-nb, nb:-nb],
-        4000) == res1)
-    # amp33 is not simulated, but must survive the round trip rather than
-    # underflowing the unsigned data
-    assert np.all(l1.decode_reference_read(
-        out['amp33'], out['reference_amp33'], 4000) == 0)
-    af = asdf.AsdfFile()
-    af.tree = {'roman': out}
-    af.validate()
-
-    # no reference read requested -> none of the extra structure appears
-    out, extras = l1.make_asdf(res0, dq=dq0)
-    assert 'reference_read' not in out
-    assert 'data_encoding_offset' not in out['meta']['instrument']
