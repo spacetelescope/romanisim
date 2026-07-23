@@ -67,7 +67,10 @@ subtracted from each of the science resultants and a constant
 ``data_encoding_offset`` is added, so that the read noise does not clip against
 zero DN in the unsigned data.  The reference read itself is downlinked
 unmodified in the ``reference_read`` array, so the transformation is
-invertible; ``romancal``'s ``dq_init`` step inverts it.
+invertible; ``romancal``'s ``dq_init`` step inverts it.  The transformation and
+its inverse are available on their own as :func:`romanisim.l1.encode_reference_read`
+and :func:`romanisim.l1.decode_reference_read`, for code that needs to apply or
+undo the encoding without writing a file.
 
 romanisim simulates this when ``reference_read`` is set (``--reference-read``
 on the command line).  The reference read is carried through non-linearity,

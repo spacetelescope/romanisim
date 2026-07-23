@@ -316,62 +316,69 @@ def test_make_l1_and_asdf(tmp_path):
     log.info('DMS227: successfully made an L1 file that validates.')
 
 
+def test_encode_decode_reference_read():
+    """Encoding resultants against a reference read is invertible."""
+    res = np.round(np.random.uniform(4000, 20000, size=(5, 20, 20)))
+    ref = np.round(np.random.uniform(4900, 5100, size=(20, 20)))
+
+    enc = l1.encode_reference_read(res, ref, 4000)
+    assert enc.dtype == np.uint16
+    assert np.all(l1.decode_reference_read(enc, ref, 4000) == res)
+    assert np.all(enc == res - ref[None] + 4000)
+
+    # the offset exists to keep the encoded data off the zero rail; without it
+    # any resultant below the reference read clips, and clipping is the only
+    # thing that breaks the inversion
+    enc0 = l1.encode_reference_read(res, ref, 0)
+    clipped = res - ref[None] < 0
+    assert np.any(clipped)
+    dec0 = l1.decode_reference_read(enc0, ref, 0)
+    assert np.all(dec0[~clipped] == res[~clipped])
+    assert np.all(dec0[clipped] > res[clipped])
+
+    # default offset comes from parameters
+    assert np.all(l1.encode_reference_read(res, ref)
+                  == l1.encode_reference_read(
+                      res, ref, parameters.data_encoding_offset))
+
+
 def test_reference_read(tmp_path):
-    """Simulating a reference read and encoding it into an L1 file."""
+    """Simulating a reference read and packaging it into an L1 file."""
     counts = np.random.poisson(100, size=(100, 100))
     parameters.n_pix = 100
-    nborder = parameters.nborder
+    nb = parameters.nborder
     read_pattern = read_pattern_list[0]
+    shape = (len(read_pattern),) + counts.shape
+    kw = dict(pedestal_extra_noise=0, gain=1, crparam=None, seed=12)
 
-    for rn in (0, 5):  # DN
-        # the reference read must not perturb the resultants themselves
-        kw = dict(read_noise=rn, pedestal_extra_noise=0, gain=1, crparam=None)
-        res0, dq0 = l1.make_l1(galsim.Image(counts), read_pattern,
-                               seed=12, **kw)
-        res1, dq1, refread = l1.make_l1(galsim.Image(counts), read_pattern,
-                                        seed=12, reference_read=True, **kw)
-        assert res1.shape == res0.shape == (len(read_pattern),) + counts.shape
-        assert refread.shape == counts.shape
-        # dq gets no plane for the reference read; it is not a resultant
-        assert dq1.shape == dq0.shape == (len(read_pattern),) + counts.shape
-        if rn == 0:
-            # with no read noise the two simulations are identical; turning on
-            # the reference read must not consume the shared RNG differently
-            # before the resultants are built
-            assert np.all(res1 == res0)
-            # ... and the reference read is just the (linear) pedestal
-            assert np.all(refread == parameters.pedestal)
-        else:
-            # the reference read is a single read, so it carries the full
-            # read noise rather than read noise / sqrt(N)
-            assert np.abs(np.std(refread - parameters.pedestal) / rn - 1) < 0.2
+    # with no read noise, turning on the reference read must not perturb the
+    # resultants: it must not consume the shared RNG before they are built
+    res0, dq0 = l1.make_l1(galsim.Image(counts), read_pattern,
+                           read_noise=0, **kw)
+    res1, dq1, ref1 = l1.make_l1(galsim.Image(counts), read_pattern,
+                                 read_noise=0, reference_read=True, **kw)
+    assert res1.shape == res0.shape == shape
+    assert dq1.shape == dq0.shape == shape  # dq gets no reference read plane
+    assert np.all(res1 == res0)
+    assert np.all(ref1 == parameters.pedestal)  # linearity here is the identity
 
-    # encoding into the L1 file is exactly invertible
-    for offset in (0, 4000):
-        out, extras = l1.make_asdf(
-            res1, dq=dq1, reference_read=refread, data_encoding_offset=offset,
-            filepath=tmp_path / 'refread.asdf')
-        assert out['meta']['instrument']['data_encoding_offset'] == offset
-        nb = nborder
-        stored = out['data'][:, nb:-nb, nb:-nb].astype('f4')
-        ref = out['reference_read'][nb:-nb, nb:-nb].astype('f4')
-        assert np.all(ref == refread)
-        # what romancal.dq_init does to recover the resultants
-        recovered = stored + ref[None, ...] - offset
-        clipped = res1 - refread[None, ...] + offset < 0
-        assert np.all(recovered[~clipped] == res1[~clipped])
-        if offset == 0:
-            # with no offset the read noise clips against zero DN, which is
-            # what the encoding offset exists to prevent
-            assert np.any(clipped)
-        else:
-            assert not np.any(clipped)
-        # amp33 is not simulated; it must still decode to zero rather than
-        # underflowing when the offset is removed
-        assert np.all(out['amp33'].astype('i4')
-                      + out['reference_amp33'][None, ...].astype('i4')
-                      - offset == 0)
+    # the reference read is a single read, so it carries the full read noise
+    res1, dq1, ref1 = l1.make_l1(galsim.Image(counts), read_pattern,
+                                 read_noise=5, reference_read=True, **kw)
+    assert np.abs(np.std(ref1 - parameters.pedestal) / 5 - 1) < 0.2
 
+    out, extras = l1.make_asdf(res1, dq=dq1, reference_read=ref1,
+                               data_encoding_offset=4000,
+                               filepath=tmp_path / 'refread.asdf')
+    assert out['meta']['instrument']['data_encoding_offset'] == 4000
+    assert np.all(out['reference_read'][nb:-nb, nb:-nb] == ref1)
+    assert np.all(l1.decode_reference_read(
+        out['data'][:, nb:-nb, nb:-nb], out['reference_read'][nb:-nb, nb:-nb],
+        4000) == res1)
+    # amp33 is not simulated, but must survive the round trip rather than
+    # underflowing the unsigned data
+    assert np.all(l1.decode_reference_read(
+        out['amp33'], out['reference_amp33'], 4000) == 0)
     af = asdf.AsdfFile()
     af.tree = {'roman': out}
     af.validate()

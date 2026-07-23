@@ -519,6 +519,67 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     return resultants
 
 
+def encode_reference_read(resultants, reference_read,
+                          data_encoding_offset=None):
+    """Encode resultants for an L1 file using a reference read.
+
+    This is the transformation applied on board: the reference read is
+    subtracted from each resultant and a constant offset is added, so that the
+    read noise does not clip against zero DN in the unsigned data.  The
+    reference read is stored unmodified alongside the resultants, so the
+    transformation is invertible; see `decode_reference_read`.
+
+    Parameters
+    ----------
+    resultants : np.ndarray[n_resultant, ny, nx]
+        resultants in absolute DN
+    reference_read : np.ndarray[ny, nx]
+        reference read in absolute DN
+    data_encoding_offset : int, optional
+        offset in DN added after the reference read is subtracted.  Defaults
+        to parameters.data_encoding_offset.
+
+    Returns
+    -------
+    np.ndarray[n_resultant, ny, nx] (uint16)
+        resultants as stored in an L1 file
+    """
+    if data_encoding_offset is None:
+        data_encoding_offset = parameters.data_encoding_offset
+    encoded = (resultants.astype('f8') - reference_read[None, ...]
+               + data_encoding_offset)
+    return np.clip(encoded, 0, 2 ** 16 - 1).astype(np.uint16)
+
+
+def decode_reference_read(data, reference_read, data_encoding_offset=None):
+    """Recover absolute resultants from L1 data encoded with a reference read.
+
+    This inverts `encode_reference_read`, and is what ``romancal``'s
+    ``dq_init`` step does when it encounters an L1 file containing a reference
+    read.  The inversion is exact except where `encode_reference_read` clipped
+    against zero DN, which the encoding offset exists to prevent.
+
+    Parameters
+    ----------
+    data : np.ndarray[n_resultant, ny, nx]
+        resultants as stored in an L1 file
+    reference_read : np.ndarray[ny, nx]
+        reference read in absolute DN, as stored in an L1 file
+    data_encoding_offset : int, optional
+        offset in DN that was added to the data.  Defaults to
+        parameters.data_encoding_offset.
+
+    Returns
+    -------
+    np.ndarray[n_resultant, ny, nx] (float32)
+        resultants in absolute DN
+    """
+    if data_encoding_offset is None:
+        data_encoding_offset = parameters.data_encoding_offset
+    return (data.astype('f4') + reference_read[None, ...].astype('f4')
+            - data_encoding_offset)
+
+
 def make_asdf(resultants, dq=None, filepath=None, metadata=None,
               persistence=None, reference_read=None,
               data_encoding_offset=None):
@@ -575,18 +636,18 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None,
         data_encoding_offset = int(data_encoding_offset)
         log.info('Subtracting reference read, encoding offset %d DN...'
                  % data_encoding_offset)
-        data = np.clip(
-            resultants - reference_read[None, ...] + data_encoding_offset,
-            0, 2 ** 16 - 1)
+        data = encode_reference_read(resultants, reference_read,
+                                     data_encoding_offset)
         out['meta']['instrument']['data_encoding_offset'] = data_encoding_offset
         out['reference_read'] = np.zeros((npix, npix), dtype=out['data'].dtype)
         out['reference_read'][nborder:-nborder, nborder:-nborder] = reference_read
-        # amp33 is not simulated (it is identically zero).  Encode it the same
-        # way so that removing the offset downstream returns zero rather than
-        # underflowing the unsigned data.
+        # amp33 is not simulated (it is identically zero), but it must go
+        # through the same encoding so that decoding downstream returns zero
+        # rather than underflowing the unsigned data.
         out['reference_amp33'] = np.zeros(
             out['amp33'].shape[1:], dtype=out['amp33'].dtype)
-        out['amp33'] += out['amp33'].dtype.type(data_encoding_offset)
+        out['amp33'] = encode_reference_read(
+            out['amp33'], out['reference_amp33'], data_encoding_offset)
     else:
         data = resultants
 
