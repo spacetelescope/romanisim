@@ -58,6 +58,29 @@ The dark decay is a purely electronic effect occurring during readout that is no
 
 See `Betti et al. (2025), The Statistical Properties of Dark Ramps for the Roman-WFI Detectors <https://www.stsci.edu/files/live/sites/www/files/home/roman/documentation/technical-documentation/_documents/Roman-STScI-000814.pdf>`_ for more information.
 
+Reference read
+--------------
+
+L1 files may include a reference read, which for Roman is the reset read immediately
+preceding the science resultants.  On board, this read is subtracted from each
+of the science resultants and a constant ``data_encoding_offset`` is added, so that
+the read noise does not clip against zero DN in the unsigned data transferred from
+the spacecraft.  The reference read itself is downlinked
+unmodified in the ``reference_read`` array, so the transformation is
+invertible.  The primary purpose of this transformation is to improve data compression from
+Roman; the reference read compresses poorly.
+
+romanisim simulates this when ``reference_read`` is set (``--reference-read``
+on the command line).  The reference read is carried through non-linearity,
+IPC, gain, dark decay, read noise, and quantization alongside the resultants.
+
+The reference read is treated separately from the science resultants: it does not appear in
+``exposure.read_pattern``, which describes only the science resultants.
+
+We treat the reference read as being a zero-exposure time read.  The reference read
+then accumulates no counts, cosmic rays, or persistence.  The reference read is otherwise
+treated identically to other reads (e.g., it goes through the same inverse-linearity application).
+
 Gain
 ----
 L1 files are in units of DN.  We convert from photons to DN using gains from CRDS or a default values of 2 electron per DN, treating electrons and photons as equivalent.  This neglects the possibility that the quantum yield may be different from 1 at certain wavelengths, in particular in the blue, where `Givans+2022 <https://iopscience.iop.org/article/10.1088/1538-3873/ac46ba>`_ find a quantum field of up to 1.05.

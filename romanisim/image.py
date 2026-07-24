@@ -900,6 +900,7 @@ def simulate(metadata, objlist,
              usecrds=True, psftype='galsim', level=2, crparam=dict(),
              persistence=None, seed=None, rng=None,
              psf_keywords=dict(), extra_counts=None,
+             reference_read=False, data_encoding_offset=None,
              **kwargs
              ):
     """Simulate a sequence of observations on a field in different bandpasses.
@@ -943,6 +944,13 @@ def simulate(metadata, objlist,
         An additional array that just gets added into the counts image.
         Useful for wrapping idealized images into L1/L2 images + the
         Roman datamodel.
+    reference_read : bool
+        Simulate a reference read and store it in the L1 file, with the
+        resultants encoded as differences from it.  Only affects level 1.
+    data_encoding_offset : int (optional)
+        Offset in DN added to the L1 resultants after the reference read is
+        subtracted.  Only used if reference_read is set; defaults to
+        parameters.data_encoding_offset.
 
     Returns
     -------
@@ -977,6 +985,13 @@ def simulate(metadata, objlist,
         read_pattern = metadata['exposure']['read_pattern']
     else:
         read_pattern = parameters.read_pattern[metadata['exposure']['ma_table_number']]
+
+    if reference_read:
+        # The reference read is downlinked alongside the science resultants and
+        # counts toward nresultants, though it is not part of read_pattern.
+        # This must follow add_more_metadata, which indexes the MA table by
+        # nresultants for the accumulated and effective exposure times.
+        meta['exposure']['nresultants'] = len(read_pattern) + 1
 
     refdata = gather_reference_data(image_mod, usecrds=usecrds)
     read_noise = refdata['readnoise']
@@ -1014,7 +1029,7 @@ def simulate(metadata, objlist,
     if level == 0:
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
     else:
-        l1, l1dq = romanisim.l1.make_l1(
+        l1out = romanisim.l1.make_l1(
             counts, read_pattern, read_noise=read_noise,
             pedestal=parameters.pedestal,
             pedestal_extra_noise=pedestal_extra_noise,
@@ -1026,12 +1041,22 @@ def simulate(metadata, objlist,
             saturation=saturation,
             darkdecaysignal=darkdecaysignal,
             ipc_model=ipc_model,
+            reference_read=reference_read,
             **kwargs)
+        if reference_read:
+            # note that reference read is subtracted from l1 in l1.make_asdf;
+            # l1 has the total DN
+            l1, l1dq, l1refread = l1out
+        else:
+            l1, l1dq = l1out
+            l1refread = None
     if level == 0:
         extras = dict()
     elif level == 1:
         im, extras = romanisim.l1.make_asdf(
-            l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)
+            l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence,
+            reference_read=l1refread,
+            data_encoding_offset=data_encoding_offset)
     elif level == 2:
         slopeinfo = make_l2(l1, read_pattern, read_noise=read_noise,
                             gain=gain, flat=flat, linearity=linearity,

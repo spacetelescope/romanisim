@@ -88,6 +88,12 @@ addopts = [
 ]
 
 [tool.coverage.run]
+# Without `source`, coverage reports only the files that were imported during
+# the run; a module that nothing imports is absent from the report rather than
+# counted as zero, so adding an untested module would not lower the coverage
+# fraction at all.  Naming the package makes the denominator the package
+# itself, independent of import behaviour.
+source = ["romanisim"]
 omit = [
   "romanisim/conftest.py",
   "romanisim/setup.py",
@@ -98,6 +104,7 @@ omit = [
   "*/romanisim/regtest/test*",
   "*/romanisim/*/tests/*",
   "*/docs/*",
+  "*/romanisim/data/*",  # vendored roman-technical-information
 ]
 
 [tool.coverage.report]
@@ -111,6 +118,10 @@ exclude_lines = [
 ]
 
 [tool.ruff.lint]
+# Select the rules explicitly rather than relying on ruff's defaults, which
+# change between releases; ruff 0.16 expanded the default selection from E/F
+# to ~40 rule families, which flags hundreds of pre-existing issues.
+select = ["E", "F"]
 extend-ignore = ["E501"]
 
 [tool.cibuildwheel]

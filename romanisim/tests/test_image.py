@@ -19,6 +19,7 @@ from functools import cache
 import numpy as np
 import galsim
 from romanisim import image, catalog, util, persistence, psf
+from romanisim.l1 import decode_reference_read
 from romanisim.models import wcs, parameters
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -590,6 +591,56 @@ def test_simulate():
     imwcs = l2['meta'].get('wcs', None)
     assert imwcs is not None
     # nice if L2 images include the WCS.
+
+
+def test_simulate_reference_read():
+    """L1 simulation with a reference read, as flight data will be delivered."""
+    parameters.n_pix = 100
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+    meta = util.default_image_meta(time=Time('2020-01-01T00:00:00'),
+                                   filter_name='F158', coord=coord)
+    wcs.fill_in_parameters(meta, coord)
+    kw = dict(psftype='epsf', level=1, usecrds=False, crparam=dict())
+
+    plain = image.simulate(meta, [], rng=galsim.BaseDeviate(1), **kw)[0]
+    # no explicit offset: exercise the parameters.data_encoding_offset default
+    l1 = image.simulate(meta, [], rng=galsim.BaseDeviate(1),
+                        reference_read=True, **kw)[0]
+
+    # read_pattern covers only the science resultants, but the reference read
+    # also counts toward nresultants
+    assert l1['data'].shape == plain['data'].shape
+    assert l1['data'].shape[0] == len(l1['meta']['exposure']['read_pattern'])
+    assert (l1['meta']['exposure']['nresultants']
+            == len(l1['meta']['exposure']['read_pattern']) + 1)
+    offset = l1['meta']['instrument']['data_encoding_offset']
+    assert offset != 0
+    assert l1['reference_read'].shape == l1['data'].shape[1:]
+    assert 'reference_read' not in plain
+
+    # decoding as romancal.dq_init does must land on a normal-looking ramp
+    decoded = decode_reference_read(l1['data'], l1['reference_read'], offset)
+    assert np.all(np.diff(np.median(decoded, axis=(1, 2))) >= 0)
+    assert np.allclose(np.median(decoded, axis=(1, 2)),
+                       np.median(plain['data'], axis=(1, 2)), atol=50)
+
+    # the whole frame is encoded, border reference pixels included: those are
+    # not simulated, so they must decode back to their unencoded values rather
+    # than being left offset by data_encoding_offset
+    nb = parameters.nborder
+    border = np.ones(decoded.shape[1:], dtype=bool)
+    border[nb:-nb, nb:-nb] = False
+    assert np.all(decoded[:, border] == plain['data'][:, border])
+
+    # amp33 is not simulated, but must survive the offset removal
+    decoded33 = decode_reference_read(l1['amp33'], l1['reference_amp33'], offset)
+    assert np.all(decoded33 == 0)
+
+    # the reference_read / reference_amp33 / data_encoding_offset fields must
+    # be schema-valid
+    af = asdf.AsdfFile()
+    af.tree = {'roman': l1}
+    af.validate()
 
 
 def test_make_test_catalog_and_images():

@@ -36,6 +36,11 @@ pedestal = 10000  # electron
 # Extra noise in the pedestal/reset level in electrons (correlated across all resultants).
 pedestal_extra_noise = 8  # electron
 
+# Offset added to the science resultants in L1 files after the reference read
+# has been subtracted from them, so that the read noise does not clip against
+# zero DN.
+data_encoding_offset = 4000  # DN
+
 # Basic Roman reference info, with lengths in mm.
 pixel_size_mm = 0.01
 focal_length = 18714

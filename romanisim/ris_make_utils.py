@@ -382,7 +382,8 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, psf_keyword
     im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
         psftype=args.psftype, level=args.level, persistence=persist,
-        rng=rng, psf_keywords=psf_keywords, **kwargs)
+        rng=rng, psf_keywords=psf_keywords,
+        reference_read=getattr(args, 'reference_read', False), **kwargs)
 
     # Create metadata for simulation parameter
     romanisimdict = deepcopy(vars(args))
