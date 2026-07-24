@@ -1,0 +1,18 @@
+# Codecov configuration; see https://docs.codecov.com/docs/codecov-yaml
+#
+# Without this file Codecov falls back to its defaults, which compare against
+# the base commit with a 0% threshold, so any decrease at all fails the check.
+# Coverage here varies from run to run -- tests skip depending on whether the
+# CRDS context, stpsf data and galsim catalog are available -- and when a base
+# commit has no report of its own Codecov compares against an older ancestor
+# instead.  A small threshold keeps that noise from turning the check red.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
