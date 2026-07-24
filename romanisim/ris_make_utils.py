@@ -93,7 +93,7 @@ def apply_meta_args(args, metadata):
 
 
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
-                 ma_table_number=4, truncate=None, scale_factor=1.0, usecrds=False):
+                 ma_table_number=4, truncate=None, scale_factor=-1.0, usecrds=False):
     """
     Set / Update metadata parameters
 
@@ -110,7 +110,9 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     ma_table_number : int
         Integer specifying which MA Table entry to use
     scale_factor : float
-        Velocity aberration-induced scale factor
+        Velocity aberration-induced scale factor.  A non-positive value
+        (the default) computes the scale factor from the exposure start
+        time and reference pointing via ``calc_scale_factor``.
     usecrds : bool
         Use CRDS to get MA table reference file
 
