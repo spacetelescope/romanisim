@@ -23,8 +23,6 @@ from roman_datamodels import datamodels
 from romanisim import models
 from romanisim.models import wcs, parameters
 
-
-
 # galsim fluxes are in photons / cm^2 / s
 # we need to specify the area and exposure time in drawImage if
 # specifying fluxes in physical units.
@@ -900,6 +898,7 @@ def simulate(metadata, objlist,
              usecrds=True, psftype='galsim', level=2, crparam=dict(),
              persistence=None, seed=None, rng=None,
              psf_keywords=dict(), extra_counts=None,
+             fdnl_params=None, custom_ramps=None,
              **kwargs
              ):
     """Simulate a sequence of observations on a field in different bandpasses.
@@ -943,7 +942,22 @@ def simulate(metadata, objlist,
         An additional array that just gets added into the counts image.
         Useful for wrapping idealized images into L1/L2 images + the
         Roman datamodel.
+    fdnl_params : a 2-tuple or 2-element ndarray/list to be passed as follows to
+        galsim.detectors.addReciprocityFailure(exptime, *fdnl_params).  This
+        introduces flux-dependent nonlinearity (FDNL), a.k.a. Count Rate Dependent
+        Nonlinearity (CRNL) or Reciprocity Failure, to the image.  See
+        documentation of above Galsim method for further description of the
+        parameters.
+    custom_ramps : ndarray, an up-the-ramp sampled image cube that
+        will contribute additively to each read of pixel ramps
+        generated in l1.apportion_counts_to_resultants().  Ideally has
+        dtype='i4'.  The array shape must be (nr, 4088, 4088) where
+        nr>= the total number of reads (not resultants) of the ma
+        table specified in metadata.  If nr>nreads, the additional
+        frames will be ignored.  Useful for simulating ramp
+        nonlinearity effects such as the brighter fatter effect.
 
+    
     Returns
     -------
     image : roman_datamodels model
@@ -952,8 +966,19 @@ def simulate(metadata, objlist,
         Dictionary of additionally valuable quantities.  Includes at least
         simcatobj, the image positions and fluxes of simulated objects.  It may
         also include information on persistence and cosmic ray hits.
+
     """
 
+    # populate keyword arguments if they are passed in through **kwargs, for example
+    # from romanisim.ris_make_utils.simulate_image_file()
+    if fdnl_params is None:
+        fdnl_params = kwargs.pop('fdnl_params', None)
+    if custom_ramps is None:
+        custom_ramps = kwargs.pop('custom_ramps', None)
+    if extra_counts is None:
+        extra_counts = kwargs.pop('extra_counts', None)
+
+    
     if not usecrds:
         log.warning('--usecrds is not set.  romanisim will not use reference '
                     'files from CRDS.  The WCS may be incorrect and up-to-date '
@@ -1004,12 +1029,20 @@ def simulate(metadata, objlist,
     log.info('Simulating filter {0}...'.format(filter_name))
     counts, simcatobj = simulate_counts(
         image_mod.meta, objlist, rng=rng, usecrds=usecrds, darkrate=darkrate,
-        psftype=psftype, flat=flat, gain=gain, psf_keywords=psf_keywords)
+        psftype=psftype, flat=flat, gain=gain, psf_keywords=psf_keywords
+    )
 
     # If extra_counts is passed in, add directly to counts
     if extra_counts is not None:
         counts += extra_counts
 
+    # add flux dependent nonlinearity
+    if fdnl_params is not None:
+        exptime = parameters.read_time * read_pattern[-1][-1]
+        counts.addReciprocityFailure(exptime, *fdnl_params)
+        counts.quantize()
+        log.info('Included Flux Dependent Nonlinearity')
+        
     util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
     if level == 0:
         im = dict(data=counts.array, meta=dict(image_mod.meta.items()))
@@ -1025,6 +1058,7 @@ def simulate(metadata, objlist,
             persistence=persistence,
             saturation=saturation,
             darkdecaysignal=darkdecaysignal,
+            custom_ramps=custom_ramps,
             ipc_model=ipc_model,
             **kwargs)
     if level == 0:

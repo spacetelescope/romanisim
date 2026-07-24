@@ -268,7 +268,9 @@ def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1):
 def apportion_counts_to_resultants(
         counts, tij, pedestal=None, pedestal_extra_noise=None,
         inv_linearity=None, crparam=None, persistence=None,
-        tstart=None, rng=None, seed=None):
+        tstart=None, rng=None, seed=None,
+        custom_ramps=None
+        ):
     """Apportion counts to resultants given read times.
 
     This finds a statistically appropriate assignment of electrons to each
@@ -321,6 +323,14 @@ def apportion_counts_to_resultants(
         random number generator
     seed : int
         seed to use for random number generator
+    custom_ramps : ndarray, an up-the-ramp sampled image cube that
+        will contribute additively to each read of the pixel ramps
+        generated here.  Ideally has dtype='i4'.  The array shape must
+        be (nr, 4088, 4088) where nr>=nreads, the total number of
+        reads (not resultants) of the ma table specified in the
+        metadata of the observation.  If nr>nreads, the additional
+        frames will be ignored.  Useful for simulating ramp
+        nonlinearity effects such as the brighter-fatter effect.
 
     Returns
     -------
@@ -329,6 +339,7 @@ def apportion_counts_to_resultants(
         array of n_resultant images giving each resultant
     dq : np.ndarray[n_resultant, nx, ny]
         dq array marking CR hits in resultants
+
     """
     if not np.all(counts == np.round(counts)):
         raise ValueError('apportion_counts_to_resultants expects the counts '
@@ -382,6 +393,10 @@ def apportion_counts_to_resultants(
     if persistence is not None:
         tstart = tstart.mjd
 
+    # initialize custom_ramps counter
+    if custom_ramps is not None:
+        cr_count = 0
+
     # Loop over read probabilities
     for i, pi in enumerate(pij):
         # Reset resultant counts
@@ -393,6 +408,13 @@ def apportion_counts_to_resultants(
             read = rng_numpy.binomial(counts - counts_so_far, p)
             counts_so_far += read
 
+            # Add custom_reads if supplied and increment its frame counter
+            if custom_ramps is not None:
+                custom_so_far = custom_ramps[cr_count]
+                cr_count += 1
+            else:
+                custom_so_far = 0
+                
             # Apply cosmic rays
             if crparam is not None:
                 old_instrumental_so_far = instrumental_so_far.copy()
@@ -411,9 +433,10 @@ def apportion_counts_to_resultants(
             if inv_linearity is not None:
                 # Apply inverse linearity
                 resultant_counts += inv_linearity.apply(
-                    counts_so_far + instrumental_so_far, electrons=True)
+                    counts_so_far + instrumental_so_far
+                    + custom_so_far, electrons=True)
             else:
-                resultant_counts += counts_so_far + instrumental_so_far
+                resultant_counts += counts_so_far + instrumental_so_far + custom_so_far
 
         # set the read count to the average of the resultant count
         resultants[i, ...] = resultant_counts / len(pi)
@@ -583,7 +606,8 @@ def make_l1(counts, read_pattern,
             rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None,
-            darkdecaysignal=None, ipc_model=None):
+            darkdecaysignal=None, custom_ramps=None, ipc_model=None):
+
     """Make an L1 image from a total electrons image.
 
     This apportions the total electrons among the different resultants and adds
@@ -623,6 +647,13 @@ def make_l1(counts, read_pattern,
         Dictionary with keys 'amplitude', 'time_constant', and 'sca'
         describing the dark decay signal.  If None, no dark decay is
         added.
+    custom_ramps : ndarray, an up-the-ramp sampled image cube that
+        will contribute additively to each read of pixel ramps
+        generated in apportion_counts_to_resultants().  Ideally has
+        dtype='i4'.  The array shape must be (nr, 4088, 4088) where
+        nr>=nreads, the total number of reads (not resultants) of the
+        ma table specified the metadata of the observation.  If
+        nr>nreads, the additional frames will be ignored.
 
     Returns
     -------
@@ -630,6 +661,7 @@ def make_l1(counts, read_pattern,
         Resultants image array in DN including systematic effects
     dq : np.ndarray[n_resultant, ny, nx]
         DQ array marking saturated pixels and cosmic rays
+
     """
 
     tij = read_pattern_to_tij(read_pattern)
@@ -646,7 +678,7 @@ def make_l1(counts, read_pattern,
         pedestal=pedestal, pedestal_extra_noise=pedestal_extra_noise,
         inv_linearity=inv_linearity, crparam=crparam,
         persistence=persistence, tstart=tstart,
-        rng=rng, seed=seed)
+        rng=rng, seed=seed, custom_ramps=custom_ramps)
 
     # roman.addReciprocityFailure(resultants_object)
 
