@@ -88,11 +88,11 @@ addopts = [
 ]
 
 [tool.coverage.run]
-# Without `source`, coverage only reports files that happened to be imported
-# during the run, so modules whose tests skip (missing CRDS context, stpsf or
-# galsim data) vanish from the report instead of counting as zero.  That makes
-# the file count -- and hence the coverage fraction -- vary between runs, and
-# comparisons against a base commit meaningless.
+# Without `source`, coverage reports only the files that were imported during
+# the run; a module that nothing imports is absent from the report rather than
+# counted as zero, so adding an untested module would not lower the coverage
+# fraction at all.  Naming the package makes the denominator the package
+# itself, independent of import behaviour.
 source = ["romanisim"]
 omit = [
   "romanisim/conftest.py",
