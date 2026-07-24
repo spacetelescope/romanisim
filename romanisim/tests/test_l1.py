@@ -335,3 +335,28 @@ def test_encode_decode_reference_read():
     dec0 = l1.decode_reference_read(enc0, ref, 0)
     assert np.all(dec0[~clipped] == res[~clipped])
     assert np.all(dec0[clipped] > res[clipped])
+
+
+def test_make_asdf_reference_read_border():
+    """make_asdf must encode the whole frame, border reference pixels included.
+
+    The reference read only fills the active region, so the border pixels of
+    the stored data get no reference read subtracted; they must still pick up
+    the encoding offset so that the full frame (not just the active region)
+    round-trips through decode rather than being off by the offset.
+    """
+    parameters.n_pix = 20
+    nb = parameters.nborder
+    res = np.round(np.random.uniform(4000, 20000, size=(3, 20, 20))).astype('f4')
+    ref = np.round(np.random.uniform(4900, 5100, size=(20, 20))).astype('f4')
+
+    plain, _ = l1.make_asdf(res)
+    out, _ = l1.make_asdf(res, reference_read=ref, data_encoding_offset=4000)
+
+    decoded = l1.decode_reference_read(
+        np.array(out['data']), np.array(out['reference_read']), 4000)
+    # active region returns the resultants ...
+    assert np.all(decoded[:, nb:-nb, nb:-nb] == res)
+    # ... and the whole frame, border included, matches the unencoded file
+    # (i.e., the border is not left offset by data_encoding_offset)
+    assert np.all(decoded == np.array(plain['data']).astype(decoded.dtype))

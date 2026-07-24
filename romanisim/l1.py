@@ -615,31 +615,33 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None,
         out['meta'].update(metadata)
     extras = dict()
 
+    out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
+    if dq is not None:
+        extras['dq'] = np.zeros(out['data'].shape, dtype='i4')
+        extras['dq'][:, nborder:-nborder, nborder:-nborder] = dq
+
     if reference_read is not None:
         if data_encoding_offset is None:
             data_encoding_offset = parameters.data_encoding_offset
         data_encoding_offset = int(data_encoding_offset)
         log.info('Subtracting reference read, encoding offset %d DN...'
                  % data_encoding_offset)
-        data = encode_reference_read(resultants, reference_read,
-                                     data_encoding_offset)
         out['meta']['instrument']['data_encoding_offset'] = data_encoding_offset
         out['reference_read'] = np.zeros((npix, npix), dtype=out['data'].dtype)
         out['reference_read'][nborder:-nborder, nborder:-nborder] = reference_read
-        # amp33 is not simulated (it is identically zero), but it must go
-        # through the same encoding so that decoding downstream returns zero
-        # rather than underflowing the unsigned data.
         out['reference_amp33'] = np.zeros(
             out['amp33'].shape[1:], dtype=out['amp33'].dtype)
+        # Encode the full downlinked frame, reference pixels included: the same
+        # reference-read subtraction and offset are applied to data and amp33
+        # across the whole array, not just the active region.  romanisim does
+        # not simulate the border or amp33 reference reads, so those parts of
+        # reference_read / reference_amp33 are zero and those pixels simply
+        # pick up the offset, round-tripping exactly on decode rather than
+        # underflowing the unsigned data.
+        out['data'] = encode_reference_read(
+            out['data'], out['reference_read'], data_encoding_offset)
         out['amp33'] = encode_reference_read(
             out['amp33'], out['reference_amp33'], data_encoding_offset)
-    else:
-        data = resultants
-
-    out['data'][:, nborder:-nborder, nborder:-nborder] = data
-    if dq is not None:
-        extras['dq'] = np.zeros(out['data'].shape, dtype='i4')
-        extras['dq'][:, nborder:-nborder, nborder:-nborder] = dq
     if persistence is not None:
         extras['persistence'] = persistence.to_dict()
     if filepath:
