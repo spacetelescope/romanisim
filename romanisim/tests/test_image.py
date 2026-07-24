@@ -607,10 +607,12 @@ def test_simulate_reference_read():
     l1 = image.simulate(meta, [], rng=galsim.BaseDeviate(1),
                         reference_read=True, **kw)[0]
 
-    # the reference read is not a resultant: it must not show up in the
-    # resultant count or the read pattern
+    # read_pattern covers only the science resultants, but the reference read
+    # is downlinked too and so counts toward nresultants
     assert l1['data'].shape == plain['data'].shape
     assert l1['data'].shape[0] == len(l1['meta']['exposure']['read_pattern'])
+    assert (l1['meta']['exposure']['nresultants']
+            == len(l1['meta']['exposure']['read_pattern']) + 1)
     offset = l1['meta']['instrument']['data_encoding_offset']
     assert offset != 0
     assert l1['reference_read'].shape == l1['data'].shape[1:]

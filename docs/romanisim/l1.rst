@@ -74,8 +74,10 @@ romanisim simulates this when ``reference_read`` is set (``--reference-read``
 on the command line).  The reference read is carried through non-linearity,
 IPC, gain, dark decay, read noise, and quantization alongside the resultants.
 
-The reference read is treated separately from the science resultants; it does not appear in
-``exposure.read_pattern`` and is not counted in ``exposure.nresultants``.
+The reference read is treated separately from the science resultants: it does not appear in
+``exposure.read_pattern``, which describes only the science resultants.  It is nevertheless
+transmitted to the ground, so it *is* counted in ``exposure.nresultants``; with a reference read
+``nresultants`` is therefore ``len(read_pattern) + 1`` rather than ``len(read_pattern)``.
 
 We treat the reference read as being a zero-exposure time read.  The reference read
 then accumulates no counts, cosmic rays, or persistence.  The reference read is otherwise
