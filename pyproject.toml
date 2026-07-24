@@ -111,6 +111,10 @@ exclude_lines = [
 ]
 
 [tool.ruff.lint]
+# Select the rules explicitly rather than relying on ruff's defaults, which
+# change between releases; ruff 0.16 expanded the default selection from E/F
+# to ~40 rule families, which flags hundreds of pre-existing issues.
+select = ["E", "F"]
 extend-ignore = ["E501"]
 
 [tool.cibuildwheel]
