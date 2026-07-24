@@ -608,7 +608,7 @@ def test_simulate_reference_read():
                         reference_read=True, **kw)[0]
 
     # read_pattern covers only the science resultants, but the reference read
-    # is downlinked too and so counts toward nresultants
+    # also counts toward nresultants
     assert l1['data'].shape == plain['data'].shape
     assert l1['data'].shape[0] == len(l1['meta']['exposure']['read_pattern'])
     assert (l1['meta']['exposure']['nresultants']

@@ -627,14 +627,6 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None,
         log.info('Subtracting reference read, encoding offset %d DN...'
                  % data_encoding_offset)
         out['meta']['instrument']['data_encoding_offset'] = data_encoding_offset
-        # The reference read is transmitted to the ground and so counts toward
-        # nresultants, even though it is not one of the science resultants and
-        # does not appear in read_pattern.  This has to happen here rather than
-        # where nresultants is first set (ris_make_utils.set_metadata), because
-        # util.add_more_metadata indexes the MA table by nresultants to get the
-        # accumulated and effective exposure times; those lookups are keyed by
-        # the science resultant count and would shift by one.
-        out['meta']['exposure']['nresultants'] = len(resultants) + 1
         out['reference_read'] = np.zeros((npix, npix), dtype=out['data'].dtype)
         out['reference_read'][nborder:-nborder, nborder:-nborder] = reference_read
         out['reference_amp33'] = np.zeros(

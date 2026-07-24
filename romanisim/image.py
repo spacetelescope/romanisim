@@ -986,6 +986,13 @@ def simulate(metadata, objlist,
     else:
         read_pattern = parameters.read_pattern[metadata['exposure']['ma_table_number']]
 
+    if reference_read:
+        # The reference read is downlinked alongside the science resultants and
+        # counts toward nresultants, though it is not part of read_pattern.
+        # This must follow add_more_metadata, which indexes the MA table by
+        # nresultants for the accumulated and effective exposure times.
+        meta['exposure']['nresultants'] = len(read_pattern) + 1
+
     refdata = gather_reference_data(image_mod, usecrds=usecrds)
     read_noise = refdata['readnoise']
     darkrate = refdata['dark']
