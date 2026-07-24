@@ -87,3 +87,8 @@ jobs:
         - linux: py313-cov
           coverage: codecov
         - macos: py313
+    # Uploads from protected branches (i.e. pushes to main) are rejected by
+    # Codecov without a token, so main never gets a coverage report and PRs
+    # end up compared against a stale ancestor.
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
