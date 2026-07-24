@@ -631,13 +631,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None,
         out['reference_read'][nborder:-nborder, nborder:-nborder] = reference_read
         out['reference_amp33'] = np.zeros(
             out['amp33'].shape[1:], dtype=out['amp33'].dtype)
-        # Encode the full downlinked frame, reference pixels included: the same
-        # reference-read subtraction and offset are applied to data and amp33
-        # across the whole array, not just the active region.  romanisim does
-        # not simulate the border or amp33 reference reads, so those parts of
-        # reference_read / reference_amp33 are zero and those pixels simply
-        # pick up the offset, round-tripping exactly on decode rather than
-        # underflowing the unsigned data.
+        # apply data_encoding_offset and reference_read handling
         out['data'] = encode_reference_read(
             out['data'], out['reference_read'], data_encoding_offset)
         out['amp33'] = encode_reference_read(

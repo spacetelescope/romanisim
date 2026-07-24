@@ -622,6 +622,14 @@ def test_simulate_reference_read():
     assert np.allclose(np.median(decoded, axis=(1, 2)),
                        np.median(plain['data'], axis=(1, 2)), atol=50)
 
+    # the whole frame is encoded, border reference pixels included: those are
+    # not simulated, so they must decode back to their unencoded values rather
+    # than being left offset by data_encoding_offset
+    nb = parameters.nborder
+    border = np.ones(decoded.shape[1:], dtype=bool)
+    border[nb:-nb, nb:-nb] = False
+    assert np.all(decoded[:, border] == plain['data'][:, border])
+
     # amp33 is not simulated, but must survive the offset removal
     decoded33 = decode_reference_read(l1['amp33'], l1['reference_amp33'], offset)
     assert np.all(decoded33 == 0)
