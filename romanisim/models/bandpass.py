@@ -8,15 +8,11 @@ from astropy.io import ascii
 from galsim import Bandpass, LookupTable
 from galsim.errors import GalSimValueError, galsim_warn
 from scipy import integrate
+from roman_technical_information import io
 
 from .parameters import (
     collecting_area,
-    roman_tech_repo_path,
     pixel_scale,
-)
-
-effarea_root = os.path.join(
-    roman_tech_repo_path, "data/WideFieldInstrument/Imaging/EffectiveAreas/"
 )
 
 data_root = str(importlib.resources.files("romanisim").joinpath("data/"))
@@ -484,10 +480,7 @@ def read_gsfc_effarea(sca=None, filename=None, galsim_filter_name=False):
         else:
             sca_id = "SCA%02d" % (int(sca))
             try:
-                filename = os.path.join(
-                    effarea_root, "Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)
-                )
-                data = ascii.read(filename)
+                data = ascii.read(io.open_data("WideFieldInstrument/Imaging/EffectiveAreas/Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)).name)
             except Exception as e:
                 raise FileNotFoundError(
                     f"{e}\n Failed to fetch Roman_effarea_v8_{sca_id}_20240301.ecsv, use default one instead"

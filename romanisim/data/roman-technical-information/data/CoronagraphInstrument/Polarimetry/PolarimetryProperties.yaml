@@ -1,7 +1,0 @@
----
-Description: Roman Coronagraph properties of its polarimetry mode (Bands 1 and 4).
-
-Field_of_View_Unvignetted: 3.8 arcsec
-
-Wollaston_Prism1: 0 and 90 degrees polarization
-Wollaston_Prism2: 45 and 135 degrees polarization
