@@ -314,3 +314,24 @@ def test_make_l1_and_asdf(tmp_path):
         assert np.all((resultants[0] - parameters.pedestal == 0)
                       | ((dq[0] & parameters.dqbits['jump_det']) != 0))
     log.info('DMS227: successfully made an L1 file that validates.')
+
+
+def test_encode_decode_reference_read():
+    """Encoding resultants against a reference read is invertible."""
+    res = np.round(np.random.uniform(4000, 20000, size=(5, 20, 20)))
+    ref = np.round(np.random.uniform(4900, 5100, size=(20, 20)))
+
+    enc = l1.encode_reference_read(res, ref, 4000)
+    assert enc.dtype == np.uint16
+    assert np.all(l1.decode_reference_read(enc, ref, 4000) == res)
+    assert np.all(enc == res - ref[None] + 4000)
+
+    # the offset exists to keep the encoded data off the zero rail; without it
+    # any resultant below the reference read clips, and clipping is the only
+    # thing that breaks the inversion
+    enc0 = l1.encode_reference_read(res, ref, 0)
+    clipped = res - ref[None] < 0
+    assert np.any(clipped)
+    dec0 = l1.decode_reference_read(enc0, ref, 0)
+    assert np.all(dec0[~clipped] == res[~clipped])
+    assert np.all(dec0[clipped] > res[clipped])

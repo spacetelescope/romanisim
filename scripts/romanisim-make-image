@@ -139,6 +139,11 @@ if __name__ == '__main__':
                         help=('Do not store the optional simulated dq array.'))
     parser.add_argument('--scale-factor', type=float, default=-1.,
                         help=('Velocity aberration-induced scale factor. If negative, use given time to calculated based on orbit ephemeris.'))
+    parser.add_argument('--reference-read', default=False, action='store_true',
+                        help=('Simulate a reference read and store it in the L1 file, with '
+                              'the resultants encoded as differences from it, as in flight '
+                              'data.  The offset added to the differences is '
+                              'parameters.data_encoding_offset.'))
     ris.add_meta_args(parser)
     parser.add_argument('--extra-counts', type=str, default=None, nargs='+', help=(
         'An optional FITS file to read to get an array of counts to add into the simulated image. '
