@@ -5,6 +5,7 @@ import pytest
 
 import numpy as np
 from romanisim import psf
+from romanisim.models.bandpass import galsim2roman_bandpass
 import galsim
 import galsim.roman
 
@@ -55,3 +56,25 @@ def test_make_psf(args, kwargs, position):
     # of flux?
     assert np.min(im) > np.max(im) * (-1e-3)
     # ideally nothing negative
+
+
+@pytest.mark.parametrize("sca", [1, 2])
+def test_get_epsf_from_crds_detector_match(sca):
+    """get_epsf_from_crds must request the SCA-specific CRDS detector
+    (WFIxx); a wrong detector value (e.g. SCAxx) fails to match any
+    SCA-specific epsf rmap entry and CRDS silently falls back to the
+    same generic, non-SCA-specific reference file for every SCA."""
+    filter_name = 'F087'
+    model = psf.get_epsf_from_crds(sca, filter_name)
+    assert model.meta.instrument.detector == f'WFI{sca:02d}'
+    assert model.meta.instrument.optical_element == galsim2roman_bandpass[filter_name]
+
+
+def test_get_epsf_from_crds_detector_varies_by_sca():
+    """Different SCAs must resolve to different epsf reference files;
+    if the CRDS detector header were wrong, every SCA would collapse
+    onto the same fallback reference."""
+    filter_name = 'F087'
+    model1 = psf.get_epsf_from_crds(1, filter_name)
+    model2 = psf.get_epsf_from_crds(2, filter_name)
+    assert model1.meta.instrument.detector != model2.meta.instrument.detector
