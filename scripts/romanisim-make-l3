@@ -88,6 +88,5 @@ if __name__ == '__main__':
     romanisimdict.update(**extras)
     romanisimdict['version'] = romanisim.__version__
 
-    af = asdf.AsdfFile()
-    af.tree = {'roman': im, 'romanisim': romanisimdict}
-    af.write_to(open(args.filename, 'wb'))
+    im.asdf["romanisim"] = romanisimdict
+    im.save(args.filename)

@@ -297,9 +297,7 @@ def test_make_l1_and_asdf(tmp_path):
         assert np.all(np.diff(resultants, axis=0) >= 0)  # DN
         res_forasdf, extras = l1.make_asdf(
             resultants, filepath=tmp_path / 'tmp.asdf')
-        af = asdf.AsdfFile()
-        af.tree = {'roman': res_forasdf}
-        af.validate()
+        res_forasdf.validate()
         resultants, dq = l1.make_l1(galsim.Image(np.full((100, 100), 10**7)),
                                     read_pattern, gain=1,  # electron/DN
                                     saturation=10**6)  # DN
