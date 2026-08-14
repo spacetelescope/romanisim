@@ -341,7 +341,7 @@ def get_epsf_from_crds(sca, filter_name, date=None):
         )
     header = {
         "ROMAN.META.INSTRUMENT.NAME": "wfi",
-        "ROMAN.META.INSTRUMENT.DETECTOR": f"SCA{sca:02d}",
+        "ROMAN.META.INSTRUMENT.DETECTOR": f"WFI{sca:02d}",
         "ROMAN.META.INSTRUMENT.OPTICAL_ELEMENT": galsim2roman_bandpass[
             filter_name
         ],
