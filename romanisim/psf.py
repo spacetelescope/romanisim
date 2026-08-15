@@ -7,9 +7,11 @@ import numpy as np
 from astropy.nddata import NDData
 from photutils.psf import GriddedPSFModel
 from roman_datamodels import datamodels
-from scipy import interpolate
+from scipy import interpolate, signal
 
 from romanisim import log
+
+from romanisim.models import ipc
 
 from .models.bandpass import getBandpasses, galsim2roman_bandpass, roman2galsim_bandpass
 from .models.parameters import (
@@ -38,10 +40,11 @@ class VariablePSF:
     weighted GalSim PSF profiles.
     """
 
-    def __init__(self, corners, psf):
+    def __init__(self, corners, psf, psftype):
         self.corners = corners
         self.psf = psf
         self.psfinterpolators = None
+        self.psftype = psftype
 
     def at_position(self, x, y):
         """Instantiate a PSF profile at (x, y).
@@ -82,7 +85,6 @@ class VariablePSF:
         oversamp_taylor=50,
         order=1,
         max_radius=100,
-        epsf=False,
     ):
         """Build the spatial Taylor expansions for an ePSF profile.
 
@@ -113,11 +115,6 @@ class VariablePSF:
             large box will be expensive in compute time and memory for
             the Taylor expansion.
             Default 100
-        epsf : boolean
-            Has the input PSF already been convolved with the pixel response
-            function (is it an ePSF)?  If True, use no_pixel to render with
-            galsim.
-            Default False
 
         Returns
         -------
@@ -191,7 +188,7 @@ class VariablePSF:
             # Render the PSF at subpixel positions using galsim
 
             nover = oversamp_render
-            method = "no_pixel" if epsf else "auto"
+            method = "no_pixel" if self.psftype == "epsf" else "auto"
             allrendered = np.zeros((dn * nover, dn * nover))
 
             for i in range(nover):
@@ -355,7 +352,11 @@ def get_epsf_from_crds(sca, filter_name, date=None):
 
 @cache
 def get_gridded_psf_model(
-    psf_ref_model, oversample=None, focus=0, spectral_type=1
+        psf_ref_model,
+        oversample=None,
+        focus=0,
+        spectral_type=1,
+        extra_kernel=None
 ):
     """Generate the gridded PSF model from an EPSF reference model
 
@@ -369,6 +370,13 @@ def get_gridded_psf_model(
     # select the infocus images (0) and we have a selection of spectral types
     # A0V, G2V, and M6V, pick G2V (1)
     psf_images = psf_ref_model.psf[focus, spectral_type, :, :, :].copy()
+
+    if extra_kernel is not None:
+        psf_images = signal.convolve(psf_images,
+                                     extra_kernel[None, :, :],
+                                     mode='same',
+                                     method='direct'
+                                     )
 
     # get the central position of the cutouts in a list
     psf_positions_x = psf_ref_model.meta.pixel_x.data.data
@@ -400,6 +408,7 @@ def make_one_psf(
     oversample=4,
     extra_convolution=None,
     date=None,
+    ipc_kernel=None,
     **kw,
 ):
     """Make a PSF profile for Roman at a specific detector location.
@@ -429,6 +438,12 @@ def make_one_psf(
     date : astropy.time.Time or None
         Date of simulation. If None, current date is used. Needed for psftype='epsf'
         to choose the appropriate epsf reference.
+    ipc_kernel : ndarray or None
+        Kernel, 3x3 or 5x5, representing the interpixel capacitance (IPC)
+        kernel.  If psftype is 'epsf' then the epsf will be deconvolved
+        with the IPC kernel to compensate for the IPC convolution that is
+        applied later in l1.py.  If ipc_kernel is None, load the kernel
+        from the ipc module.
     **kw : dict
         Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
         depending on whether stpsf is set.
@@ -464,6 +479,7 @@ def make_one_psf(
             chromatic=chromatic,
             extra_convolution=extra_convolution,
             date=date,
+            ipc_kernel=ipc_kernel,
             **kw,
         )
     else:  # Default is galsim
@@ -488,6 +504,7 @@ def make_one_psf_epsf(
     chromatic=False,
     extra_convolution=None,
     date=None,
+    ipc_kernel=None,
     **kw,
 ):
     """Make a PSF profile for Roman at a specific detector location using CRDS reftype epsf
@@ -510,6 +527,11 @@ def make_one_psf_epsf(
     date : astropy.time.Time or None
         Date of simulation. If None, current date is used. Needed for psftype='epsf'
         to choose the appropriate epsf reference.
+    ipc_kernel : ndarray or None
+        Kernel, 3x3 or 5x5, representing the interpixel capacitance (IPC)
+        kernel.  The epsf will be deconvolved with the IPC kernel to
+        compensate for the IPC convolution that is applied later in l1.py.
+        If ipc_kernel is None, load the kernel from the ipc module.
     **kw : dict
         Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
         depending on whether stpsf is set.
@@ -527,6 +549,29 @@ def make_one_psf_epsf(
         )
     epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
     gridded_psf = get_gridded_psf_model(epsf_ref_model)
+
+    # Deconvolve with IPC.  First get the IPC kernel, then derive the
+    # corresponding deconvolution kernel, then apply it.  The IPC kernel
+    # is small, typically 3x3, so we need some zero padding to compute a
+    # good deconvolution kernel using Fourier methods.  Then trim the
+    # deconvolution kernel to 5x5.
+
+    if ipc_kernel is None:
+        ipc_kernel = ipc.ipc_kernel
+
+    padded_kernel = np.pad(ipc_kernel, 20)
+
+    deltafunc = np.zeros(padded_kernel.shape)
+    deltafunc[padded_kernel.shape[0]//2, padded_kernel.shape[1]//2] = 1
+
+    deconvolution_kernel = create_convolution_kernel(padded_kernel, deltafunc, size=5)
+
+    # Now we need to embed the deconvolution kernel sparsely within a
+    # larger array with the appropriate oversampling.
+
+    oversample = gridded_psf.meta["epsf_oversample"]
+    oversampled_kernel = np.zeros((4*oversample + 1, 4*oversample + 1))
+    oversampled_kernel[::oversample, ::oversample] = deconvolution_kernel
 
     psf = psf_from_grid(gridded_psf, *pix)
     pixelscale = pixel_scale / gridded_psf.meta["epsf_oversample"]
@@ -680,6 +725,7 @@ def make_psf(
     variable=False,
     extra_convolution=None,
     date=None,
+    ipc_kernel=None,
     **kw,
 ):
     """Make a PSF profile for Roman.
@@ -702,11 +748,17 @@ def make_psf(
         pixel location of PSF on focal plane
     variable : bool
         True if a variable PSF object is desired
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to PSF profiles
     date : astropy.time.Time or None
         Date of simulation. If None, current date is used. Needed for psftype='epsf'
         to choose the appropriate epsf reference.
-    extra_convolution : galsim.gsobject.GSObject or None
-        Additional convolution to add to PSF profiles
+    ipc_kernel : ndarray or None
+        Kernel, 3x3 or 5x5, representing the interpixel capacitance (IPC)
+        kernel.  If psftype is 'epsf' then the epsf will be deconvolved
+        with the IPC kernel to compensate for the IPC convolution that is
+        applied later in l1.py.  If ipc_kernel is None, load the kernel
+        from the ipc module.
     **kw : dict
         Additional keywords passed to make_one_psf
 
@@ -726,6 +778,7 @@ def make_psf(
             chromatic=chromatic,
             extra_convolution=extra_convolution,
             date=date,
+            ipc_kernel=ipc_kernel,
             **kw,
         )
     elif pix is not None:
@@ -750,9 +803,10 @@ def make_psf(
             pix=pix,
             chromatic=chromatic,
             extra_convolution=extra_convolution,
+            ipc_kernel=ipc_kernel,
             **kw,
         )
-    return VariablePSF(corners, psfs)
+    return VariablePSF(corners, psfs, psftype)
 
 
 def psf_from_grid(psfgrid, x_0=None, y_0=None, size=185):
@@ -836,3 +890,110 @@ def psfstamp_to_galsimimage(
         intimg = galsim.Convolve(intimg, extra_convolution)
 
     return intimg
+
+
+def create_convolution_kernel(
+    input_psf, target_psf, min_fft_power_ratio=1e-5, size=None
+):
+    """Find convolution kernel which convolves input_psf to match target_psf.
+
+    The nominal photutils matching kernel code does a straight ratio
+    of the target and input PSFs in Fourier space.  This is a little
+    fraught for our PSFs where they go to ~0 at high frequencies, and
+    unless the window function is also exactly zero there, you can get
+    huge amounts of power.
+
+    We mitigate this by taking an approach analogous to Boucaud+2016,
+    adding a regularizing term to the denominator of the FFT.  The
+    scale of this term is set by min_fft_power_ratio; its amplitude
+    will be the maximum of the power in the input PSF times this
+    ratio.  Large values correspond to stronger regularization.
+
+    Boucaud+2016 penalizes variation in the matching kernel, while the
+    approach taken here simply penalizes large values in the matching
+    kernel.  Other approaches like penalizing second or third
+    derivatives of the matching kernel could be taken, but for the
+    light regularization needed here the amplitude of the matching
+    kernel was adequate.
+
+    Parameters
+    ----------
+    input_psf : np.ndarray
+        The input PSF which needs to be convolved
+
+    target_psf : np.ndarray
+        The target PSF which input_psf should match following convolution
+
+    min_fft_power_ratio : float
+        controls the scale of the regularization of the matching kernel in
+        terms of the peak power of the input PSF's FFT.
+
+    size : int
+        the desired size of the final stamp
+
+    Returns
+    -------
+    kernel : np.ndarray
+        Convolution kernel taking input_psf to target_psf
+
+    """
+    input_psf = np.fft.ifftshift(input_psf.copy())
+    target_psf = np.fft.ifftshift(target_psf.copy())
+
+    input_psf /= input_psf.sum()
+    target_psf /= target_psf.sum()
+
+    input_fft = np.fft.fft2(input_psf)
+    target_fft = np.fft.fft2(target_psf)
+
+    input_power = np.abs(input_fft) ** 2
+    max_power = np.max(input_power)
+    conv_kernel_fft = (
+        target_fft
+        * np.conj(input_fft)
+        / (input_power + min_fft_power_ratio * max_power)
+    )
+
+    kernel = np.real(np.fft.fftshift(np.fft.ifft2(conv_kernel_fft)))
+    kernel = kernel / kernel.sum()
+    
+    if size is not None:
+        return central_stamp(kernel, size).copy()
+    return kernel
+
+
+def central_stamp(im, size):
+    """Extract the central region of an image.
+
+    The image must be square and we extract a square stamp.  The parity
+    of the size of im and size must be the same; if they are not, we add
+    one to size so that its parity matches that of the size of im.  The
+    motivation for this behavior is that it's not clear, for example,
+    what it means to extract the 'central' 1x1 pixel region from a 2x2
+    stamp.
+
+    Parameters
+    ----------
+    im : np.ndarray
+        the image
+    size : int
+        the number of pixels to extract
+
+    Returns
+    -------
+    stamp : np.ndarray[size, size]
+        the central pixels of im, possibly adjusted by 1 to account
+        for parity differences
+    """
+
+    if im.shape[0] != im.shape[1]:
+        raise ValueError("im must be square")
+    if (im.shape[0] % 2) != (size % 2):
+        size = size + 1
+    parity = int((im.shape[0] % 2) == 0)
+    center = im.shape[0] // 2
+    sizeo2 = size // 2
+    return im[
+        center - sizeo2 : center + sizeo2 + 1 - parity,
+        center - sizeo2 : center + sizeo2 + 1 - parity,
+    ]
