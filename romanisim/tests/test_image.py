@@ -794,8 +794,10 @@ def test_inject_source_with_nondefault_gain():
     catinj[filt] = flux
     catinj['type'] = 'PSF'
     xpos, ypos = 50, 50
-    conversion = np.abs(im.meta.photometry.conversion_megajanskys
-                        * im.meta.photometry.pixel_area) * 10 ** 6  # Jy per DN/s
+    # the pixel area and the conversion to physical units are both positive
+    assert im.meta.photometry.pixel_area > 0
+    conversion = (im.meta.photometry.conversion_megajanskys
+                  * im.meta.photometry.pixel_area) * 10 ** 6  # Jy per DN/s
 
     # the fluxes must be right for any gain: the default one, the right one,
     # and a wrong one.

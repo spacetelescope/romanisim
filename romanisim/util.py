@@ -542,8 +542,10 @@ def update_photom_keywords(im, gain=None):
             (cenpix[1], cenpix[1] + 1, cenpix[1]))
         angle = (cc[0].position_angle(cc[1]) -
                  cc[0].position_angle(cc[2]))
-        area = (cc[0].separation(cc[1]) * cc[0].separation(cc[2])
-                * np.sin(angle.to(u.rad).value))
+        # the sin(angle) term is negative for a WCS of one handedness; the
+        # area of the pixel is positive either way.
+        area = np.abs(cc[0].separation(cc[1]) * cc[0].separation(cc[2])
+                      * np.sin(angle.to(u.rad).value))
         im['meta']['photometry']['pixel_area'] = area.to(u.sr).value
         val = (gain * (3631 / bandpass.get_abflux(
              im.meta['instrument']['optical_element'], int(im.meta['instrument']['detector'][-2:])) /
