@@ -721,13 +721,11 @@ def test_inject_source_into_image():
     # cancel out of the injected fluxes; see #378.
     gain = 1.6
     defaultgain = parameters.reference_data['gain']
-    try:
-        parameters.reference_data['gain'] = gain
-        im, simcatobj = image.simulate(
-            meta, cat, usecrds=False, psftype='epsf', level=2,
-            rng=rng, crparam=None)
-    finally:
-        parameters.reference_data['gain'] = defaultgain
+    parameters.reference_data['gain'] = gain
+    im, simcatobj = image.simulate(
+        meta, cat, usecrds=False, psftype='epsf', level=2,
+        rng=rng, crparam=None)
+    parameters.reference_data['gain'] = defaultgain
 
     # the calibration has a positive pixel area and, for the gain we simulated
     # with, implies romanisim's zero point
