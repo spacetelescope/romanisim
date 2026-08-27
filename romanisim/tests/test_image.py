@@ -716,10 +716,25 @@ def test_inject_source_into_image():
     rng = galsim.UniformDeviate(rng_seed)
     cat = catalog.make_dummy_table_catalog(coord, radius=0.1, bandpasses=[filt],
                                            nobj=2000, rng=rng)
-    # Create starting image
-    im, simcatobj = image.simulate(
-        meta, cat, usecrds=False, psftype='epsf', level=2,
-        rng=rng, crparam=None)
+    # Create starting image.  We use a gain that is not romanisim's default so
+    # that a gain inconsistent with the image's photometric calibration cannot
+    # cancel out of the injected fluxes; see #378.
+    gain = 1.6
+    defaultgain = parameters.reference_data['gain']
+    try:
+        parameters.reference_data['gain'] = gain
+        im, simcatobj = image.simulate(
+            meta, cat, usecrds=False, psftype='epsf', level=2,
+            rng=rng, crparam=None)
+    finally:
+        parameters.reference_data['gain'] = defaultgain
+
+    # the calibration has a positive pixel area and, for the gain we simulated
+    # with, implies romanisim's zero point
+    sca = int(meta['instrument']['detector'][3:])
+    abflux = romanisim.models.bandpass.get_abflux(filt, sca)  # electron/s
+    assert im.meta.photometry.pixel_area > 0
+    assert np.abs(image.abflux_from_photom_keywords(im, gain) / abflux - 1) < 0.01
 
     # Create catalog with one source for injection
     xpos, ypos = 10, 10
@@ -727,20 +742,24 @@ def test_inject_source_into_image():
     flux = 1e-7
     catinj[filt] = flux
     catinj['type'] = 'PSF'
+    fluxeps = flux * abflux  # electron/s
 
-    iminj = image.inject_sources_into_l2(im, catinj, x=[xpos], y=[ypos])
+    # The fluxes come from the image's photometric calibration rather than from
+    # the gain, so they must be the same for the default gain, the gain the
+    # image was made with, and a badly wrong gain.
+    for injgain in [None, gain, 10 * gain]:
+        iminj = image.inject_sources_into_l2(im, catinj, x=[xpos], y=[ypos],
+                                             gain=injgain)
 
-    # Test that all pixels near the PSF are different from the original values
-    assert np.all((im.data[ypos - 1:ypos + 2, xpos - 1:xpos + 2] !=
-                   iminj.data[ypos - 1:ypos + 2, xpos - 1: xpos + 2]))
+        # Test that all pixels near the PSF are different from the original values
+        assert np.all((im.data[ypos - 1:ypos + 2, xpos - 1:xpos + 2] !=
+                       iminj.data[ypos - 1:ypos + 2, xpos - 1: xpos + 2]))
 
-    # Test that pixels far from the injected source are close to the original image
-    assert np.all(im.data[-10:, -10:] == iminj.data[-10:, -10:])
+        # Test that pixels far from the injected source are close to the original image
+        assert np.all(im.data[-10:, -10:] == iminj.data[-10:, -10:])
 
-    # Test that the amount of added flux makes sense
-    fluxeps = flux * romanisim.models.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
-    assert np.abs(np.sum(iminj.data - im.data) * parameters.reference_data['gain'] /
-                  fluxeps - 1) < 0.1
+        # Test that the amount of added flux makes sense
+        assert np.abs(np.sum(iminj.data - im.data) * gain / fluxeps - 1) < 0.1
 
     # Create log entry and artifacts
     log.info(f'DMS231: successfully injected a source into an image at x,y = {xpos},{ypos}.')
@@ -753,62 +772,6 @@ def test_inject_source_into_image():
                    'catinj': catinj,
                    'cat': cat}
         af.write_to(os.path.join(artifactdir, 'dms231.asdf'))
-
-
-def test_inject_source_with_nondefault_gain():
-    """Injected fluxes must not depend on the gain used to calibrate the image.
-
-    The image is in DN / s, so the electrons of an injected source are divided
-    by the gain; the photometric calibration of the image multiplies by the
-    gain again.  These must be the same gain, or the injected fluxes come out
-    wrong; see #378.
-    """
-    gain = 1.6  # not romanisim's default gain of 2
-    parameters.n_pix = 100
-    coord = SkyCoord(ra=270 * u.deg, dec=66 * u.deg)
-    filt = 'F158'
-    meta = util.default_image_meta(coord=coord, filter_name=filt,
-                                   detector='WFI07', ma_table=4)
-    wcs.fill_in_parameters(meta, coord)
-    rng = galsim.UniformDeviate(42)
-    cat = catalog.make_dummy_table_catalog(coord, radius=0.01,
-                                           bandpasses=[filt], nobj=10, rng=rng)
-
-    defaultgain = parameters.reference_data['gain']
-    try:
-        parameters.reference_data['gain'] = gain
-        im, _ = image.simulate(meta, cat[:0], usecrds=False, psftype='epsf',
-                               level=2, rng=rng, crparam=None)
-    finally:
-        parameters.reference_data['gain'] = defaultgain
-
-    # for the gain we simulated with, the calibration implies romanisim's
-    # zero point.
-    sca = int(im.meta.instrument.detector[-2:])
-    abflux = romanisim.models.bandpass.get_abflux(filt, sca)
-    assert np.abs(
-        image.abflux_from_photom_keywords(im, gain) / abflux - 1) < 0.01
-
-    flux = 1e-7
-    catinj = cat[:1]
-    catinj[filt] = flux
-    catinj['type'] = 'PSF'
-    xpos, ypos = 50, 50
-    # the pixel area and the conversion to physical units are both positive
-    assert im.meta.photometry.pixel_area > 0
-    conversion = (im.meta.photometry.conversion_megajanskys
-                  * im.meta.photometry.pixel_area) * 10 ** 6  # Jy per DN/s
-
-    # the fluxes must be right for any gain: the default one, the right one,
-    # and a wrong one.
-    for injgain in [None, gain, 10 * gain]:
-        iminj = image.inject_sources_into_l2(im, catinj, x=[xpos], y=[ypos],
-                                             gain=injgain)
-        # convert the added DN / s back to maggies using the image's own
-        # photometric calibration; we should get the flux we injected.
-        fluxobs = np.sum(iminj.data - im.data) * conversion / 3631
-        # 10%: some of the PSF falls off of this small image.
-        assert np.abs(fluxobs / flux - 1) < 0.1
 
 
 @pytest.mark.soctests
