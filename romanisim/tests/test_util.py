@@ -98,6 +98,16 @@ def test_add_more_metadata():
     assert len(metadata['exposure']) > 2  # some metadata got added.
 
 
+def test_default_image_meta():
+    meta = util.default_image_meta()
+    assert meta['instrument']['detector'] == 'WFI01'
+    meta = util.default_image_meta(detector='WFI07', ma_table=3,
+                                   filter_name='F158')
+    assert meta['instrument']['detector'] == 'WFI07'
+    assert meta['instrument']['optical_element'] == 'F158'
+    assert meta['exposure']['ma_table_number'] == 3
+
+
 def test_king_profile():
     """Test King (1962) profile routines."""
     # king_profile, sample_king_distances, random_points_in_king

@@ -493,11 +493,11 @@ def default_image_meta(time=None, ma_table=4, filter_name='F087',
     meta = {
         'exposure': {
             'start_time': time,
-            'ma_table_number': 4,
+            'ma_table_number': ma_table,
         },
         'instrument': {
             'optical_element': filter_name,
-            'detector': 'WFI01'
+            'detector': detector,
         },
         'wcsinfo': {
             'ra_ref': coord.ra.to(u.deg).value,
