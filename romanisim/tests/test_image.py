@@ -755,6 +755,60 @@ def test_inject_source_into_image():
         af.write_to(os.path.join(artifactdir, 'dms231.asdf'))
 
 
+def test_inject_source_with_nondefault_gain():
+    """Injected fluxes must not depend on the gain used to calibrate the image.
+
+    The image is in DN / s, so the electrons of an injected source are divided
+    by the gain; the photometric calibration of the image multiplies by the
+    gain again.  These must be the same gain, or the injected fluxes come out
+    wrong; see #378.
+    """
+    gain = 1.6  # not romanisim's default gain of 2
+    parameters.n_pix = 100
+    coord = SkyCoord(ra=270 * u.deg, dec=66 * u.deg)
+    filt = 'F158'
+    meta = util.default_image_meta(coord=coord, filter_name=filt,
+                                   detector='WFI07', ma_table=4)
+    wcs.fill_in_parameters(meta, coord)
+    rng = galsim.UniformDeviate(42)
+    cat = catalog.make_dummy_table_catalog(coord, radius=0.01,
+                                           bandpasses=[filt], nobj=10, rng=rng)
+
+    defaultgain = parameters.reference_data['gain']
+    try:
+        parameters.reference_data['gain'] = gain
+        im, _ = image.simulate(meta, cat[:0], usecrds=False, psftype='epsf',
+                               level=2, rng=rng, crparam=None)
+    finally:
+        parameters.reference_data['gain'] = defaultgain
+
+    # for the gain we simulated with, the calibration implies romanisim's
+    # zero point.
+    sca = int(im.meta.instrument.detector[-2:])
+    abflux = romanisim.models.bandpass.get_abflux(filt, sca)
+    assert np.abs(
+        image.abflux_from_photom_keywords(im, gain) / abflux - 1) < 0.01
+
+    flux = 1e-7
+    catinj = cat[:1]
+    catinj[filt] = flux
+    catinj['type'] = 'PSF'
+    xpos, ypos = 50, 50
+    conversion = np.abs(im.meta.photometry.conversion_megajanskys
+                        * im.meta.photometry.pixel_area) * 10 ** 6  # Jy per DN/s
+
+    # the fluxes must be right for any gain: the default one, the right one,
+    # and a wrong one.
+    for injgain in [None, gain, 10 * gain]:
+        iminj = image.inject_sources_into_l2(im, catinj, x=[xpos], y=[ypos],
+                                             gain=injgain)
+        # convert the added DN / s back to maggies using the image's own
+        # photometric calibration; we should get the flux we injected.
+        fluxobs = np.sum(iminj.data - im.data) * conversion / 3631
+        # 10%: some of the PSF falls off of this small image.
+        assert np.abs(fluxobs / flux - 1) < 0.1
+
+
 @pytest.mark.soctests
 def test_image_input(tmpdir):
     # make some simple example images
