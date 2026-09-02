@@ -716,10 +716,23 @@ def test_inject_source_into_image():
     rng = galsim.UniformDeviate(rng_seed)
     cat = catalog.make_dummy_table_catalog(coord, radius=0.1, bandpasses=[filt],
                                            nobj=2000, rng=rng)
-    # Create starting image
+    # Create starting image.  We use a gain that is not romanisim's default so
+    # that a gain inconsistent with the image's photometric calibration cannot
+    # cancel out of the injected fluxes; see #378.
+    gain = 1.6
+    defaultgain = parameters.reference_data['gain']
+    parameters.reference_data['gain'] = gain
     im, simcatobj = image.simulate(
         meta, cat, usecrds=False, psftype='epsf', level=2,
         rng=rng, crparam=None)
+    parameters.reference_data['gain'] = defaultgain
+
+    # the calibration has a positive pixel area and, for the gain we simulated
+    # with, implies romanisim's zero point
+    sca = int(meta['instrument']['detector'][3:])
+    abflux = romanisim.models.bandpass.get_abflux(filt, sca)  # electron/s
+    assert im.meta.photometry.pixel_area > 0
+    assert np.abs(image.abflux_from_photom_keywords(im, gain) / abflux - 1) < 0.01
 
     # Create catalog with one source for injection
     xpos, ypos = 10, 10
@@ -727,20 +740,24 @@ def test_inject_source_into_image():
     flux = 1e-7
     catinj[filt] = flux
     catinj['type'] = 'PSF'
+    fluxeps = flux * abflux  # electron/s
 
-    iminj = image.inject_sources_into_l2(im, catinj, x=[xpos], y=[ypos])
+    # The fluxes come from the image's photometric calibration rather than from
+    # the gain, so they must be the same for the default gain, the gain the
+    # image was made with, and a badly wrong gain.
+    for injgain in [None, gain, 10 * gain]:
+        iminj = image.inject_sources_into_l2(im, catinj, x=[xpos], y=[ypos],
+                                             gain=injgain)
 
-    # Test that all pixels near the PSF are different from the original values
-    assert np.all((im.data[ypos - 1:ypos + 2, xpos - 1:xpos + 2] !=
-                   iminj.data[ypos - 1:ypos + 2, xpos - 1: xpos + 2]))
+        # Test that all pixels near the PSF are different from the original values
+        assert np.all((im.data[ypos - 1:ypos + 2, xpos - 1:xpos + 2] !=
+                       iminj.data[ypos - 1:ypos + 2, xpos - 1: xpos + 2]))
 
-    # Test that pixels far from the injected source are close to the original image
-    assert np.all(im.data[-10:, -10:] == iminj.data[-10:, -10:])
+        # Test that pixels far from the injected source are close to the original image
+        assert np.all(im.data[-10:, -10:] == iminj.data[-10:, -10:])
 
-    # Test that the amount of added flux makes sense
-    fluxeps = flux * romanisim.models.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
-    assert np.abs(np.sum(iminj.data - im.data) * parameters.reference_data['gain'] /
-                  fluxeps - 1) < 0.1
+        # Test that the amount of added flux makes sense
+        assert np.abs(np.sum(iminj.data - im.data) * gain / fluxeps - 1) < 0.1
 
     # Create log entry and artifacts
     log.info(f'DMS231: successfully injected a source into an image at x,y = {xpos},{ypos}.')

@@ -493,11 +493,11 @@ def default_image_meta(time=None, ma_table=4, filter_name='F087',
     meta = {
         'exposure': {
             'start_time': time,
-            'ma_table_number': 4,
+            'ma_table_number': ma_table,
         },
         'instrument': {
             'optical_element': filter_name,
-            'detector': 'WFI01'
+            'detector': detector,
         },
         'wcsinfo': {
             'ra_ref': coord.ra.to(u.deg).value,
@@ -542,8 +542,8 @@ def update_photom_keywords(im, gain=None):
             (cenpix[1], cenpix[1] + 1, cenpix[1]))
         angle = (cc[0].position_angle(cc[1]) -
                  cc[0].position_angle(cc[2]))
-        area = (cc[0].separation(cc[1]) * cc[0].separation(cc[2])
-                * np.sin(angle.to(u.rad).value))
+        area = np.abs(cc[0].separation(cc[1]) * cc[0].separation(cc[2])
+                      * np.sin(angle.to(u.rad).value))
         im['meta']['photometry']['pixel_area'] = area.to(u.sr).value
         val = (gain * (3631 / bandpass.get_abflux(
              im.meta['instrument']['optical_element'], int(im.meta['instrument']['detector'][-2:])) /

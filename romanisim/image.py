@@ -1196,6 +1196,47 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     return out._instance, extras
 
 
+def abflux_from_photom_keywords(model, gain):
+    """Get the electron rate of an AB source implied by an image's
+    photometric calibration.
+
+    L2 images are in DN / s, and the conversion to MJy / sr in
+    meta.photometry.conversion_megajanskys contains a factor of the gain; see
+    romanisim.util.update_photom_keywords.  Given the gain, that conversion can
+    be inverted to get the number of electron / s that the image's calibration
+    assigns to a source of one maggie; this is needed to get Poisson noise
+    calculations correct.  We therefore use this abflux computation in L2 source
+    injection given a particular gain to get roughly the right Poisson noise
+    while preserving the total fluxes consistently.
+
+    Parameters
+    ----------
+    model : roman_datamodels.datamodels.ImageModel
+        model whose photometry keywords should be inverted
+    gain : float [electron / DN]
+        gain of the image
+
+    Returns
+    -------
+    abflux : float or None
+        electron / s corresponding to a source of one maggie, or None if the
+        image lacks photometry keywords
+    """
+    if 'photometry' not in model['meta']:
+        return None
+    photometry = model['meta']['photometry']
+    if ('conversion_megajanskys' not in photometry
+            or 'pixel_area' not in photometry):
+        return None
+    conversion = photometry['conversion_megajanskys']  # MJy/sr per DN/s
+    area = photometry['pixel_area']  # sr
+    if conversion is None or area is None:
+        return None
+    # the pixel area can be negative depending on the handedness of the WCS.
+    jyperdns = np.abs(conversion * area) * 10 ** 6  # Jy per DN/s
+    return gain * 3631 / jyperdns
+
+
 def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
                            rng=None, gain=None, psftype='epsf'):
     """Inject sources into an L2 image.
@@ -1206,14 +1247,14 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     reasonable defaults are generated from the input model.
 
     The simulation proceeds by (optionally) using the model WCS to generate the
-    x & y locations, grabbing the gain from
-    romanisim.models.parameters.reference_data, and grabbing the read_pattern from the
-    model_metadata.  The number of additional counts in each pixel are
-    simulated.  We create a "virtual" ramp that uses the input L2 image and
-    evenly apportions the measured DN/s along the ramp using the MA table.  We
-    apportion the new counts to a new ramp, and add the new ramp to the virtual
-    ramp.  We then refit the new ramp, and replace the old fit with the new
-    fit.
+    x & y locations, inverting the model's photometric calibration to get the
+    electron rate corresponding to a source of a given flux, and grabbing the
+    read_pattern from the model_metadata.  The number of additional counts in
+    each pixel are simulated.  We create a "virtual" ramp that uses the input
+    L2 image and evenly apportions the measured DN/s along the ramp using the
+    MA table.  We apportion the new counts to a new ramp, and add the new ramp
+    to the virtual ramp.  We then refit the new ramp, and replace the old fit
+    with the new fit.
 
     This simulation is not as complete as the full L2 simulation.  We do not
     include non-linearity or saturation, for example.  Identified CR hits
@@ -1239,7 +1280,10 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     rng: galsim.BaseDeviate
         galsim random number generator to use
     gain: float [electron / DN]
-        gain to use when converting simulated electrons to DN
+        gain of the image.  This sets how many electrons the injected sources
+        have and so affects their Poisson noise, but their total flux
+        is set by the image's photometric calibration.  If None,
+        romanisim.models.parameters.reference_data['gain'] is used.
     psftype : One of ['epsf', 'galsim', 'stpsf]
         How to determine the PSF.
 
@@ -1280,7 +1324,15 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
                                  wcs=wcs, xmin=0, ymin=0)
     galsim_filter_name = models.bandpass.roman2galsim_bandpass[filter_name]
     bandpass = models.bandpass.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
-    abflux = models.bandpass.get_abflux(filter_name, sca)
+    # get the electron / s rate from the input model metadata; injected fluxes
+    # must be consistent with the image's photometric calibration.
+    abflux = abflux_from_photom_keywords(model, gain)
+    if abflux is None:
+        log.warning('Image has no photometry keywords; falling back to '
+                    "romanisim's zero point.  Injected source fluxes will be "
+                    'inconsistent with the image if it is calibrated with a '
+                    'different zero point or gain.')
+        abflux = models.bandpass.get_abflux(filter_name, sca)
     read_pattern = model.meta.exposure.read_pattern
     # Should we update read_time to model.meta.exposure.frame_time?
     exptime = parameters.read_time * read_pattern[-1][-1]
@@ -1289,6 +1341,12 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     flux_to_counts_factor = exptime
     if not chromatic:
         flux_to_counts_factor *= abflux
+    else:
+        # chromatic sources get their electrons by integrating their SEDs
+        # against the bandpass, effectively obtaining a factor of bandpass.get_abflux(...)
+        # if get_abflux is different from the metadata-implied abflux, we can at least
+        # adjust the overall DN level by a gray constant
+        gain *= models.bandpass.get_abflux(filter_name, sca) / abflux
 
     # compute the total number of counts we got from the source
     add_objects_to_image(
