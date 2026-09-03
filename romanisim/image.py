@@ -304,6 +304,14 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     outinfo = np.zeros(len(objlist), dtype=[('counts', 'f4'), ('time', 'f4')])
     pointsources = np.zeros(len(objlist), dtype=bool)
 
+    if hasattr(psf, 'psftype') and psf.psftype == 'epsf':
+        render_method = "no_pixel"
+        if chromatic:
+            raise ValueError('Cannot perform photon-shooting chromatic '
+                             'convolution on an ePSF.')
+    else:
+        render_method = "auto"
+
     tstart = time.time()
 
     for i, obj in enumerate(objlist):
@@ -337,7 +345,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         else:
             try:
                 stamp = final.drawImage(center=image_pos,
-                                        wcs=pwcs)
+                                        wcs=pwcs, method=render_method)
                 if add_noise:
                     stamp.addNoise(galsim.PoissonNoise(rng))
             except galsim.GalSimFFTSizeError:
