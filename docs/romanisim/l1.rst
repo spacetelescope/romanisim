@@ -30,6 +30,8 @@ Interpixel capacitance (IPC) is added following non-linearity and before read-ou
 
 This is slightly different than including IPC in the PSF kernel because including IPC in the PSF kernel leaves the Poisson noise uncorrelated between pixels.
 
+The resultants do not include the reference pixels, so the convolution treats the pixels just outside the array as having the same values as the pixels on its edge.  The IPC also spreads the charge from a cosmic ray into its neighbors, so the jump flags are grown to cover the IPC kernel.
+
 Persistence
 -----------
 Persistence is implemented in the simulator following Sanchez+2023.  This follows

@@ -885,8 +885,12 @@ def make_image_psftype(psftype='epsf'):
         o.sky_pos = center
         o.flux[filter_name] /= abfluxdict[f'SCA{sca:02}'][filter_name]
         o.flux[filter_name] *= 10  # Make source 10x brighter for better SNR
+    # Turn off CRs for these PSF tests
+    # if we want to turn them back on we need to adjust the image sizes
+    # or CR rate so that an entire array worth of CRs is not injected
+    # into a small stamp.
     l2 = image.simulate(meta, graycat, psftype=psftype, level=2,
-                        usecrds=False, crparam=dict(),
+                        usecrds=False, crparam=None,
                         psf_keywords=psf_keywords)
     return l2[0]
 
