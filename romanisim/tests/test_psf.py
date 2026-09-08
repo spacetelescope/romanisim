@@ -78,3 +78,59 @@ def test_get_epsf_from_crds_detector_varies_by_sca():
     model1 = psf.get_epsf_from_crds(1, filter_name)
     model2 = psf.get_epsf_from_crds(2, filter_name)
     assert model1.meta.instrument.detector != model2.meta.instrument.detector
+
+
+def test_get_gridded_psf_model_uses_noipc():
+    """The gridded PSF model must be built from the IPC-free ``psf_noipc``
+    array, not the IPC-convolved ``psf`` array.  romanisim.l1.make_l1 applies
+    IPC to the resultants, so using ``psf`` here would convolve IPC twice."""
+    focus, spectral_type = 0, 1
+    model = psf.get_epsf_from_crds(3, 'F087')
+    gridded = psf.get_gridded_psf_model(
+        model, focus=focus, spectral_type=spectral_type)
+
+    noipc = np.asarray(model.psf_noipc[focus, spectral_type])
+    withipc = np.asarray(model.psf[focus, spectral_type])
+
+    np.testing.assert_array_equal(gridded.data, noipc)
+    # guard against the reference file shipping identical arrays, which would
+    # make the check above pass vacuously
+    assert not np.array_equal(noipc, withipc)
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    'The CRDS ePSF reference is incorrect; the psf extension is built '
+    'from the noipc extension by directly convolving with the IPC '
+    'kernel rather than respecting the different sampling, and '
+    'loses 0.5% of the flux.  See #382.'))
+def test_epsf_noipc_plus_ipc_matches_psf():
+    """The reference ``psf`` array should be ``psf_noipc`` with IPC applied.
+
+    IPC couples native detector pixels, so on an oversampled stamp it couples
+    pixels separated by the oversampling.  This test verifies that the
+    IPC-convolved ePSF matches this expectation.
+    """
+    from scipy import ndimage
+    from romanisim.models.ipc import ipc_kernel
+
+    focus, spectral_type, grid_index = 0, 1, 4
+    model = psf.get_epsf_from_crds(3, 'F087')
+    oversample = model.meta.oversample
+
+    noipc = np.asarray(model.psf_noipc[focus, spectral_type, grid_index],
+                       dtype=np.float64)
+    withipc = np.asarray(model.psf[focus, spectral_type, grid_index],
+                         dtype=np.float64)
+
+    # IPC on native pixels, expressed on the oversampled grid: the 3x3 kernel
+    # linking only subpixels oversample apart.
+    kernel = np.zeros((2 * oversample + 1, 2 * oversample + 1))
+    kernel[::oversample, ::oversample] = ipc_kernel
+
+    convolved = ndimage.convolve(noipc, kernel, mode='constant', cval=0)
+
+    # the kernel sums to one, so IPC redistributes flux without destroying it
+    assert np.isclose(withipc.sum(), noipc.sum(), rtol=1e-5)
+
+    resid = np.max(np.abs(convolved - withipc)) / np.max(withipc)
+    assert resid < 1e-6

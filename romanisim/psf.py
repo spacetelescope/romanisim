@@ -364,11 +364,16 @@ def get_gridded_psf_model(
     The input reference files have 3 focus positions and this is using
     the in-focus images. There are also three spectral types that are
     available and this code uses the M5V spectal type.
+
+    The ``psf`` array in the reference file has already been convolved with an
+    interpixel capacitance (IPC) kernel; the ``psf_noipc`` array has not.
+    romanisim applies IPC to the resultants in ``romanisim.l1.make_l1``, so we
+    use the IPC-free ``psf_noipc`` array here to avoid applying IPC twice.
     """
     # Open the reference file data model
     # select the infocus images (0) and we have a selection of spectral types
     # A0V, G2V, and M6V, pick G2V (1)
-    psf_images = psf_ref_model.psf[focus, spectral_type, :, :, :].copy()
+    psf_images = psf_ref_model.psf_noipc[focus, spectral_type, :, :, :].copy()
 
     # get the central position of the cutouts in a list
     psf_positions_x = psf_ref_model.meta.pixel_x.data.data
