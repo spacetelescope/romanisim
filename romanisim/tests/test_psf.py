@@ -3,6 +3,8 @@ Unit tests for PSF functions.
 """
 import pytest
 
+from types import SimpleNamespace
+
 import numpy as np
 from scipy import signal
 from romanisim import l1, psf
@@ -158,18 +160,6 @@ STAMP_SIZE = 4 * 46 + 1
 GRID_XY = [[0, 0], [0, 4092], [4092, 0], [4092, 4092]]
 
 
-# EFS: I think we can get rid of this now that some of the other hashing changed?
-class Bag:
-    """An attribute bag that hashes by identity.
-
-    types.SimpleNamespace would do, except that it defines __eq__ and so is
-    unhashable, and romanisim.psf.get_gridded_psf_model is cached.
-    """
-
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
-
-
 ENCLOSED_FLUX = 0.98  # a real stamp loses a little flux off its edge
 
 
@@ -215,17 +205,17 @@ def make_epsf_reference(pixel_convolved, size=STAMP_SIZE, sigma=1.1):
     comb[::OVERSAMPLE, ::OVERSAMPLE] = ipc.ipc_kernel
     withipc = signal.convolve(stack, comb[None, None, None], mode='same')
 
-    meta = Bag(
+    meta = SimpleNamespace(
         oversample=OVERSAMPLE,
-        pixel_x=Bag(data=Bag(
+        pixel_x=SimpleNamespace(data=SimpleNamespace(
             data=np.array([xy[0] for xy in GRID_XY], dtype=float))),
-        pixel_y=Bag(data=Bag(
+        pixel_y=SimpleNamespace(data=SimpleNamespace(
             data=np.array([xy[1] for xy in GRID_XY], dtype=float))),
     )
 
     if pixel_convolved:
-        return Bag(psf=withipc * OVERSAMPLE ** 2, meta=meta)
-    return Bag(psf=withipc, psf_noipc=stack, meta=meta)
+        return SimpleNamespace(psf=withipc * OVERSAMPLE ** 2, meta=meta)
+    return SimpleNamespace(psf=withipc, psf_noipc=stack, meta=meta)
 
 
 def test_epsf_is_pixel_convolved():
@@ -324,9 +314,15 @@ def test_pixel_convolved_reference_skips_pixel_convolution():
     moment by the variance of a one-pixel top hat.  An isotropic WCS keeps
     the two stamp frames identical so that this is the only difference.
 
-    # EFS: it's not obvious we're doing the IPC handling right here?
-    # maybe signal.convolve(rendered, ipc.ipc_kernel, ...) should be present?
-    # small effect.
+    Neither rendering needs IPC put back, and not because the effect is
+    small.  Both conventions come out of get_gridded_psf_model IPC-free ---
+    the older one because romanisim reads psf_noipc, the pixel-convolved one
+    because romanisim deconvolves the IPC out --- so the two gridded arrays
+    are in fact identical here, to 4e-16 of the peak.  Convolving both with
+    the kernel would add the same 0.046 pix**2 to each and cancel in the
+    difference.  This is unlike test_render_matches_strided_reference, which
+    compares against the reference array itself and so does have to put the
+    IPC back.
     """
     wcs = galsim.JacobianWCS(parameters.pixel_scale, 0, 0,
                              parameters.pixel_scale)
