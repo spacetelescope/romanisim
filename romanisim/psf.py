@@ -15,6 +15,7 @@ from romanisim.models import ipc
 from .models.bandpass import getBandpasses, galsim2roman_bandpass, roman2galsim_bandpass
 from .models.parameters import (
     default_date,
+    reference_data,
     n_pix,
     pixel_scale,
 )
@@ -334,6 +335,12 @@ def get_epsf_from_crds(sca, filter_name, date=None):
     model : roman_datamodels.EpsfRefModel
     """
     from crds import getreferences
+
+    override = reference_data.get('epsf')
+    if isinstance(override, str):
+        log.info('Using epsf reference %s instead of the CRDS default',
+                 override)
+        return datamodels.open(override)
 
     if date is None:
         date = default_date
@@ -948,7 +955,7 @@ def psf_stamp_wcs(wcs=None, pix=None, samplescale=None, oversample=None):
     A PSF can come from one of two sources, controlled by oversample or samplescale.
 
     Give ``samplescale`` for a stamp on an idealized grid of square samples
-    of that angular size (e.g., from stpsf).  This WCS will include the 
+    of that angular size (e.g., from stpsf).  This WCS will include the
     rotation of the image relative to north and the given pixel scale.
 
     Give ``oversample`` for a stamp that samples the native detector grid.

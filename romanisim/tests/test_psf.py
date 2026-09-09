@@ -386,3 +386,24 @@ def test_pixel_convolved_psf_carries_distortion():
     np.testing.assert_allclose(scales[0], scales[1], rtol=1e-10)
     np.testing.assert_allclose(scales[0],
                                parameters.pixel_scale / OVERSAMPLE, rtol=1e-10)
+
+
+def test_epsf_reference_override(tmp_path, monkeypatch):
+    """reference_data['epsf'] takes precedence over the CRDS lookup.
+
+    This is how a reference file that CRDS does not serve yet --- one in the
+    new, pixel-convolved convention, say --- can be used, via romanisim's
+    --config override.
+    """
+    from roman_datamodels import datamodels
+
+    model = psf.get_epsf_from_crds(1, 'F129')
+    path = str(tmp_path / 'epsf.asdf')
+    model.save(path)
+
+    monkeypatch.setitem(parameters.reference_data, 'epsf', path)
+    psf.get_epsf_from_crds.cache_clear()
+    override = psf.get_epsf_from_crds(1, 'F129')
+    assert isinstance(override, datamodels.EpsfRefModel)
+    np.testing.assert_array_equal(override.psf, model.psf)
+    psf.get_epsf_from_crds.cache_clear()
