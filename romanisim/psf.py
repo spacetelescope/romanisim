@@ -404,9 +404,8 @@ def deconvolve_ipc(psf_images, ipc_kernel, oversample, pad=32):
 
         A(f) = sum_ij a_ij exp(-2 pi i oversample (i f_y + j f_x))
 
-    which we divide out.  We build it analytically in order to keep
-    the result independent of whether the
-    stamp has an even or an odd number of samples on a side.
+    which we divide out, being careful to leave the PSF centering
+    unaffected.
 
     romanisim deconvolves using this function and reconvolves later in
     ``romanisim.l1.make_l1`` with the same kernel.  Away from
