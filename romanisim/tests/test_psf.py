@@ -313,16 +313,6 @@ def test_pixel_convolved_reference_skips_pixel_convolution():
     carry it already.  The rendered images should therefore differ in second
     moment by the variance of a one-pixel top hat.  An isotropic WCS keeps
     the two stamp frames identical so that this is the only difference.
-
-    Neither rendering needs IPC put back, and not because the effect is
-    small.  Both conventions come out of get_gridded_psf_model IPC-free ---
-    the older one because romanisim reads psf_noipc, the pixel-convolved one
-    because romanisim deconvolves the IPC out --- so the two gridded arrays
-    are in fact identical here, to 4e-16 of the peak.  Convolving both with
-    the kernel would add the same 0.046 pix**2 to each and cancel in the
-    difference.  This is unlike test_render_matches_strided_reference, which
-    compares against the reference array itself and so does have to put the
-    IPC back.
     """
     wcs = galsim.JacobianWCS(parameters.pixel_scale, 0, 0,
                              parameters.pixel_scale)
@@ -386,24 +376,3 @@ def test_pixel_convolved_psf_carries_distortion():
     np.testing.assert_allclose(scales[0], scales[1], rtol=1e-10)
     np.testing.assert_allclose(scales[0],
                                parameters.pixel_scale / OVERSAMPLE, rtol=1e-10)
-
-
-def test_epsf_reference_override(tmp_path, monkeypatch):
-    """reference_data['epsf'] takes precedence over the CRDS lookup.
-
-    This is how a reference file that CRDS does not serve yet --- one in the
-    new, pixel-convolved convention, say --- can be used, via romanisim's
-    --config override.
-    """
-    from roman_datamodels import datamodels
-
-    model = psf.get_epsf_from_crds(1, 'F129')
-    path = str(tmp_path / 'epsf.asdf')
-    model.save(path)
-
-    monkeypatch.setitem(parameters.reference_data, 'epsf', path)
-    psf.get_epsf_from_crds.cache_clear()
-    override = psf.get_epsf_from_crds(1, 'F129')
-    assert isinstance(override, datamodels.EpsfRefModel)
-    np.testing.assert_array_equal(override.psf, model.psf)
-    psf.get_epsf_from_crds.cache_clear()

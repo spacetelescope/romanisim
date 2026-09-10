@@ -268,11 +268,6 @@ reference_data = {
     "readnoise": 5.0,  # DN
     "saturation": 55000,  # DN
     "ipc": None,
-    # Unlike the entries above, epsf is not consumed by
-    # romanisim.image.gather_reference_data; it is read directly by
-    # romanisim.psf.get_epsf_from_crds.  Set it to a path to use a reference
-    # file that is not in CRDS, which is how a new-convention reference can
-    # be exercised before CRDS serves one.
     "epsf": None,
 }
 
