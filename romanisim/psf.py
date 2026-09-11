@@ -338,8 +338,7 @@ def get_epsf_from_crds(sca, filter_name, date=None):
 
     override = reference_data.get('epsf')
     if isinstance(override, str):
-        log.info('Using epsf reference %s instead of the CRDS default',
-                 override)
+        log.info('Forcing the use of ePSF reference %s.', override)
         return datamodels.open(override)
 
     if date is None:
@@ -377,6 +376,10 @@ def epsf_is_pixel_convolved(psf_ref_model, focus=0, spectral_type=1):
     older, un-convolved reference is normalized to the enclosed-flux
     fraction and sums to slightly less than one.  We cut at a sum of 1.1.
 
+    A reference file following either convention should land close to one
+    of those two values; we warn if it does not, since that suggests the
+    file follows some third convention that we are guessing about.
+
     Parameters
     ----------
     psf_ref_model : roman_datamodels.EpsfRefModel
@@ -391,7 +394,14 @@ def epsf_is_pixel_convolved(psf_ref_model, focus=0, spectral_type=1):
         response function.
     """
     total = np.sum(psf_ref_model.psf[focus, spectral_type, 0, :, :])
-    return bool(total > 1.1)  # mildly larger than 1 to provide some buffer
+    pixel_convolved = bool(total > 1.1)  # a bit more than 1, for buffer
+    expected = psf_ref_model.meta.oversample ** 2 if pixel_convolved else 1
+    if not (0.9 * expected < total < 1.05 * expected):
+        log.warning(
+            'EPSF reference sums to %f, which is not close to the expected '
+            '%d; is this reference file following a different convention?',
+            total, expected)
+    return pixel_convolved
 
 
 def deconvolve_ipc(psf_images, ipc_kernel, oversample, pad=32):
