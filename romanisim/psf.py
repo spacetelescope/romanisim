@@ -10,16 +10,21 @@ from roman_datamodels import datamodels
 from scipy import interpolate
 
 from romanisim import log
+from romanisim.models import ipc
 
 from .models.bandpass import getBandpasses, galsim2roman_bandpass, roman2galsim_bandpass
 from .models.parameters import (
     default_date,
+    reference_data,
     n_pix,
     pixel_scale,
 )
 from .models.psf_utils import getPSF
 
 __all__ =  ['VariablePSF',
+            'deconvolve_ipc',
+            'psf_stamp_wcs',
+            'epsf_is_pixel_convolved',
             'get_epsf_from_crds',
             'get_gridded_psf_model',
             'make_one_psf',
@@ -42,6 +47,10 @@ class VariablePSF:
         self.corners = corners
         self.psf = psf
         self.psfinterpolators = None
+        # True if the corner profiles already include the pixel response
+        # function of the grid they will be drawn onto.
+        self.pixel_convolved = all(
+            getattr(p, "pixel_convolved", False) for p in psf.values())
 
     def at_position(self, x, y):
         """Instantiate a PSF profile at (x, y).
@@ -82,7 +91,6 @@ class VariablePSF:
         oversamp_taylor=50,
         order=1,
         max_radius=100,
-        epsf=False,
     ):
         """Build the spatial Taylor expansions for an ePSF profile.
 
@@ -113,11 +121,6 @@ class VariablePSF:
             large box will be expensive in compute time and memory for
             the Taylor expansion.
             Default 100
-        epsf : boolean
-            Has the input PSF already been convolved with the pixel response
-            function (is it an ePSF)?  If True, use no_pixel to render with
-            galsim.
-            Default False
 
         Returns
         -------
@@ -183,7 +186,7 @@ class VariablePSF:
 
         for iloc, key in enumerate(["ll", "lr", "ul", "ur"]):
             image_pos = galsim.PositionD(
-                self.corners[key][1], self.corners[key][0]
+                self.corners[key][0], self.corners[key][1]
             )
             pwcs = image.wcs.local(image_pos)
             p = galsim.Convolve(pointsource, self.psf[key])
@@ -191,7 +194,7 @@ class VariablePSF:
             # Render the PSF at subpixel positions using galsim
 
             nover = oversamp_render
-            method = "no_pixel" if epsf else "auto"
+            method = "no_pixel" if self.pixel_convolved else "auto"
             allrendered = np.zeros((dn * nover, dn * nover))
 
             for i in range(nover):
@@ -333,6 +336,11 @@ def get_epsf_from_crds(sca, filter_name, date=None):
     """
     from crds import getreferences
 
+    override = reference_data.get('epsf')
+    if isinstance(override, str):
+        log.info('Forcing the use of ePSF reference %s.', override)
+        return datamodels.open(override)
+
     if date is None:
         date = default_date
         log.warning(
@@ -353,9 +361,111 @@ def get_epsf_from_crds(sca, filter_name, date=None):
     return model
 
 
-@cache
+def epsf_is_pixel_convolved(psf_ref_model, focus=0, spectral_type=1):
+    """Determine if an epsf reference file has been pixel-convolved.
+
+    We would like a metadata flag saying whether the PSF has been convolved
+    with the pixel response function, but the reference files do not carry
+    one, so we key off the normalization instead.  romancal makes the same
+    determination the same way.
+
+    The convention for a pixel-convolved reference is that taking every
+    ``oversample``-th sample gives exactly the fraction of the flux that
+    would land in real native pixels at that subpixel offset.  This convention
+    leads to an overall normalization of about ``oversample ** 2``.  An
+    older, un-convolved reference is normalized to the enclosed-flux
+    fraction and sums to slightly less than one.  We cut at a sum of 1.1.
+
+    A reference file following either convention should land close to one
+    of those two values; we warn if it does not, since that suggests the
+    file follows some third convention that we are guessing about.
+
+    Parameters
+    ----------
+    psf_ref_model : roman_datamodels.EpsfRefModel
+        The reference model to inspect.
+    focus, spectral_type : int
+        Indices of the plane to test; any plane will do.
+
+    Returns
+    -------
+    bool
+        True if the reference PSF has been convolved with the pixel
+        response function.
+    """
+    total = np.sum(psf_ref_model.psf[focus, spectral_type, 0, :, :])
+    pixel_convolved = bool(total > 1.1)  # a bit more than 1, for buffer
+    expected = psf_ref_model.meta.oversample ** 2 if pixel_convolved else 1
+    if not (0.9 * expected < total < 1.05 * expected):
+        log.warning(
+            'EPSF reference sums to %f, which is not close to the expected '
+            '%d; is this reference file following a different convention?',
+            total, expected)
+    return pixel_convolved
+
+
+def deconvolve_ipc(psf_images, ipc_kernel, oversample, pad=32):
+    """Remove interpixel capacitance from oversampled PSF stamps.
+
+    IPC couples whole native pixels, so on a stamp oversampled by
+    ``oversample`` it acts as a convolution with a sparse kernel
+    which is non-zero only at pixels spaced
+    ``oversample`` samples apart.  That comb has transfer function
+
+        A(f) = sum_ij a_ij exp(-2 pi i oversample (i f_y + j f_x))
+
+    which we divide out, being careful to leave the PSF centering
+    unaffected.
+
+    romanisim deconvolves using this function and reconvolves later in
+    ``romanisim.l1.make_l1`` with the same kernel.  Away from
+    the stamp edges the two cancel to about 1e-16 of the PSF peak.
+
+    Parameters
+    ----------
+    psf_images : np.ndarray[n_psf, ny, nx]
+        Oversampled PSF stamps, IPC included.
+    ipc_kernel : np.ndarray[n, n]
+        The IPC kernel; n must be odd.  Normalized here if it is not
+        already.
+    oversample : int
+        Extent to which the PSF stamp was oversampled
+    pad : int
+        Zero padding added before the FFT so that flux does not wrap
+        around the edge of the stamp.
+
+    Returns
+    -------
+    np.ndarray[n_psf, ny, nx]
+        The stamps with IPC removed.
+    """
+    ipc_kernel = np.asarray(ipc_kernel, dtype=float)
+    if ipc_kernel.ndim != 2 or ipc_kernel.shape[0] != ipc_kernel.shape[1]:
+        raise ValueError('IPC kernel must be square and two dimensional')
+    if ipc_kernel.shape[0] % 2 == 0:
+        raise ValueError('IPC kernel must have a center; its size must be odd')
+    ipc_kernel = ipc_kernel / np.sum(ipc_kernel)
+    ny, nx = psf_images.shape[-2:]
+    padded = np.pad(np.asarray(psf_images, dtype=float),
+                    ((0, 0), (pad, pad), (pad, pad)))
+
+    fy = np.fft.fftfreq(padded.shape[-2])[:, None]
+    fx = np.fft.rfftfreq(padded.shape[-1])[None, :]
+    transfer = np.zeros((fy.size, fx.size), dtype=complex)
+    nkern = ipc_kernel.shape[0] // 2
+    for i, dy in enumerate(range(-nkern, nkern + 1)):
+        for j, dx in enumerate(range(-nkern, nkern + 1)):
+            transfer += ipc_kernel[i, j] * np.exp(
+                -2j * np.pi * oversample * (dy * fy + dx * fx))
+
+    out = np.fft.irfft2(np.fft.rfft2(padded) / transfer,
+                        s=padded.shape[-2:])
+    return out[:, pad:pad + ny, pad:pad + nx]
+
+
 def get_gridded_psf_model(
-    psf_ref_model, oversample=None, focus=0, spectral_type=1
+    psf_ref_model, oversample=None, focus=0, spectral_type=1,
+    ipc_kernel=None,
 ):
     """Generate the gridded PSF model from an EPSF reference model
 
@@ -365,15 +475,47 @@ def get_gridded_psf_model(
     the in-focus images. There are also three spectral types that are
     available and this code uses the M5V spectal type.
 
-    The ``psf`` array in the reference file has already been convolved with an
-    interpixel capacitance (IPC) kernel; the ``psf_noipc`` array has not.
-    romanisim applies IPC to the resultants in ``romanisim.l1.make_l1``, so we
-    use the IPC-free ``psf_noipc`` array here to avoid applying IPC twice.
+    Two conventions for the reference file are supported; see
+    `epsf_is_pixel_convolved` for how they are distinguished.
+    Older reference files store the optical PSF without convolution
+    by the pixel response function, not including distortion, and
+    containing a 'psf_noipc' extension that does not include the effect
+    of IPC.  Newer reference files include the pixel response function,
+    distortion, and IPC (i.e., are what an empirical view of the PSF
+    would look like on real data).
+
+    Parameters
+    ----------
+    ipc_kernel : np.ndarray[n, n] or None
+        The IPC kernel that ``make_l1`` will apply.  Only used for
+        pixel-convolved references.  If None,
+        ``romanisim.models.ipc.ipc_kernel`` is used, which is also what
+        ``make_l1`` falls back to.
+
+    Returns
+    -------
+    photutils.psf.GriddedPSFModel
+        The gridded model.  ``model.meta["pixel_convolved"]`` records which
+        convention the reference file followed.
     """
     # Open the reference file data model
     # select the infocus images (0) and we have a selection of spectral types
     # A0V, G2V, and M6V, pick G2V (1)
-    psf_images = psf_ref_model.psf_noipc[focus, spectral_type, :, :, :].copy()
+    oversample_ref = psf_ref_model.meta.oversample
+    pixel_convolved = epsf_is_pixel_convolved(psf_ref_model, focus=focus,
+                                              spectral_type=spectral_type)
+
+    if pixel_convolved:
+        psf_images = psf_ref_model.psf[focus, spectral_type, :, :, :].copy()
+        # Each sample is the flux that would land in a whole native pixel
+        # centered there; galsim wants the flux in one oversampled sample.
+        psf_images = psf_images / oversample_ref ** 2
+        if ipc_kernel is None:
+            ipc_kernel = ipc.ipc_kernel
+        psf_images = deconvolve_ipc(psf_images, ipc_kernel, oversample_ref)
+    else:
+        psf_images = psf_ref_model.psf_noipc[
+            focus, spectral_type, :, :, :].copy()
 
     # get the central position of the cutouts in a list
     psf_positions_x = psf_ref_model.meta.pixel_x.data.data
@@ -388,7 +530,8 @@ def get_gridded_psf_model(
     if oversample is None:
         oversample = psf_ref_model.meta.oversample
     meta["oversampling"] = oversample
-    meta["epsf_oversample"] = psf_ref_model.meta.oversample
+    meta["epsf_oversample"] = oversample_ref
+    meta["pixel_convolved"] = pixel_convolved
     nd = NDData(psf_images, meta=meta)
     model = GriddedPSFModel(nd)
 
@@ -405,6 +548,7 @@ def make_one_psf(
     oversample=4,
     extra_convolution=None,
     date=None,
+    ipc_kernel=None,
     **kw,
 ):
     """Make a PSF profile for Roman at a specific detector location.
@@ -469,6 +613,7 @@ def make_one_psf(
             chromatic=chromatic,
             extra_convolution=extra_convolution,
             date=date,
+            ipc_kernel=ipc_kernel,
             **kw,
         )
     else:  # Default is galsim
@@ -493,6 +638,7 @@ def make_one_psf_epsf(
     chromatic=False,
     extra_convolution=None,
     date=None,
+    ipc_kernel=None,
     **kw,
 ):
     """Make a PSF profile for Roman at a specific detector location using CRDS reftype epsf
@@ -515,6 +661,12 @@ def make_one_psf_epsf(
     date : astropy.time.Time or None
         Date of simulation. If None, current date is used. Needed for psftype='epsf'
         to choose the appropriate epsf reference.
+    ipc_kernel : np.ndarray[3, 3] or None
+        The IPC kernel to deconvolve from the ePSF.  It should match
+        the kernel that is later reapplied in romanisim.l1.make_l1.
+        If None,
+        romanisim.models.ipc.ipc_kernel is used, which is also what make_l1
+        falls back to.
     **kw : dict
         Additional keywords passed to galsim.roman.getPSF or stpsf.calc_psf,
         depending on whether stpsf is set.
@@ -523,7 +675,9 @@ def make_one_psf_epsf(
     -------
     profile : galsim.gsobject.GSObject
         galsim profile object for convolution with source profiles when
-        rendering scenes.
+        rendering scenes.  The ``pixel_convolved`` attribute records whether
+        the profile already includes the pixel response function; see
+        `romanisim.image.add_objects_to_image`.
     """
     log.info("Creating PSF from CRDS reference type epsf")
     if chromatic:
@@ -531,13 +685,19 @@ def make_one_psf_epsf(
             "romanisim does not yet support chromatic PSFs with stpsf or crds epsf"
         )
     epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
-    gridded_psf = get_gridded_psf_model(epsf_ref_model)
+    gridded_psf = get_gridded_psf_model(epsf_ref_model, ipc_kernel=ipc_kernel)
 
     psf = psf_from_grid(gridded_psf, *pix)
-    pixelscale = pixel_scale / gridded_psf.meta["epsf_oversample"]
+    pixel_convolved = gridded_psf.meta["pixel_convolved"]
+    oversample = gridded_psf.meta["epsf_oversample"]
+    if pixel_convolved:
+        stampwcs = psf_stamp_wcs(wcs=wcs, pix=pix, oversample=oversample)
+    else:
+        stampwcs = psf_stamp_wcs(wcs=wcs, pix=pix,
+                                 samplescale=pixel_scale / oversample)
     intimg = psfstamp_to_galsimimage(
-        psf, pixelscale, wcs=wcs, pix=pix, extra_convolution=extra_convolution
-    )
+        psf, stampwcs, extra_convolution=extra_convolution)
+    intimg.pixel_convolved = pixel_convolved
     return intimg
 
 
@@ -664,14 +824,12 @@ def make_one_psf_stpsf(
         wfi.options[key] = value
 
     psf = wfi.calc_psf(oversample=oversample, **args)
-    pixelscale = wfi.pixelscale / oversample
+    # stpsf does not apply distortion; calc_psf gives something aligned with
+    # the pixels, but with a constant sample scale.
+    stampwcs = psf_stamp_wcs(wcs=wcs, pix=pix,
+                             samplescale=wfi.pixelscale / oversample)
     intimg = psfstamp_to_galsimimage(
-        psf[0].data,
-        pixelscale,
-        wcs=wcs,
-        pix=pix,
-        extra_convolution=extra_convolution,
-    )
+        psf[0].data, stampwcs, extra_convolution=extra_convolution)
     return intimg
 
 
@@ -685,6 +843,7 @@ def make_psf(
     variable=False,
     extra_convolution=None,
     date=None,
+    ipc_kernel=None,
     **kw,
 ):
     """Make a PSF profile for Roman.
@@ -712,6 +871,9 @@ def make_psf(
         to choose the appropriate epsf reference.
     extra_convolution : galsim.gsobject.GSObject or None
         Additional convolution to add to PSF profiles
+    ipc_kernel : np.ndarray[3, 3] or None
+        The IPC kernel that romanisim.l1.make_l1 will apply; only used for
+        psftype='epsf'.  See make_one_psf_epsf.
     **kw : dict
         Additional keywords passed to make_one_psf
 
@@ -731,6 +893,7 @@ def make_psf(
             chromatic=chromatic,
             extra_convolution=extra_convolution,
             date=date,
+            ipc_kernel=ipc_kernel,
             **kw,
         )
     elif pix is not None:
@@ -755,6 +918,8 @@ def make_psf(
             pix=pix,
             chromatic=chromatic,
             extra_convolution=extra_convolution,
+            date=date,
+            ipc_kernel=ipc_kernel,
             **kw,
         )
     return VariablePSF(corners, psfs)
@@ -793,30 +958,75 @@ def psf_from_grid(psfgrid, x_0=None, y_0=None, size=185):
     return psf
 
 
-def psfstamp_to_galsimimage(
-    psf, pixelscale, wcs=None, pix=None, extra_convolution=None
-):
-    """Convert an STPSF/CRDS PSF profile to galsim.Image"""
+def psf_stamp_wcs(wcs=None, pix=None, samplescale=None, oversample=None):
+    """Build the WCS for an oversampled PSF stamp.
 
-    # stpsf doesn't do distortion
-    # calc_psf gives something aligned with the pixels, but with
-    # a constant pixel scale equal to wfi.pixelscale / oversample.
-    # we need to get the appropriate rotated WCS that matches this
-    if wcs is not None:
-        local_jacobian = wcs.local(image_pos=galsim.PositionD(pix)).getMatrix()
-        # angle of [du/dx, du/dy]
-        ang = np.arctan2(local_jacobian[0, 1], local_jacobian[0, 0])
-        rotmat = np.array(
-            [[np.cos(ang), np.sin(ang)], [-np.sin(ang), np.cos(ang)]]
-        )
-        newwcs = galsim.JacobianWCS(*(rotmat.ravel() * pixelscale))
-        # we are making a new, orthogonal, isotropic matrix for the PSF with the
-        # appropriate pixel scale.  This is intended to be the WCS for the PSF
-        # produced by stpsf.
-    else:
-        newwcs = galsim.JacobianWCS(*(np.array([1, 0, 0, 1]) * pixelscale))
+    A PSF can come from one of two sources, controlled by oversample or samplescale.
+
+    Give ``samplescale`` for a stamp on an idealized grid of square samples
+    of that angular size (e.g., from stpsf).  This WCS will include the
+    rotation of the image relative to north and the given pixel scale.
+
+    Give ``oversample`` for a stamp that samples the native detector grid.
+    Its axes are the detector axes, so the local Jacobian maps them to the
+    sky directly and the PSF WCS needs the local plate scale and shear.
+
+    Parameters
+    ----------
+    wcs : callable or None
+        WCS of the image the PSF will be rendered into.  If None, a default
+        North-up WCS is used and ``samplescale`` is required.
+    pix : tuple (float, float)
+        Pixel location of the PSF on the focal plane.
+    samplescale : float or None
+        Angular size of one sample of the stamp, in arcseconds.
+    oversample : int or None
+        Samples per native pixel.
+
+    Returns
+    -------
+    galsim.JacobianWCS
+    """
+    if (samplescale is None) == (oversample is None):
+        raise ValueError('give exactly one of samplescale and oversample')
+
+    if wcs is None:
+        if oversample is not None:
+            raise ValueError('a native-pixel stamp needs a wcs to get the '
+                             'local Jacobian from')
         # just use a default North = up WCS
-    gimg = galsim.Image(psf, wcs=newwcs)
+        return galsim.JacobianWCS(*(np.array([1, 0, 0, 1]) * samplescale))
+
+    jacobian = wcs.local(image_pos=galsim.PositionD(pix)).getMatrix()
+    if oversample is not None:
+        return galsim.JacobianWCS(*(jacobian.ravel() / oversample))
+
+    # An idealized stamp needs only the orientation of the local pixels.  We make
+    # a new orthogonal, isotropic matrix for the PSF with the appropriate sample
+    # scale; the angle is that of [du/dx, du/dy].
+    ang = np.arctan2(jacobian[0, 1], jacobian[0, 0])
+    rotmat = np.array([[np.cos(ang), np.sin(ang)],
+                       [-np.sin(ang), np.cos(ang)]])
+    return galsim.JacobianWCS(*(rotmat.ravel() * samplescale))
+
+
+def psfstamp_to_galsimimage(psf, stampwcs, extra_convolution=None):
+    """Convert an STPSF/CRDS PSF stamp to a galsim profile.
+
+    Parameters
+    ----------
+    psf : np.ndarray
+        The oversampled PSF stamp.
+    stampwcs : galsim.wcs.BaseWCS
+        WCS of the stamp; see `psf_stamp_wcs`.
+    extra_convolution : galsim.gsobject.GSObject or None
+        Additional convolution to add to the PSF.
+
+    Returns
+    -------
+    galsim.InterpolatedImage
+    """
+    gimg = galsim.Image(psf, wcs=stampwcs)
 
     # This code block could be used to fix the centroid of Stpsf calculated
     # PSFs to be zero.  This makes downstream comparisons with Stpsf
