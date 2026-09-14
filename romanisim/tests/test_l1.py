@@ -13,7 +13,7 @@ Routines tested:
 import pytest
 import numpy as np
 from romanisim import l1, log
-from romanisim.models import parameters, nonlinearity
+from romanisim.models import parameters, nonlinearity, ipc
 import galsim
 import asdf
 import os
@@ -248,11 +248,62 @@ def test_ipc():
     testim[:, 50, 50] = flux
     kernel = np.ones((3, 3), dtype='f4')
     kernel /= np.sum(kernel)
-    newim = l1.add_ipc(testim, kernel)
-    assert np.sum(~np.isclose(newim, testim)) == 9 * nresultant
-    assert (np.sum(np.isclose(newim[:, 49:52, 49:52], flux / 9))
+    origim = testim.copy()
+    # add_ipc convolves in place and returns nothing
+    assert l1.add_ipc(testim, kernel) is None
+    assert np.sum(~np.isclose(testim, origim)) == 9 * nresultant
+    assert (np.sum(np.isclose(testim[:, 49:52, 49:52], flux / 9))
             == 9 * nresultant)
     log.info('DMS226: successfully convolved image with IPC kernel.')
+
+
+@pytest.mark.parametrize('branch', ['add_ipc', 'ipc_model'])
+def test_make_l1_applies_ipc(branch):
+    """Ensure make_l1 properly convolves the resultants with the IPC kernel.
+
+    Creates an isolated point source and checks that the 3x3 footprint of
+    the source in the last resultant is broadened by application of the IPC.
+    """
+    n_pix = 21
+    y0 = x0 = 10
+    read_pattern = [[1], [2], [3]]
+    source = 1e6
+
+    # An asymmetric kernel: a transpose or axis flip in the application would
+    # change the recovered footprint.
+    kernel = np.array([[0.004, 0.020, 0.006],
+                       [0.050, 0.860, 0.030],
+                       [0.003, 0.024, 0.003]])
+    kernel = kernel / kernel.sum()
+
+    if branch == 'add_ipc':
+        # make_l1 falls back to add_ipc with the default kernel
+        ipc_model = None
+        expected = np.asarray(ipc.ipc_kernel)
+    else:
+        ipc_model = ipc.IPC(usecrds=False)
+        ipc_model.ipc_kernel = kernel
+        expected = kernel
+
+    counts = np.zeros((n_pix, n_pix), dtype='f4')
+    counts[y0, x0] = source
+    res, _ = l1.make_l1(
+        galsim.Image(counts), read_pattern, read_noise=0,
+        pedestal_extra_noise=0, gain=1, crparam=None, saturation=1e30,
+        ipc_model=ipc_model, seed=1)
+
+    footprint = res[-1].astype(np.float64)[y0 - 1:y0 + 2, x0 - 1:x0 + 2]
+    footprint -= parameters.pedestal
+
+    # Ensure that the flux was redistributed into the 3x3 footprint,
+    # and that the footprint matches the expected kernel shape and orientation.
+    assert np.count_nonzero(footprint) == 9
+
+    # scipy convolution places kernel element [a, b] at pixel offset
+    # (a - 1, b - 1) from the source, so the normalized footprint reproduces
+    # the kernel itself, providing a test of the orientation
+    np.testing.assert_allclose(footprint / footprint.sum(), expected,
+                               rtol=2e-3, atol=1e-4)
 
 
 def test_read_pattern_to_tij():
@@ -311,6 +362,8 @@ def test_make_l1_and_asdf(tmp_path):
                                     crparam=dict())
         # technically, resultants are in DN and pedestal is in electrons,
         # but in this test the gain is one and so we ignore this distinction.
+        # the IPC spreads each CR over the kernel, but make_l1 grows the jump
+        # flags to match, so the departures from the pedestal remain flagged.
         assert np.all((resultants[0] - parameters.pedestal == 0)
                       | ((dq[0] & parameters.dqbits['jump_det']) != 0))
     log.info('DMS227: successfully made an L1 file that validates.')

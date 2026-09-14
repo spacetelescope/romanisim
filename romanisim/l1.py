@@ -671,29 +671,53 @@ def read_pattern_to_tij(read_pattern, reference_read=False):
     return tij
 
 
-def add_ipc(resultants, ipc_kernel=None):
-    """Add IPC to resultants.
+def add_ipc(resultants, ipc_kernel=None, mode='nearest', cval=0):
+    """Add IPC to resultants, in place.
 
     Parameters
     ----------
     resultants : np.ndarray[n_resultant, ny, nx]
-        resultants describing a scene
-
-    Returns
-    -------
-    np.ndarray[n_resultant, ny, nx]
-        resultants with IPC
+        resultants describing a scene.  Modified in place.
+    ipc_kernel : np.ndarray[3, 3] or None
+        IPC convolution kernel.  Defaults to
+        ``romanisim.models.ipc.ipc_kernel``.
+    mode, cval
+        Boundary handling, passed to ``scipy.ndimage.convolve``.  These
+        parameters handle the treatment of IPC at the edge of the array.
+        The default of ``nearest`` assumes that pixels just off the array
+        are similar to those just inside it, reducing the effect of IPC
+        there.  mode='constant', cval=0 corresponds to averaging with
+        zero-flux pixels and would correspond, e.g., to high background
+        pixels being averaged with zero flux reference border pixels.
     """
-    # add in IPC
-    # the reference pixels have basically no flux, so for these real pixels we
-    # extend the array with a constant equal to zero.
     if ipc_kernel is None:
         ipc_kernel = ipc.ipc_kernel
 
     log.info('Adding IPC...')
-    out = ndimage.convolve(resultants, ipc_kernel[None, ...],
-                           mode='constant', cval=0)
-    return out
+    resultants[...] = ndimage.convolve(resultants, ipc_kernel[None, ...],
+                                       mode=mode, cval=cval)
+
+
+def expand_jump_flags(dq, kernel_shape=(3, 3)):
+    """Grow the jump flags to cover the IPC kernel, in place.
+
+    IPC redistributes the charge a cosmic ray deposits into the neighboring
+    pixels, so the ramps of those pixels have jumps in them too.  romanisim
+    flags jumps artificially---we know where we put the CRs and pretend that
+    the pipeline has found them---and this keeps that idealization consistent
+    with the IPC application.
+
+    Parameters
+    ----------
+    dq : np.ndarray[n_resultant, ny, nx] (uint32)
+        DQ array marking CR hits in resultants.  Modified in place.
+    kernel_shape : tuple[int, int]
+        Shape of the IPC kernel over which the charge has been spread.
+    """
+    jump = parameters.dqbits['jump_det']
+    # a (1, ny, nx) structuring element dilates each resultant separately
+    structure = np.ones((1,) + tuple(kernel_shape), dtype=bool)
+    dq[ndimage.binary_dilation((dq & jump) != 0, structure=structure)] |= jump
 
 
 def make_l1(counts, read_pattern,
@@ -752,7 +776,9 @@ def make_l1(counts, read_pattern,
     l1 : np.ndarray[n_resultant, ny, nx]
         Resultants image array in DN including systematic effects
     dq : np.ndarray[n_resultant, ny, nx]
-        DQ array marking saturated pixels and cosmic rays
+        DQ array marking saturated pixels and cosmic rays.  The cosmic ray
+        flags cover the IPC kernel, since the IPC spreads each cosmic ray
+        into its neighbors.
     reference_read : np.ndarray[ny, nx]
         Reference read in DN.  Only returned if `reference_read` is set.
     """
@@ -782,8 +808,15 @@ def make_l1(counts, read_pattern,
 
     if ipc_model is not None:
         ipc_model.apply(resultants)
+        ipc_kernel = ipc_model.ipc_kernel
     else:
         add_ipc(resultants)
+        ipc_kernel = ipc.ipc_kernel
+
+    if crparam is not None:
+        # the IPC has smeared each CR out over the kernel, so the pixels
+        # around it have jumps in their ramps too.
+        expand_jump_flags(dq, kernel_shape=np.shape(ipc_kernel))
 
     # resultants are in electrons
     if gain is None:

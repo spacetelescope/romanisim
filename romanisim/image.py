@@ -301,6 +301,19 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
                     'Disabling fastpointsources.')
         fastpointsources = False
 
+    # A pixel-convolved ePSF already includes the pixel response function of
+    # the grid it is being drawn onto, so we should not apply it a second time.
+    # Photon-shooting mode has no equivalent of no_pixel, so it is not
+    # allowed here.
+    pixel_convolved = getattr(psf, 'pixel_convolved', False)
+    render_method = 'no_pixel' if pixel_convolved else 'auto'
+    if pixel_convolved and chromatic:
+        raise ValueError(
+            'Chromatic sources are rendered by photon shooting, which '
+            'necessarily convolves with the pixel, but this PSF has already '
+            'been convolved with the pixel response function.  Use '
+            "psftype='galsim' for chromatic rendering.")
+
     outinfo = np.zeros(len(objlist), dtype=[('counts', 'f4'), ('time', 'f4')])
     pointsources = np.zeros(len(objlist), dtype=bool)
 
@@ -336,8 +349,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
                 method='phot', rng=rng)
         else:
             try:
-                stamp = final.drawImage(center=image_pos,
-                                        wcs=pwcs)
+                stamp = final.drawImage(center=image_pos, wcs=pwcs,
+                                        method=render_method)
                 if add_noise:
                     stamp.addNoise(galsim.PoissonNoise(rng))
             except galsim.GalSimFFTSizeError:
@@ -1005,6 +1018,13 @@ def simulate(metadata, objlist,
     flat = refdata['flat']
     ipc_model = refdata['ipc']
     pedestal_extra_noise = parameters.pedestal_extra_noise
+
+    # A pixel-convolved epsf reference has IPC baked in; the PSF module removes it so
+    # that make_l1 can apply it exactly once.
+    psf_keywords = dict(psf_keywords)
+    psf_keywords.setdefault(
+        'ipc_kernel',
+        ipc_model.ipc_kernel if ipc_model is not None else None)
 
     if rng is None and seed is None:
         seed = 43

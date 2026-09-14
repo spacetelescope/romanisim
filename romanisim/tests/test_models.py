@@ -957,3 +957,20 @@ def test_roman_focal_plane(run_slow=False):
             assert blue_arrows[sca][-1][1] < blue_arrows[sca][0][1]  # Dec decreases
             assert red_arrows[sca][-1][0] > red_arrows[sca][0][0]    # RA increases
             assert red_arrows[sca][-1][1] < red_arrows[sca][0][1]    # Dec decreases
+
+def test_ipc_apply():
+    """IPC.apply convolves in place, leaving the caller's buffer updated."""
+    model = models.IPC(usecrds=False)
+
+    arr = np.zeros((5, 5), dtype='f4')
+    arr[2, 2] = 1
+    assert model.apply(arr) is None
+    np.testing.assert_allclose(arr[1:4, 1:4], model.ipc_kernel, rtol=1e-6)
+
+    im = galsim.Image(np.zeros((5, 5), dtype='f4'))
+    im.array[2, 2] = 1
+    view = im.array  # a view taken before apply must see the convolution
+    model.apply(im)
+    np.testing.assert_allclose(view[1:4, 1:4], model.ipc_kernel, rtol=1e-6)
+
+    assert_raises(ValueError, model.apply, np.zeros((2, 2, 2, 2)))

@@ -252,6 +252,9 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     the limit that the output pixel scale is 1, this does nothing, but
     provides undersampled output.
 
+    A pixel-convolved ePSF already includes the pixel response function
+    and can be rendered directly using GalSim's no_pixel mode.
+
     Extra arguments are passed to romanisim.psf.make_psf.
 
     Parameters
@@ -271,17 +274,32 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
 
     if scale < 0 or scale > 1:
         raise ValueError('scale must be between 0 and 1')
-    convscale = romanisim.models.parameters.pixel_scale * np.sqrt(
-        1 - scale**2)
-    if scale == 1:
-        extra_convolution = None
-    else:
-        extra_convolution = galsim.Pixel(
-            convscale * romanisim.models.parameters.pixel_scale)
+    if kw.get('variable', False):
+        # A VariablePSF interpolates between the PSFs at the four corners of
+        # an SCA using detector pixel positions which isn't right for a mosaic.
+        raise ValueError('l3_psf does not support variable PSFs; the mosaic '
+                         'grid is not the detector grid')
     psf = romanisim.psf.make_psf(filter_name=bandpass,
                                  sca=romanisim.models.parameters.default_sca,
-                                 extra_convolution=extra_convolution,
                                  chromatic=chromatic, **kw)
+
+    if getattr(psf, 'pixel_convolved', False):
+        # A pixel-convolved ePSF does not require an additional convolution
+        # to account for the difference between the mosaic pixel scale and the
+        # native pixel scale
+        return psf
+
+    # convscale is already an angle; galsim.Pixel wants one.  Multiplying by
+    # pixel_scale a second time here made the box 0.11 times too small, so
+    # that for scale < 1 the mosaic PSF was missing almost the whole native
+    # pixel.
+    convscale = romanisim.models.parameters.pixel_scale * np.sqrt(
+        1 - scale**2)
+    if scale != 1:
+        psf = galsim.Convolve(psf, galsim.Pixel(convscale))
+    # galsim.Convolve returns a new object, so set the flag on the result
+    # rather than relying on it being carried over.
+    psf.pixel_convolved = False
     return psf
 
 

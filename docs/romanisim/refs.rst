@@ -44,6 +44,11 @@ EPSF
 The EPSF reference provides pre-determined PSF models for all detectors and nine
 different locations on each detector. For rendering at any given position, the
 PSF is interpolated between the nearest calculated PSFs from the reference file.
+The reference file stores the PSF stamps both with and without an interpixel
+capacitance (IPC) kernel applied (the ``psf`` and ``psf_noipc`` arrays).
+romanisim applies IPC to the resultants during L1 simulation (see
+:doc:`l1`), so it renders scenes with the IPC-free ``psf_noipc`` array to
+avoid applying IPC twice.
 
 Flat field
 ----------
