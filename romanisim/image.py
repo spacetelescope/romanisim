@@ -397,6 +397,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         bounds = stamp.bounds & image_pointsources.bounds
         if bounds.area() > 0:
             image_pointsources[bounds] += stamp[bounds]
+            outinfo[i]['counts'] = np.sum(stamp[bounds].array)
         nrender += 1
 
     if (np.sum(pointsources) > 0 and add_noise and
