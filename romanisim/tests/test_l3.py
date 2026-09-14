@@ -621,3 +621,30 @@ def test_scaling():
     # the 2x finer sampling effectively means that you need to take the
     # four exposures and interleave them, each using 1/4 of the exposure
     # time
+
+
+@pytest.mark.parametrize('scale', [0.25, 0.5, 0.75])
+def test_l3_psf_box_size(scale):
+    """l3_psf's box must be sqrt(1 - scale**2) native pixels wide.
+
+    Together with the mosaic pixel that galsim applies when the source is
+    drawn, this keeps the mosaic PSF one native pixel wide whatever the
+    output scale.
+    """
+    bare = psf.make_psf(filter_name='F158',
+                        sca=parameters.default_sca, psftype='galsim')
+    widened = l3.l3_psf('F158', scale=scale, psftype='galsim')
+
+    added = (widened.calculateMomentRadius() ** 2
+             - bare.calculateMomentRadius() ** 2)
+    # calculateMomentRadius is the geometric mean of the second moments, so
+    # the added variance per axis is that of a box of the given width
+    expected = (parameters.pixel_scale ** 2 * (1 - scale ** 2)) / 12
+    np.testing.assert_allclose(added, expected, rtol=0.05)
+
+
+def test_l3_psf_rejects_variable():
+    """The per-detector PSF variation is not meaningful on a mosaic grid.
+    """
+    with pytest.raises(ValueError, match='does not support variable'):
+        l3.l3_psf('F158', scale=0.5, psftype='galsim', variable=True)

@@ -268,6 +268,7 @@ reference_data = {
     "readnoise": 5.0,  # DN
     "saturation": 55000,  # DN
     "ipc": None,
+    "epsf": None,
 }
 
 default_parameters_dictionary = {

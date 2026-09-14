@@ -936,3 +936,55 @@ def set_up_image_rendering_things(psftype='epsf'):
                 graycatalog=graycatalog,
                 chromcatalog=chromcatalog, filter_name=filter_name,
                 tabcatalog=tabcat)
+
+
+def test_pixel_convolved_psf_uses_no_pixel():
+    """A pixel-convolved PSF must be drawn with no_pixel.
+
+    If the PSF already carries the pixel response function, we should not
+    convolve it with the pixel a second time.
+    """
+    imwcs = galsim.JacobianWCS(0.11, 0, 0, 0.11)
+    cat = [catalog.CatalogObject(None, galsim.DeltaFunction(),
+                                 {'F158': 1.0})]
+
+    drawn = {}
+    for label, flag in [('auto', False), ('no_pixel', True)]:
+        psfprofile = galsim.Gaussian(sigma=0.2)
+        psfprofile.pixel_convolved = flag
+        im = galsim.ImageF(64, 64, wcs=imwcs, xmin=0, ymin=0)
+        image.add_objects_to_image(
+            im, cat, [32], [32], psfprofile, flux_to_counts_factor=1000.,
+            filter_name='F158', seed=1)
+        drawn[label] = im.array.copy()
+
+    def second_moment(a):
+        y, x = np.mgrid[:a.shape[0], :a.shape[1]]
+        cx = (x * a).sum() / a.sum()
+        return ((x - cx) ** 2 * a).sum() / a.sum()
+
+    # skipping the pixel convolution must make the rendered source narrower,
+    # by about the variance of a one-pixel top hat
+    assert second_moment(drawn['auto']) > second_moment(drawn['no_pixel'])
+    np.testing.assert_allclose(
+        second_moment(drawn['auto']) - second_moment(drawn['no_pixel']),
+        1 / 12, rtol=0.05)
+
+
+def test_pixel_convolved_psf_refuses_photon_shooting():
+    """Verify that PSFs that are already pixel-convolved cannot use
+    photon shooting.
+    """
+    imwcs = galsim.JacobianWCS(0.11, 0, 0, 0.11)
+    bandpass = romanisim.models.bandpass.getBandpasses(
+        AB_zeropoint=True)['H158']
+    sed = galsim.SED('vega.txt', 'nm', 'flambda').withFlux(1, bandpass)
+    cat = [catalog.CatalogObject(None, galsim.DeltaFunction() * sed, None)]
+
+    psfprofile = galsim.Gaussian(sigma=0.2)
+    psfprofile.pixel_convolved = True
+    im = galsim.ImageF(64, 64, wcs=imwcs, xmin=0, ymin=0)
+    with pytest.raises(ValueError, match='photon shooting'):
+        image.add_objects_to_image(
+            im, cat, [32], [32], psfprofile, flux_to_counts_factor=1000.,
+            bandpass=bandpass, seed=1)
