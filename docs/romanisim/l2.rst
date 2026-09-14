@@ -23,6 +23,7 @@ We support L2 source injection through :meth:`romanisim.image.inject_sources_int
 
 * The model WCS is used to generate the pixel locations for sources.
 * The number of additional electrons in each pixel is simulated.
+* The number of electrons corresponding to a source of a given flux is taken from the image's photometric calibration keywords rather than from romanisim's zero point, so that injected sources are recovered with the fluxes they were given whatever gain and zero point were used to calibrate the image.  The gain affects only the noise of the injected sources.
 * A virtual ramp is created that evenly apportions the original L2 flux along the ramp.
 * The new electrons are apportioned randomly along the ramp following a Poisson distribution in the same way as for the usual L1 simulations.
 * The new ramp is then fit using the ramp fitting code, and the new fit replaces the old fit in the L2 file.
