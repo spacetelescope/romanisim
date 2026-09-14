@@ -18,8 +18,9 @@ import copy
 from functools import cache
 import numpy as np
 import galsim
-from galsim import roman
-from romanisim import image, parameters, catalog, psf, util, wcs, persistence
+from romanisim import image, catalog, util, persistence, psf
+from romanisim.l1 import decode_reference_read
+from romanisim.models import wcs, parameters
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
@@ -29,7 +30,7 @@ from astropy.modeling.functional_models import Sersic2D
 import pytest
 from romanisim import log
 from roman_datamodels.datamodels import ImageModel, ScienceRawModel
-import romanisim.bandpass
+import romanisim.models.bandpass
 
 
 def test_in_bounds():
@@ -453,7 +454,7 @@ def test_simulate_counts():
     # is the coordinate of the boresight, but that doesn't need to be on SCA 1.
     # But at least they'll exercise some machinery if the ignore_distant_sources
     # argument is high enough!
-    roman.n_pix = 100
+    parameters.n_pix = 100
 
     meta = util.default_image_meta(filter_name='F158')
     wcs.fill_in_parameters(meta, coord, boresight=False)
@@ -479,7 +480,7 @@ def test_simulate():
     """
     imdict = set_up_image_rendering_things()
     # simulate gray, chromatic, level0, level1, level2 images
-    roman.n_pix = 100
+    parameters.n_pix = 100
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
     filter_name = 'F158'
@@ -493,7 +494,7 @@ def test_simulate():
     imwcs = wcs.get_wcs(meta, usecrds=False)
     sourcecen = (50, 50)
     center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
-    abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    abfluxdict = romanisim.models.bandpass.compute_abflux(sca, galsim_filter_name=False)
     for o in chromcat:
         o.sky_pos = center
     for o in graycat:
@@ -592,11 +593,61 @@ def test_simulate():
     # nice if L2 images include the WCS.
 
 
+def test_simulate_reference_read():
+    """L1 simulation with a reference read, as flight data will be delivered."""
+    parameters.n_pix = 100
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+    meta = util.default_image_meta(time=Time('2020-01-01T00:00:00'),
+                                   filter_name='F158', coord=coord)
+    wcs.fill_in_parameters(meta, coord)
+    kw = dict(psftype='epsf', level=1, usecrds=False, crparam=dict())
+
+    plain = image.simulate(meta, [], rng=galsim.BaseDeviate(1), **kw)[0]
+    # no explicit offset: exercise the parameters.data_encoding_offset default
+    l1 = image.simulate(meta, [], rng=galsim.BaseDeviate(1),
+                        reference_read=True, **kw)[0]
+
+    # read_pattern covers only the science resultants, but the reference read
+    # also counts toward nresultants
+    assert l1['data'].shape == plain['data'].shape
+    assert l1['data'].shape[0] == len(l1['meta']['exposure']['read_pattern'])
+    assert (l1['meta']['exposure']['nresultants']
+            == len(l1['meta']['exposure']['read_pattern']) + 1)
+    offset = l1['meta']['instrument']['data_encoding_offset']
+    assert offset != 0
+    assert l1['reference_read'].shape == l1['data'].shape[1:]
+    assert 'reference_read' not in plain
+
+    # decoding as romancal.dq_init does must land on a normal-looking ramp
+    decoded = decode_reference_read(l1['data'], l1['reference_read'], offset)
+    assert np.all(np.diff(np.median(decoded, axis=(1, 2))) >= 0)
+    assert np.allclose(np.median(decoded, axis=(1, 2)),
+                       np.median(plain['data'], axis=(1, 2)), atol=50)
+
+    # the whole frame is encoded, border reference pixels included: those are
+    # not simulated, so they must decode back to their unencoded values rather
+    # than being left offset by data_encoding_offset
+    nb = parameters.nborder
+    border = np.ones(decoded.shape[1:], dtype=bool)
+    border[nb:-nb, nb:-nb] = False
+    assert np.all(decoded[:, border] == plain['data'][:, border])
+
+    # amp33 is not simulated, but must survive the offset removal
+    decoded33 = decode_reference_read(l1['amp33'], l1['reference_amp33'], offset)
+    assert np.all(decoded33 == 0)
+
+    # the reference_read / reference_amp33 / data_encoding_offset fields must
+    # be schema-valid
+    af = asdf.AsdfFile()
+    af.tree = {'roman': l1}
+    af.validate()
+
+
 def test_make_test_catalog_and_images():
     # this isn't a real routine that we should consider part of the
     # public interface, and may be removed.  We'll settle for just
     # testing that it runs.
-    roman.n_pix = 100
+    parameters.n_pix = 100
     fn = os.environ.get('GALSIM_CAT_PATH', None)
     if fn is not None:
         fn = str(fn)
@@ -618,7 +669,7 @@ def test_make_test_catalog_and_images():
 def test_reference_file_crds_match(level):
     # Set up parameters for simulation run
     from romanisim import ris_make_utils
-    galsim.roman.n_pix = 4088
+    parameters.n_pix = 4088
     metadata = copy.deepcopy(parameters.default_parameters_dictionary)
     metadata['instrument']['detector'] = 'WFI07'
     metadata['instrument']['optical_element'] = 'F158'
@@ -627,7 +678,7 @@ def test_reference_file_crds_match(level):
 
     twcs = wcs.get_wcs(metadata, usecrds=True)
     rd_sca = twcs.toWorld(galsim.PositionD(
-        galsim.roman.n_pix / 2, galsim.roman.n_pix / 2))
+        parameters.n_pix / 2, parameters.n_pix / 2))
 
     cat = catalog.make_dummy_table_catalog(
         rd_sca, bandpasses=[metadata['instrument']['optical_element']], nobj=1000)
@@ -655,7 +706,7 @@ def test_inject_source_into_image():
     """
 
     # Set constants and metadata
-    galsim.roman.n_pix = 100
+    parameters.n_pix = 100
     coord = SkyCoord(ra=270 * u.deg, dec=66 * u.deg)
     filt = 'F158'
     meta = util.default_image_meta(coord=coord, filter_name=filt,
@@ -687,7 +738,7 @@ def test_inject_source_into_image():
     assert np.all(im.data[-10:, -10:] == iminj.data[-10:, -10:])
 
     # Test that the amount of added flux makes sense
-    fluxeps = flux * romanisim.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
+    fluxeps = flux * romanisim.models.bandpass.get_abflux('F158', int(meta['instrument']['detector'][3:]))  # electron/s
     assert np.abs(np.sum(iminj.data - im.data) * parameters.reference_data['gain'] /
                   fluxeps - 1) < 0.1
 
@@ -730,7 +781,7 @@ def test_image_input(tmpdir):
     catalog.make_image_catalog(filenames, psf, base_rgc_filename)
 
     # make some metadata to describe an image for us to render
-    roman.n_pix = 500
+    parameters.n_pix = 500
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     meta = util.default_image_meta(coord=coord, filter_name='F087')
     wcs.fill_in_parameters(meta, coord)
@@ -738,7 +789,7 @@ def test_image_input(tmpdir):
 
     # make a table of sources for us to render
     tab = table.Table()
-    cen = imwcs.toWorld(galsim.PositionD(roman.n_pix / 2, roman.n_pix / 2))
+    cen = imwcs.toWorld(galsim.PositionD(parameters.n_pix / 2, parameters.n_pix / 2))
     offsets = np.array([[-300, 300, -100, -200, 0, 0],
                         [0, 100, -200, -100, 0, -300]])
     offsets = offsets * 0.1 / 60 / 60
@@ -757,7 +808,7 @@ def test_image_input(tmpdir):
 
     # did we get all the flux?
     totflux = np.sum(res[0].data - np.median(res[0].data))
-    expectedflux = (romanisim.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
+    expectedflux = (romanisim.models.bandpass.get_abflux('F087', int(meta['instrument']['detector'][3:])) * np.sum(tab['F087'])
                     / parameters.reference_data['gain'])
     assert np.abs(totflux / expectedflux - 1) < 0.1
 
@@ -817,7 +868,7 @@ def make_image_psftype(psftype='epsf'):
         psf_keywords = dict(nlambda=1)
 
     imdict = set_up_image_rendering_things(psftype=psftype)
-    roman.n_pix = 100
+    parameters.n_pix = 100
     coord = SkyCoord(270 * u.deg, 66 * u.deg)
     time = Time('2020-01-01T00:00:00')
     filter_name = 'F158'
@@ -829,13 +880,17 @@ def make_image_psftype(psftype='epsf'):
     imwcs = wcs.get_wcs(meta, usecrds=False)
     sourcecen = (50, 50)
     center = util.skycoord(imwcs.toWorld(galsim.PositionI(*sourcecen)))
-    abfluxdict = romanisim.bandpass.compute_abflux(sca)
+    abfluxdict = romanisim.models.bandpass.compute_abflux(sca, galsim_filter_name=False)
     for o in graycat:
         o.sky_pos = center
         o.flux[filter_name] /= abfluxdict[f'SCA{sca:02}'][filter_name]
         o.flux[filter_name] *= 10  # Make source 10x brighter for better SNR
+    # Turn off CRs for these PSF tests
+    # if we want to turn them back on we need to adjust the image sizes
+    # or CR rate so that an entire array worth of CRs is not injected
+    # into a small stamp.
     l2 = image.simulate(meta, graycat, psftype=psftype, level=2,
-                        usecrds=False, crparam=dict(),
+                        usecrds=False, crparam=None,
                         psf_keywords=psf_keywords)
     return l2[0]
 
@@ -850,7 +905,7 @@ def set_up_image_rendering_things(psftype='epsf'):
                              **psf_keywords)
     impsfchromatic = psf.make_psf(1, filter_name, psftype='galsim',
                                   chromatic=True)
-    bandpass = roman.getBandpasses(AB_zeropoint=True)['H158']
+    bandpass = romanisim.models.bandpass.getBandpasses(AB_zeropoint=True)['H158']
     counts = 1000
     fluxdict = {filter_name: counts}
     from copy import deepcopy
@@ -881,3 +936,55 @@ def set_up_image_rendering_things(psftype='epsf'):
                 graycatalog=graycatalog,
                 chromcatalog=chromcatalog, filter_name=filter_name,
                 tabcatalog=tabcat)
+
+
+def test_pixel_convolved_psf_uses_no_pixel():
+    """A pixel-convolved PSF must be drawn with no_pixel.
+
+    If the PSF already carries the pixel response function, we should not
+    convolve it with the pixel a second time.
+    """
+    imwcs = galsim.JacobianWCS(0.11, 0, 0, 0.11)
+    cat = [catalog.CatalogObject(None, galsim.DeltaFunction(),
+                                 {'F158': 1.0})]
+
+    drawn = {}
+    for label, flag in [('auto', False), ('no_pixel', True)]:
+        psfprofile = galsim.Gaussian(sigma=0.2)
+        psfprofile.pixel_convolved = flag
+        im = galsim.ImageF(64, 64, wcs=imwcs, xmin=0, ymin=0)
+        image.add_objects_to_image(
+            im, cat, [32], [32], psfprofile, flux_to_counts_factor=1000.,
+            filter_name='F158', seed=1)
+        drawn[label] = im.array.copy()
+
+    def second_moment(a):
+        y, x = np.mgrid[:a.shape[0], :a.shape[1]]
+        cx = (x * a).sum() / a.sum()
+        return ((x - cx) ** 2 * a).sum() / a.sum()
+
+    # skipping the pixel convolution must make the rendered source narrower,
+    # by about the variance of a one-pixel top hat
+    assert second_moment(drawn['auto']) > second_moment(drawn['no_pixel'])
+    np.testing.assert_allclose(
+        second_moment(drawn['auto']) - second_moment(drawn['no_pixel']),
+        1 / 12, rtol=0.05)
+
+
+def test_pixel_convolved_psf_refuses_photon_shooting():
+    """Verify that PSFs that are already pixel-convolved cannot use
+    photon shooting.
+    """
+    imwcs = galsim.JacobianWCS(0.11, 0, 0, 0.11)
+    bandpass = romanisim.models.bandpass.getBandpasses(
+        AB_zeropoint=True)['H158']
+    sed = galsim.SED('vega.txt', 'nm', 'flambda').withFlux(1, bandpass)
+    cat = [catalog.CatalogObject(None, galsim.DeltaFunction() * sed, None)]
+
+    psfprofile = galsim.Gaussian(sigma=0.2)
+    psfprofile.pixel_convolved = True
+    im = galsim.ImageF(64, 64, wcs=imwcs, xmin=0, ymin=0)
+    with pytest.raises(ValueError, match='photon shooting'):
+        image.add_objects_to_image(
+            im, cat, [32], [32], psfprofile, flux_to_counts_factor=1000.,
+            bandpass=bandpass, seed=1)

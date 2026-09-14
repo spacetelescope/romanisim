@@ -11,18 +11,17 @@ import galsim
 
 from . import log
 import romanisim.catalog
-import romanisim.wcs
+import romanisim.models.wcs
 import romanisim.l1
-import romanisim.bandpass
+import romanisim.models.bandpass
 import romanisim.psf
 import romanisim.image
 import romanisim.persistence
-import romanisim.parameters
+import romanisim.models.parameters
 from roman_datamodels.datamodels import MosaicModel
 import romanisim.util
 import astropy.units as u
 import astropy
-from galsim import roman
 from astropy import table
 import astropy.coordinates
 
@@ -72,7 +71,7 @@ def add_objects_to_l3(l3_mos, source_cat, exptimes, xpos, ypos, psf,
     # Create Image canvas to add objects to
     if isinstance(l3_mos, (MosaicModel, MosaicModel._node_type)):
         sourcecountsall = galsim.ImageF(
-            np.array(l3_mos.data), wcs=romanisim.wcs.GWCS(l3_mos.meta.wcs),
+            np.array(l3_mos.data), wcs=romanisim.models.wcs.GWCS(l3_mos.meta.wcs),
             xmin=0, ymin=0)
     else:
         sourcecountsall = l3_mos
@@ -155,15 +154,15 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     filter_name = res_model.meta.instrument.optical_element
     cat = romanisim.catalog.table_to_catalog(cat, [filter_name])
 
-    wcs = romanisim.wcs.GWCS(res_model.meta.wcs)
+    wcs = romanisim.models.wcs.GWCS(res_model.meta.wcs)
     pixscalefrac = get_pixscalefrac(wcs, res_model.data.shape)
     if psf is None:
         if (pixscalefrac > 1) or (pixscalefrac < 0):
             raise ValueError('weird pixscale!')
         psf = l3_psf(filter_name, pixscalefrac, psftype=psftype, chromatic=False, date=model.meta.coadd_info.time_mean)
-    sca = romanisim.parameters.default_sca
-    maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
-    etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
+    sca = romanisim.models.parameters.default_sca
+    maggytoes = romanisim.models.bandpass.get_abflux(filter_name, sca)
+    etomjysr = romanisim.models.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
 
     Ct = []
     for idx, (x0, y0) in enumerate(zip(x, y)):
@@ -205,7 +204,7 @@ def generate_exptime_array(cat, meta):
     """
 
     # Get wcs for this metadata
-    twcs = romanisim.wcs.GWCS(romanisim.wcs.get_mosaic_wcs(meta))
+    twcs = romanisim.models.wcs.GWCS(romanisim.models.wcs.get_mosaic_wcs(meta))
 
     # Obtain sky positions for objects
     coords = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
@@ -253,6 +252,9 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     the limit that the output pixel scale is 1, this does nothing, but
     provides undersampled output.
 
+    A pixel-convolved ePSF already includes the pixel response function
+    and can be rendered directly using GalSim's no_pixel mode.
+
     Extra arguments are passed to romanisim.psf.make_psf.
 
     Parameters
@@ -272,17 +274,32 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
 
     if scale < 0 or scale > 1:
         raise ValueError('scale must be between 0 and 1')
-    convscale = romanisim.parameters.pixel_scale * np.sqrt(
-        1 - scale**2)
-    if scale == 1:
-        extra_convolution = None
-    else:
-        extra_convolution = galsim.Pixel(
-            convscale * romanisim.parameters.pixel_scale)
+    if kw.get('variable', False):
+        # A VariablePSF interpolates between the PSFs at the four corners of
+        # an SCA using detector pixel positions which isn't right for a mosaic.
+        raise ValueError('l3_psf does not support variable PSFs; the mosaic '
+                         'grid is not the detector grid')
     psf = romanisim.psf.make_psf(filter_name=bandpass,
-                                 sca=romanisim.parameters.default_sca,
-                                 extra_convolution=extra_convolution,
+                                 sca=romanisim.models.parameters.default_sca,
                                  chromatic=chromatic, **kw)
+
+    if getattr(psf, 'pixel_convolved', False):
+        # A pixel-convolved ePSF does not require an additional convolution
+        # to account for the difference between the mosaic pixel scale and the
+        # native pixel scale
+        return psf
+
+    # convscale is already an angle; galsim.Pixel wants one.  Multiplying by
+    # pixel_scale a second time here made the box 0.11 times too small, so
+    # that for scale < 1 the mosaic PSF was missing almost the whole native
+    # pixel.
+    convscale = romanisim.models.parameters.pixel_scale * np.sqrt(
+        1 - scale**2)
+    if scale != 1:
+        psf = galsim.Convolve(psf, galsim.Pixel(convscale))
+    # galsim.Convolve returns a new object, so set the flag on the result
+    # rather than relying on it being carried over.
+    psf.pixel_convolved = False
     return psf
 
 
@@ -345,9 +362,9 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     meta = mosaic_node.meta
 
     # add romanisim defaults
-    for key in romanisim.parameters.default_mosaic_parameters_dictionary.keys():
+    for key in romanisim.models.parameters.default_mosaic_parameters_dictionary.keys():
         meta[key].update(
-            romanisim.parameters.default_mosaic_parameters_dictionary[key])
+            romanisim.models.parameters.default_mosaic_parameters_dictionary[key])
 
     # add user-specified metadata
     romanisim.util.merge_dicts(meta, metadata)
@@ -359,18 +376,18 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
     log.info('Simulating filter {0}...'.format(filter_name))
 
     # Get filter and bandpass
-    galsim_filter_name = romanisim.bandpass.roman2galsim_bandpass[filter_name]
+    galsim_filter_name = romanisim.models.bandpass.roman2galsim_bandpass[filter_name]
     if bandpass is None:
-        bandpass = roman.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
+        bandpass = romanisim.models.bandpass.getBandpasses(AB_zeropoint=True)[galsim_filter_name]
 
     # Create initial galsim image; galsim wants x/y instead of normal shape
-    image = galsim.ImageF(shape[1], shape[0], wcs=romanisim.wcs.GWCS(wcs),
+    image = galsim.ImageF(shape[1], shape[0], wcs=romanisim.models.wcs.GWCS(wcs),
                           xmin=0, ymin=0)
 
     # Using the default SCA
-    sca = romanisim.parameters.default_sca
+    sca = romanisim.models.parameters.default_sca
     pixscalefrac = get_pixscalefrac(image.wcs, shape)
-    etomjysr = romanisim.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
+    etomjysr = romanisim.models.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
     # this should really be per-pixel to deal with small distortions,
     # but these are 0.01% 1 degree away in a tangent plane projection,
     # and we ignore them.
@@ -382,24 +399,24 @@ def simulate(shape, wcs, efftimes, filter_name, catalog, nexposures=1,
             date = astropy.time.Time(date, format='mjd')
 
         mos_cent_pos = image.wcs.toWorld(image.true_center)
-        sky_level = roman.getSkyLevel(bandpass, world_pos=mos_cent_pos,
+        sky_level = romanisim.models.backgrounds.getSkyLevel(bandpass, world_pos=mos_cent_pos,
                                       exptime=1, date=date.to_datetime())
-        sky_level *= (1.0 + roman.stray_light_fraction)
+        sky_level *= (1.0 + romanisim.models.parameters.stray_light_fraction)
         sky = image * 0
         image.wcs.makeSkyImage(sky, sky_level)
-        sky += roman.thermal_backgrounds[galsim_filter_name] * pixscalefrac ** 2
+        sky += romanisim.models.backgrounds.thermal_backgrounds[galsim_filter_name] * pixscalefrac ** 2
     else:
         sky = sky * pixscalefrac ** 2 / etomjysr
         # convert to electrons / s / output pixel
 
     # Flux in AB mags to electrons
-    maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
+    maggytoes = romanisim.models.bandpass.get_abflux(filter_name, sca)
 
     # Set effective read noise
     if effreadnoise is None:
-        readnoise = np.median(romanisim.parameters.reference_data['readnoise'])
+        readnoise = np.median(romanisim.models.parameters.reference_data['readnoise'])
         # read noise in DN
-        gain = np.median(romanisim.parameters.reference_data['gain'])
+        gain = np.median(romanisim.models.parameters.reference_data['gain'])
         effreadnoise = (
             np.sqrt(2) * readnoise * gain)  # electron, difference of two reads
         # sqrt(2) from subtracting one read from another
@@ -471,7 +488,7 @@ def get_pixscalefrac(wcs, shape):
     pos1 = wcs.toWorld(galsim.PositionD(cenpix[0], cenpix[1]))
     pos2 = wcs.toWorld(galsim.PositionD(cenpix[0], (cenpix[1] + 1)))
     pixscale = pos1.distanceTo(pos2).deg * 60 * 60  # arcsec
-    pixscale /= romanisim.parameters.pixel_scale
+    pixscale /= romanisim.models.parameters.pixel_scale
     if (pixscale > 1 and pixscale < 1.05):
         pixscale = 1
         log.info('Setting pixscale to match default.')
@@ -528,7 +545,7 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         catalog of simulated objects in image, noise, and misc. debug
     """
     # Using the default SCA
-    sca = romanisim.parameters.default_sca
+    sca = romanisim.models.parameters.default_sca
 
     if rng is None and seed is None:
         seed = 144
@@ -538,10 +555,10 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
         rng = galsim.UniformDeviate(seed)
 
     if etomjysr is None:
-        etomjysr = romanisim.bandpass.etomjysr(filter_name, sca)
+        etomjysr = romanisim.models.bandpass.etomjysr(filter_name, sca)
 
     if maggytoes is None:
-        maggytoes = romanisim.bandpass.get_abflux(filter_name, sca)
+        maggytoes = romanisim.models.bandpass.get_abflux(filter_name, sca)
 
     # Dictionary to hold simulation artifacts
     extras = {}
@@ -761,7 +778,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     pscale = c1.separation(c2)
 
     metadata['resample']['pixel_scale_ratio'] = (
-        pscale.to(u.arcsec).value / romanisim.parameters.pixel_scale)
+        pscale.to(u.arcsec).value / romanisim.models.parameters.pixel_scale)
     metadata['resample']['pixfrac'] = 0
     # our simulations sort of imply idealized 0 droplet size
     metadata['resample']['pointings'] = nexposures
@@ -772,7 +789,7 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['wcsinfo']['rotation_matrix'] = [[1, 0], [0, 1]]
     metadata['wcsinfo']['pixel_scale'] = pscale.to(u.arcsec).value
     metadata['wcsinfo']['pixel_scale_ref'] = metadata['wcsinfo']['pixel_scale']
-    metadata['wcsinfo']['s_region'] = romanisim.wcs.create_s_region(wcs, shape)
+    metadata['wcsinfo']['s_region'] = romanisim.models.wcs.create_s_region(wcs, shape)
     metadata['wcsinfo']['image_shape'] = shape
     metadata['wcsinfo']['ra'] = c1.ra.to(u.degree).value
     metadata['wcsinfo']['dec'] = c1.dec.to(u.degree).value

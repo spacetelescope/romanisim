@@ -106,11 +106,11 @@ import numpy as np
 import asdf
 import galsim
 from scipy import ndimage
-from . import parameters
-from . import log
-from . import cr
+from . import log, cr
 
 from roman_datamodels.datamodels import ScienceRawModel
+
+from romanisim.models import ipc, parameters
 
 
 def validate_times(tij):
@@ -240,7 +240,8 @@ def dark_decay_for_read(darkdecaysignal, read_start_time):
             * np.exp(-read_times / darkdecaysignal['time_constant']))
 
 
-def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1):
+def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1,
+                     reference_read=False):
     """Add or subtract dark decay signal from resultants.
 
     For each resultant, compute the mean dark decay signal across the
@@ -256,8 +257,11 @@ def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1):
         Read pattern giving frame numbers for each resultant.
     sign : int
         +1 to add, -1 to subtract.
+    reference_read : bool
+        If True, resultants[0] is a reference read taken at the reset time
+        (t = 0) rather than a resultant, and is corrected at that time.
     """
-    tij = read_pattern_to_tij(read_pattern)
+    tij = read_pattern_to_tij(read_pattern, reference_read=reference_read)
     for i in range(resultants.shape[0]):
         correction = np.mean(
             [dark_decay_for_read(darkdecaysignal, tij[i][j])
@@ -268,7 +272,7 @@ def apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1):
 def apportion_counts_to_resultants(
         counts, tij, pedestal=None, pedestal_extra_noise=None,
         inv_linearity=None, crparam=None, persistence=None,
-        tstart=None, rng=None, seed=None):
+        tstart=None, rng=None, seed=None, reference_read=False):
     """Apportion counts to resultants given read times.
 
     This finds a statistically appropriate assignment of electrons to each
@@ -321,12 +325,17 @@ def apportion_counts_to_resultants(
         random number generator
     seed : int
         seed to use for random number generator
+    reference_read : bool
+        If True, prepend a reference read to the resultants, corresponding to a
+        zero time read.  `dq` retains its original shape and will not match
+        resultants in shape.
 
     Returns
     -------
     resultants, dq
-    resultants : np.ndarray[n_resultant, nx, ny]
-        array of n_resultant images giving each resultant
+    resultants : np.ndarray[n_resultant + n_ref, nx, ny]
+        array of n_resultant images giving each resultant.  If
+        n_ref = 1 and the first plane contains the reference read.
     dq : np.ndarray[n_resultant, nx, ny]
         dq array marking CR hits in resultants
     """
@@ -356,11 +365,14 @@ def apportion_counts_to_resultants(
     # should be assigned to this read.
     pij = tij_to_pij(tij, remaining=True)
 
-    # Create arrays to store various photon or electron counts and dq
-    resultants = np.zeros((len(tij),) + counts.shape, dtype='f4')
+    # Create arrays to store various photon or electron counts and dq.
+    # When a reference read is requested it gets an extra leading plane in
+    # resultants, but not in dq
+    nref = 1 if reference_read else 0
+    resultants = np.zeros((len(tij) + nref,) + counts.shape, dtype='f4')
     counts_so_far = np.zeros(counts.shape, dtype='i4')
     resultant_counts = np.zeros(counts.shape, dtype='f4')
-    dq = np.zeros(resultants.shape, dtype=np.uint32)
+    dq = np.zeros((len(tij),) + counts.shape, dtype=np.uint32)
 
     # Set initial instrument counts (always create as array for simplicity)
     # Includes pedestal (detector reset level) and instrumental effects
@@ -375,6 +387,16 @@ def apportion_counts_to_resultants(
     if pedestal_extra_noise is not None:
         pedestal_noise = rng_numpy_pedestal.normal(0, pedestal_extra_noise, counts.shape)
         instrumental_so_far += pedestal_noise
+
+    # The reference read is treated as a zero-time read, before any
+    # charge from the scene has accumulated.  CRs and persistence are not applied.
+    # It does go through the non-linearity curve, however.
+    if reference_read:
+        if inv_linearity is not None:
+            resultants[0, ...] = inv_linearity.apply(
+                instrumental_so_far, electrons=True)
+        else:
+            resultants[0, ...] = instrumental_so_far
 
     if persistence is not None and tstart is None:
         raise ValueError('tstart must be set if persistence is set!')
@@ -416,7 +438,7 @@ def apportion_counts_to_resultants(
                 resultant_counts += counts_so_far + instrumental_so_far
 
         # set the read count to the average of the resultant count
-        resultants[i, ...] = resultant_counts / len(pi)
+        resultants[i + nref, ...] = resultant_counts / len(pi)
 
     if inv_linearity is not None:
         # Update data quality array for inverse linearty coefficients
@@ -486,21 +508,94 @@ def add_read_noise_to_resultants(resultants, tij, read_noise=None, rng=None,
     return resultants
 
 
-def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=None):
+def encode_reference_read(resultants, reference_read,
+                          data_encoding_offset=None):
+    """Encode resultants for an L1 file using a reference read.
+
+    This is the transformation applied on board: the reference read is
+    subtracted from each resultant and a constant offset is added, so that the
+    read noise does not get clipped at zero DN.  The
+    reference read is stored unmodified alongside the resultants, so the
+    transformation is invertible; see `decode_reference_read`.
+
+    Parameters
+    ----------
+    resultants : np.ndarray[n_resultant, ny, nx]
+        resultants in absolute DN
+    reference_read : np.ndarray[ny, nx]
+        reference read in absolute DN
+    data_encoding_offset : int, optional
+        offset in DN added after the reference read is subtracted.  Defaults
+        to parameters.data_encoding_offset.
+
+    Returns
+    -------
+    np.ndarray[n_resultant, ny, nx] (uint16)
+        resultants as stored in an L1 file
+    """
+    if data_encoding_offset is None:
+        data_encoding_offset = parameters.data_encoding_offset
+    encoded = (resultants.astype('f8') - reference_read[None, ...]
+               + data_encoding_offset)
+    return np.clip(encoded, 0, 2 ** 16 - 1).astype(np.uint16)
+
+
+def decode_reference_read(data, reference_read, data_encoding_offset=None):
+    """Recover absolute resultants from L1 data encoded with a reference read.
+
+    This inverts `encode_reference_read`, and is what ``romancal``'s
+    ``dq_init`` step does when it encounters an L1 file containing a reference
+    read.  The inversion is exact except where `encode_reference_read` clipped
+    against zero DN, which the encoding offset exists to prevent.
+
+    Parameters
+    ----------
+    data : np.ndarray[n_resultant, ny, nx]
+        resultants as stored in an L1 file
+    reference_read : np.ndarray[ny, nx]
+        reference read in absolute DN, as stored in an L1 file
+    data_encoding_offset : int, optional
+        offset in DN that was added to the data.  Defaults to
+        parameters.data_encoding_offset.
+
+    Returns
+    -------
+    np.ndarray[n_resultant, ny, nx] (float32)
+        resultants in absolute DN
+    """
+    if data_encoding_offset is None:
+        data_encoding_offset = parameters.data_encoding_offset
+    return (data.astype('f4') + reference_read[None, ...].astype('f4')
+            - data_encoding_offset)
+
+
+def make_asdf(resultants, dq=None, filepath=None, metadata=None,
+              persistence=None, reference_read=None,
+              data_encoding_offset=None):
     """Package and optionally write out an L1 frame.
 
     This routine packages an L1 data file with the appropriate Roman data
     model.  It currently does not do anything with the necessary metadata,
     and leaves that information as filler values.
 
+    If a reference read is given, this routine subtracts the reference read
+    and applies the data_encoding_offset to simulate flight-like data.
+
     Parameters
     ----------
     resultants : np.ndarray[n_resultant, ny, nx] (float)
-        resultants array, giving each of n_resultant resultant images
+        resultants array, giving each of n_resultant resultant images in DN
     filepath : str
         if not None, path of asdf file to L1 image into
     dq : np.ndarray[n_resultant, ny, nx] (int)
         dq array flagging saturated / CR hit pixels
+    reference_read : np.ndarray[ny, nx] (float), optional
+        reference read in DN.  If given, it is subtracted from the
+        resultants and stored in the file.
+    data_encoding_offset : int, optional
+        offset in DN added to the resultants after the reference read is
+        subtracted.  Only used if `reference_read` is given; defaults to
+        parameters.data_encoding_offset.
 
     Returns
     -------
@@ -512,17 +607,35 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     """
 
     nborder = parameters.nborder
-    npix = galsim.roman.n_pix + 2 * nborder
+    npix = parameters.n_pix + 2 * nborder
     out = ScienceRawModel._node_type.create_fake_data(shape=(len(resultants), npix, npix))
     out['amp33'] = np.zeros((len(resultants), 4096, 128), dtype=out.amp33.dtype)
 
     if metadata is not None:
         out['meta'].update(metadata)
     extras = dict()
+
     out['data'][:, nborder:-nborder, nborder:-nborder] = resultants
     if dq is not None:
         extras['dq'] = np.zeros(out['data'].shape, dtype='i4')
         extras['dq'][:, nborder:-nborder, nborder:-nborder] = dq
+
+    if reference_read is not None:
+        if data_encoding_offset is None:
+            data_encoding_offset = parameters.data_encoding_offset
+        data_encoding_offset = int(data_encoding_offset)
+        log.info('Subtracting reference read, encoding offset %d DN...'
+                 % data_encoding_offset)
+        out['meta']['instrument']['data_encoding_offset'] = data_encoding_offset
+        out['reference_read'] = np.zeros((npix, npix), dtype=out['data'].dtype)
+        out['reference_read'][nborder:-nborder, nborder:-nborder] = reference_read
+        out['reference_amp33'] = np.zeros(
+            out['amp33'].shape[1:], dtype=out['amp33'].dtype)
+        # apply data_encoding_offset and reference_read handling
+        out['data'] = encode_reference_read(
+            out['data'], out['reference_read'], data_encoding_offset)
+        out['amp33'] = encode_reference_read(
+            out['amp33'], out['reference_amp33'], data_encoding_offset)
     if persistence is not None:
         extras['persistence'] = persistence.to_dict()
     if filepath:
@@ -532,7 +645,7 @@ def make_asdf(resultants, dq=None, filepath=None, metadata=None, persistence=Non
     return out, extras
 
 
-def read_pattern_to_tij(read_pattern):
+def read_pattern_to_tij(read_pattern, reference_read=False):
     """Get the times of each read going into resultants for a read_pattern.
 
     Parameters
@@ -540,7 +653,10 @@ def read_pattern_to_tij(read_pattern):
     read_pattern : int or list[list]
         If int, id of ma_table to use.
         Otherwise a list of lists giving the indices of the reads entering each
-        resultant.
+        resultant.  A read index of i corresponds to a read i read_times after reset.
+    reference_read : bool
+        If True, prepend a length-one resultant for the reference read at the
+        reset time (t = 0).  
 
     Returns
     -------
@@ -550,32 +666,58 @@ def read_pattern_to_tij(read_pattern):
     if isinstance(read_pattern, int):
         read_pattern = parameters.read_pattern[read_pattern]
     tij = [parameters.read_time * np.array(x) for x in read_pattern]
+    if reference_read:
+        tij = [np.array([0.0])] + tij
     return tij
 
 
-def add_ipc(resultants, ipc_kernel=None):
-    """Add IPC to resultants.
+def add_ipc(resultants, ipc_kernel=None, mode='nearest', cval=0):
+    """Add IPC to resultants, in place.
 
     Parameters
     ----------
     resultants : np.ndarray[n_resultant, ny, nx]
-        resultants describing a scene
-
-    Returns
-    -------
-    np.ndarray[n_resultant, ny, nx]
-        resultants with IPC
+        resultants describing a scene.  Modified in place.
+    ipc_kernel : np.ndarray[3, 3] or None
+        IPC convolution kernel.  Defaults to
+        ``romanisim.models.ipc.ipc_kernel``.
+    mode, cval
+        Boundary handling, passed to ``scipy.ndimage.convolve``.  These
+        parameters handle the treatment of IPC at the edge of the array.
+        The default of ``nearest`` assumes that pixels just off the array
+        are similar to those just inside it, reducing the effect of IPC
+        there.  mode='constant', cval=0 corresponds to averaging with
+        zero-flux pixels and would correspond, e.g., to high background
+        pixels being averaged with zero flux reference border pixels.
     """
-    # add in IPC
-    # the reference pixels have basically no flux, so for these real pixels we
-    # extend the array with a constant equal to zero.
     if ipc_kernel is None:
-        ipc_kernel = parameters.ipc_kernel
+        ipc_kernel = ipc.ipc_kernel
 
     log.info('Adding IPC...')
-    out = ndimage.convolve(resultants, ipc_kernel[None, ...],
-                           mode='constant', cval=0)
-    return out
+    resultants[...] = ndimage.convolve(resultants, ipc_kernel[None, ...],
+                                       mode=mode, cval=cval)
+
+
+def expand_jump_flags(dq, kernel_shape=(3, 3)):
+    """Grow the jump flags to cover the IPC kernel, in place.
+
+    IPC redistributes the charge a cosmic ray deposits into the neighboring
+    pixels, so the ramps of those pixels have jumps in them too.  romanisim
+    flags jumps artificially---we know where we put the CRs and pretend that
+    the pipeline has found them---and this keeps that idealization consistent
+    with the IPC application.
+
+    Parameters
+    ----------
+    dq : np.ndarray[n_resultant, ny, nx] (uint32)
+        DQ array marking CR hits in resultants.  Modified in place.
+    kernel_shape : tuple[int, int]
+        Shape of the IPC kernel over which the charge has been spread.
+    """
+    jump = parameters.dqbits['jump_det']
+    # a (1, ny, nx) structuring element dilates each resultant separately
+    structure = np.ones((1,) + tuple(kernel_shape), dtype=bool)
+    dq[ndimage.binary_dilation((dq & jump) != 0, structure=structure)] |= jump
 
 
 def make_l1(counts, read_pattern,
@@ -583,7 +725,7 @@ def make_l1(counts, read_pattern,
             rng=None, seed=None,
             gain=None, inv_linearity=None, crparam=None,
             persistence=None, tstart=None, saturation=None,
-            darkdecaysignal=None):
+            darkdecaysignal=None, ipc_model=None, reference_read=False):
     """Make an L1 image from a total electrons image.
 
     This apportions the total electrons among the different resultants and adds
@@ -623,16 +765,30 @@ def make_l1(counts, read_pattern,
         Dictionary with keys 'amplitude', 'time_constant', and 'sca'
         describing the dark decay signal.  If None, no dark decay is
         added.
+    reference_read : bool
+        If True, also simulate a reference read and return it.  The reference
+        read is carried through IPC, gain, dark decay, read noise, and
+        quantization alongside the resultants.  It is not subtracted
+        from the resultants here; that transformation occurs later in make_asdf.
 
     Returns
     -------
     l1 : np.ndarray[n_resultant, ny, nx]
         Resultants image array in DN including systematic effects
     dq : np.ndarray[n_resultant, ny, nx]
-        DQ array marking saturated pixels and cosmic rays
+        DQ array marking saturated pixels and cosmic rays.  The cosmic ray
+        flags cover the IPC kernel, since the IPC spreads each cosmic ray
+        into its neighbors.
+    reference_read : np.ndarray[ny, nx]
+        Reference read in DN.  Only returned if `reference_read` is set.
     """
 
     tij = read_pattern_to_tij(read_pattern)
+    nref = 1 if reference_read else 0
+    # the reference read is a single read at t = 0; tij_all is used in
+    # add_read_noise_to_resultants and indicates that the reference read
+    # corresponds to a single read resultant
+    tij_all = read_pattern_to_tij(read_pattern, reference_read=reference_read)
 
     # Set defaults for pedestal parameters if not specified
     if pedestal is None:
@@ -646,11 +802,21 @@ def make_l1(counts, read_pattern,
         pedestal=pedestal, pedestal_extra_noise=pedestal_extra_noise,
         inv_linearity=inv_linearity, crparam=crparam,
         persistence=persistence, tstart=tstart,
-        rng=rng, seed=seed)
+        rng=rng, seed=seed, reference_read=reference_read)
 
     # roman.addReciprocityFailure(resultants_object)
 
-    add_ipc(resultants)
+    if ipc_model is not None:
+        ipc_model.apply(resultants)
+        ipc_kernel = ipc_model.ipc_kernel
+    else:
+        add_ipc(resultants)
+        ipc_kernel = ipc.ipc_kernel
+
+    if crparam is not None:
+        # the IPC has smeared each CR out over the kernel, so the pixels
+        # around it have jumps in their ramps too.
+        expand_jump_flags(dq, kernel_shape=np.shape(ipc_kernel))
 
     # resultants are in electrons
     if gain is None:
@@ -662,12 +828,13 @@ def make_l1(counts, read_pattern,
     # resultants are now in DN
     # Add dark decay signal (purely additive electronic effect in DN)
     if darkdecaysignal is not None:
-        apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1)
+        apply_dark_decay(resultants, darkdecaysignal, read_pattern, sign=1,
+                         reference_read=reference_read)
 
     # read noise is in DN
     log.info('Adding read noise...')
     resultants = add_read_noise_to_resultants(
-        resultants, tij, rng=rng, seed=seed,
+        resultants, tij_all, rng=rng, seed=seed,
         read_noise=read_noise)
 
     # quantize
@@ -682,7 +849,11 @@ def make_l1(counts, read_pattern,
     # is in detail.
     # let things go a little higher than saturation
     resultants = np.clip(resultants, 0, saturation * 1.1)  # DN
-    m = resultants >= saturation
+    m = resultants[nref:] >= saturation
     dq[m] |= parameters.dqbits['saturated']
+
+    if reference_read:
+        # views into the same buffer; the two blocks are disjoint
+        return resultants[nref:], dq, resultants[0]
 
     return resultants, dq

@@ -1,0 +1,395 @@
+import galsim
+import numpy as np
+
+from astropy import units as u
+from roman_datamodels import datamodels
+
+from .gain import gain as default_gain
+from .parameters import dqbits, nborder, exptime
+from ._util import get_ref_files
+
+__all__ = ["NLfunc", "Nonlinearity", "addReciprocityFailure"]
+
+# Default nonlinearity beta value
+nonlinearity_beta = -6.0e-7
+
+reciprocity_alpha = 0.0065
+
+# def print_ram_usage(message=""):
+#     process = psutil.Process(os.getpid())
+#     mem_info = process.memory_info()
+
+#     print(f"{message}, RSS (Resident Set Size): {mem_info.rss / 1024 / 1024:.2f} MB")
+#     print(f"{message}, VMS (Virtual Memory Size): {mem_info.vms / 1024 / 1024:.2f} MB")
+
+
+def NLfunc(x):
+    return x + nonlinearity_beta * (x**2)
+
+def addReciprocityFailure(img, exptime=exptime):
+    img.addReciprocityFailure(exp_time=exptime, alpha=reciprocity_alpha, base_flux=1.0)
+
+def repair_coefficients(coeffs, dq=None, getdq=False):
+    """Fix cases of zeros and NaNs in non-linearity coefficients.
+
+    This function replaces suspicious-looking non-linearity coefficients
+    with identity transformation coefficients from a non-linearity
+    perspective; all coefficients are zero except for the linear term,
+    which is set to 1.
+
+    This function doesn't try to make sure that the derivative of the
+    correction is greater than 1, which we would expect for a non-linearity
+    correction.
+
+    Parameters
+    ----------
+    coeffs : np.ndarray[ncoeff, ny, nx] (float)
+        Nonlinearity coefficients, starting with the constant term and
+        increasing in power.
+    getdq : bool, optional
+        If True, additionally OR in a DQ bit (``dqbits["no_lin_corr"]``) for
+        pixels that were repaired, and store the result in ``self.dq``.
+
+    dq : np.ndarray[n_resultant, ny, nx]
+        Data Quality array
+
+    Returns
+    -------
+    coeffs : np.ndarray[ncoeff, ny, nx] (float)
+        "repaired" coefficients with NaNs and weird coefficients replaced
+        with linear values with slopes of unity.
+    """
+    res = coeffs.copy()
+
+    if dq is None:
+        dq = np.zeros(coeffs.shape[1:], dtype=np.uint32)
+
+    nocorrection = np.zeros(coeffs.shape[0], dtype=coeffs.dtype)
+    nocorrection[1] = 1.0  # "no correction" is just normal linearity.
+    # For NaN, all zero, or flagged pixels, reset to no correction.
+    m = (
+        np.any(~np.isfinite(coeffs), axis=0)
+        | np.all(coeffs == 0, axis=0)
+        | (dq != 0)
+    )
+    res[:, m] = nocorrection[:, None]
+
+    # [TODO] deal with dq
+    if getdq:
+        lin_dq_array = np.zeros(coeffs.shape[1:], dtype=np.uint32)
+        lin_dq_array[m] = dqbits["no_lin_corr"]
+        dq = np.bitwise_or(dq, lin_dq_array)
+    return res, dq
+
+def evaluate_nl_polynomial(counts, coeffs, reversed=False):
+    """Correct the observed DN for non-linearity.
+
+    As electrons accumulate, they make it harder for the device to count
+    future electrons due to classical non-linearity.  This function
+    converts observed DN to what would have been seen absent
+    non-linearity, using the provided non-linearity coefficients.
+
+    Parameters
+    ----------
+    counts : np.ndarray[ny, nx] (float)
+        Number of DN already in pixel
+    coeffs : np.ndarray[ncoeff, ny, nx] (float)
+        Coefficients of the non-linearity correction polynomials
+    reversed : bool
+        If True, the coefficients are in reversed order, which is the
+        order that np.polyval wants them.  One can maybe save a little
+        time reversing them once ahead of time.
+
+    Returns
+    -------
+    corrected : np.ndarray[nx, ny] (float)
+        The corrected number of DN
+    """
+    if reversed:
+        cc = coeffs
+    else:
+        cc = coeffs[::-1, ...]
+
+    if isinstance(counts, u.Quantity):
+        unit = counts.unit
+        counts = counts.value
+    else:
+        unit = None
+
+    res = np.polyval(cc, counts)
+
+    if unit is not None:
+        res = res * unit
+
+    return res
+
+
+class Nonlinearity(object):
+    """
+    Apply Roman/WFI classical nonlinearity correction using polynomial coefficients.
+
+    The correction is represented as a per-pixel polynomial evaluated with
+    `numpy.polyval`. By default a simple 2-term polynomial is used:
+
+        y = 1 * x + beta * x^2
+
+    where ``beta`` is the module-level ``nonlinearity_beta``. When
+    ``usecrds=True``, per-pixel coefficients are loaded from the Roman CRDS
+    *inverse linearity* reference (reftype ``inverselinearity``). A gain map
+    can also be loaded from CRDS (reftype ``gain``), allowing the correction
+    to be applied to images stored in electrons.
+
+    Parameters
+    ----------
+    usecrds : bool, optional
+        If True, query CRDS and load per-pixel polynomial coefficients from the
+        ``inverselinearity`` reference and a gain map from the ``gain`` reference.
+        If False, use the module defaults.
+    reftype : str, optional
+        CRDS reference type to use for the polynomial coefficients. Typical
+        values include ``"inverselinearity"`` when applying nonlinearity and
+        ``"linearity"`` when removing it.
+    getdq : bool, optional
+        If True and ``usecrds=True``, also read the DQ array from the CRDS
+        inverselinearity file and store it as ``self.dq`` (cropped by ``nborder``).
+    integralnonlinearity : object or None, optional
+        Optional integral nonlinearity reference model. If provided, the class
+        constructs channel-based lookup corrections that are added after the
+        polynomial correction.
+    metadata : dict or None, optional
+        Metadata overrides to apply before CRDS lookup. If provided, values
+        are merged into the model metadata tree.
+    saturation : float or None, optional
+        Optional upper clipping threshold applied before evaluating the
+        nonlinearity correction.
+    coeffs : numpy.ndarray or None, optional
+        Explicit polynomial coefficients to use instead of loading them from
+        CRDS or using module defaults. Coefficients should be ordered from
+        lowest to highest polynomial degree.
+    gain : float or numpy.ndarray or None, optional
+        Explicit gain value or gain map to use when ``electrons=True`` in
+        :meth:`apply`.
+    
+    Attributes
+    ----------
+    coeffs : numpy.ndarray
+        Nonlinearity polynomial coefficients with shape ``(ncoeff, ny, nx)``.
+        Coefficients are stored in *increasing* power order
+        (constant term first), consistent with the source CRDS file and the
+        usage in `_evaluate_nl_polynomial` (which reverses by default for
+        `numpy.polyval`).
+    gain : float or numpy.ndarray
+        Gain used to convert between electrons and DN when `electrons=True` in
+        `apply()`. Defaults to `.gain.gain` unless replaced by CRDS gain map.
+    dq : numpy.ndarray or None
+        Only set when ``usecrds=True`` (and read from CRDS). If `getdq=False`,
+        may be `None`. Note: current code does not always propagate/update DQ
+        flags unless `getdq=True` is passed into `_repair_coefficients`.
+    """
+
+    def __init__(
+        self,
+        usecrds=False,
+        reftype="inverselinearity",
+        getdq=False,
+        integralnonlinearity=None,
+        metadata=None,
+        image_mod=None,
+        reffiles=None,
+        saturation=None,
+        coeffs=None,
+        gain=None,
+    ):
+        if gain is not None:
+            self.gain = gain
+        else:
+            self.gain = default_gain
+        self.usecrds = usecrds
+        self.metadata = metadata
+        self.getdq = getdq
+        if coeffs is not None:
+            if getdq:
+                self.coeffs, self.dq = repair_coefficients(coeffs, getdq=getdq)
+            else:
+                self.coeffs, _ = repair_coefficients(coeffs)
+        else:
+            self.coeffs = np.array([1.0, nonlinearity_beta])
+        self.saturation = saturation
+        self.reftype = reftype
+        self.integralnonlinearity = integralnonlinearity
+        self.inl_corrs = None
+        self.inl_lookup = None
+        self.ref_file = {}
+        if self.usecrds:
+            self._get_crds_model(metadata=self.metadata, getdq=getdq, image_mod=image_mod, reffiles=reffiles)
+        
+        if self.integralnonlinearity is not None:
+            if "integralnonlinearity" in self.ref_file.keys() and isinstance(self.ref_file["integralnonlinearity"], str):
+                inl_model = datamodels.open(self.ref_file["integralnonlinearity"])
+            else:
+                if hasattr(self.integralnonlinearity, 'value') and hasattr(self.integralnonlinearity, 'inl_table'):
+                    inl_model = self.integralnonlinearity
+            channel_width = 128
+            ncols = self.coeffs.shape[2]
+            self.inl_lookup = inl_model.value.copy()
+            self.inl_corrs = {}
+            sign = -1 if self.reftype == "inverselinearity" else 1
+            for start_col in range(0, ncols, channel_width):
+                channel_num = start_col // channel_width + 1
+                attr_name = f"science_channel_{channel_num:02d}"
+                self.inl_corrs[channel_num] = (
+                    sign
+                    * getattr(inl_model.inl_table, attr_name).correction.copy()
+                )
+
+    def _get_crds_model(self, getdq=False, metadata=None, image_mod=None, reffiles=None):
+        """Load nonlinearity and gain reference data from CRDS.
+        This method resolves the required reference files, loads the gain map
+        and nonlinearity coefficients, crops them by ``nborder``, and repairs
+        invalid coefficient values when needed. If integral nonlinearity is
+        enabled, the corresponding reference file is also resolved.
+
+        Parameters
+        ----------
+        getdq : bool, optional
+            If True, also read the DQ array from the nonlinearity reference
+            file and propagate repair flags.
+        metadata : dict or None, optional
+            Metadata overrides used when selecting CRDS reference files.
+        image_mod : roman_datamodels.datamodels.ImageModel or None, optional
+            Existing image model whose metadata may be used to determine the
+            appropriate reference files. If provided, these values are used 
+            preferentially when available.
+        reffiles : dict or None, optional
+            Optional mapping of reference file types to file paths. If
+            provided, these values are used preferentially (with lower 
+            priority than image_mod) when available.
+        
+        Returns
+        -------
+        None
+            This method updates object attributes in place.
+        """
+        
+        # Inverse linearity reference files are used to apply the
+        # effect of classical non-linearity when constructing
+        # L1 files, and linearity reference files are used to
+        # remove it when constructing L2 files.
+        
+        if self.integralnonlinearity:
+            reftypes = [self.reftype, "gain", "integralnonlinearity"]
+        else:
+            reftypes = [self.reftype, "gain"]
+        
+        self.ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=reftypes)
+        
+        if isinstance(self.ref_file['gain'], str):
+            model = datamodels.open(self.ref_file['gain'])
+            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
+        
+        if isinstance(self.ref_file[self.reftype], str):
+            nl_model = datamodels.open(self.ref_file[self.reftype])
+            if getdq:
+                self.dq = nl_model.dq[nborder:-nborder, nborder:-nborder].copy()
+            else:
+                self.dq = None
+            if self.getdq:
+                self.coeffs, self.dq = repair_coefficients(
+                    coeffs=nl_model.coeffs[
+                        :, nborder:-nborder, nborder:-nborder
+                    ].copy(),
+                    dq=self.dq,
+                    getdq=self.getdq,
+                )
+            else:
+                self.coeffs, _ = repair_coefficients(
+                    coeffs=nl_model.coeffs[
+                        :, nborder:-nborder, nborder:-nborder
+                    ].copy()
+                )
+
+    def apply(self, img, electrons=False, reversed=False):
+        """Compute the correction of DN to linearized DN.
+
+        Alternatively, when electrons = True, rescale these to DN,
+        correct the DN, and scale them back to electrons using
+        the gain.
+
+        Parameters
+        ----------
+        img : numpy.ndarray or galsim.Image
+            The observed img
+
+        electrons : bool
+            Set to True for 'img' being in electrons, with coefficients
+            designed for DN. Accordingly, the gain needs to be removed and
+            reapplied.
+
+        reversed : bool
+            If True, the coefficients are in reversed order, which is the
+            order that np.polyval wants them.  One can maybe save a little
+            time reversing them once ahead of time.
+        """
+
+        if isinstance(img, galsim.Image):
+            img_arr = img.array
+        else:
+            img_arr = img
+
+        if electrons:
+            img_arr = img_arr / self.gain
+
+        if self.saturation is not None:
+            img_arr = np.clip(img_arr, -1000, self.saturation)
+
+        corrected = evaluate_nl_polynomial(
+            img_arr, self.coeffs, reversed
+        )
+
+        if self.inl_corrs is not None and img_arr.ndim >= 2:
+            corrected = corrected + self.inl_correction(img_arr)
+
+        if electrons:
+            corrected = corrected * self.gain
+
+        if isinstance(img, galsim.Image):
+            img.array = corrected
+        else:
+            img = corrected
+        return img
+
+    def inl_correction(self, counts):
+        """Compute the integral nonlinearity correction.
+
+        Parameters
+        ----------
+        counts : np.ndarray
+            The counts in DN to compute the correction for.
+
+        Returns
+        -------
+        correction : np.ndarray
+            The INL correction to be added to the counts.
+        """
+        # only do an INL correction if we've been passed
+        # some kind of vaguely image-like quantity.
+        if np.ndim(counts) < 2:
+            return 0
+        channel_width = 128
+        ncols = counts.shape[-1]
+        correction = np.zeros_like(counts)
+        for channel_num in sorted(self.inl_corrs):
+            # Column range in the original (untrimmed) image
+            orig_start = (channel_num - 1) * channel_width
+            orig_end = channel_num * channel_width
+            # Convert to trimmed coordinates
+            trim_start = max(0, orig_start - nborder)
+            trim_end = min(ncols, orig_end - nborder)
+            if trim_start >= trim_end:
+                continue
+            channel_corr = self.inl_corrs[channel_num]
+            channel_data = counts[..., trim_start:trim_end]
+            correction[..., trim_start:trim_end] = np.interp(
+                channel_data, self.inl_lookup, channel_corr
+            )
+        return correction

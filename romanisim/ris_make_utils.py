@@ -12,14 +12,14 @@ from astropy import time
 from astropy import coordinates
 from astropy import units as u
 import galsim
-from galsim import roman
 import roman_datamodels
-from romanisim import catalog, image, wcs
-from romanisim import parameters, log
+from romanisim import catalog, image, log
 from romanisim.util import calc_scale_factor
 import romanisim
 import crds
 from crds.client import api
+
+from romanisim.models import wcs, parameters
 
 
 NMAP = {'apt': 'http://www.stsci.edu/Roman/APT'}
@@ -93,7 +93,7 @@ def apply_meta_args(args, metadata):
 
 
 def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
-                 ma_table_number=4, truncate=None, scale_factor=1.0, usecrds=False):
+                 ma_table_number=4, truncate=None, scale_factor=-1.0, usecrds=False):
     """
     Set / Update metadata parameters
 
@@ -110,7 +110,9 @@ def set_metadata(meta=None, date=None, bandpass='F087', sca=7,
     ma_table_number : int
         Integer specifying which MA Table entry to use
     scale_factor : float
-        Velocity aberration-induced scale factor
+        Velocity aberration-induced scale factor.  A non-positive value
+        (the default) computes the scale factor from the exposure start
+        time and reference pointing via ``calc_scale_factor``.
     usecrds : bool
         Use CRDS to get MA table reference file
 
@@ -219,7 +221,7 @@ def create_catalog(metadata=None, catalog_name=None, bandpasses=['F087'],
         raise ValueError('Must set either catalog_name or metadata')
 
     if coord is None:
-        coord = (roman.n_pix / 2, roman.n_pix / 2)
+        coord = (parameters.n_pix / 2, parameters.n_pix / 2)
 
     distortion_file = parameters.reference_data["distortion"]
     if distortion_file is not None:
@@ -380,7 +382,8 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, psf_keyword
     im, extras = image.simulate(
         metadata, cat, usecrds=args.usecrds,
         psftype=args.psftype, level=args.level, persistence=persist,
-        rng=rng, psf_keywords=psf_keywords, **kwargs)
+        rng=rng, psf_keywords=psf_keywords,
+        reference_read=getattr(args, 'reference_read', False), **kwargs)
 
     # Create metadata for simulation parameter
     romanisimdict = deepcopy(vars(args))
@@ -399,10 +402,12 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, psf_keyword
     im['meta']['filename'] = basename
 
     pretend_spectral = getattr(args, 'pretend_spectral', None)
-    if pretend_spectral is not None:
+    if (pretend_spectral is not None) or (args.bandpass=="GRISM") or (args.bandpass=="PRISM"):
         im['meta']['exposure']['type'] = 'WFI_SPECTRAL'
-        im['meta']['instrument']['optical_element'] = (
-            args.pretend_spectral.upper())
+        # grism/prism already sets this. 
+        if pretend_spectral is not None:
+            im['meta']['instrument']['optical_element'] = (
+                args.pretend_spectral.upper())
         gs = im['meta']['guide_star']
         if 'window_xstart' in gs:
             gs['window_xstop'] = gs['window_xstart'] + 170

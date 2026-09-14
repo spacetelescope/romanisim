@@ -27,7 +27,8 @@ dependencies = [
   # "roman_datamodels @ git+https://github.com/spacetelescope/roman_datamodels.git",
   "gwcs >=0.25.0",
   "numpy >1.26",
-  "photutils >=2.3.0",  
+  "photutils >=2.3.0",
+  "roman-technical-information >=1.5",
 ]
 license-files = ["LICENSE"]
 dynamic = ["version"]
@@ -88,6 +89,12 @@ addopts = [
 ]
 
 [tool.coverage.run]
+# Without `source`, coverage reports only the files that were imported during
+# the run; a module that nothing imports is absent from the report rather than
+# counted as zero, so adding an untested module would not lower the coverage
+# fraction at all.  Naming the package makes the denominator the package
+# itself, independent of import behaviour.
+source = ["romanisim"]
 omit = [
   "romanisim/conftest.py",
   "romanisim/setup.py",
@@ -98,6 +105,7 @@ omit = [
   "*/romanisim/regtest/test*",
   "*/romanisim/*/tests/*",
   "*/docs/*",
+  "*/romanisim/data/*",  # vendored roman-technical-information
 ]
 
 [tool.coverage.report]
@@ -111,7 +119,22 @@ exclude_lines = [
 ]
 
 [tool.ruff.lint]
+# Select the rules explicitly rather than relying on ruff's defaults, which
+# change between releases; ruff 0.16 expanded the default selection from E/F
+# to ~40 rule families, which flags hundreds of pre-existing issues.
+select = ["E", "F"]
 extend-ignore = ["E501"]
 
+[tool.cibuildwheel]
+build = "cp311-*"  # build for CPython 3.11 Stable API
+skip = ["cp314t-*"]  # explicitly skip free-threaded builds
+test-command = "python -c 'import galsim; import numpy as np; from romanisim import ramp_fit_casertano; galsim.fft.fft2(np.zeros((10, 10)))'"
+
 [tool.cibuildwheel.macos]
-before-build = "brew install eigen fftw"
+before-all = "brew install eigen fftw"
+
+[tool.cibuildwheel.macos.environment]
+FFTW_DIR = "/opt/homebrew/opt/fftw/lib/"
+
+[tool.cibuildwheel.linux]
+before-all = "yum install -y fftw-devel || apk add fftw"  # manylinux is AlmaLinux; musllinux is Alpine
