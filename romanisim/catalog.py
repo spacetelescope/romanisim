@@ -34,6 +34,10 @@ F184_KS_COEFF = 0.3838145747397368
 # Bandpass filters
 BANDPASSES = set(romanisim.models.bandpass.galsim2roman_bandpass.values())
 
+# Number of low bits of a synthesized source_id reserved for the row number
+# within a single healpix catalog file; see source_id_column.
+SOURCE_ID_ROW_BITS = 36
+
 
 @dataclasses.dataclass
 class CatalogObject:
@@ -41,10 +45,75 @@ class CatalogObject:
 
     Flux element contains the total AB flux from the source; i.e., the
     -2.5*log10(flux[filter_name]) would be the AB magnitude of the source.
+
+    The source_id element identifies the catalog entry this object came from;
+    it is propagated to the simcatobj table of rendered sources.  It is -1 for
+    objects with no known provenance.
     """
     sky_pos: galsim.CelestialCoord
     profile: galsim.GSObject
     flux: dict
+    source_id: int = -1
+
+
+def source_id_column(cat, healpix_index=None, synthesize=True):
+    """Get identifiers for the rows of a catalog, synthesizing them if needed.
+
+    If the catalog already has a source_id column it is returned unchanged.
+    Such a column must be of integer type.  Otherwise identifiers are synthesized
+    from the row number.  For a single
+    catalog file the row number is used directly, so the source_id of an entry
+    is its line number in the input file.  For a directory of healpix
+    catalogs, the healpix index
+    and the row number are packed into one integer:
+
+        source_id = healpix_index * 2 ** SOURCE_ID_ROW_BITS + row
+
+    in order to keep source_ids unique across files.
+
+    Parameters
+    ----------
+    cat : astropy.table.Table
+        catalog to get identifiers for
+    healpix_index : int or None
+        healpix index of the file this catalog was read from, if it is one
+        file of a directory of healpix catalogs.
+    synthesize : bool
+        Synthesize identifiers for a catalog that has no source_id column.
+        If False, return -1 for each row instead, marking the entries as
+        unidentified.
+
+    Returns
+    -------
+    np.ndarray
+        source_id for each row of cat
+
+    Raises
+    ------
+    ValueError
+        if cat has a non-integer source_id column, or if the healpix index
+        and the row numbers do not fit in a 64 bit integer
+    """
+    if 'source_id' in cat.dtype.names:
+        out = np.asarray(cat['source_id'])
+        if out.dtype.kind not in 'iu':
+            raise ValueError(
+                f'source_id must be an integer column, not {out.dtype}.')
+        return out
+
+    if not synthesize:
+        return np.full(len(cat), -1, dtype='i8')
+
+    row = np.arange(len(cat), dtype='i8')
+    if healpix_index is None:
+        return row
+
+    max_healpix = 2 ** (63 - SOURCE_ID_ROW_BITS)
+    if healpix_index >= max_healpix or len(cat) > 2 ** SOURCE_ID_ROW_BITS:
+        raise ValueError(
+            f'Cannot pack healpix index {healpix_index} and {len(cat)} rows '
+            'into a 64 bit source_id; adjust SOURCE_ID_ROW_BITS.')
+    return healpix_index * 2 ** SOURCE_ID_ROW_BITS + row
 
 
 def make_dummy_catalog(coord,
@@ -180,6 +249,9 @@ def make_dummy_table_catalog(coord,
     t3 = make_stars(coord, radius=radius / 100, rng=rng, n=int(nobj * 0.1),
                     bandpasses=bandpasses, truncation_radius=radius * 0.3)
     cat_table = table.vstack([t1, t2, t3])
+
+    # the source_ids of the stacked pieces collide; renumber the whole thing.
+    cat_table['source_id'] = np.arange(len(cat_table), dtype='i8')
 
     return cat_table
 
@@ -342,8 +414,10 @@ def make_cosmos_galaxies(coord,
     types = np.zeros(len(sim_ids), dtype='U3')
     types[:] = 'SER'
 
-    # Return Table with source parameters
+    # Return Table with source parameters.  The COSMOS IDs are sampled with
+    # replacement and so are not unique; use the row number instead.
     out = table.Table()
+    out['source_id'] = np.arange(len(sim_ids), dtype='i8')
     out['ra'] = locs.ra.to(u.deg).value
     out['dec'] = locs.dec.to(u.deg).value
     out['type'] = types
@@ -459,6 +533,7 @@ def make_galaxies(coord,
     hlr[hlr < 0.01] = 0.01
 
     out = table.Table()
+    out['source_id'] = np.arange(n, dtype='i8')
     out['ra'] = locs.ra.to(u.deg).value
     out['dec'] = locs.dec.to(u.deg).value
     out['type'] = types
@@ -521,6 +596,7 @@ def make_gaia_stars(coord,
 def read_one_healpix(filename,
                      date=None,
                      bandpasses=None,
+                     healpix_index=None,
                      **kwargs
                      ):
     """Make a catalog of stars from a Gaia catalog files, sorted by Healpix.
@@ -539,6 +615,9 @@ def read_one_healpix(filename,
         Optional argument to provide a date and time for stellar search
     bandpasses : list[str]
         List of names of bandpasses for which to generate fluxes.
+    healpix_index : int
+        Healpix index of this file.  Only used to synthesize source_id values
+        for files that do not provide their own; see source_id_column.
 
     Returns
     -------
@@ -548,6 +627,8 @@ def read_one_healpix(filename,
 
     # Open healpix file
     cat_table = table.Table.read(filename)
+    cat_table['source_id'] = source_id_column(
+        cat_table, healpix_index=healpix_index)
 
     # Check for RSIM Gaia catalog
     if 'phot_g_mean_mag' in cat_table.colnames:
@@ -634,6 +715,7 @@ def make_stars(coord,
     sersic_index = mag * 0 - 1
 
     out = table.Table()
+    out['source_id'] = np.arange(n, dtype='i8')
     out['ra'] = locs.ra.to(u.deg).value
     out['dec'] = locs.dec.to(u.deg).value
     out['type'] = types
@@ -670,6 +752,9 @@ def image_table_to_catalog(table, bandpasses):
 
     Additionally there must be a column for each bandpass giving the total flux
     in that bandbass, integrating over the image.
+
+    An optional source_id column identifies the catalog entries; it is
+    propagated to the simcatobj table of rendered sources.
 
     The file name for the RealGalaxyCatalog must be present in the
     'real_galaxy_catalog_filename' keyword in the table metadata.
@@ -710,6 +795,7 @@ def image_table_to_catalog(table, bandpasses):
                                   frame='icrs')
     all_ra_radians = allpos.ra.to(u.rad).value * galsim.radians
     all_dec_radians = allpos.dec.to(u.rad).value * galsim.radians
+    source_id = source_id_column(table, synthesize=False)
 
     for i in range(len(table)):
         pos = galsim.CelestialCoord(all_ra_radians[i], all_dec_radians[i])
@@ -721,7 +807,7 @@ def image_table_to_catalog(table, bandpasses):
                   + np.pi / 2) * galsim.radians)
         obj = obj.dilate(table['dilate'][i])
         obj = obj.rotate(np.radians(table['rotate'][i]) * galsim.radians)
-        out.append(CatalogObject(pos, obj, fluxes))
+        out.append(CatalogObject(pos, obj, fluxes, source_id[i]))
     return out
 
 
@@ -804,6 +890,9 @@ def table_to_catalog(table, bandpasses):
     Additionally there must be a column for each bandpass giving the flux
     in that bandbass.
 
+    An optional source_id column can be passed to identify the catalog entries.
+    These will appear in the 'simcatobj' table of rendered sources.
+
     Parameters
     ----------
     table : astropy.table.Table
@@ -831,6 +920,7 @@ def table_to_catalog(table, bandpasses):
                                   frame='icrs')
     all_ra_radians = allpos.ra.to(u.rad).value * galsim.radians
     all_dec_radians = allpos.dec.to(u.rad).value * galsim.radians
+    source_id = source_id_column(table, synthesize=False)
 
     for i in range(len(table)):
         pos = galsim.CelestialCoord(all_ra_radians[i], all_dec_radians[i])
@@ -844,7 +934,7 @@ def table_to_catalog(table, bandpasses):
                 beta=(np.radians(table['pa'][i]) + np.pi / 2) * galsim.radians)
         else:
             raise ValueError('Catalog types must be either PSF or SER.')
-        out.append(CatalogObject(pos, obj, fluxes))
+        out.append(CatalogObject(pos, obj, fluxes, source_id[i]))
     return out
 
 
@@ -858,6 +948,10 @@ def read_catalog(filename,
 
     Catalog must be readable by astropy.table.Table.read(...) and contain
     columns enumerated in the docstring for table_to_catalog(...).
+
+    The returned catalog always has a source_id column identifying each entry.
+    See source_id_column(...) for details as to how this is constructed,
+    if it is not provided with the catalog.
 
     Parameters
     ----------
@@ -921,7 +1015,9 @@ def read_catalog(filename,
             log.info(f'Loading healpix catalog file {i + 1} of {len(hp_cone)}')
             hp_filename = filename + f"/cat-{healpix_index}.{ext}"
             if os.path.isfile(hp_filename):
-                hp_table = read_one_healpix(hp_filename, date, bandpasses, **kwargs)
+                hp_table = read_one_healpix(
+                    hp_filename, date, bandpasses,
+                    healpix_index=healpix_index, **kwargs)
                 if cat is None:
                     cat = hp_table
                 else:
@@ -935,6 +1031,10 @@ def read_catalog(filename,
         # Catalog file
         cat = table.Table.read(filename)
 
+    # Label the entries before any rows are dropped, so that a synthesized
+    # source_id is the line number of the entry in the input catalog.
+    cat['source_id'] = source_id_column(cat)
+
     # Remove bad entries
     bandpass = [f for f in cat.dtype.names if f in BANDPASSES]
     bad = np.zeros(len(cat), dtype='bool')
@@ -947,5 +1047,11 @@ def read_catalog(filename,
     if nbad > 0:
         log.info(f'Removing {nbad} catalog entries with non-finite or '
                  'masked fluxes.')
+
+    # warn if source_id are not unique
+    nrepeat = len(cat) - len(np.unique(np.asarray(cat['source_id'])))
+    if nrepeat > 0:
+        log.warning(f'Catalog contains {nrepeat} repeated source_id values; '
+                    'rendered sources will not be uniquely identified.')
 
     return cat

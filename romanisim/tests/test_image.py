@@ -1005,3 +1005,45 @@ def test_pixel_convolved_psf_refuses_photon_shooting():
         image.add_objects_to_image(
             im, cat, [32], [32], psfprofile, flux_to_counts_factor=1000.,
             bandpass=bandpass, seed=1)
+
+
+def test_simcatobj_source_id():
+    """Test that rendered sources can be traced back to their catalog rows."""
+    imdict = set_up_image_rendering_things()
+
+    # catalog objects carry their identifiers through, and sources that fell
+    # off the image are marked -1
+    graycat = imdict['graycatalog']
+    for i, o in enumerate(graycat):
+        o.source_id = 1000 + i
+    objinfo = image.simulate_counts_generic(
+        imdict['im'].copy(), 100, objlist=graycat, psf=imdict['impsfgray'],
+        xpos=[50, 1000], ypos=[50, 1000], zpflux=10,
+        filter_name=imdict['filter_name'])
+    assert list(objinfo['source_id']) == [1000, -1]
+
+    # a table catalog's source_id survives the trimming on the way to
+    # rendering, so simcatobj rows can be matched back to catalog rows even
+    # though the two have different lengths
+    parameters.n_pix = 100
+    coord = SkyCoord(270 * u.deg, 66 * u.deg)
+    meta = util.default_image_meta(time=Time('2026-01-01T00:00:00'),
+                                   filter_name='F158', coord=coord)
+    wcs.fill_in_parameters(meta, coord)
+    imwcs = wcs.get_wcs(meta, usecrds=False)
+    cat = catalog.make_dummy_table_catalog(
+        util.skycoord(imwcs.toWorld(galsim.PositionI(50, 50))),
+        radius=0.005, nobj=50, bandpasses=['F158'])
+    cat['F158'] = cat['F158'] * 1e-9
+    # reversed, so that a row number can't pass for an identifier
+    cat['source_id'] = np.arange(len(cat))[::-1]
+
+    _, extras = image.simulate(meta, cat, psftype='epsf', level=2,
+                               usecrds=False)
+    simcatobj = extras['simcatobj']
+    assert 0 < len(simcatobj) < len(cat)  # some sources were trimmed
+    idx = len(cat) - 1 - simcatobj['source_id']  # undo the reversal
+    xpos, ypos = imwcs._xy(np.radians(np.asarray(cat['ra'])[idx]),
+                           np.radians(np.asarray(cat['dec'])[idx]))
+    assert np.allclose(xpos, simcatobj['x'], atol=1e-2)
+    assert np.allclose(ypos, simcatobj['y'], atol=1e-2)
