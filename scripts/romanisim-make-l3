@@ -57,13 +57,6 @@ if __name__ == '__main__':
     log.info(f'Running with args: {args}')
     log.info('Starting simulation...')
 
-    pixscale = args.pixscalefrac * parameters.pixel_scale
-    midpoint = (args.npix - 1) / 2
-    r, d = args.radec
-    center = util.celestialcoord(SkyCoord(ra=r * u.deg, dec=d * u.deg))
-    twcs = wcs.create_tangent_plane_gwcs(
-        (midpoint, midpoint), pixscale, center)
-
     metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
     if args.date is not None:
         metadata['coadd_info']['time_mean'] = Time(args.date, format='isot')
@@ -71,7 +64,20 @@ if __name__ == '__main__':
         metadata['coadd_info']['time_mean'] = parameters.default_date
 
     metadata['filename'] = os.path.basename(args.filename)
+    if args.radec is not None:
+        metadata['wcsinfo']['ra_ref'] = args.radec[0]
+        metadata['wcsinfo']['dec_ref'] = args.radec[1]
     ris.apply_meta_args(args, metadata)
+
+    # Build mosaic from the metadata in order to guarantee that
+    # WCS and metadata correspond.
+    pixscale = args.pixscalefrac * parameters.pixel_scale
+    midpoint = (args.npix - 1) / 2
+    center = util.celestialcoord(SkyCoord(
+        ra=metadata['wcsinfo']['ra_ref'] * u.deg,
+        dec=metadata['wcsinfo']['dec_ref'] * u.deg))
+    twcs = wcs.create_tangent_plane_gwcs(
+        (midpoint, midpoint), pixscale, center)
 
     cat = ris.create_catalog(metadata=metadata, catalog_name=args.catalog,
                             bandpasses=[args.bandpass], coord=center, radius=args.npix)
