@@ -652,10 +652,9 @@ def make_stars(coord,
 def radec_deg(cat):
     """Get the ra & dec of a catalog as angles in degrees.
 
-    Catalogs may or may not have units attached to their ra and dec columns;
-    catalogs read from ECSV files, for example, usually do, while catalogs
-    made by romanisim do not.  Columns without units are taken to be in
-    degrees.
+    This utility routine aims to make handling of catalogs that include units
+    work the same way as catalogs that do not, with less special handling
+    elsewhere.
 
     Parameters
     ----------
