@@ -10,6 +10,7 @@ import galsim
 # from pathlib import Path
 from romanisim import catalog
 from astropy.coordinates import SkyCoord
+from astropy.table import QTable
 from astropy import units as u
 from astropy.time import Time
 from romanisim import log
@@ -157,6 +158,33 @@ def test_table_catalog(tmp_path):
 
     log.info('DMS217: successfully generated parametric distributions of '
              'sources with different magnitudes and sizes.')
+
+
+def test_catalog_units():
+    """Catalogs may have units on their ra & dec columns."""
+    cen = SkyCoord(ra=5 * u.deg, dec=-10 * u.deg)
+    bands = ['F087']
+    tab = catalog.make_dummy_table_catalog(
+        cen, radius=0.01, nobj=20, bandpasses=bands)
+    cat = catalog.table_to_catalog(tab, bands)
+
+    degtab = tab.copy()
+    degtab['ra'].unit = u.deg
+    degtab['dec'].unit = u.deg
+    arcsectab = tab.copy()
+    arcsectab['ra'] = tab['ra'] * 60 * 60
+    arcsectab['ra'].unit = u.arcsec
+    arcsectab['dec'] = tab['dec'] * 60 * 60
+    arcsectab['dec'].unit = u.arcsec
+
+    for newtab in (degtab, QTable(degtab), arcsectab):
+        newcat = catalog.table_to_catalog(newtab, bands)
+        assert len(newcat) == len(cat)
+        for c1, c2 in zip(cat, newcat):
+            assert c1.sky_pos.distanceTo(c2.sky_pos) / galsim.arcsec < 1e-6
+        ra, dec = catalog.radec_deg(newtab)
+        assert np.allclose(ra.to_value(u.deg), tab['ra'])
+        assert np.allclose(dec.to_value(u.deg), tab['dec'])
 
 
 def test_cosmos_table_catalog(tmp_path):

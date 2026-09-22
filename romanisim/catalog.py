@@ -649,6 +649,28 @@ def make_stars(coord,
     return out
 
 
+def radec_deg(cat):
+    """Get the ra & dec of a catalog as angles in degrees.
+
+    Catalogs may or may not have units attached to their ra and dec columns;
+    catalogs read from ECSV files, for example, usually do, while catalogs
+    made by romanisim do not.  Columns without units are taken to be in
+    degrees.
+
+    Parameters
+    ----------
+    cat : astropy.table.Table
+        catalog with ra and dec columns
+
+    Returns
+    -------
+    ra, dec : astropy.units.Quantity
+        ra and dec of the catalog entries, in degrees
+    """
+    return (u.Quantity(cat['ra'], u.deg, copy=False),
+            u.Quantity(cat['dec'], u.deg, copy=False))
+
+
 def image_table_to_catalog(table, bandpasses):
     """Read an astropy Table into a list of CatalogObjects.
 
@@ -706,8 +728,8 @@ def image_table_to_catalog(table, bandpasses):
 
     # Convert coordinates to radians to be loaded into GalSim objects.
 
-    allpos = coordinates.SkyCoord(table['ra'] * u.deg, table['dec'] * u.deg,
-                                  frame='icrs')
+    allra, alldec = radec_deg(table)
+    allpos = coordinates.SkyCoord(allra, alldec, frame='icrs')
     all_ra_radians = allpos.ra.to(u.rad).value * galsim.radians
     all_dec_radians = allpos.dec.to(u.rad).value * galsim.radians
 
@@ -827,8 +849,8 @@ def table_to_catalog(table, bandpasses):
 
     # Convert coordinates to radians to be loaded into GalSim objects.
 
-    allpos = coordinates.SkyCoord(table['ra'] * u.deg, table['dec'] * u.deg,
-                                  frame='icrs')
+    allra, alldec = radec_deg(table)
+    allpos = coordinates.SkyCoord(allra, alldec, frame='icrs')
     all_ra_radians = allpos.ra.to(u.rad).value * galsim.radians
     all_dec_radians = allpos.dec.to(u.rad).value * galsim.radians
 
