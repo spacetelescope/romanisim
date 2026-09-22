@@ -217,6 +217,7 @@ def add_more_metadata(metadata, usecrds=False):
 
     if usecrds:
         tmatab = matab['roman']['science_tables'][f'SCI{manum:04}']
+        metadata['exposure']['ma_table_name'] = tmatab['ma_table_name']
         metadata['exposure']['frame_time'] = tmatab['frame_time']
 
         # nrsultant in the metadata is defined from set_metadata in ris_make_utils.py
@@ -231,6 +232,7 @@ def add_more_metadata(metadata, usecrds=False):
         metadata['exposure']['effective_exposure_time'] = (
             tmatab['effective_exposure_time'][nresultants - 1])
     else:
+        metadata['exposure']['ma_table_name'] = parameters.ma_table_name[manum]
         metadata['exposure']['frame_time'] = parameters.read_time
 
         read_pattern = metadata['exposure'].get(
