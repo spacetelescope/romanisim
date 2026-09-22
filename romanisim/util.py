@@ -12,6 +12,7 @@ from romanisim.velocity_aberration import compute_va_effects
 from scipy import integrate
 from collections.abc import Mapping
 
+from romanisim import log
 from romanisim.models import wcs, parameters, bandpass
 
 __all__ = ["skycoord",
@@ -222,9 +223,9 @@ def add_more_metadata(metadata, usecrds=False):
 
         # nrsultant in the metadata is defined from set_metadata in ris_make_utils.py
         nresultants = metadata['exposure']['nresultants']
-        read_pattern = metadata['exposure'].get(
-            'read_pattern',
-            tmatab['science_read_pattern'][nresultants-1])
+        read_pattern = metadata['exposure'].get('read_pattern')
+        if read_pattern is None:
+            read_pattern = tmatab['science_read_pattern'][nresultants - 1]
         openshuttertime = metadata['exposure']['frame_time'] * read_pattern[-1][-1]
 
         metadata['exposure']['exposure_time'] = (
@@ -232,12 +233,19 @@ def add_more_metadata(metadata, usecrds=False):
         metadata['exposure']['effective_exposure_time'] = (
             tmatab['effective_exposure_time'][nresultants - 1])
     else:
-        metadata['exposure']['ma_table_name'] = parameters.ma_table_name[manum]
+        maname = parameters.ma_table_name.get(manum)
+        if maname is not None:
+            metadata['exposure']['ma_table_name'] = maname
+        else:
+            # a table we have no hardcoded description of; the caller must
+            # have supplied their own read pattern to get this far.
+            log.warning(f'No name known for MA table {manum}; leaving '
+                        'ma_table_name unset.')
         metadata['exposure']['frame_time'] = parameters.read_time
 
-        read_pattern = metadata['exposure'].get(
-            'read_pattern',
-            parameters.read_pattern[metadata['exposure']['ma_table_number']])
+        read_pattern = metadata['exposure'].get('read_pattern')
+        if read_pattern is None:
+            read_pattern = parameters.read_pattern[manum]
         openshuttertime = parameters.read_time * read_pattern[-1][-1]
 
         metadata['exposure']['exposure_time'] = round(openshuttertime, 4)

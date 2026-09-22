@@ -103,6 +103,18 @@ def test_add_more_metadata():
     assert (set(parameters.read_pattern)
             == set(parameters.ma_table_name))
 
+    # an MA table we have no description of still works if the caller
+    # supplies the read pattern; we just don't know its name
+    metadata['exposure']['ma_table_number'] = 1048
+    metadata['exposure']['read_pattern'] = [[1], [2, 3], [4, 5, 6]]
+    del metadata['exposure']['ma_table_name']
+    util.add_more_metadata(metadata)
+    assert metadata['exposure']['ma_table_id'] == 'SCI1048'
+    assert 'ma_table_name' not in metadata['exposure']
+    # the read pattern the caller gave us is the one that was used
+    assert metadata['exposure']['exposure_time'] == round(
+        parameters.read_time * 6, 4)
+
 
 def test_default_image_meta():
     meta = util.default_image_meta()
