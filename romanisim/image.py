@@ -1152,7 +1152,7 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     #     elapsed_exposure_time, nints, integration_start, integration_end,
     #     frame_divisor, groupgap, nsamples, sample_time, frame_time,
     #     group_time, exposure_time, effective_exposure_time,
-    #     duration, nresets_at_start, datamode, ma_atble_name, ma_table_number,
+    #     duration, nresets_at_start, datamode,
     # observation: some of this could be passed forward from the
     #     APT file.  e.g., program, pass, observation_label,
     # pointing
