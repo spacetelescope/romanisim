@@ -303,13 +303,7 @@ def test_fast_epsf(variable):
 
 @pytest.mark.parametrize('constant', [True, False])
 def test_fast_epsf_noise_units(constant):
-    """Poisson noise must be added in electrons, not in the output units.
-
-    add_objects_to_image converts fluxes to electrons with
-    flux_to_counts_factor, adds Poisson noise, and then converts to the
-    output units of the image with outputunit_to_electrons.  If the noise is
-    added after the last of those steps instead of before it, the variance is
-    too large by a factor of outputunit_to_electrons (#312).
+    """Test that the noise is consistent in the fast & slow PSF paths.
     """
     nobj, flux, fluxfactor = 400, 1000.0, 1.0
     rng = np.random.default_rng(11)
@@ -342,6 +336,7 @@ def test_fast_epsf_noise_units(constant):
     # noise added in electrons and then converted contributes
     # flux * fluxfactor / outputunit_to_electrons**2 per source; had it been
     # added after the conversion it would be larger by outputunit_to_electrons.
+    # (>100x; the 0.25 relative tolerance is tight)
     expected = np.sum(flux * fluxfactor / outputunit_to_electrons ** 2)
     varfast = added_variance(True)
     varslow = added_variance(False)

@@ -230,9 +230,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
     psf : galsim.Profile or romanisim.psf.VariablePSF
-        PSF for image.  Only a VariablePSF can use the accelerated point
-        source path; romanisim.psf.make_psf returns a ConstantPSF, which is
-        one, for a PSF that is constant in the optics.
+        PSF for image.  VariablePSFs can use the accelerated point
+        source path.
     flux_to_counts_factor : float or list
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total electrons in the

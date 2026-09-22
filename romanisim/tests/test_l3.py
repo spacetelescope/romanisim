@@ -646,8 +646,8 @@ def test_l3_psf_box_size(scale):
                         sca=parameters.default_sca, psftype='galsim')
     widened = l3.l3_psf('F158', scale=scale, psftype='galsim')
 
-    added = (widened.at_position(0, 0).calculateMomentRadius() ** 2
-             - bare.at_position(0, 0).calculateMomentRadius() ** 2)
+    added = (widened.profile.calculateMomentRadius() ** 2
+             - bare.profile.calculateMomentRadius() ** 2)
     # calculateMomentRadius is the geometric mean of the second moments, so
     # the added variance per axis is that of a box of the given width
     expected = (parameters.pixel_scale ** 2 * (1 - scale ** 2)) / 12
