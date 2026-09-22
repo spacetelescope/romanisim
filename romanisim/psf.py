@@ -52,6 +52,35 @@ class VariablePSF:
         self.pixel_convolved = all(
             getattr(p, "pixel_convolved", False) for p in psf.values())
 
+    @classmethod
+    def from_profile(cls, profile, image):
+        """Wrap a single PSF profile in the variable PSF framework.
+
+        A PSF that is constant in the optics is still not constant once it
+        has been rendered onto pixels: distortion makes it look different in
+        different parts of the image.  Placing the same profile at each
+        corner captures that variation, since build_epsf_interpolator renders
+        each corner using the local WCS there, and it lets a constant PSF use
+        the accelerated ePSF path.
+
+        Parameters
+        ----------
+        profile : galsim.GSObject
+            PSF profile to place at each corner
+        image : galsim.Image
+            image within which we will inject PSFs; its corners are used as
+            the locations at which the PSF is rendered
+
+        Returns
+        -------
+        VariablePSF with profile at each of the four corners of image.
+        """
+        bounds = image.bounds
+        x0, x1 = bounds.xmin, bounds.xmax
+        y0, y1 = bounds.ymin, bounds.ymax
+        corners = dict(ll=[x0, y0], lr=[x1, y0], ul=[x0, y1], ur=[x1, y1])
+        return cls(corners, {key: profile for key in corners})
+
     def at_position(self, x, y):
         """Instantiate a PSF profile at (x, y).
 

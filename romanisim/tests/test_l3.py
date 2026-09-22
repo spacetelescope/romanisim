@@ -131,6 +131,55 @@ def test_inject_sources_into_mosaic():
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
 
 
+def test_inject_sources_into_l3_exptimes():
+    """The exptimes argument must be honored rather than recomputed.
+
+    The injected signal does not depend on the exposure time -- longer
+    exposures give more electrons but a correspondingly larger conversion
+    back to MJy / sr -- but the Poisson noise does, so ignoring the argument
+    shows up as identical output for very different exposure times.
+    """
+    parameters.n_pix = 100
+    metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
+    filter_name = 'F158'
+    metadata['instrument']['optical_element'] = filter_name
+    twcs = wcs.GWCS(wcs.get_mosaic_wcs(
+        metadata, shape=(parameters.n_pix, parameters.n_pix)))
+
+    l3_mos = rdm.MosaicModel.create_fake_data(
+        shape=(parameters.n_pix, parameters.n_pix))
+    l3_mos['meta']['wcs'] = twcs._wcs
+    for key in metadata.keys():
+        if key in l3_mos.meta:
+            l3_mos.meta[key].update(metadata[key])
+    l3_mos.data[...] = 0.2
+    l3_mos.var_poisson[...] = 0.01 ** 2 * 0.2 ** 2
+
+    mag_flux = 1e-9
+    nobj = 4
+    sc_table = table.Table({
+        'ra': nobj * [0.0], 'dec': nobj * [0.0], 'type': nobj * ['PSF'],
+        'n': nobj * [-1.0], 'half_light_radius': nobj * [0.0],
+        'pa': nobj * [0.0], 'ba': nobj * [1.0],
+        filter_name: nobj * [mag_flux]})
+    ra, dec = twcs._radec(np.array([25, 25, 75, 75]), np.array([25, 75, 25, 75]))
+    sc_table['ra'] = np.degrees(ra)
+    sc_table['dec'] = np.degrees(dec)
+
+    orig = l3_mos.data.copy()
+    long = l3.inject_sources_into_l3(
+        l3_mos, sc_table, seed=5, exptimes=np.full(nobj, 1e6)).data - orig
+    short = l3.inject_sources_into_l3(
+        l3_mos, sc_table, seed=5, exptimes=np.full(nobj, 1.0)).data - orig
+
+    # the injected signal is the same ...
+    assert np.isclose(np.sum(long), np.sum(short), rtol=0.2)
+    # ... but the short exposure collects few enough photons that they land
+    # in far fewer pixels.  Were exptimes ignored, the two would be
+    # identical, since everything else about the two calls matches.
+    assert np.sum(short != 0) < np.sum(long != 0) / 10
+
+
 @pytest.mark.soctests
 def test_sim_mosaic():
     """Generating mosaic from catalog file.

@@ -229,8 +229,10 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         Objects to add to image.  These may be chromatic or achromatic.
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
-    psf : galsim.Profile
-        PSF for image
+    psf : galsim.Profile or romanisim.psf.VariablePSF
+        PSF for image.  A constant profile is wrapped in a VariablePSF when
+        the accelerated point source path is used, so that it picks up the
+        variation in the PSF across the image due to the distortion.
     flux_to_counts_factor : float or list
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total electrons in the
@@ -278,16 +280,32 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         raise ValueError('must specify filter when using achromatic PSF '
                          'rendering.')
 
+    epsfpsf = psf
     if (fastpointsources and
         not chromatic and
-        hasattr(psf, 'build_epsf_interpolator') and
+        (hasattr(psf, 'build_epsf_interpolator')
+         or isinstance(psf, galsim.GSObject)) and
         (len(objlist) > 100)):
+
+        # A PSF that is constant in the optics still varies across the image
+        # through the distortion, so a constant PSF can use this path too by
+        # placing it at each corner.  Cache the wrapper on the profile, keyed
+        # on the image, so that the interpolator is built only once.
+
+        if not hasattr(psf, 'build_epsf_interpolator'):
+            key = (image.bounds, image.wcs)
+            cached = getattr(psf, '_epsf_wrapper', None)
+            if cached is None or cached[0] != key:
+                cached = (key, romanisim.psf.VariablePSF.from_profile(
+                    psf, image))
+                psf._epsf_wrapper = cached
+            epsfpsf = cached[1]
 
         # Check whether the interpolator has already been instantiated.
         # If not, we need to build the interpolators.
 
-        if psf.psfinterpolators is None:
-            psf.build_epsf_interpolator(image)
+        if epsfpsf.psfinterpolators is None:
+            epsfpsf.build_epsf_interpolator(image)
 
         # Make an array of flux-to-counts conversion for later use.
 
@@ -373,6 +391,10 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     # in turn.
 
     image_pointsources = image*0
+    if outputunit_to_electrons is not None:
+        # a list compares unequal to its own first element, so normalize
+        # before deciding whether every source shares one conversion.
+        outputunit_to_electrons = np.asarray(outputunit_to_electrons)
     different_output_units_factors = (
         outputunit_to_electrons is not None and
         (len(outputunit_to_electrons) != 0) and
@@ -386,23 +408,31 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
                              'fluxes!')
 
         fluxfactor = obj.flux[filter_name] * flux2counts[i]
-        stamp = psf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
-        if different_output_units_factors and add_noise:
-            stamp.addNoise(galsim.PoissonNoise(rng))
-            # note that this likely dominates the computational cost
-            # of this routine.  If this turns out to be relevant,
-            # see the discussion in #313 for a more efficient approach.
-        if outputunit_to_electrons is not None:
-            stamp[...] /= outputunit_to_electrons[i]
+        stamp = epsfpsf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
+        # the stamp is in electrons; Poisson noise must be added before
+        # converting to the output units.  When every source shares the same
+        # conversion we can defer both to the summed image below.
+        if different_output_units_factors:
+            if add_noise:
+                stamp.addNoise(galsim.PoissonNoise(rng))
+                # note that this likely dominates the computational cost
+                # of this routine.  If this turns out to be relevant,
+                # see the discussion in #313 for a more efficient approach.
+            stamp /= outputunit_to_electrons[i]
         bounds = stamp.bounds & image_pointsources.bounds
         if bounds.area() > 0:
             image_pointsources[bounds] += stamp[bounds]
             outinfo[i]['counts'] = np.sum(stamp[bounds].array)
         nrender += 1
 
-    if (np.sum(pointsources) > 0 and add_noise and
-            not different_output_units_factors):
-        image_pointsources.addNoise(galsim.PoissonNoise(rng))
+    if not different_output_units_factors:
+        if np.sum(pointsources) > 0 and add_noise:
+            image_pointsources.addNoise(galsim.PoissonNoise(rng))
+        if outputunit_to_electrons is not None:
+            # every source has the same conversion; apply it once, and to
+            # the recorded counts, which are in the output units.
+            image_pointsources /= outputunit_to_electrons[0]
+            outinfo['counts'][pointsources] /= outputunit_to_electrons[0]
     image += image_pointsources
 
     log.info('Rendered %d point sources in %.3g seconds' %
