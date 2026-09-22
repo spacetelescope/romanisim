@@ -230,9 +230,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
     psf : galsim.Profile or romanisim.psf.VariablePSF
-        PSF for image.  A constant profile is wrapped in a VariablePSF when
-        the accelerated point source path is used, so that it picks up the
-        variation in the PSF across the image due to the distortion.
+        PSF for image.  Only a VariablePSF can use the accelerated point
+        source path; romanisim.psf.make_psf returns a ConstantPSF, which is
+        one, for a PSF that is constant in the optics.
     flux_to_counts_factor : float or list
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total electrons in the
@@ -280,32 +280,16 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         raise ValueError('must specify filter when using achromatic PSF '
                          'rendering.')
 
-    epsfpsf = psf
     if (fastpointsources and
         not chromatic and
-        (hasattr(psf, 'build_epsf_interpolator')
-         or isinstance(psf, galsim.GSObject)) and
+        hasattr(psf, 'build_epsf_interpolator') and
         (len(objlist) > 100)):
-
-        # A PSF that is constant in the optics still varies across the image
-        # through the distortion, so a constant PSF can use this path too by
-        # placing it at each corner.  Cache the wrapper on the profile, keyed
-        # on the image, so that the interpolator is built only once.
-
-        if not hasattr(psf, 'build_epsf_interpolator'):
-            key = (image.bounds, image.wcs)
-            cached = getattr(psf, '_epsf_wrapper', None)
-            if cached is None or cached[0] != key:
-                cached = (key, romanisim.psf.VariablePSF.from_profile(
-                    psf, image))
-                psf._epsf_wrapper = cached
-            epsfpsf = cached[1]
 
         # Check whether the interpolator has already been instantiated.
         # If not, we need to build the interpolators.
 
-        if epsfpsf.psfinterpolators is None:
-            epsfpsf.build_epsf_interpolator(image)
+        if psf.psfinterpolators is None:
+            psf.build_epsf_interpolator(image)
 
         # Make an array of flux-to-counts conversion for later use.
 
@@ -392,8 +376,6 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
 
     image_pointsources = image*0
     if outputunit_to_electrons is not None:
-        # a list compares unequal to its own first element, so normalize
-        # before deciding whether every source shares one conversion.
         outputunit_to_electrons = np.asarray(outputunit_to_electrons)
     different_output_units_factors = (
         outputunit_to_electrons is not None and
@@ -408,7 +390,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
                              'fluxes!')
 
         fluxfactor = obj.flux[filter_name] * flux2counts[i]
-        stamp = epsfpsf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
+        stamp = psf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
         # the stamp is in electrons; Poisson noise must be added before
         # converting to the output units.  When every source shares the same
         # conversion we can defer both to the summed image below.

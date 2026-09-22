@@ -297,7 +297,8 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     convscale = romanisim.models.parameters.pixel_scale * np.sqrt(
         1 - scale**2)
     if scale != 1:
-        psf = galsim.Convolve(psf, galsim.Pixel(convscale))
+        psf = romanisim.psf.ConstantPSF(
+            galsim.Convolve(psf.at_position(0, 0), galsim.Pixel(convscale)))
     # galsim.Convolve returns a new object, so set the flag on the result
     # rather than relying on it being carried over.
     psf.pixel_convolved = False

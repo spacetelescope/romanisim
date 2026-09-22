@@ -318,7 +318,7 @@ def test_fast_epsf_noise_units(constant):
     cat = [catalog.CatalogObject(None, galsim.DeltaFunction(),
                                  copy.deepcopy({'F087': flux}))] * nobj
     # a narrow PSF keeps the ePSF interpolator cheap to build
-    impsf = galsim.Gaussian(sigma=0.15)
+    impsf = psf.ConstantPSF(galsim.Gaussian(sigma=0.15))
     if constant:
         outputunit_to_electrons = np.full(nobj, 100.0)
     else:

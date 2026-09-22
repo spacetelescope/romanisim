@@ -42,8 +42,8 @@ class FakeWCS():
     ((13, 'F087'), {'psftype': 'epsf', 'variable': True}, (100, 100))])
 def test_make_psf(args, kwargs, position):
     p = psf.make_psf(*args, **kwargs)
-    if position is not None:
-        p = p.at_position(*position)
+    # make_psf always returns a PSF object; get the profile out of it.
+    p = p.at_position(*(position if position is not None else (0, 0)))
 
     bandpass = galsim.roman.getBandpasses(AB_zeropoint=True)['H158']
     vega_sed = galsim.SED('vega.txt', 'nm', 'flambda')
