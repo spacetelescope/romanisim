@@ -256,6 +256,28 @@ read_pattern = {3: [[1], [2, 3], [4, 5, 6, 7, 8, 9],
                       [38, 39, 40], [41, 42, 43], [44]],
                 }
 
+# Names of the MA tables above, as the CRDS MA table reference file gives
+# them.  Only consulted when not using CRDS; otherwise the name is read from
+# the reference file, which is authoritative.
+ma_table_name = {3: 'C1_IMG_MICROLENS',
+                 4: 'C2A_IMG_HLWAS',
+                 5: 'C2B_IMG_HLWAS',
+                 6: 'C2C_IMG_HLWAS',
+                 7: 'C2D_IMG_HLWAS',
+                 8: 'C2E_IMG_HLWAS',
+                 9: 'C2F_IMG_HLWAS',
+                 10: 'C2G_IMG_HLWAS',
+                 11: 'C2H_IMG_HLWAS',
+                 12: 'C3A_SPEC_HLSS',
+                 13: 'C3B_SPEC_HLSS',
+                 14: 'C3C_SPEC_HLSS',
+                 15: 'C3D_SPEC_HLSS',
+                 16: 'C3E_SPEC_HLSS',
+                 17: 'C3F_SPEC_HLSS',
+                 109: 'DMS_TEST_109',
+                 110: 'DMS_TEST_110',
+                 }
+
 reference_data = {
     "dark": 0.01,  # electron/s
     "darkdecaysignal": None,
@@ -287,6 +309,7 @@ default_parameters_dictionary = {
     'exposure': {'start_time': default_date,
                  'type': 'WFI_IMAGE',
                  'ma_table_number': 4,
+                 'ma_table_name': ma_table_name[4],
                  'read_pattern': read_pattern[4],
                  # Changing the default MA table to be 4 (C2A_IMG_HLWAS) as MA table 1 (DEFOCUS_MOD) is not supported
                  },

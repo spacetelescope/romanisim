@@ -77,16 +77,17 @@ jobs:
       cache-restore-keys: |
         ${{ needs.latest_data_cache.outputs.cache_key }}
       cache-key: crds-${{ needs.crds_context.outputs.context }}-${{ needs.latest_data_cache.outputs.cache_key }}
+      # The -xdist factor runs the suite under pytest-xdist with -n auto.
       envs: |
-        - linux: py311-oldestdeps-cov
-        - linux: py311
-        - linux: py312
-        - linux: py313
+        - linux: py311-oldestdeps-cov-xdist
+        - linux: py311-xdist
+        - linux: py312-xdist
+        - linux: py313-xdist
         # `tox` does not currently respect `requires-python` versions when creating testing environments;
         # if this breaks, add an upper pin to `requires-python` and revert this py3 to the latest working version
-        - linux: py313-cov
+        - linux: py313-cov-xdist
           coverage: codecov
-        - macos: py313
+        - macos: py313-xdist
     # Uploads from protected branches (i.e. pushes to main) are rejected by
     # Codecov without a token, so main never gets a coverage report and PRs
     # end up compared against a stale ancestor.
