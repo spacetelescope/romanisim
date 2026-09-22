@@ -305,7 +305,7 @@ def test_fast_epsf(variable):
 def test_fast_epsf_noise_units(constant):
     """Test that the noise is consistent in the fast & slow PSF paths.
     """
-    nobj, flux, fluxfactor = 400, 1000.0, 1.0
+    nobj, flux, fluxfactor = 1200, 1000.0, 1.0
     rng = np.random.default_rng(11)
     x = rng.uniform(50, 250, nobj)
     y = rng.uniform(50, 250, nobj)

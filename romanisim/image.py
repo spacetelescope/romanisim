@@ -282,7 +282,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     if (fastpointsources and
         not chromatic and
         hasattr(psf, 'build_epsf_interpolator') and
-        (len(objlist) > 100)):
+        (len(objlist) > 1000)):
 
         # Check whether the interpolator has already been instantiated.
         # If not, we need to build the interpolators.
@@ -1345,7 +1345,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     
     if psf is None:
         psf = romanisim.psf.make_psf(
-            sca, filter_name, wcs=wcs,
+            sca, filter_name, wcs=wcs, variable=True,
             chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
 
     if gain is None:
