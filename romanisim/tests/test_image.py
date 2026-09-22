@@ -388,6 +388,14 @@ def test_add_objects():
     # shows that we're at least including the term; in my testing,
     # the actual ratio was 42.
 
+    # an empty object list has no conversion to output units to apply
+    im.array[:] = 0
+    image.add_objects_to_image(im, [], [], [], impsfgray,
+                               flux_to_counts_factor=1,
+                               outputunit_to_electrons=[],
+                               filter_name=imdict['filter_name'])
+    assert np.all(im.array == 0)
+
 
 def test_simulate_counts_generic():
     """Test adding poisson noise to images.

@@ -406,8 +406,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
             outinfo[i]['counts'] = np.sum(stamp[bounds].array)
         nrender += 1
 
-    if not different_output_units_factors:
-        if np.sum(pointsources) > 0 and add_noise:
+    if not different_output_units_factors and np.sum(pointsources) > 0:
+        if add_noise:
             image_pointsources.addNoise(galsim.PoissonNoise(rng))
         if outputunit_to_electrons is not None:
             # every source has the same conversion; apply it once, and to
