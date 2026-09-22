@@ -512,7 +512,8 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     Returns
     -------
     objinfo : np.ndarray
-        Information on position and flux of each rendered source.
+        Information on the source_id, position and flux of each rendered
+        source.
     """
     if rng is None and seed is None:
         seed = 144
@@ -581,10 +582,15 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
         image, [o for (o, k) in zip(objlist, keep) if k],
         xposk, yposk, psf, flux_to_counts_factor,
         bandpass=bandpass, filter_name=filter_name, rng=rng)
+    source_id = np.array([o.source_id for o in objlist], dtype='i8')
     objinfo = np.zeros(
         len(objlist),
-        dtype=[('x', 'f4'), ('y', 'f4'), ('counts', 'f4'), ('time', 'f4')])
+        dtype=[('source_id', 'i8'), ('x', 'f4'), ('y', 'f4'),
+               ('counts', 'f4'), ('time', 'f4')])
     if len(objlist) > 0:
+        # sources that weren't rendered keep source_id -1
+        objinfo['source_id'] = -1
+        objinfo['source_id'][keep] = source_id[keep]
         objinfo['x'][keep] = xpos[keep]
         objinfo['y'][keep] = ypos[keep]
         objinfo['counts'][keep] = objinfokeep['counts']

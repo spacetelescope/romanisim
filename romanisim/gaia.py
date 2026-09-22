@@ -21,7 +21,8 @@ def gaia2romanisimcat(gaiacat, date, refepoch=2016.0, boost_parallax=1,
     ----------
     gaiacat : astropy.table.Table
         Gaia catalog, containing at least ra, dec, pmra, pmdec, parallax,
-        phot_g_mean_mag fields
+        phot_g_mean_mag fields.  A source_id field, if present, is copied to
+        the output catalog.
     date : astropy.time.Time
         Time of observation
     refepoch : float
@@ -38,6 +39,8 @@ def gaia2romanisimcat(gaiacat, date, refepoch=2016.0, boost_parallax=1,
         astropy Table formatted for input to romanisim
     """
     outcat = table.Table()
+    if 'source_id' in gaiacat.colnames:
+        outcat['source_id'] = gaiacat['source_id']
     dt = date.jyear - refepoch
     unitspherical = coordinates.UnitSphericalRepresentation(
         gaiacat['ra'], gaiacat['dec'])

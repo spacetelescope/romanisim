@@ -7,9 +7,11 @@ import importlib.resources
 import pytest
 import numpy as np
 import galsim
+import astropy_healpix
 # from pathlib import Path
 from romanisim import catalog
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, Galactic
+from astropy import table
 from astropy import units as u
 from astropy.time import Time
 from romanisim import log
@@ -277,3 +279,102 @@ def test_full_table_catalog(cosmos, gaia, filename, date, tmp_path):
 
     for bp in OPTICAL_ELEMS:
         assert cat[0][bp] is not None
+
+
+def test_source_id_column():
+    """Test getting or synthesizing identifiers for catalog entries."""
+    cen = SkyCoord(ra=270.0 * u.deg, dec=66.0 * u.deg)
+    tab = table.Table()
+    tab['ra'] = np.zeros(5)
+    tab['dec'] = np.zeros(5)
+
+    # entries with no identifiers get row numbers, or, for one file of a
+    # directory of healpix catalogs, the healpix index packed in alongside
+    assert np.all(catalog.source_id_column(tab) == np.arange(5))
+    hpix, row = np.divmod(catalog.source_id_column(tab, healpix_index=97599),
+                          2 ** catalog.SOURCE_ID_ROW_BITS)
+    assert np.all(hpix == 97599) and np.all(row == np.arange(5))
+
+    # identifiers the catalog does have are kept, and must be integers
+    tab['source_id'] = np.arange(5) + 100
+    assert np.all(catalog.source_id_column(tab, healpix_index=97599)
+                  == np.arange(5) + 100)
+    tab['source_id'] = np.arange(5, dtype='f4')
+    with pytest.raises(ValueError):
+        catalog.source_id_column(tab)
+    del tab['source_id']
+    with pytest.raises(ValueError):
+        catalog.source_id_column(
+            tab, healpix_index=2 ** (63 - catalog.SOURCE_ID_ROW_BITS))
+
+    # the make_* routines identify their entries, and the stacked pieces of
+    # a dummy catalog don't collide
+    stars = catalog.make_stars(cen, n=5, radius=0.01, bandpasses=['F087'])
+    assert np.all(np.asarray(stars['source_id']) == np.arange(5))
+    dummy = catalog.make_dummy_table_catalog(cen, radius=0.01, nobj=30,
+                                             bandpasses=['F087'])
+    assert len(np.unique(np.asarray(dummy['source_id']))) == len(dummy)
+
+    # table_to_catalog sees catalogs only after they have been trimmed to
+    # the sources on an image, so it marks entries with no identifier -1
+    # rather than giving them row numbers that identify nothing
+    ids = [o.source_id for o in catalog.table_to_catalog(stars, ['F087'])]
+    assert ids == list(range(5))
+    del stars['source_id']
+    ids = [o.source_id for o in catalog.table_to_catalog(stars, ['F087'])]
+    assert ids == [-1] * 5
+
+
+def test_read_catalog_source_id(tmp_path, caplog):
+    """Test that read_catalog identifies every entry it returns."""
+    cen = SkyCoord(ra=270.0 * u.deg, dec=66.0 * u.deg)
+    kw = dict(coord=cen, date=Time('2026-01-01T00:00:00'),
+              bandpasses=OPTICAL_ELEMS)
+
+    # A file with no source_id gets line numbers.  Entries with non-finite
+    # fluxes are dropped, so this also checks that the identifiers are
+    # assigned before the rows go away.
+    fn = str(importlib.resources.files('romanisim').joinpath(
+        'data/gaia-270-66-2027-06-01.ecsv'))
+    raw = table.Table.read(fn)
+    cat = catalog.read_catalog(filename=fn, radius=0.1, **kw)
+    assert len(cat) < len(raw)  # some entries were dropped
+    sid = np.asarray(cat['source_id'])
+    assert np.array_equal(np.asarray(raw['dec'])[sid],
+                          np.asarray(cat['dec']), equal_nan=True)
+
+    # A directory of Gaia healpix catalogs keeps the Gaia source_id.
+    dirname = str(importlib.resources.files('romanisim').joinpath('data'))
+    hpcat = catalog.read_catalog(filename=dirname, radius=0.05, **kw)
+    hpraw = table.Table.read(os.path.join(dirname, 'cat-97599.fits'))
+    assert (set(np.asarray(hpcat['source_id']))
+            <= set(np.asarray(hpraw['source_id'])))
+
+    # A directory of catalogs with no source_id of their own: row numbers
+    # collide across the files, so the healpix index is packed in alongside.
+    hp = astropy_healpix.HEALPix(nside=128, order='nested', frame=Galactic())
+    indices = hp.cone_search_skycoord(cen, radius=0.2 * u.deg)
+    assert len(indices) > 1  # we want several files, to get collisions
+    for index in indices:
+        pos = hp.healpix_to_skycoord(index).icrs
+        tab = cat[:3].copy()
+        del tab['source_id']
+        tab['ra'] = pos.ra.to(u.deg).value
+        tab['dec'] = pos.dec.to(u.deg).value
+        tab.write(str(tmp_path / f'cat-{index}.fits'), overwrite=True)
+    dircat = catalog.read_catalog(filename=str(tmp_path), radius=0.2, **kw)
+    assert len(dircat) == 3 * len(indices)
+    hpix, row = np.divmod(np.asarray(dircat['source_id']),
+                          2 ** catalog.SOURCE_ID_ROW_BITS)
+    assert set(hpix) == set(indices) and set(row) == set(range(3))
+
+    # Identifiers the files do provide are kept, but if they only identify
+    # entries within each file they collide, and we should say so.
+    for index in indices:
+        tab = table.Table.read(str(tmp_path / f'cat-{index}.fits'))
+        tab['source_id'] = np.arange(len(tab))
+        tab.write(str(tmp_path / f'cat-{index}.fits'), overwrite=True)
+    with caplog.at_level('WARNING'):
+        dupcat = catalog.read_catalog(filename=str(tmp_path), radius=0.2, **kw)
+    assert set(np.asarray(dupcat['source_id'])) == set(range(3))
+    assert 'repeated source_id' in caplog.text

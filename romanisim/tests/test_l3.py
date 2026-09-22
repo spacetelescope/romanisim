@@ -189,6 +189,10 @@ def test_sim_mosaic():
     # Did all sources get simulated?
     assert len(extras['simcatobj']) == len(cat)
 
+    # Can the rendered sources be traced back to their catalog entries?
+    assert np.all(extras['simcatobj']['source_id']
+                  == np.asarray(cat['source_id']))
+
     # Ensure center pixel of bright objects is bright
     x_all, y_all = moswcs.world_to_pixel_values(cat['ra'][:10].value,
                                                 cat['dec'][:10].value)

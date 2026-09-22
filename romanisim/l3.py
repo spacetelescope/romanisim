@@ -623,7 +623,9 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
             maggytoes=maggytoes0, etomjysr=etomjysr)
         objinfo = np.zeros(
             len(objlist),
-            dtype=[('x', 'f4'), ('y', 'f4'), ('counts', 'f4'), ('time', 'f4')])
+            dtype=[('source_id', 'i8'), ('x', 'f4'), ('y', 'f4'),
+                   ('counts', 'f4'), ('time', 'f4')])
+        objinfo['source_id'] = [o.source_id for o in objlist]
         objinfo['x'] = xpos
         objinfo['y'] = ypos
         objinfo['counts'] = objinfo0['counts']

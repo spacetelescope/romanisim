@@ -67,8 +67,10 @@ adds an additional top-level branch to the asdf tree with the name
       └─stpsf (bool): True
 
 These fields are simply the arguments to ``romanisim-make-image``,
-plus an additional ``simcatobj`` field which contains the ``x``, ``y``,
-and number of photons of each simulated source.
+plus an additional ``simcatobj`` field which contains the ``source_id``,
+``x``, ``y``, and number of photons of each simulated source.  The
+``source_id`` identifies the catalog entry each rendered source came from;
+see :doc:`catalog`.
 
 Features not included so far:
 
