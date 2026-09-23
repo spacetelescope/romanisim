@@ -1241,7 +1241,9 @@ def abflux_from_photom_keywords(model, gain):
     -------
     abflux : float or None
         electron / s corresponding to a source of one maggie, or None if the
-        image lacks photometry keywords
+        image lacks valid photometry keywords.  The keywords are valid only if
+        both the conversion and the pixel area are positive; this excludes
+        placeholder values like the -999999 in fake data models.
     """
     if 'photometry' not in model['meta']:
         return None
@@ -1251,10 +1253,9 @@ def abflux_from_photom_keywords(model, gain):
         return None
     conversion = photometry['conversion_megajanskys']  # MJy/sr per DN/s
     area = photometry['pixel_area']  # sr
-    if conversion is None or area is None:
+    if conversion is None or area is None or conversion <= 0 or area <= 0:
         return None
-    # the pixel area can be negative depending on the handedness of the WCS.
-    jyperdns = np.abs(conversion * area) * 10 ** 6  # Jy per DN/s
+    jyperdns = conversion * area * 10 ** 6  # Jy per DN/s
     return gain * 3631 / jyperdns
 
 
@@ -1349,7 +1350,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     # must be consistent with the image's photometric calibration.
     abflux = abflux_from_photom_keywords(model, gain)
     if abflux is None:
-        log.warning('Image has no photometry keywords; falling back to '
+        log.warning('Image has no valid photometry keywords; falling back to '
                     "romanisim's zero point.  Injected source fluxes will be "
                     'inconsistent with the image if it is calibrated with a '
                     'different zero point or gain.')
