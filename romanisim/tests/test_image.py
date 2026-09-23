@@ -734,6 +734,16 @@ def test_inject_source_into_image():
     assert im.meta.photometry.pixel_area > 0
     assert np.abs(image.abflux_from_photom_keywords(im, gain) / abflux - 1) < 0.01
 
+    # non-positive keywords, like the placeholders in fake data models, are
+    # invalid and should be treated as missing
+    photometry = im.meta.photometry
+    for key in ['conversion_megajanskys', 'pixel_area']:
+        goodval = photometry[key]
+        for badval in [-999999.0, -goodval, 0.0]:
+            photometry[key] = badval
+            assert image.abflux_from_photom_keywords(im, gain) is None
+        photometry[key] = goodval
+
     # Create catalog with one source for injection
     xpos, ypos = 10, 10
     catinj = cat[:1]
