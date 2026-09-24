@@ -148,8 +148,9 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         rng = galsim.UniformDeviate(seed)
 
     if x is None or y is None:
-        x, y = res_model.meta.wcs.numerical_inverse(cat['ra'].value, cat['dec'].value,
-                                                with_bounding_box=False)
+        ra, dec = romanisim.catalog.radec_deg(cat)
+        x, y = res_model.meta.wcs.numerical_inverse(
+            ra.to_value(u.deg), dec.to_value(u.deg), with_bounding_box=False)
 
     filter_name = res_model.meta.instrument.optical_element
     cat = romanisim.catalog.table_to_catalog(cat, [filter_name])
@@ -573,7 +574,9 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
             objlist = romanisim.image.trim_objlist(objlist, image)
-            coord = np.array([[o['ra'], o['dec']] for o in objlist])
+            ra, dec = romanisim.catalog.radec_deg(objlist)
+            coord = np.stack(
+                [ra.to_value(u.deg), dec.to_value(u.deg)], axis=-1)
         else:
             coord = np.array([[o.sky_pos.ra.deg, o.sky_pos.dec.deg]
                              for o in objlist])

@@ -197,8 +197,7 @@ def trim_objlist(objlist, image):
     objlist : astropy.table.Table
         objlist trimmed to objects near image.
     """
-    cc = coordinates.SkyCoord(
-        objlist['ra'] * u.deg, objlist['dec'] * u.deg)
+    cc = coordinates.SkyCoord(*catalog.radec_deg(objlist))
     center = image.wcs._radec(
         image.array.shape[0] // 2, image.array.shape[1] // 2)
     center = coordinates.SkyCoord(*np.array(center) * u.rad)
@@ -529,8 +528,9 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
             objlist = trim_objlist(objlist, image)
+            ra, dec = catalog.radec_deg(objlist)
             xpos, ypos = image.wcs._xy(
-                np.radians(objlist['ra']), np.radians(objlist['dec']))
+                ra.to_value(u.rad), dec.to_value(u.rad))
         else:
             coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
                              for o in objlist])
@@ -1318,8 +1318,9 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
         rng = galsim.UniformDeviate(seed)
 
     if x is None or y is None:
+        ra, dec = catalog.radec_deg(cat)
         x, y = model.meta.wcs.numerical_inverse(
-            cat['ra'].value, cat['dec'].value, with_bounding_box=False)
+            ra.to_value(u.deg), dec.to_value(u.deg), with_bounding_box=False)
 
     filter_name = model.meta.instrument.optical_element
     cat = catalog.table_to_catalog(cat, [filter_name])
