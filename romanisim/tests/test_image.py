@@ -67,6 +67,20 @@ def test_trim_objlist():
     assert (len(outcat) > 0) and (len(outcat) < len(cat3))
     # some objects in, some objects out
 
+    # catalogs may carry units on their ra and dec columns; those must be
+    # honored rather than assumed to be degrees.
+    cat4 = cat3.copy()
+    cat4['ra'].unit = u.deg
+    cat4['dec'].unit = u.deg
+    assert len(image.trim_objlist(cat4, im)) == len(outcat)
+    assert len(image.trim_objlist(table.QTable(cat4), im)) == len(outcat)
+    cat5 = cat3.copy()
+    cat5['ra'] = cat3['ra'] * 60 * 60
+    cat5['ra'].unit = u.arcsec
+    cat5['dec'] = cat3['dec'] * 60 * 60
+    cat5['dec'].unit = u.arcsec
+    assert len(image.trim_objlist(cat5, im)) == len(outcat)
+
 
 def test_make_l2():
     resultants = np.ones((4, 50, 50), dtype='i4')
@@ -796,6 +810,16 @@ def test_inject_source_into_image():
     abflux = romanisim.models.bandpass.get_abflux(filt, sca)  # electron/s
     assert im.meta.photometry.pixel_area > 0
     assert np.abs(image.abflux_from_photom_keywords(im, gain) / abflux - 1) < 0.01
+
+    # non-positive keywords, like the placeholders in fake data models, are
+    # invalid and should be treated as missing
+    photometry = im.meta.photometry
+    for key in ['conversion_megajanskys', 'pixel_area']:
+        goodval = photometry[key]
+        for badval in [-999999.0, -goodval, 0.0]:
+            photometry[key] = badval
+            assert image.abflux_from_photom_keywords(im, gain) is None
+        photometry[key] = goodval
 
     # Create catalog with one source for injection
     xpos, ypos = 10, 10

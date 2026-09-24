@@ -197,8 +197,7 @@ def trim_objlist(objlist, image):
     objlist : astropy.table.Table
         objlist trimmed to objects near image.
     """
-    cc = coordinates.SkyCoord(
-        objlist['ra'] * u.deg, objlist['dec'] * u.deg)
+    cc = coordinates.SkyCoord(*catalog.radec_deg(objlist))
     center = image.wcs._radec(
         image.array.shape[0] // 2, image.array.shape[1] // 2)
     center = coordinates.SkyCoord(*np.array(center) * u.rad)
@@ -540,8 +539,9 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
             objlist = trim_objlist(objlist, image)
+            ra, dec = catalog.radec_deg(objlist)
             xpos, ypos = image.wcs._xy(
-                np.radians(objlist['ra']), np.radians(objlist['dec']))
+                ra.to_value(u.rad), dec.to_value(u.rad))
         else:
             coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
                              for o in objlist])
@@ -1252,7 +1252,9 @@ def abflux_from_photom_keywords(model, gain):
     -------
     abflux : float or None
         electron / s corresponding to a source of one maggie, or None if the
-        image lacks photometry keywords
+        image lacks valid photometry keywords.  The keywords are valid only if
+        both the conversion and the pixel area are positive; this excludes
+        placeholder values like the -999999 in fake data models.
     """
     if 'photometry' not in model['meta']:
         return None
@@ -1262,10 +1264,9 @@ def abflux_from_photom_keywords(model, gain):
         return None
     conversion = photometry['conversion_megajanskys']  # MJy/sr per DN/s
     area = photometry['pixel_area']  # sr
-    if conversion is None or area is None:
+    if conversion is None or area is None or conversion <= 0 or area <= 0:
         return None
-    # the pixel area can be negative depending on the handedness of the WCS.
-    jyperdns = np.abs(conversion * area) * 10 ** 6  # Jy per DN/s
+    jyperdns = conversion * area * 10 ** 6  # Jy per DN/s
     return gain * 3631 / jyperdns
 
 
@@ -1328,8 +1329,9 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
         rng = galsim.UniformDeviate(seed)
 
     if x is None or y is None:
+        ra, dec = catalog.radec_deg(cat)
         x, y = model.meta.wcs.numerical_inverse(
-            cat['ra'].value, cat['dec'].value, with_bounding_box=False)
+            ra.to_value(u.deg), dec.to_value(u.deg), with_bounding_box=False)
 
     filter_name = model.meta.instrument.optical_element
     cat = catalog.table_to_catalog(cat, [filter_name])
@@ -1360,7 +1362,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     # must be consistent with the image's photometric calibration.
     abflux = abflux_from_photom_keywords(model, gain)
     if abflux is None:
-        log.warning('Image has no photometry keywords; falling back to '
+        log.warning('Image has no valid photometry keywords; falling back to '
                     "romanisim's zero point.  Injected source fluxes will be "
                     'inconsistent with the image if it is calibrated with a '
                     'different zero point or gain.')
