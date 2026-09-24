@@ -255,13 +255,17 @@ def test_image_rendering():
     # Poisson errors and containing 100k counts.
 
 
-def test_fast_epsf():
+@pytest.mark.parametrize('variable', [True, False])
+def test_fast_epsf(variable):
 
     """
     Make sure that the fast point source ePSF renderer is not creating
     large errors in the rendered PSFs.  Fail if the largest error is at
     least one part in 1000.  The largest error with the default
     parameters should be about 10 times less than this.
+
+    A constant PSF takes this path as well; it is wrapped in a VariablePSF
+    with the same profile at each corner.
 
     """
 
@@ -284,24 +288,75 @@ def test_fast_epsf():
                                  deepcopy({filtname : 1000}))]*len(x)
 
     impsf = psf.make_psf(sca, filtname, psftype='galsim', chromatic=False,
-                         variable=True)
+                         variable=variable)
 
     # Draw point sources using the fast method
 
     im1 = galsim.Image(4000, 4000, scale=0.1, xmin=0, ymin=0)
-    image.add_objects_to_image(im1, cat, x, y, impsf, flux_to_counts_factor=1,
-                               filter_name=filtname, fastpointsources=True)
+    info1 = image.add_objects_to_image(
+        im1, cat, x, y, impsf, flux_to_counts_factor=1,
+        filter_name=filtname, fastpointsources=True)
+
+    # only the slow loop records a rendering time, so this verifies that
+    # these sources really went down the accelerated path.
+    assert np.all(info1['time'] == 0)
 
     # Draw point sources using galsim
 
     im2 = galsim.Image(4000, 4000, scale=0.1, xmin=0, ymin=0)
-    image.add_objects_to_image(im2, cat, x, y, impsf, flux_to_counts_factor=1,
-                               filter_name=filtname, fastpointsources=False)
+    info2 = image.add_objects_to_image(
+        im2, cat, x, y, impsf, flux_to_counts_factor=1,
+        filter_name=filtname, fastpointsources=False)
+    assert np.all(info2['time'] > 0)
 
     # Ensure that the worst error is no worse than 1 part in 1000.
     maxdiff = np.amax(np.abs(im2.array - im1.array))
     maxdiff_div_maxval = maxdiff / np.amax(im2.array)
     assert (maxdiff_div_maxval < 1e-3)
+
+
+@pytest.mark.parametrize('constant', [True, False])
+def test_fast_epsf_noise_units(constant):
+    """Test that the noise is consistent in the fast & slow PSF paths.
+    """
+    nobj, flux, fluxfactor = 1200, 1000.0, 1.0
+    rng = np.random.default_rng(11)
+    x = rng.uniform(50, 250, nobj)
+    y = rng.uniform(50, 250, nobj)
+    cat = [catalog.CatalogObject(None, galsim.DeltaFunction(),
+                                 copy.deepcopy({'F087': flux}))] * nobj
+    # a narrow PSF keeps the ePSF interpolator cheap to build
+    impsf = psf.ConstantPSF(galsim.Gaussian(sigma=0.15))
+    if constant:
+        outputunit_to_electrons = np.full(nobj, 100.0)
+    else:
+        outputunit_to_electrons = np.linspace(100.0, 200.0, nobj)
+
+    def render(add_noise, fast):
+        im = galsim.Image(300, 300, scale=0.1, xmin=0, ymin=0)
+        info = image.add_objects_to_image(
+            im, cat, x, y, impsf, flux_to_counts_factor=fluxfactor,
+            outputunit_to_electrons=outputunit_to_electrons,
+            filter_name='F087', add_noise=add_noise, seed=42,
+            fastpointsources=fast)
+        # only the slow loop records a rendering time; make sure the
+        # comparison really is fast against slow.
+        assert np.all((info['time'] == 0) == fast)
+        return im.array
+
+    def added_variance(fast):
+        return np.sum((render(True, fast) - render(False, fast)) ** 2)
+
+    # noise added in electrons and then converted contributes
+    # flux * fluxfactor / outputunit_to_electrons**2 per source; had it been
+    # added after the conversion it would be larger by outputunit_to_electrons.
+    # (>100x; the 0.25 relative tolerance is tight)
+    expected = np.sum(flux * fluxfactor / outputunit_to_electrons ** 2)
+    varfast = added_variance(True)
+    varslow = added_variance(False)
+    assert np.isclose(varslow, expected, rtol=0.25)
+    assert np.isclose(varfast, expected, rtol=0.25)
+    assert np.isclose(varfast, varslow, rtol=0.25)
 
 
 def test_add_objects():
@@ -346,6 +401,14 @@ def test_add_objects():
     # is from a point source so that's not what we expect.  10x clearly
     # shows that we're at least including the term; in my testing,
     # the actual ratio was 42.
+
+    # an empty object list has no conversion to output units to apply
+    im.array[:] = 0
+    image.add_objects_to_image(im, [], [], [], impsfgray,
+                               flux_to_counts_factor=1,
+                               outputunit_to_electrons=[],
+                               filter_name=imdict['filter_name'])
+    assert np.all(im.array == 0)
 
 
 def test_simulate_counts_generic():

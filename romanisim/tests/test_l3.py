@@ -118,6 +118,17 @@ def test_inject_sources_into_mosaic():
     total_theo_flux = 4 * mag_flux * cps_conv * unit_factor  # u.MJy / u.sr
     assert np.isclose(total_rec_flux, total_theo_flux, rtol=4e-02)
 
+    # The exptimes argument must be honored rather than recomputed.  The
+    # injected signal does not depend on it---a longer exposure collects more
+    # electrons but needs a correspondingly larger conversion back to
+    # MJy / sr---but a short exposure collects few enough photons that they
+    # land in far fewer pixels.
+    short = l3.inject_sources_into_l3(
+        l3_mos_orig, sc_table, seed=rng_seed,
+        exptimes=np.ones(len(sc_table)))
+    assert (np.sum(short.data != l3_mos_orig.data)
+            < np.sum(l3_mos.data != l3_mos_orig.data) / 10)
+
     # Create log entry and artifacts
     log.info('DMS232 successfully injected sources into a mosaic at points (50,50), (50,150), (150,50), (150,150).')
 
@@ -653,8 +664,8 @@ def test_l3_psf_box_size(scale):
                         sca=parameters.default_sca, psftype='galsim')
     widened = l3.l3_psf('F158', scale=scale, psftype='galsim')
 
-    added = (widened.calculateMomentRadius() ** 2
-             - bare.calculateMomentRadius() ** 2)
+    added = (widened.profile.calculateMomentRadius() ** 2
+             - bare.profile.calculateMomentRadius() ** 2)
     # calculateMomentRadius is the geometric mean of the second moments, so
     # the added variance per axis is that of a box of the given width
     expected = (parameters.pixel_scale ** 2 * (1 - scale ** 2)) / 12

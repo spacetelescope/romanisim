@@ -228,8 +228,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         Objects to add to image.  These may be chromatic or achromatic.
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
-    psf : galsim.Profile
-        PSF for image
+    psf : galsim.Profile or romanisim.psf.VariablePSF
+        PSF for image.  VariablePSFs can use the accelerated point
+        source path.
     flux_to_counts_factor : float or list
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total electrons in the
@@ -280,7 +281,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     if (fastpointsources and
         not chromatic and
         hasattr(psf, 'build_epsf_interpolator') and
-        (len(objlist) > 100)):
+        (len(objlist) > 1000)):
 
         # Check whether the interpolator has already been instantiated.
         # If not, we need to build the interpolators.
@@ -372,6 +373,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     # in turn.
 
     image_pointsources = image*0
+    if outputunit_to_electrons is not None:
+        outputunit_to_electrons = np.asarray(outputunit_to_electrons)
     different_output_units_factors = (
         outputunit_to_electrons is not None and
         (len(outputunit_to_electrons) != 0) and
@@ -386,22 +389,30 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
 
         fluxfactor = obj.flux[filter_name] * flux2counts[i]
         stamp = psf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
-        if different_output_units_factors and add_noise:
-            stamp.addNoise(galsim.PoissonNoise(rng))
-            # note that this likely dominates the computational cost
-            # of this routine.  If this turns out to be relevant,
-            # see the discussion in #313 for a more efficient approach.
-        if outputunit_to_electrons is not None:
-            stamp[...] /= outputunit_to_electrons[i]
+        # the stamp is in electrons; Poisson noise must be added before
+        # converting to the output units.  When every source shares the same
+        # conversion we can defer both to the summed image below.
+        if different_output_units_factors:
+            if add_noise:
+                stamp.addNoise(galsim.PoissonNoise(rng))
+                # note that this likely dominates the computational cost
+                # of this routine.  If this turns out to be relevant,
+                # see the discussion in #313 for a more efficient approach.
+            stamp /= outputunit_to_electrons[i]
         bounds = stamp.bounds & image_pointsources.bounds
         if bounds.area() > 0:
             image_pointsources[bounds] += stamp[bounds]
             outinfo[i]['counts'] = np.sum(stamp[bounds].array)
         nrender += 1
 
-    if (np.sum(pointsources) > 0 and add_noise and
-            not different_output_units_factors):
-        image_pointsources.addNoise(galsim.PoissonNoise(rng))
+    if not different_output_units_factors and np.sum(pointsources) > 0:
+        if add_noise:
+            image_pointsources.addNoise(galsim.PoissonNoise(rng))
+        if outputunit_to_electrons is not None:
+            # every source has the same conversion; apply it once, and to
+            # the recorded counts, which are in the output units.
+            image_pointsources /= outputunit_to_electrons[0]
+            outinfo['counts'][pointsources] /= outputunit_to_electrons[0]
     image += image_pointsources
 
     log.info('Rendered %d point sources in %.3g seconds' %
@@ -1336,7 +1347,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     
     if psf is None:
         psf = romanisim.psf.make_psf(
-            sca, filter_name, wcs=wcs,
+            sca, filter_name, wcs=wcs, variable=True,
             chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
 
     if gain is None:

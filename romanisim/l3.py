@@ -165,20 +165,21 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     maggytoes = romanisim.models.bandpass.get_abflux(filter_name, sca)
     etomjysr = romanisim.models.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
 
-    Ct = []
-    for idx, (x0, y0) in enumerate(zip(x, y)):
-        # Set scaling factor for injected sources
-        # Flux / sigma_p^2
-        xidx, yidx = int(np.round(x0)), int(np.round(y0))
-        if res_model.var_poisson[yidx, xidx] != 0:
-            Ct.append(math.fabs(
-                res_model.data[yidx, xidx] /
-                res_model.var_poisson[yidx, xidx]))
-        else:
-            Ct.append(1.0)
-    Ct = np.array(Ct)
-    # etomjysr = 1/C; C converts fluxes to electrons
-    exptimes = Ct * etomjysr
+    if exptimes is None:
+        Ct = []
+        for idx, (x0, y0) in enumerate(zip(x, y)):
+            # Set scaling factor for injected sources
+            # Flux / sigma_p^2
+            xidx, yidx = int(np.round(x0)), int(np.round(y0))
+            if res_model.var_poisson[yidx, xidx] != 0:
+                Ct.append(math.fabs(
+                    res_model.data[yidx, xidx] /
+                    res_model.var_poisson[yidx, xidx]))
+            else:
+                Ct.append(1.0)
+        Ct = np.array(Ct)
+        # etomjysr = 1/C; C converts fluxes to electrons
+        exptimes = Ct * etomjysr
 
     Ct_all = (res_model.data /
               (res_model.var_poisson + (res_model.var_poisson == 0)))
@@ -297,7 +298,8 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     convscale = romanisim.models.parameters.pixel_scale * np.sqrt(
         1 - scale**2)
     if scale != 1:
-        psf = galsim.Convolve(psf, galsim.Pixel(convscale))
+        psf = romanisim.psf.ConstantPSF(
+            galsim.Convolve(psf.profile, galsim.Pixel(convscale)))
     # galsim.Convolve returns a new object, so set the flag on the result
     # rather than relying on it being carried over.
     psf.pixel_convolved = False
