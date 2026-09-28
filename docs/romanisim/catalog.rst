@@ -29,6 +29,28 @@ The following fields must be specified for each source:
 
 Following these required fields is a series of columns giving the fluxes of the the sources in "maggies"; the AB magnitude of the source is given by :math:`-2.5*\log_{10}(\mathrm{flux})`.  In order to simulate a scene in a given bandpass, a column with the name of that bandpass must be present giving the total fluxes of the sources.  Many flux columns may be present, and other columns may also be present but will be ignored.
 
+One optional column is not ignored:
+
+* source_id: an integer identifying the catalog entry.
+
+The simulator returns a table of all objects rendered during a simulation.  This table does not map directly onto the input simulation because objects that land off the detector or that have non-finite fluxes (for example) are not included.  The ``source_id`` is propagated into these tables in order to ease the mapping from rendered objects to input catalog rows.
+
+If the catalog does not provide a ``source_id``, the simulator invents one.  For a single catalog file, this is the line number of the entry in the file.  For a directory of healpix catalogs, ``source_id`` are created according to::
+
+    source_id = healpix_index * 2 ** 36 + line_number
+
+which can be unpacked into a healpix index and a line number with ``divmod(source_id, 2 ** 36)``.
+
+
+Healpix catalogs
+================
+
+Instead of a single file, the ``catalog`` argument may name a directory of catalogs split by healpix index, with file names of the form ``cat-<healpix index>.fits``.  The healpix indices are ``nside`` 128 in the nested ordering in galactic coordinates by default; a ``meta.yaml`` file in the directory may override the ``nside`` and the file ``extension``.  The simulator does a cone search around the pointing and concatenates the catalogs of the healpix pixels it finds.
+
+These files may either be in the catalog format above or be raw Gaia catalogs, which are recognized by the presence of a ``phot_g_mean_mag`` column and converted with ``romanisim.gaia.gaia2romanisimcat``.  The Gaia ``source_id`` is carried through to the simulated catalog and to ``simcatobj``.
+
+Files that supply their own ``source_id`` keep it, whether or not they are Gaia catalogs, and no packing is done.  Such identifiers must be unique across the whole directory, not merely within each file: the simulator concatenates the catalogs of every healpix pixel it needs, so a directory whose files each number their own rows from zero would produce sources that cannot be told apart.  ``read_catalog`` warns if the catalog it assembles contains repeated ``source_id`` values.
+
 The simulator then renders these images in the scene and produces the simulated L1 or L2 images.
 
 The simulator API includes a few simple tools to generate parametric distributions of stars and galaxies.  

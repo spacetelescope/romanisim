@@ -200,6 +200,10 @@ def test_sim_mosaic():
     # Did all sources get simulated?
     assert len(extras['simcatobj']) == len(cat)
 
+    # Can the rendered sources be traced back to their catalog entries?
+    assert np.all(extras['simcatobj']['source_id']
+                  == np.asarray(cat['source_id']))
+
     # Does the wcsinfo metadata describe the WCS we actually used?  The
     # reference point must land where wcsinfo says it does, and ra, dec must
     # be the center of the mosaic.
