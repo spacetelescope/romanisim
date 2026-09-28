@@ -92,8 +92,8 @@ class IPC(object):
         ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=["ipc"])
         
         if isinstance(ref_file['ipc'], str):
-            model = datamodels.open(ref_file['ipc'])
-            self.ipc_kernel = model.data.copy()
+            with datamodels.open(ref_file['ipc']) as model:
+                self.ipc_kernel = model.data.copy()
         
         self.ipc_kernel /= np.sum(self.ipc_kernel)
 

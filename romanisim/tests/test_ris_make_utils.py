@@ -49,8 +49,8 @@ def test_simulate_image_file(tmp_path):
     args.pretend_spectral = None
     parameters.n_pix = 100
     ris_make_utils.simulate_image_file(args, meta, cat)
-    im = asdf.open(args.filename)
-    assert im['roman']['data'].shape == (100, 100)
+    with asdf.open(args.filename) as im:
+        assert im['roman']['data'].shape == (100, 100)
     # we made an image
 
 

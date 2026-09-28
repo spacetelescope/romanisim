@@ -284,29 +284,29 @@ class Nonlinearity(object):
         self.ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=reftypes)
         
         if isinstance(self.ref_file['gain'], str):
-            model = datamodels.open(self.ref_file['gain'])
-            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
+            with datamodels.open(self.ref_file['gain']) as model:
+                self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
         
         if isinstance(self.ref_file[self.reftype], str):
-            nl_model = datamodels.open(self.ref_file[self.reftype])
-            if getdq:
-                self.dq = nl_model.dq[nborder:-nborder, nborder:-nborder].copy()
-            else:
-                self.dq = None
-            if self.getdq:
-                self.coeffs, self.dq = repair_coefficients(
-                    coeffs=nl_model.coeffs[
-                        :, nborder:-nborder, nborder:-nborder
-                    ].copy(),
-                    dq=self.dq,
-                    getdq=self.getdq,
-                )
-            else:
-                self.coeffs, _ = repair_coefficients(
-                    coeffs=nl_model.coeffs[
-                        :, nborder:-nborder, nborder:-nborder
-                    ].copy()
-                )
+            with datamodels.open(self.ref_file[self.reftype]) as nl_model:
+                if getdq:
+                    self.dq = nl_model.dq[nborder:-nborder, nborder:-nborder].copy()
+                else:
+                    self.dq = None
+                if self.getdq:
+                    self.coeffs, self.dq = repair_coefficients(
+                        coeffs=nl_model.coeffs[
+                            :, nborder:-nborder, nborder:-nborder
+                        ].copy(),
+                        dq=self.dq,
+                        getdq=self.getdq,
+                    )
+                else:
+                    self.coeffs, _ = repair_coefficients(
+                        coeffs=nl_model.coeffs[
+                            :, nborder:-nborder, nborder:-nborder
+                        ].copy()
+                    )
 
     def apply(self, img, electrons=False, reversed=False):
         """Compute the correction of DN to linearized DN.

@@ -129,16 +129,16 @@ class DarkCurrent(object):
         ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=["dark", "gain"])
         
         if isinstance(ref_file['gain'], str):
-            model = datamodels.open(ref_file['gain'])
-            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
+            with datamodels.open(ref_file['gain']) as model:
+                self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
 
 
         if isinstance(ref_file['dark'], str):
-            model = datamodels.open(ref_file['dark'])
-            # dark_slope from CRDS is in DN/s, convert to electron/s
-            self.dark_rate = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * self.gain
-            if getdq:
-                self.dq = model.dq[nborder:-nborder, nborder:-nborder].copy()
+            with datamodels.open(ref_file['dark']) as model:
+                # dark_slope from CRDS is in DN/s, convert to electron/s
+                self.dark_rate = model.dark_slope[nborder:-nborder, nborder:-nborder].copy() * self.gain
+                if getdq:
+                    self.dq = model.dq[nborder:-nborder, nborder:-nborder].copy()
 
     def apply(self, img, exptime):
         """
