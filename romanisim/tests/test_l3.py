@@ -118,6 +118,17 @@ def test_inject_sources_into_mosaic():
     total_theo_flux = 4 * mag_flux * cps_conv * unit_factor  # u.MJy / u.sr
     assert np.isclose(total_rec_flux, total_theo_flux, rtol=4e-02)
 
+    # The exptimes argument must be honored rather than recomputed.  The
+    # injected signal does not depend on it---a longer exposure collects more
+    # electrons but needs a correspondingly larger conversion back to
+    # MJy / sr---but a short exposure collects few enough photons that they
+    # land in far fewer pixels.
+    short = l3.inject_sources_into_l3(
+        l3_mos_orig, sc_table, seed=rng_seed,
+        exptimes=np.ones(len(sc_table)))
+    assert (np.sum(short.data != l3_mos_orig.data)
+            < np.sum(l3_mos.data != l3_mos_orig.data) / 10)
+
     # Create log entry and artifacts
     log.info('DMS232 successfully injected sources into a mosaic at points (50,50), (50,150), (150,50), (150,150).')
 
@@ -192,6 +203,24 @@ def test_sim_mosaic():
     # Can the rendered sources be traced back to their catalog entries?
     assert np.all(extras['simcatobj']['source_id']
                   == np.asarray(cat['source_id']))
+
+    # Does the wcsinfo metadata describe the WCS we actually used?  The
+    # reference point must land where wcsinfo says it does, and ra, dec must
+    # be the center of the mosaic.
+    wi = mosaic.meta.wcsinfo
+    shape = mosaic.data.shape
+    assert np.isfinite([wi.x_ref, wi.y_ref]).all()
+    refcoord = SkyCoord(*mosaic.meta.wcs(wi.x_ref, wi.y_ref), unit=u.deg)
+    assert refcoord.separation(
+        SkyCoord(wi.ra_ref * u.deg, wi.dec_ref * u.deg)).to(u.mas).value < 1
+    cencoord = SkyCoord(
+        *mosaic.meta.wcs((shape[1] - 1) / 2, (shape[0] - 1) / 2), unit=u.deg)
+    assert cencoord.separation(
+        SkyCoord(wi.ra * u.deg, wi.dec * u.deg)).to(u.mas).value < 1
+    c2 = SkyCoord(
+        *mosaic.meta.wcs((shape[1] - 1) / 2 + 1, (shape[0] - 1) / 2),
+        unit=u.deg)
+    assert np.isclose(wi.pixel_scale, cencoord.separation(c2).arcsec)
 
     # Ensure center pixel of bright objects is bright
     x_all, y_all = moswcs.world_to_pixel_values(cat['ra'][:10].value,
@@ -639,8 +668,8 @@ def test_l3_psf_box_size(scale):
                         sca=parameters.default_sca, psftype='galsim')
     widened = l3.l3_psf('F158', scale=scale, psftype='galsim')
 
-    added = (widened.calculateMomentRadius() ** 2
-             - bare.calculateMomentRadius() ** 2)
+    added = (widened.profile.calculateMomentRadius() ** 2
+             - bare.profile.calculateMomentRadius() ** 2)
     # calculateMomentRadius is the geometric mean of the second moments, so
     # the added variance per axis is that of a box of the given width
     expected = (parameters.pixel_scale ** 2 * (1 - scale ** 2)) / 12
@@ -652,3 +681,23 @@ def test_l3_psf_rejects_variable():
     """
     with pytest.raises(ValueError, match='does not support variable'):
         l3.l3_psf('F158', scale=0.5, psftype='galsim', variable=True)
+
+
+def test_l3_catalog_off_mosaic():
+    """Test simulating a mosaic that none of the catalog lands on.
+
+    Trimming the catalog down to the sources near the mosaic can leave
+    nothing behind, which should give an empty mosaic rather than fail.
+    """
+    metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
+    filter_name = metadata['instrument']['optical_element']
+    shape = (50, 50)
+    moswcs = wcs.get_mosaic_wcs(metadata, shape=shape)
+    cat = catalog.make_dummy_table_catalog(
+        SkyCoord(ra=(metadata['wcsinfo']['ra_ref'] + 60) * u.deg,
+                 dec=metadata['wcsinfo']['dec_ref'] * u.deg),
+        radius=0.01, nobj=10, bandpasses=[filter_name], seed=42)
+    mosaic, extras = l3.simulate(shape, moswcs, 100, filter_name, cat,
+                                 metadata=metadata, seed=42)
+    assert 'simcatobj' not in extras
+    assert np.all(np.isfinite(mosaic.data))

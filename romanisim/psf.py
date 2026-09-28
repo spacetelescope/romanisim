@@ -22,6 +22,7 @@ from .models.parameters import (
 from .models.psf_utils import getPSF
 
 __all__ =  ['VariablePSF',
+            'ConstantPSF',
             'deconvolve_ipc',
             'psf_stamp_wcs',
             'epsf_is_pixel_convolved',
@@ -315,6 +316,63 @@ class VariablePSF:
         stampbounds = self.bounds.shift(galsim.PositionI(offset_x, offset_y))
 
         return galsim.Image(epsf_out, bounds=stampbounds)
+
+
+class ConstantPSF(VariablePSF):
+    """A PSF that does not vary with position in the optics.
+
+    Rendered onto pixels such a PSF still varies across an image, since the
+    distortion varies, so it is treated as a VariablePSF holding the same
+    profile at each corner.  That also lets it use the accelerated ePSF
+    path in romanisim.image.add_objects_to_image.
+
+    Parameters
+    ----------
+    profile : galsim.GSObject
+        the PSF profile
+    """
+
+    def __init__(self, profile):
+        corners = dict(ll=[0, 0], lr=[n_pix, 0],
+                       ul=[0, n_pix], ur=[n_pix, n_pix])
+        super().__init__(corners, {key: profile for key in corners})
+        self.profile = profile
+
+    def at_position(self, x, y):
+        """The PSF profile, which does not depend on position.
+
+        Parameters
+        ----------
+        x, y : float
+            position; ignored
+
+        Returns
+        -------
+        GalSim profile representing the PSF.
+        """
+        return self.profile
+
+    def build_epsf_interpolator(self, image, **kw):
+        """Build the spatial Taylor expansions for the ePSF profile.
+
+        The corners are those of the image being rendered into, so that the
+        expansions sample the distortion across it.  Extra arguments are
+        passed to VariablePSF.build_epsf_interpolator.
+
+        Parameters
+        ----------
+        image : galsim.Image
+            image within which we will inject PSFs
+
+        Returns
+        -------
+        None
+        """
+        bounds = image.bounds
+        self.corners = dict(
+            ll=[bounds.xmin, bounds.ymin], lr=[bounds.xmax, bounds.ymin],
+            ul=[bounds.xmin, bounds.ymax], ur=[bounds.xmax, bounds.ymax])
+        super().build_epsf_interpolator(image, **kw)
 
 
 @cache
@@ -879,12 +937,13 @@ def make_psf(
 
     Returns
     -------
-    profile : galsim.gsobject.GSObject
-        galsim profile object for convolution with source profiles when
-        rendering scenes.
+    psf : romanisim.psf.VariablePSF
+        PSF object for rendering scenes; a ConstantPSF unless variable is
+        set.  Use at_position(x, y) to get the galsim profile to convolve
+        with source profiles.
     """
     if not variable:
-        return make_one_psf(
+        return ConstantPSF(make_one_psf(
             sca,
             filter_name,
             wcs=wcs,
@@ -895,7 +954,7 @@ def make_psf(
             date=date,
             ipc_kernel=ipc_kernel,
             **kw,
-        )
+        ))
     elif pix is not None:
         raise ValueError("cannot set both pix and variable")
     buf = 49

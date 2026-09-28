@@ -148,8 +148,9 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
         rng = galsim.UniformDeviate(seed)
 
     if x is None or y is None:
-        x, y = res_model.meta.wcs.numerical_inverse(cat['ra'].value, cat['dec'].value,
-                                                with_bounding_box=False)
+        ra, dec = romanisim.catalog.radec_deg(cat)
+        x, y = res_model.meta.wcs.numerical_inverse(
+            ra.to_value(u.deg), dec.to_value(u.deg), with_bounding_box=False)
 
     filter_name = res_model.meta.instrument.optical_element
     cat = romanisim.catalog.table_to_catalog(cat, [filter_name])
@@ -164,20 +165,21 @@ def inject_sources_into_l3(model, cat, x=None, y=None, psf=None, rng=None,
     maggytoes = romanisim.models.bandpass.get_abflux(filter_name, sca)
     etomjysr = romanisim.models.bandpass.etomjysr(filter_name, sca) / pixscalefrac ** 2
 
-    Ct = []
-    for idx, (x0, y0) in enumerate(zip(x, y)):
-        # Set scaling factor for injected sources
-        # Flux / sigma_p^2
-        xidx, yidx = int(np.round(x0)), int(np.round(y0))
-        if res_model.var_poisson[yidx, xidx] != 0:
-            Ct.append(math.fabs(
-                res_model.data[yidx, xidx] /
-                res_model.var_poisson[yidx, xidx]))
-        else:
-            Ct.append(1.0)
-    Ct = np.array(Ct)
-    # etomjysr = 1/C; C converts fluxes to electrons
-    exptimes = Ct * etomjysr
+    if exptimes is None:
+        Ct = []
+        for idx, (x0, y0) in enumerate(zip(x, y)):
+            # Set scaling factor for injected sources
+            # Flux / sigma_p^2
+            xidx, yidx = int(np.round(x0)), int(np.round(y0))
+            if res_model.var_poisson[yidx, xidx] != 0:
+                Ct.append(math.fabs(
+                    res_model.data[yidx, xidx] /
+                    res_model.var_poisson[yidx, xidx]))
+            else:
+                Ct.append(1.0)
+        Ct = np.array(Ct)
+        # etomjysr = 1/C; C converts fluxes to electrons
+        exptimes = Ct * etomjysr
 
     Ct_all = (res_model.data /
               (res_model.var_poisson + (res_model.var_poisson == 0)))
@@ -296,7 +298,8 @@ def l3_psf(bandpass, scale=0, chromatic=False, **kw):
     convscale = romanisim.models.parameters.pixel_scale * np.sqrt(
         1 - scale**2)
     if scale != 1:
-        psf = galsim.Convolve(psf, galsim.Pixel(convscale))
+        psf = romanisim.psf.ConstantPSF(
+            galsim.Convolve(psf.profile, galsim.Pixel(convscale)))
     # galsim.Convolve returns a new object, so set the flag on the result
     # rather than relying on it being carried over.
     psf.pixel_convolved = False
@@ -573,10 +576,15 @@ def simulate_cps(image, filter_name, efftimes, objlist=None, psf=None,
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
             objlist = romanisim.image.trim_objlist(objlist, image)
-            coord = np.array([[o['ra'], o['dec']] for o in objlist])
+            ra, dec = romanisim.catalog.radec_deg(objlist)
+            coord = np.stack(
+                [ra.to_value(u.deg), dec.to_value(u.deg)], axis=-1)
         else:
             coord = np.array([[o.sky_pos.ra.deg, o.sky_pos.dec.deg]
                              for o in objlist])
+        # trim_objlist can leave nothing behind if the catalog doesn't
+        # overlap the mosaic; keep the shape two dimensional in that case.
+        coord = coord.reshape(-1, 2)
         xpos, ypos = image.wcs.radecToxy(coord[:, 0], coord[:, 1], 'deg')
 
     # Check for objects outside the image boundary (+ consideration)
@@ -786,6 +794,14 @@ def add_more_metadata(metadata, efftimes, filter_name, wcs, shape, nexposures):
     metadata['resample']['pointings'] = nexposures
     xref, yref = wcs.world_to_pixel_values(
         metadata['wcsinfo']['ra_ref'], metadata['wcsinfo']['dec_ref'])
+    if not np.isfinite([xref, yref]).all():
+        # the reference point doesn't project onto the mosaic's tangent
+        # plane at all, so the WCS and the wcsinfo describing it disagree.
+        log.warning(
+            'wcsinfo ra_ref, dec_ref of '
+            f"{metadata['wcsinfo']['ra_ref']}, "
+            f"{metadata['wcsinfo']['dec_ref']} does not land on the mosaic; "
+            'the WCS and the wcsinfo metadata describing it disagree.')
     metadata['wcsinfo']['x_ref'] = xref
     metadata['wcsinfo']['y_ref'] = yref
     metadata['wcsinfo']['rotation_matrix'] = [[1, 0], [0, 1]]

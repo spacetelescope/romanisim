@@ -17,8 +17,9 @@ There are a number of possible input arguments::
 
     romanisim-make-l3 -h
 
-    usage: romanisim-make-l3 [-h] [--bandpass BANDPASS] [--config CONFIG] [--date DATE] [--radec RADEC RADEC] [--npix NPIX] [--pixscalefrac PIXSCALEFRAC] [--exptime EXPTIME]
-                             [--effreadnoise EFFREADNOISE] [--nexposures NEXPOSURES] [--rng_seed RNG_SEED] [--psftype {epsf,galsim,stpsf}]
+    usage: romanisim-make-l3 [-h] [--bandpass BANDPASS] [--config CONFIG] [--date DATE] --radec RADEC RADEC [--npix NPIX] [--pixscalefrac PIXSCALEFRAC]
+                             [--exptime EXPTIME] [--effreadnoise EFFREADNOISE] [--nexposures NEXPOSURES] [--rng_seed RNG_SEED] [--psftype {epsf,galsim,stpsf}]
+                             [--meta KEY=VALUE]
                              filename catalog
 
     Make an L3 image.
@@ -32,7 +33,7 @@ There are a number of possible input arguments::
       --bandpass BANDPASS   bandpass to simulate (default: F087)
       --config CONFIG       input parameter override file (yaml) (default: None)
       --date DATE           UTC Date and Time of observation to simulate in ISOT format. (default: 2026-01-01T00:00:00.000)
-      --radec RADEC RADEC   ra and dec (deg) (default: None)
+      --radec RADEC RADEC   ra and dec of the center of the mosaic (deg) (default: None)
       --npix NPIX           number of pixels across image (default: 4000)
       --pixscalefrac PIXSCALEFRAC
                             pixel scale as fraction of original (default: 1.0)
@@ -44,8 +45,10 @@ There are a number of possible input arguments::
       --rng_seed RNG_SEED
       --psftype {epsf,galsim,stpsf}
                             Type of PSF generator to use. (default: galsim)
+      --meta KEY=VALUE      Set a metadata field using dot-notation KEY and VALUE. Can be specified multiple times. Integers, floats, booleans, and None are auto-
+                            detected; anything else is treated as a string. Example: --meta visit.nexposures=4 --meta visit.visit_type=GENERIC (default: None)
 
-      EXAMPLE: romanisim-make-l3 output_image.asdf catalog.ecsv
+    EXAMPLE: romanisim-make-l3 output_image.asdf catalog.ecsv
 
 The arguments control things like the filter used, the date of observation (used
 to estimate the sky background), the right ascension and declination of the

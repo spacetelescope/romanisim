@@ -197,8 +197,7 @@ def trim_objlist(objlist, image):
     objlist : astropy.table.Table
         objlist trimmed to objects near image.
     """
-    cc = coordinates.SkyCoord(
-        objlist['ra'] * u.deg, objlist['dec'] * u.deg)
+    cc = coordinates.SkyCoord(*catalog.radec_deg(objlist))
     center = image.wcs._radec(
         image.array.shape[0] // 2, image.array.shape[1] // 2)
     center = coordinates.SkyCoord(*np.array(center) * u.rad)
@@ -229,8 +228,9 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
         Objects to add to image.  These may be chromatic or achromatic.
     xpos, ypos : array_like
         x & y positions of sources (pixel) at which sources should be added
-    psf : galsim.Profile
-        PSF for image
+    psf : galsim.Profile or romanisim.psf.VariablePSF
+        PSF for image.  VariablePSFs can use the accelerated point
+        source path.
     flux_to_counts_factor : float or list
         physical fluxes in objlist (whether in profile SEDs or flux arrays)
         should be multiplied by this factor to convert to total electrons in the
@@ -281,7 +281,7 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     if (fastpointsources and
         not chromatic and
         hasattr(psf, 'build_epsf_interpolator') and
-        (len(objlist) > 100)):
+        (len(objlist) > 1000)):
 
         # Check whether the interpolator has already been instantiated.
         # If not, we need to build the interpolators.
@@ -373,6 +373,8 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
     # in turn.
 
     image_pointsources = image*0
+    if outputunit_to_electrons is not None:
+        outputunit_to_electrons = np.asarray(outputunit_to_electrons)
     different_output_units_factors = (
         outputunit_to_electrons is not None and
         (len(outputunit_to_electrons) != 0) and
@@ -387,22 +389,30 @@ def add_objects_to_image(image, objlist, xpos, ypos, psf,
 
         fluxfactor = obj.flux[filter_name] * flux2counts[i]
         stamp = psf.draw_epsf(xpos[i], ypos[i], fluxfactor=fluxfactor)
-        if different_output_units_factors and add_noise:
-            stamp.addNoise(galsim.PoissonNoise(rng))
-            # note that this likely dominates the computational cost
-            # of this routine.  If this turns out to be relevant,
-            # see the discussion in #313 for a more efficient approach.
-        if outputunit_to_electrons is not None:
-            stamp[...] /= outputunit_to_electrons[i]
+        # the stamp is in electrons; Poisson noise must be added before
+        # converting to the output units.  When every source shares the same
+        # conversion we can defer both to the summed image below.
+        if different_output_units_factors:
+            if add_noise:
+                stamp.addNoise(galsim.PoissonNoise(rng))
+                # note that this likely dominates the computational cost
+                # of this routine.  If this turns out to be relevant,
+                # see the discussion in #313 for a more efficient approach.
+            stamp /= outputunit_to_electrons[i]
         bounds = stamp.bounds & image_pointsources.bounds
         if bounds.area() > 0:
             image_pointsources[bounds] += stamp[bounds]
             outinfo[i]['counts'] = np.sum(stamp[bounds].array)
         nrender += 1
 
-    if (np.sum(pointsources) > 0 and add_noise and
-            not different_output_units_factors):
-        image_pointsources.addNoise(galsim.PoissonNoise(rng))
+    if not different_output_units_factors and np.sum(pointsources) > 0:
+        if add_noise:
+            image_pointsources.addNoise(galsim.PoissonNoise(rng))
+        if outputunit_to_electrons is not None:
+            # every source has the same conversion; apply it once, and to
+            # the recorded counts, which are in the output units.
+            image_pointsources /= outputunit_to_electrons[0]
+            outinfo['counts'][pointsources] /= outputunit_to_electrons[0]
     image += image_pointsources
 
     log.info('Rendered %d point sources in %.3g seconds' %
@@ -530,8 +540,9 @@ def simulate_counts_generic(image, exptime, objlist=None, psf=None,
     if len(objlist) > 0 and xpos is None:
         if isinstance(objlist, table.Table):
             objlist = trim_objlist(objlist, image)
+            ra, dec = catalog.radec_deg(objlist)
             xpos, ypos = image.wcs._xy(
-                np.radians(objlist['ra']), np.radians(objlist['dec']))
+                ra.to_value(u.rad), dec.to_value(u.rad))
         else:
             coord = np.array([[o.sky_pos.ra.rad, o.sky_pos.dec.rad]
                              for o in objlist])
@@ -1247,7 +1258,9 @@ def abflux_from_photom_keywords(model, gain):
     -------
     abflux : float or None
         electron / s corresponding to a source of one maggie, or None if the
-        image lacks photometry keywords
+        image lacks valid photometry keywords.  The keywords are valid only if
+        both the conversion and the pixel area are positive; this excludes
+        placeholder values like the -999999 in fake data models.
     """
     if 'photometry' not in model['meta']:
         return None
@@ -1257,10 +1270,9 @@ def abflux_from_photom_keywords(model, gain):
         return None
     conversion = photometry['conversion_megajanskys']  # MJy/sr per DN/s
     area = photometry['pixel_area']  # sr
-    if conversion is None or area is None:
+    if conversion is None or area is None or conversion <= 0 or area <= 0:
         return None
-    # the pixel area can be negative depending on the handedness of the WCS.
-    jyperdns = np.abs(conversion * area) * 10 ** 6  # Jy per DN/s
+    jyperdns = conversion * area * 10 ** 6  # Jy per DN/s
     return gain * 3631 / jyperdns
 
 
@@ -1323,8 +1335,9 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
         rng = galsim.UniformDeviate(seed)
 
     if x is None or y is None:
+        ra, dec = catalog.radec_deg(cat)
         x, y = model.meta.wcs.numerical_inverse(
-            cat['ra'].value, cat['dec'].value, with_bounding_box=False)
+            ra.to_value(u.deg), dec.to_value(u.deg), with_bounding_box=False)
 
     filter_name = model.meta.instrument.optical_element
     cat = catalog.table_to_catalog(cat, [filter_name])
@@ -1340,7 +1353,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     
     if psf is None:
         psf = romanisim.psf.make_psf(
-            sca, filter_name, wcs=wcs,
+            sca, filter_name, wcs=wcs, variable=True,
             chromatic=False, psftype=psftype, date=model.meta.exposure.start_time)
 
     if gain is None:
@@ -1355,7 +1368,7 @@ def inject_sources_into_l2(model, cat, x=None, y=None, psf=None, seed=50,
     # must be consistent with the image's photometric calibration.
     abflux = abflux_from_photom_keywords(model, gain)
     if abflux is None:
-        log.warning('Image has no photometry keywords; falling back to '
+        log.warning('Image has no valid photometry keywords; falling back to '
                     "romanisim's zero point.  Injected source fluxes will be "
                     'inconsistent with the image if it is calibrated with a '
                     'different zero point or gain.')
