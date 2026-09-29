@@ -873,8 +873,8 @@ def make_image_catalog(image_filenames, psf, out_base_filename,
     out_filename_image = out_base_filename + '_img.fits'
     hdul = fits.HDUList()
     for fn in image_filenames:
-        hdu = fits.open(fn)[0]
-        hdul.append(hdu)
+        with fits.open(fn, memmap=False) as f:
+            hdul.append(f[0].copy())
     hdul.writeto(out_filename_image)
     res['gal_filename'] = out_filename_image
     res['gal_hdu'] = res['ident']
@@ -1014,7 +1014,8 @@ def read_catalog(filename,
         # Healpix catalogs within a directory
         metafilename = os.path.join(filename, 'meta.yaml')
         if os.path.exists(metafilename):
-            meta = yaml.safe_load(open(metafilename, 'rb'))
+            with open(metafilename, 'rb') as f:
+                meta = yaml.safe_load(f)
         else:
             meta = dict()
         nside = meta.get('nside', 128)

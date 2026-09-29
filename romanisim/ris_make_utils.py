@@ -421,7 +421,7 @@ def simulate_image_file(args, metadata, cat, rng=None, persist=None, psf_keyword
     af = asdf.AsdfFile()
     af.tree = {'roman': im, 'romanisim': romanisimdict}
 
-    af.write_to(open(filename, 'wb'))
+    af.write_to(filename)
 
 
 def parse_apt_file(filename):

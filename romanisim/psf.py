@@ -742,8 +742,9 @@ def make_one_psf_epsf(
         log.warning(
             "romanisim does not yet support chromatic PSFs with stpsf or crds epsf"
         )
-    epsf_ref_model = get_epsf_from_crds(sca, filter_name, date=date)
-    gridded_psf = get_gridded_psf_model(epsf_ref_model, ipc_kernel=ipc_kernel)
+    with get_epsf_from_crds(sca, filter_name, date=date) as epsf_ref_model:
+        gridded_psf = get_gridded_psf_model(
+            epsf_ref_model, ipc_kernel=ipc_kernel)
 
     psf = psf_from_grid(gridded_psf, *pix)
     pixel_convolved = gridded_psf.meta["pixel_convolved"]

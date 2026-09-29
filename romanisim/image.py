@@ -822,8 +822,8 @@ def gather_reference_data(image_mod, usecrds=False):
                 if flatfile.startswith("NOT FOUND"):
                     raise crds.core.exceptions.CrdsLookupError
 
-                flat_model = datamodels.open(flatfile)
-                flat = flat_model.data[...].copy()
+                with datamodels.open(flatfile) as flat_model:
+                    flat = flat_model.data[...].copy()
                 image_mod.meta.ref_file['flat'] = (
                     'crds://' + os.path.basename(flatfile))
             except crds.core.exceptions.CrdsLookupError:
@@ -916,12 +916,12 @@ def gather_reference_data(image_mod, usecrds=False):
     if isinstance(reffiles.get('darkdecaysignal', None), str):
         detector = image_mod.meta.instrument.detector
         sca = int(detector[3:])
-        darkdecayref = datamodels.open(reffiles['darkdecaysignal'])
-        decay_table = getattr(darkdecayref.decay_table, detector)
-        out['darkdecaysignal'] = dict(
-            amplitude=float(decay_table.amplitude),
-            time_constant=float(decay_table.time_constant),
-            sca=sca)
+        with datamodels.open(reffiles['darkdecaysignal']) as darkdecayref:
+            decay_table = getattr(darkdecayref.decay_table, detector)
+            out['darkdecaysignal'] = dict(
+                amplitude=float(decay_table.amplitude),
+                time_constant=float(decay_table.time_constant),
+                sca=sca)
 
     out['reffiles'] = reffiles
     return out

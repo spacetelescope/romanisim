@@ -95,8 +95,8 @@ class ReadNoise(object):
         ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=["readnoise"])
         
         if isinstance(ref_file['readnoise'], str):
-            model = datamodels.open(ref_file['readnoise'])
-            self.read_noise = model.data[nborder:-nborder, nborder:-nborder].copy()
+            with datamodels.open(ref_file['readnoise']) as model:
+                self.read_noise = model.data[nborder:-nborder, nborder:-nborder].copy()
 
     def apply(self, img, n_reads=1.0):
         """

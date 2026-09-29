@@ -198,9 +198,9 @@ class Persistence:
         persistence : Persistence
             Persistence object stored in filename.
         """
-        af = asdf.open(filename)
-        persistdict = af['romanisim']['persistence']
-        return Persistence.from_dict(persistdict)
+        with asdf.open(filename, lazy_load=False) as af:
+            persistdict = af['romanisim']['persistence']
+            return Persistence.from_dict(persistdict)
 
     def write(self, filename):
         """Write a persistence dictionary from a simulated image.

@@ -92,10 +92,10 @@ class Saturation(object):
         ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=["saturation"])
         
         if isinstance(ref_file['saturation'], str):
-            model = datamodels.open(ref_file['saturation'])
-            self.saturation_level = model.data[nborder:-nborder, nborder:-nborder].copy()
-            if getdq:
-                self.dq = model.dq[nborder:-nborder, nborder:-nborder].copy()
+            with datamodels.open(ref_file['saturation']) as model:
+                self.saturation_level = model.data[nborder:-nborder, nborder:-nborder].copy()
+                if getdq:
+                    self.dq = model.dq[nborder:-nborder, nborder:-nborder].copy()
 
     def apply(self, img):
         """
