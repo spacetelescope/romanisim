@@ -865,7 +865,7 @@ def gather_reference_data(image_mod, usecrds=False):
     if isinstance(reffiles['integralnonlinearity'], str):
         inl_model = True
     else:
-        inl_model = False
+        inl_model = None
         
     if 'ipc' in reffiles and isinstance(reffiles['ipc'], str):
         out["ipc"] = models.IPC(usecrds=usecrds, reffiles=reffiles)
