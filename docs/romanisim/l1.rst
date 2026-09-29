@@ -23,6 +23,17 @@ Integral non-linearity is corrected via a per-channel lookup table (integralnonl
 The linearity polynomials are occasionally poorly determined or cannot be computed.  When marked as problematic in the reference file, we use trivial polynomials (i.e., the identity), and mark the affected pixels with a DQ bit indicating a problematic linearity correction.
 
 
+Pedestal
+--------
+
+When using recent CRDS non-linearity reference files, romanisim starts
+each ramp at a pedestal level stored in the inverse linearity reference file.
+Otherwise a fixed value of 10k electrons is used.  Pedestals are floored
+at 3000 DN in order to avoid unrealistically small pedestals.  A small amount
+of per-exposure noise is added to the pedestal
+(``parameters.pedestal_extra_noise``).
+
+
 Interpixel Capacitance
 ----------------------
 

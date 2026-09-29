@@ -741,7 +741,8 @@ def make_l1(counts, read_pattern,
     read_noise : np.ndarray[ny, nx] (float) or float
         Read noise in DN entering into each read
     pedestal : np.ndarray[ny, nx] (float) or float
-        Reset level in electrons
+        Reset level in electrons.  If None, the pedestal from inv_linearity
+        is used if available, and otherwise parameters.pedestal.
     pedestal_extra_noise : np.ndarray[ny, nx] (float) or float
         Extra noise in electrons entering into each pixel (i.e., degenerate with pedestal)
     rng : galsim.BaseDeviate
@@ -792,7 +793,13 @@ def make_l1(counts, read_pattern,
 
     # Set defaults for pedestal parameters if not specified
     if pedestal is None:
-        pedestal = parameters.pedestal
+        if getattr(inv_linearity, 'pedestal', None) is not None:
+            pedestal = inv_linearity.pedestal * inv_linearity.gain
+        else:
+            if inv_linearity is not None:
+                log.warning('Inverse linearity has no pedestal; using '
+                            f'{parameters.pedestal} electrons.')
+            pedestal = parameters.pedestal
     if pedestal_extra_noise is None:
         pedestal_extra_noise = parameters.pedestal_extra_noise
 

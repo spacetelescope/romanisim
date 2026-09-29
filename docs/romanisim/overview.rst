@@ -72,7 +72,9 @@ plus an additional ``simcatobj`` field which contains the ``source_id``,
 ``source_id`` identifies the catalog entry each rendered source came from;
 see :doc:`catalog`.
 
-Features not included so far:
+Features not included so far include:
 
-* pedestal/frame 0 features
-* non-linear dark features
+* 1/f noise
+* brighter-fatter
+* CRNL
+

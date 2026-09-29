@@ -28,7 +28,13 @@ charge_diffusion = 0.1
 WFS_FOV = 0.6
 
 # Initial detector reset level in electrons (before non-linearity is applied).
+# Used when the inverse linearity reference file has no pedestal.
 pedestal = 10000  # electron
+
+# Floor on per-pixel pedestals from the inverse linearity reference file.
+# Low pedestals would put the linearity polynomials below the range over
+# which they were fit, so we floor them.
+min_pedestal = 3000  # DN
 
 # Extra noise in the pedestal/reset level in electrons (correlated across all resultants).
 pedestal_extra_noise = 8  # electron

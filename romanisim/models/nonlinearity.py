@@ -5,6 +5,7 @@ from astropy import units as u
 from roman_datamodels import datamodels
 
 from .gain import gain as default_gain
+from . import parameters
 from .parameters import dqbits, nborder, exptime
 from ._util import get_ref_files
 
@@ -169,6 +170,9 @@ class Nonlinearity(object):
     gain : float or numpy.ndarray or None, optional
         Explicit gain value or gain map to use when ``electrons=True`` in
         :meth:`apply`.
+    pedestal : float or numpy.ndarray or None, optional
+        Pedestal level in DN, overriding any pedestal in the CRDS
+        reference file.  Floored at ``parameters.min_pedestal``.
     
     Attributes
     ----------
@@ -185,6 +189,9 @@ class Nonlinearity(object):
         Only set when ``usecrds=True`` (and read from CRDS). If `getdq=False`,
         may be `None`. Note: current code does not always propagate/update DQ
         flags unless `getdq=True` is passed into `_repair_coefficients`.
+    pedestal : numpy.ndarray or None
+        Pedestal in DN, floored at ``parameters.min_pedestal``, or `None`
+        if not provided and not present in the reference file.
     """
 
     def __init__(
@@ -199,6 +206,7 @@ class Nonlinearity(object):
         saturation=None,
         coeffs=None,
         gain=None,
+        pedestal=None,
     ):
         if gain is not None:
             self.gain = gain
@@ -220,8 +228,13 @@ class Nonlinearity(object):
         self.inl_corrs = None
         self.inl_lookup = None
         self.ref_file = {}
+        self.pedestal = None
         if self.usecrds:
             self._get_crds_model(metadata=self.metadata, getdq=getdq, image_mod=image_mod, reffiles=reffiles)
+        if pedestal is not None:
+            self.pedestal = pedestal
+        if self.pedestal is not None:
+            self.pedestal = np.maximum(self.pedestal, parameters.min_pedestal)
         
         if self.integralnonlinearity is not None:
             if "integralnonlinearity" in self.ref_file.keys() and isinstance(self.ref_file["integralnonlinearity"], str):
@@ -307,6 +320,11 @@ class Nonlinearity(object):
                         :, nborder:-nborder, nborder:-nborder
                     ].copy()
                 )
+            if 'pedestal' in nl_model:
+                pedestal = nl_model.pedestal[
+                    nborder:-nborder, nborder:-nborder].astype('f4')
+                if np.all(np.isfinite(pedestal)):
+                    self.pedestal = pedestal
 
     def apply(self, img, electrons=False, reversed=False):
         """Compute the correction of DN to linearized DN.

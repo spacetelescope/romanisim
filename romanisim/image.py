@@ -1069,7 +1069,6 @@ def simulate(metadata, objlist,
     else:
         l1out = romanisim.l1.make_l1(
             counts, read_pattern, read_noise=read_noise,
-            pedestal=parameters.pedestal,
             pedestal_extra_noise=pedestal_extra_noise,
             rng=rng, gain=gain,
             crparam=crparam,
