@@ -75,8 +75,8 @@ class Gain(object):
         ref_file = get_ref_files(image_mod, metadata, reffiles, reftypes=["gain"])
         
         if isinstance(ref_file['gain'], str):
-            model = datamodels.open(ref_file['gain'])
-            self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
+            with datamodels.open(ref_file['gain']) as model:
+                self.gain = model.data[nborder:-nborder, nborder:-nborder].copy()
 
     def apply(self, img):
         """Apply the gain correction to an image (in place).

@@ -480,7 +480,8 @@ def read_gsfc_effarea(sca=None, filename=None, galsim_filter_name=False):
         else:
             sca_id = "SCA%02d" % (int(sca))
             try:
-                data = ascii.read(io.open_data("WideFieldInstrument/Imaging/EffectiveAreas/Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)).name)
+                with io.open_data("WideFieldInstrument/Imaging/EffectiveAreas/Roman_effarea_v8_%s_20240301.ecsv" % (sca_id)) as f:
+                    data = ascii.read(f.name)
             except Exception as e:
                 raise FileNotFoundError(
                     f"{e}\n Failed to fetch Roman_effarea_v8_{sca_id}_20240301.ecsv, use default one instead"
