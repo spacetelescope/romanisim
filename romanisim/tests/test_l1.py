@@ -198,6 +198,38 @@ def test_linearized_counts_to_resultants():
         af.write_to(os.path.join(artifactdir, 'dms222.asdf'))
 
 
+def test_make_l1_pedestal_from_inverse_linearity():
+    """Test that make_l1 takes the pedestal from inverse linearity."""
+    shape = (20, 20)
+    gain = 2
+    coeffs = np.zeros((2,) + shape, dtype='f4')
+    coeffs[1] = 1
+    pedestal = np.full(shape, 5000, dtype='f4')  # DN
+    pedestal[:, :10] = 20000
+    pedestal[0, 0] = -10  # should be floored
+    ipc_model = ipc.IPC(usecrds=False)
+    ipc_model.ipc_kernel = np.zeros((3, 3))
+    ipc_model.ipc_kernel[1, 1] = 1
+    counts = galsim.Image(np.zeros(shape, dtype='f4'))
+    kw = dict(read_noise=0, pedestal_extra_noise=0, gain=gain,
+              saturation=1e30, ipc_model=ipc_model, seed=1,
+              reference_read=True)
+
+    inv_linearity = nonlinearity.Nonlinearity(
+        coeffs=coeffs, gain=gain, pedestal=pedestal, getdq=True)
+    _, _, refread = l1.make_l1(counts, [[1]], inv_linearity=inv_linearity,
+                               **kw)
+    expected = np.maximum(pedestal, parameters.min_pedestal)
+    assert np.allclose(refread, expected)
+
+    # without a pedestal, fall back to the default
+    inv_linearity = nonlinearity.Nonlinearity(coeffs=coeffs, gain=gain,
+                                               getdq=True)
+    _, _, refread = l1.make_l1(counts, [[1]], inv_linearity=inv_linearity,
+                               **kw)
+    assert np.allclose(refread, parameters.pedestal / gain)
+
+
 @pytest.mark.soctests
 def test_inject_source_into_ramp():
     """Inject a source into a ramp.
