@@ -49,7 +49,10 @@ pixel_size_mm = 0.01
 focal_length = 18714
 
 # V2/V3 coordinates of "center" of WFI array (convention)
-v2v3_wficen = (1546.3846181707652, -892.7916365721071)  # arcsec
+# Stop-gap until pysiaf has an in-flight SIAF: the Dec 2023 SIAF value
+# (1546.385, -892.792) shifted by the mean V2Ref/V3Ref change of the 18 SCAs
+# between the ground and in-flight (PRDOPSRSOC-009) CRDS distortion files.
+v2v3_wficen = (1687.287, -1015.871)  # arcsec
 
 # angle of V3 relative to +Y
 V3IdlYAngle = -60
