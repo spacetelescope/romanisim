@@ -1208,6 +1208,8 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
         var_rnoise=slopevar_rn,
         var_flat=slopevar_rn * 0,
         err=np.sqrt(slopevar_poisson + slopevar_rn),
+        # dq2 only exists in newer versions of rad
+        dq2=np.zeros(slope.shape, dtype='u4'),
     )
     assign_with_default_types(fielddict, out)
 
