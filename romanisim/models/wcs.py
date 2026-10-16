@@ -137,7 +137,10 @@ def get_wcs(image, usecrds=True, distortion=None):
             reftypes=["distortion"],
             observatory="roman",
         )["distortion"]
-        image_mod.meta.ref_file["distortion"] = os.path.basename(dist_name)
+        dist_ref = "crds://" + os.path.basename(dist_name)
+        image_mod.meta.ref_file["distortion"] = dist_ref
+        if image_mod is not image:
+            image.setdefault("ref_file", {})["distortion"] = dist_ref
 
         dist_model = roman_datamodels.datamodels.DistortionRefModel(dist_name)
         distortion = dist_model.coordinate_distortion_transform
