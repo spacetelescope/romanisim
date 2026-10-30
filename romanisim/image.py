@@ -906,6 +906,9 @@ def gather_reference_data(image_mod, usecrds=False):
             if inv_saturation is not None
             else None,
             integralnonlinearity=inl_model,
+            # the CRDS inverselinearity only approximates the inverse of the
+            # linearity that L2 processing removes; refine it numerically
+            inverse_of=out.get('linearity'),
         )
         # fudge factor of 10% on the inverse saturation ensures that we'll
         # continue to fill up pixels above their nominal saturation limits
