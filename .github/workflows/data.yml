@@ -33,7 +33,7 @@ on:
 
 jobs:
   download_stpsf_data:
-    uses: spacetelescope/stpsf/.github/workflows/download_data.yml@c7453e95d48474f94e753860b40e9ea7bf5bfa11 # 2.2.0
+    uses: spacetelescope/stpsf/.github/workflows/download_data.yml@b1bcbdeada3b142026fb349974c158165e858e06 # 2.3.0
     with:
       # inputs are empty on scheduled runs, so their defaults don't apply
       dataset_type: ${{ inputs.stpsf_dataset_type || 'latest_release' }}
