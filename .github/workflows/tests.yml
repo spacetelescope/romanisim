@@ -56,6 +56,8 @@ jobs:
   test:
     needs: [crds_context, latest_data_cache]
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@1285b95e32c783cfa40eb2ffbd6ca4cd023fb884 # v3.2.2
+    permissions:
+      id-token: write
     with:
       libraries: |
         apt:
@@ -86,10 +88,5 @@ jobs:
         # `tox` does not currently respect `requires-python` versions when creating testing environments;
         # if this breaks, add an upper pin to `requires-python` and revert this py3 to the latest working version
         - linux: py313-cov-xdist
-          coverage: codecov
+          coverage: codecov-oidc
         - macos: py313-xdist
-    # Uploads from protected branches (i.e. pushes to main) are rejected by
-    # Codecov without a token, so main never gets a coverage report and PRs
-    # end up compared against a stale ancestor.
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
