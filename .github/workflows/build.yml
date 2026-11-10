@@ -29,6 +29,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3"
+          pip-install: build
       - if: ${{ runner.os == 'Linux' }}
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
         with:
@@ -37,7 +38,6 @@ jobs:
         with:
           package-dir: ./
           output-dir: dist/
-      - run: pip install build
       - run: python -m build --sdist
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
