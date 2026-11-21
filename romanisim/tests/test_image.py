@@ -25,6 +25,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
 from astropy import table
+from astropy.io import fits
 import asdf
 from astropy.modeling.functional_models import Sersic2D
 import pytest
@@ -857,6 +858,75 @@ def test_inject_source_into_image():
                    'catinj': catinj,
                    'cat': cat}
         af.write_to(os.path.join(artifactdir, 'dms231.asdf'))
+
+
+def test_photometric_gain():
+    """Point-source fluxes from a flat-fielded L2 image and its photometric
+    keywords recover the input flux for any flat, gain, and pixel area."""
+    rng = np.random.default_rng(3)
+    shape = (65, 65)
+    flat = rng.uniform(0.85, 1.05, shape)  # median != 1, like the CRDS flats
+    gain = rng.uniform(1.6, 2.1, shape)
+    yy, xx = np.indices(shape)
+    area = 1 + 0.02 * (xx - 32) / 32 - 0.01 * (yy - 32) / 32
+    qe = image.flat_to_qe(flat, gain, area=area)
+    psfim = np.exp(-((xx - 20.3) ** 2 + (yy - 41.7) ** 2) / (2 * 1.5 ** 2))
+    psfim /= psfim.sum()
+    abflux, flux = 1e10, 1e-8  # electron/s per maggie, maggies
+    l2 = flux * abflux * psfim * qe / gain / flat  # noise-free, DN/s
+    # update_photom_keywords: 1 DN/s is gain / abflux maggies per reference
+    # pixel area, and a point source sums surface brightness x pixel area
+    def calflux(g):
+        return np.sum(l2 * area / area[32, 32]) * g / abflux
+    assert np.abs(calflux(image.photometric_gain(flat, gain, area)) / flux
+                  - 1) < 1e-10
+    # the median gain, which simulate used to pass, is off by ~median(flat)
+    assert np.abs(calflux(np.median(gain)) / flux - 1) > 1e-2
+
+
+def test_make_asdf_photom_pixel_area():
+    """The photometric keywords use the pixel area at the center of the image."""
+    n, scale = 101, 0.05  # pixels, degrees; big pixels so that the area varies
+    # tangent point at the corner pixel
+    hdr = fits.Header(dict(
+        CTYPE1='RA---TAN-SIP', CTYPE2='DEC--TAN-SIP', CRPIX1=1, CRPIX2=1,
+        CRVAL1=10., CRVAL2=0., CD1_1=-scale, CD1_2=0., CD2_1=0., CD2_2=scale,
+        NAXIS=2, NAXIS1=n, NAXIS2=n, A_ORDER=2, B_ORDER=2, A_2_0=0., B_0_2=0.))
+    slope = np.zeros((n, n), dtype='f4')
+    out, _ = image.make_asdf(slope, slope, slope, imwcs=hdr)
+    # gnomonic projection: solid angle falls as cos^3 of the distance from the
+    # tangent point; the corner pixel is 0.6% larger than the center one
+    d = np.radians((n // 2) * scale)
+    center_area = np.radians(scale) ** 2 * (1 + 2 * d ** 2) ** -1.5
+    assert np.abs(out['meta']['photometry']['pixel_area'] / center_area - 1) < 1e-3
+
+
+def test_l2_photometry_independent_of_flat_scale():
+    """flat_to_qe renormalizes the QE, so scaling the flat changes neither the
+    electrons nor the calibrated L2 image, only the DN/s in data."""
+    parameters.n_pix = 100
+    coord = SkyCoord(ra=270 * u.deg, dec=66 * u.deg)
+    filt = 'F158'
+    meta = util.default_image_meta(coord=coord, filter_name=filt,
+                                   detector='WFI07', ma_table=4)
+    wcs.fill_in_parameters(meta, coord)
+    cat = catalog.make_dummy_table_catalog(
+        coord, radius=0.1, bandpasses=[filt], nobj=200,
+        rng=galsim.UniformDeviate(1))
+    defaultflat = parameters.reference_data['flat']
+    calibrated = []
+    try:
+        # powers of two keep the QE, and so the random draws, bit-identical
+        for flatval in (1.0, 0.5):
+            parameters.reference_data['flat'] = flatval
+            im, _ = image.simulate(
+                copy.deepcopy(meta), cat, usecrds=False, psftype='epsf',
+                level=2, rng=galsim.UniformDeviate(42), crparam=None)
+            calibrated.append(
+                im.data * im.meta.photometry.conversion_megajanskys)
+    finally:
+        parameters.reference_data['flat'] = defaultflat
+    np.testing.assert_allclose(calibrated[1], calibrated[0], rtol=1e-5)
 
 
 @pytest.mark.soctests

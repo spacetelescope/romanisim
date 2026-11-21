@@ -461,6 +461,37 @@ def flat_to_qe(flat, gain, area=None):
     return qe
 
 
+def photometric_gain(flat, gain, area):
+    """Gain that makes the L2 photometric keywords match flat_to_qe.
+
+    With the QE from `flat_to_qe`, a point source of one maggie yields
+    ``abflux / (A * median(flat * gain / area))`` DN / s in a flat-fielded L2
+    image, summed over its pixels of area A.
+    `romanisim.util.update_photom_keywords` instead assumes ``abflux / gain``
+    DN / s for a source on its reference (central) pixel.  The gain that
+    reconciles the two is ``area_ref * median(flat * gain / area)``, which
+    reduces to the gain when the flat, gain, and pixel area are all constant.
+
+    Parameters
+    ----------
+    flat : float or np.ndarray
+        Flat field, as passed to `flat_to_qe`
+    gain : float or np.ndarray
+        Gain in electrons/DN (can have astropy units)
+    area : np.ndarray[ny, nx]
+        Pixel area, as passed to `flat_to_qe`
+
+    Returns
+    -------
+    gain : float
+        Gain in electrons/DN to pass to `romanisim.util.update_photom_keywords`
+    """
+    if hasattr(gain, 'value'):
+        gain = gain.value
+    area_ref = area[area.shape[0] // 2, area.shape[1] // 2]
+    return np.median(flat * gain / area) * area_ref
+
+
 def simulate_counts_generic(image, exptime, objlist=None, psf=None,
                             zpflux=None,
                             sky=None, dark=None,
@@ -1100,9 +1131,15 @@ def simulate(metadata, objlist,
                             darkrate=darkrate, dq=l1dq,
                             darkdecaysignal=darkdecaysignal)
         l2dq = np.bitwise_or.reduce(l1dq, axis=0)
+        # the photometric keywords must follow the QE normalization that
+        # simulate_counts rendered the sources with; see photometric_gain
+        area = galsim.ImageF(counts.bounds, wcs=counts.wcs)
+        counts.wcs.makeSkyImage(area, 1.0)
         im, extras = make_asdf(
             *slopeinfo, metadata=image_mod.meta, persistence=persistence,
-            dq=l2dq, imwcs=counts.wcs, gain=gain)
+            dq=l2dq, imwcs=counts.wcs,
+            gain=photometric_gain(1 if flat is None else flat,
+                                  1 if gain is None else gain, area.array))
     else:
         raise ValueError('romanisim.image.simulate() only simulates Level 0, '
                          '1, and 2 images. Try romanisim.l3.simulate() for '
@@ -1187,9 +1224,9 @@ def make_asdf(slope, slopevar_rn, slopevar_poisson, metadata=None,
     for step_name in step_names:
         out['meta']['cal_step'][step_name] = "INCOMPLETE"
 
-    util.update_photom_keywords(out, gain=gain)
-
     out['data'] = slope
+    # after data: the keywords use the pixel area at the center of the data
+    util.update_photom_keywords(out, gain=gain)
     out['dq'] = np.zeros(slope.shape, dtype='u4')
     if dq is not None:
         out['dq'][:, :] = dq
