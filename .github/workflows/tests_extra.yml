@@ -74,3 +74,5 @@ jobs:
         - macos: py314
         - macos: py313-devdeps
         - linux: py313-devdeps
+        - linux: py3-xdist
+          runs-on: ubuntu-26.04-arm
