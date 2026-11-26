@@ -20,6 +20,8 @@ Classical non-linearity is modeled as a high order polynomial, and the coefficie
 
 Integral non-linearity is corrected via a per-channel lookup table (integralnonlinearity reference file).  Each of the 32 readout channels has its own correction table mapping observed DN values to a correction offset.  When simulating L1 images, the INL correction is subtracted from each read; when calibrating, it is added back.  See `Brandt & Perera (2025) <https://www.stsci.edu/files/live/sites/www/files/home/roman/documentation/technical-documentation/_documents/Roman-STScI–000866.pdf>`_ for details on INL for Roman.
 
+The linearity and inverselinearity reference polynomials are fit separately and invert each other only approximately (to tens of DN near the pedestal), and subtracting the INL at the linearized DN only approximates adding it back at the observed DN.  When both reference files are available, romanisim therefore uses the inverselinearity polynomial and INL only as the starting point of two Newton iterations that solve for the observed DN at which the linearity polynomial plus INL reproduces the linearized DN, so that the linearity correction recovers the simulated counts to ~0.01 DN.
+
 The linearity polynomials are occasionally poorly determined or cannot be computed.  When marked as problematic in the reference file, we use trivial polynomials (i.e., the identity), and mark the affected pixels with a DQ bit indicating a problematic linearity correction.
 
 

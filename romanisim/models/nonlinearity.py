@@ -173,7 +173,15 @@ class Nonlinearity(object):
     pedestal : float or numpy.ndarray or None, optional
         Pedestal level in DN, overriding any pedestal in the CRDS
         reference file.  Floored at ``parameters.min_pedestal``.
-    
+    inverse_of : Nonlinearity or None, optional
+        The `Nonlinearity` object to invert exactly, typically the linearity
+        correction when this object holds the inverse linearity.  When given,
+        :meth:`apply` uses its own polynomial (and INL) result only as the
+        starting guess for Newton iterations that solve
+        ``inverse_of.apply(y) = img`` for y; see :meth:`invert`.  The
+        separately fit linearity and inverse linearity reference polynomials
+        invert each other only approximately.
+
     Attributes
     ----------
     coeffs : numpy.ndarray
@@ -207,7 +215,10 @@ class Nonlinearity(object):
         coeffs=None,
         gain=None,
         pedestal=None,
+        inverse_of=None,
     ):
+        self.inverse_of = inverse_of
+        self._dcoeffs = None
         if gain is not None:
             self.gain = gain
         else:
@@ -245,15 +256,20 @@ class Nonlinearity(object):
             channel_width = 128
             ncols = self.coeffs.shape[2]
             self.inl_lookup = inl_model.value.copy()
+            # the reference tables are sampled at every DN; interpolating on a
+            # uniform grid by indexing is ~20x faster than np.interp
+            step = np.diff(self.inl_lookup.astype('f8'))
+            self._inl_step = (step[0] if step.size and step[0] > 0
+                              and np.all(step == step[0]) else None)
             self.inl_corrs = {}
             sign = -1 if self.reftype == "inverselinearity" else 1
             for start_col in range(0, ncols, channel_width):
                 channel_num = start_col // channel_width + 1
                 attr_name = f"science_channel_{channel_num:02d}"
-                self.inl_corrs[channel_num] = (
-                    sign
-                    * getattr(inl_model.inl_table, attr_name).correction.copy()
-                )
+                # float64, as np.interp would use
+                self.inl_corrs[channel_num] = sign * np.asarray(
+                    getattr(inl_model.inl_table, attr_name).correction,
+                    dtype='f8')
 
     def _get_crds_model(self, getdq=False, metadata=None, image_mod=None, reffiles=None):
         """Load nonlinearity and gain reference data from CRDS.
@@ -367,6 +383,9 @@ class Nonlinearity(object):
         if self.inl_corrs is not None and img_arr.ndim >= 2:
             corrected = corrected + self.inl_correction(img_arr)
 
+        if self.inverse_of is not None:
+            corrected = self.inverse_of.invert(img_arr, corrected)
+
         if electrons:
             corrected = corrected * self.gain
 
@@ -375,6 +394,43 @@ class Nonlinearity(object):
         else:
             img = corrected
         return img
+
+    def invert(self, counts, guess, niter=2):
+        """Solve ``self.apply(y) = counts`` for y by Newton iteration.
+
+        The step uses the derivative of the polynomial only, so the INL slope
+        (a few percent per DN) makes the convergence linear; two steps take
+        the CRDS polynomials from tens of DN to ~0.01 DN.  Pixels where the
+        iteration does not reduce ``|self.apply(y) - counts|``, e.g. inputs
+        beyond the saturation clip or non-monotonic polynomials, keep the
+        guess.
+
+        Parameters
+        ----------
+        counts : np.ndarray
+            Target DN, the output of ``self.apply``
+        guess : np.ndarray
+            Starting DN, e.g. from the inverse linearity polynomial
+        niter : int
+            Number of Newton steps
+
+        Returns
+        -------
+        y : np.ndarray
+            DN such that ``self.apply(y)`` reproduces ``counts``
+        """
+        if self._dcoeffs is None:
+            c = self.coeffs
+            power = np.arange(1, c.shape[0]).reshape((-1,) + (1,) * (c.ndim - 1))
+            self._dcoeffs = c[1:] * power
+        y = np.asarray(guess, dtype='f8')
+        r0 = resid = self.apply(y) - counts
+        with np.errstate(divide='ignore', invalid='ignore'):
+            for _ in range(niter):
+                step = resid / evaluate_nl_polynomial(y, self._dcoeffs)
+                y = y - np.where(np.isfinite(step), step, 0)
+                resid = self.apply(y) - counts
+        return np.where(np.abs(resid) < np.abs(r0), y, guess)
 
     def inl_correction(self, counts):
         """Compute the integral nonlinearity correction.
@@ -407,7 +463,19 @@ class Nonlinearity(object):
                 continue
             channel_corr = self.inl_corrs[channel_num]
             channel_data = counts[..., trim_start:trim_end]
-            correction[..., trim_start:trim_end] = np.interp(
-                channel_data, self.inl_lookup, channel_corr
-            )
+            if self._inl_step is None:
+                # INL table not uniformly spaced
+                correction[..., trim_start:trim_end] = np.interp(
+                    channel_data, self.inl_lookup, channel_corr
+                )
+            else:
+                # linear interpolation by indexing into the uniform grid; like
+                # np.interp, clamps outside the grid and keeps NaN
+                n = channel_corr.size
+                t = np.clip((channel_data - self.inl_lookup[0]) / self._inl_step,
+                            0, n - 1)
+                nan = np.isnan(t)
+                i = np.minimum(np.where(nan, 0, t).astype(np.intp), n - 2)
+                corr = channel_corr[i] + (t - i) * (channel_corr[i + 1] - channel_corr[i])
+                correction[..., trim_start:trim_end] = np.where(nan, np.nan, corr)
         return correction
