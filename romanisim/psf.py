@@ -1028,14 +1028,19 @@ def psf_stamp_wcs(wcs=None, pix=None, samplescale=None, oversample=None):
     rotation of the image relative to north and the given pixel scale.
 
     Give ``oversample`` for a stamp that samples the native detector grid.
-    Its axes are the detector axes, so the local Jacobian maps them to the
-    sky directly and the PSF WCS needs the local plate scale and shear.
+    Its axes are the detector axes, so when an image WCS is provided the local
+    Jacobian maps them to the sky (plate scale and shear).  When no image WCS
+    is available (e.g. L3 mosaic injection, which builds a constant SCA-center
+    PSF rather than a detector-grid variable PSF), fall back to an idealized
+    North-up grid at the native ``pixel_scale``.
 
     Parameters
     ----------
     wcs : callable or None
         WCS of the image the PSF will be rendered into.  If None, a default
-        North-up WCS is used and ``samplescale`` is required.
+        North-up WCS is used.  For ``samplescale``, that is required and
+        sufficient; for ``oversample``, the fallback uses the nominal Roman
+        native pixel scale (no shear).
     pix : tuple (float, float)
         Pixel location of the PSF on the focal plane.
     samplescale : float or None
@@ -1052,9 +1057,14 @@ def psf_stamp_wcs(wcs=None, pix=None, samplescale=None, oversample=None):
 
     if wcs is None:
         if oversample is not None:
-            raise ValueError('a native-pixel stamp needs a wcs to get the '
-                             'local Jacobian from')
-        # just use a default North = up WCS
+            # No image WCS: use an idealized North-up native-pixel grid.
+            # Callers that care about local shear/scale (L2 injection) pass a
+            # WCS; L3 builds a single SCA-center PSF and has no detector WCS.
+            log.warning(
+                'wcs is None for a native-pixel stamp; using idealized '
+                'North-up Jacobian at pixel_scale / oversample.'
+            )
+            samplescale = pixel_scale / oversample
         return galsim.JacobianWCS(*(np.array([1, 0, 0, 1]) * samplescale))
 
     jacobian = wcs.local(image_pos=galsim.PositionD(pix)).getMatrix()
