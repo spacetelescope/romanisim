@@ -376,3 +376,57 @@ def test_pixel_convolved_psf_carries_distortion():
     np.testing.assert_allclose(scales[0], scales[1], rtol=1e-10)
     np.testing.assert_allclose(scales[0],
                                parameters.pixel_scale / OVERSAMPLE, rtol=1e-10)
+
+
+def test_psf_stamp_wcs_native_without_image_wcs():
+    """Native-pixel stamps must work when no image WCS is available.
+
+    L3 mosaic injection builds a constant SCA-center ePSF without a detector
+    WCS.  Pixel-convolved CRDS references take the oversample path in
+    make_one_psf_epsf; that must fall back to an idealized North-up Jacobian
+    at pixel_scale / oversample rather than raising.
+    """
+    stamp = psf.psf_stamp_wcs(wcs=None, pix=(2044.0, 2044.0),
+                              oversample=OVERSAMPLE)
+    matrix = np.array(stamp.getMatrix())
+    expected = np.array([1.0, 0.0, 0.0, 1.0]) * (
+        parameters.pixel_scale / OVERSAMPLE)
+    np.testing.assert_allclose(matrix.ravel(), expected, rtol=1e-12)
+
+    # samplescale path still works without a WCS
+    stamp2 = psf.psf_stamp_wcs(wcs=None, samplescale=0.05)
+    np.testing.assert_allclose(
+        np.array(stamp2.getMatrix()).ravel(),
+        np.array([0.05, 0.0, 0.0, 0.05]), rtol=1e-12)
+
+
+class _Context:
+    """Minimal context manager wrapping a fake epsf reference model."""
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __enter__(self):
+        return self.obj
+
+    def __exit__(self, *args):
+        return False
+
+
+def test_make_one_psf_epsf_pixel_convolved_without_wcs(monkeypatch):
+    """make_one_psf_epsf must accept wcs=None for pixel-convolved refs.
+
+    This is the path hit by l3.l3_psf / inject_sources_into_l3 when romancal
+    defaults psftype to 'epsf'.
+    """
+    ref = make_epsf_reference(True)
+    monkeypatch.setattr(
+        psf, 'get_epsf_from_crds',
+        lambda *args, **kwargs: _Context(ref))
+
+    profile = psf.make_one_psf_epsf(
+        1, 'F087', wcs=None, pix=(2044.0, 2044.0))
+    assert getattr(profile, 'pixel_convolved', False)
+    im = profile.drawImage(method='no_pixel', nx=21, ny=21,
+                           scale=parameters.pixel_scale).array
+    assert np.sum(im) > 0.5

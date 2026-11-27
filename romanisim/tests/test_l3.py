@@ -129,7 +129,7 @@ def test_inject_sources_into_mosaic():
     assert (np.sum(short.data != l3_mos_orig.data)
             < np.sum(l3_mos.data != l3_mos_orig.data) / 10)
 
-    # Create log entry and artifacts
+    # Add log entries and artifacts
     log.info('DMS232 successfully injected sources into a mosaic at points (50,50), (50,150), (150,50), (150,150).')
 
     artifactdir = os.environ.get('TEST_ARTIFACT_DIR', None)
@@ -140,6 +140,49 @@ def test_inject_sources_into_mosaic():
                    'source_cat_table': sc_table,
                    }
         af.write_to(os.path.join(artifactdir, 'dms232.asdf'))
+
+
+def test_inject_sources_into_l3_epsf():
+    """L3 injection with psftype='epsf' must not require a detector WCS.
+
+    romancal source injection defaults to CRDS ePSF.  Pixel-convolved ePSF
+    references take the native-pixel stamp path, which previously raised
+    when l3_psf called make_psf without a WCS.  Purpose: ensure mosaic
+    injection still adds flux under that production default.
+    """
+    parameters.n_pix = 200
+    rng_seed = 42
+    metadata = deepcopy(parameters.default_mosaic_parameters_dictionary)
+    filter_name = 'F158'
+    metadata['instrument']['optical_element'] = filter_name
+
+    twcs = wcs.GWCS(wcs.get_mosaic_wcs(
+        metadata, shape=(parameters.n_pix, parameters.n_pix)))
+    l3_mos = rdm.MosaicModel.create_fake_data(
+        shape=(parameters.n_pix, parameters.n_pix))
+    l3_mos['meta']['wcs'] = twcs._wcs
+    for key in metadata.keys():
+        if key in l3_mos.meta:
+            l3_mos.meta[key].update(metadata[key])
+
+    meanflux = 0.2
+    l3_mos.data[:] = meanflux
+    l3_mos.var_poisson[:] = (0.05 * meanflux) ** 2
+
+    mag_flux = 1e-9
+    sc_table = table.Table({
+        'ra': [0.0], 'dec': [0.0], 'type': ['PSF'], 'n': [-1.0],
+        'half_light_radius': [0.0], 'pa': [0.0], 'ba': [1.0],
+        filter_name: [mag_flux],
+    })
+    ra, dec = twcs._radec(np.array([100.0]), np.array([100.0]))
+    sc_table['ra'] = np.degrees(ra)
+    sc_table['dec'] = np.degrees(dec)
+
+    orig = l3_mos.data.copy()
+    out = l3.inject_sources_into_l3(
+        l3_mos, sc_table, seed=rng_seed, psftype='epsf')
+    assert np.sum(out.data) > np.sum(orig)
 
 
 @pytest.mark.soctests
